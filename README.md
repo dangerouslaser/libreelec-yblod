@@ -15,15 +15,40 @@ Please report problems here, not to those projects.
   - one HDMI mode change per Dolby Vision start/stop, instead of several
   - audio engine handles a lost/reset display in every state (fewer silent-audio cases)
   - black picture fixed on live 10-bit TV channels decoded with VAAPI
-- **Quick Sync enhancement-layer offload** (in development for 0.1): Profile 7 FEL playback scales the
+- **Quick Sync enhancement-layer offload**: Profile 7 FEL playback scales the
   enhancement layer on the Intel media engine (Quick Sync, via VA-API) instead of in shaders. On an
   i5-1135G7 this cut GPU render load during FEL playback from about 53% to about 13%, with no dropped
   frames, and the HDMI output stays within about one 12-bit code of the shader path. It is aimed at
   making FEL playable on smaller Intel GPUs. It can be switched off, and falls back to the shader path
   automatically when the media engine or driver can't do it.
+- **Picture matched to Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
+  4:2:2 packing and Gaussian chroma upsampling (see below).
 - **Updates come from this repository only.** The LibreELEC update settings list yblod releases
   (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
   update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
+
+## Accuracy against Dolby hardware
+
+yblod's Dolby Vision output was measured against licensed Dolby Vision players (Ugoos AM9 Pro and SK4,
+Amlogic, TV-led) by capturing both devices' HDMI signal and comparing them frame by frame:
+
+| | Original engine | yblod |
+|---|---|---|
+| Typical pixel difference (12-bit PQ codes) | 4.37 | **0.72** |
+| Pixels within 4 codes | 42.5% | **97.9%** |
+| Colour edges (RMS) | 16.4 | **3.4** |
+
+That puts the typical pixel within one code of Dolby's own hardware, below what is visible. Details, method
+and tools: [docs/yblod/ACCURACY.md](docs/yblod/ACCURACY.md).
+
+## Dolby Vision settings
+
+Player > Videos > Dolby Vision:
+
+- **Quick Sync scaling**: *Enhancement layer* (default) upscales the Profile 7 FEL enhancement layer on the
+  Intel media engine; *Enhancement layer and colour* also upsamples base layer colour there (lighter on the
+  GPU, slightly less accurate colour edges); *Off* uses the GPU shaders only.
+- **Match Dolby hardware levels** (default on): applies the small constant offset measured on Dolby hardware.
 
 ## How playback works
 
@@ -113,6 +138,10 @@ Download the `.tar` from [Releases](https://github.com/dangerouslaser/libreelec-
 
 The build runs in LibreELEC's Docker build environment. `tools/yblod/build.sh <version>` builds an image with
 a memory cap (see the script for details).
+
+## Branches and releases
+
+How this repository tracks LibreELEC and how releases are made: [docs/yblod/BRANCHES.md](docs/yblod/BRANCHES.md).
 
 ## Source and licences
 
