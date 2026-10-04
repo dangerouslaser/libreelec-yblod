@@ -264,7 +264,7 @@ index 1a0555e..6bb8b5b 100644
      dvbridge_dv_u16(d, c->source_min_pq); dvbridge_dv_u16(d, c->source_max_pq);
      dvbridge_dv_u16(d, 42);
 diff --git a/tools/dvbridge/dvbridge_render.c b/tools/dvbridge/dvbridge_render.c
-index 150a541..a7f6b34 100644
+index 150a541..9ac288f 100644
 --- a/tools/dvbridge/dvbridge_render.c
 +++ b/tools/dvbridge/dvbridge_render.c
 @@ -8,8 +8,10 @@
@@ -286,16 +286,19 @@ index 150a541..a7f6b34 100644
      bool called, failed;
      const uint32_t *packets;
      uint32_t count, flip;
-@@ -51,7 +54,7 @@ static struct pl_hook_res skip_inactive_area(struct active_mask *mask,
+@@ -50,8 +53,9 @@ static struct pl_hook_res skip_inactive_area(struct active_mask *mask,
+         "if(float(ex+1)<early_area.x || float(ex)>=early_area.z || float(ep.y)<early_area.y || float(ep.y)>=early_area.w){\n"
          "uint ei=uint(ep.y*3840+ep.x), ek=ei/3072u, ev=0u;\n"
          "if(ek<early_count){uint eb=ei%1024u, ew=ek*128u+eb/8u;\n"
-         "ev=(early_words[ew/4u][int(ew%4u)]>>(7u-eb%8u))&1u;}\n"
+-        "ev=(early_words[ew/4u][int(ew%4u)]>>(7u-eb%8u))&1u;}\n"
 -        "return vec4(128.0,16.0,float(ev*16u),255.0)/255.0;}\n"};
++        // Black is Y=0, C=2048: odd parity, so the chroma LSB carries each metadata bit inverted.
++        "ev=((early_words[ew/4u][int(ew%4u)]>>(7u-eb%8u))&1u)^1u;}\n"
 +        "return vec4(128.0,0.0,float(ev*16u),255.0)/255.0;}\n"};
      mask->failed = pl_shader_is_compute(p->sh) || !pl_shader_custom(p->sh, &shader);
      return (struct pl_hook_res){.failed=mask->failed, .output=PL_HOOK_SIG_NONE};
  }
-@@ -70,24 +73,42 @@ static struct pl_hook_res pack_active_area(void *priv, const struct pl_hook_para
+@@ -70,24 +74,42 @@ static struct pl_hook_res pack_active_area(void *priv, const struct pl_hook_para
          {.var = {.name="metadata_words", .type=PL_VAR_UINT, .dim_v=4, .dim_m=1, .dim_a=128},
           .data=mask->packets, .dynamic=true},
          {.var=pl_var_uint("packet_count"), .data=&mask->count, .dynamic=true},
@@ -349,7 +352,7 @@ index 150a541..a7f6b34 100644
          "uint index=uint(p.y*3840+p.x), packet=index/3072u;\n"
          "if(packet<packet_count){ uint bit=index%1024u, byte_index=packet*128u+bit/8u;\n"
          "uint value=(metadata_words[byte_index/4u][int(byte_index%4u)]>>(7u-bit%8u))&1u;\n"
-@@ -186,7 +207,7 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+@@ -186,7 +208,7 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
      r->packed = packed != NULL;
      dvbridge_candidate_destroy(r->pending);
      r->pending = NULL;
@@ -358,7 +361,7 @@ index 150a541..a7f6b34 100644
          source->crop.x0 != 0 || source->crop.y0 != 0 ||
          source->crop.x1 != geometry.source_width || source->crop.y1 != geometry.source_height)
          return false;
-@@ -243,6 +264,10 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+@@ -243,6 +265,10 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
      }
      r->reconstructed_color = target.color;
      params.min_fbo_precision = 32;
@@ -369,7 +372,7 @@ index 150a541..a7f6b34 100644
      params.peak_detect_params = NULL;
      params.dither_params = NULL;
      params.frame_mixer = NULL;
-@@ -255,9 +280,10 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+@@ -255,9 +281,10 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
          return false;
      struct active_mask mask = {.rect = {margins[0], margins[2],
                                         3840 - margins[1], 2160 - margins[3]}};
@@ -381,7 +384,7 @@ index 150a541..a7f6b34 100644
                        (margins[0] || margins[1] || margins[2] || margins[3]);
      const struct pl_hook hook = {
          .stages = PL_HOOK_OUTPUT | (mask.early_mask ? PL_HOOK_NATIVE : 0),
-@@ -381,3 +407,9 @@ bool dvbridge_render_commit(struct dvbridge_renderer *r)
+@@ -381,3 +408,9 @@ bool dvbridge_render_commit(struct dvbridge_renderer *r)
  {
      return r && r->ready && r->pending && dvbridge_commit(r->context, r->pending);
  }
