@@ -11,22 +11,22 @@ Please report problems here, not to those projects.
 - **LibreELEC master** (Kodi 22), pinned to a known commit and updated deliberately.
 - **CroqueMr's Intel Dolby Vision engine** ([CroqueMr/intel-dv-libreelec](https://github.com/CroqueMr/intel-dv-libreelec)):
   Standard (TV-led) Dolby Vision output from Kodi's own player, including Profile 7 FEL, on supported Intel GPUs.
-- **Extra fixes** on top of that engine:
-  - one HDMI mode change per Dolby Vision start/stop, instead of several
-  - audio engine handles a lost/reset display in every state (fewer silent-audio cases)
-  - black picture fixed on live 10-bit TV channels decoded with VAAPI
+- **Video pipeline calibrated to licensed Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
+  4:2:2 packing and Gaussian chroma upsampling (see below).
 - **Quick Sync enhancement-layer offload**: Profile 7 FEL playback scales the
   enhancement layer on the Intel media engine (Quick Sync, via VA-API) instead of in shaders. On an
-  i5-1135G7 this cut GPU render load during FEL playback from about 53% to about 13%, with no dropped
+  i5-1135G7 this cut GPU render load during FEL playback from about 46% to about 12%, with no dropped
   frames, and the HDMI output stays within about one 12-bit code of the shader path. It is aimed at
   making FEL playable on smaller Intel GPUs. It can be switched off, and falls back to the shader path
   automatically when the media engine or driver can't do it.
-- **Picture matched to Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
-  4:2:2 packing and Gaussian chroma upsampling (see below).
 - **Seamless refresh rate changes (QMS-VRR)**: on TVs with HDMI 2.1 Quick Media Switching, a change between
   24, 25, 30, 50 and 60 Hz (and 23.976, 29.97, 59.94) no longer blanks the screen (see below).
 - **Dolby Vision menu** (optional): the menu is sent in Dolby Vision too, so a Dolby Vision film starts without
   the TV switching picture format. With QMS, starting and stopping a Dolby Vision film causes no blackout at all.
+- **Extra fixes** on top of that engine:
+  - one HDMI mode change per Dolby Vision start/stop, instead of several
+  - audio engine handles a lost/reset display in every state (fewer silent-audio cases)
+  - black picture fixed on live 10-bit TV channels decoded with VAAPI
 - **Updates come from this repository only.** The LibreELEC update settings list yblod releases
   (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
   update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
@@ -117,17 +117,17 @@ flowchart TD
 
     subgraph GPU["GPU shaders (libplacebo, OpenGL ES)"]
         IMPORT["Zero-copy import (DMA-BUF)<br/>BL planes + scaled EL"]
-        CHROMA["Base layer chroma<br/>4:2:0 → 4:4:4 (Lanczos)"]
+        CHROMA["Base layer chroma<br/>4:2:0 → 4:4:4 (Gaussian, left-sited)"]
         ELS["Sample scaled EL<br/>with half-pixel alignment fix"]
-        FALLBACK["Fallback: shader Lanczos<br/>EL upscale (if Quick Sync unavailable)"]
+        FALLBACK["Fallback: shader<br/>EL upscale (if Quick Sync unavailable)"]
         COMPOSE["Dolby composition<br/>BL reshaping + NLQ residual from EL<br/>→ 12-bit picture (32-bit float math)"]
-        PACK["Pack Standard DV tunnel<br/>12-bit YCbCr 4:2:2 + metadata in pixel LSBs<br/>→ 8-bit RGB frame"]
+        PACK["Pack Standard DV tunnel<br/>12-bit IPT-PQ 4:2:2 (as Dolby hardware) + metadata in pixel LSBs<br/>→ 8-bit RGB frame"]
         HDR10["or: HDR10 conversion<br/>(tone map, 10-bit HDR10)"]
-        GUI["GUI / subtitles composited<br/>(when on screen)"]
+        GUI["GUI / subtitles composited<br/>(when on screen; with the Dolby Vision menu<br/>on, the menu itself is packed the same way)"]
     end
 
     subgraph DISP["Intel display engine (patched i915)"]
-        SCAN["Scan out packed frame<br/>+ Dolby Vision VSIF"]
+        SCAN["Scan out packed frame<br/>+ Dolby Vision VSIF<br/>+ QMS: 60 Hz timing stretched to the film's rate"]
     end
 
     TV["TV (Dolby Vision, TV-led)<br/>unpacks tunnel, display mapping"]
@@ -161,10 +161,10 @@ flowchart TD
 | Base layer decode (4K) | Intel video engine | hardware HEVC |
 | Enhancement layer decode (1080p) | Intel video engine | second hardware decoder |
 | **Enhancement layer upscale 1080p → 4K** | **Intel media engine (Quick Sync)** | yblod; falls back to GPU shaders automatically |
-| Base layer chroma upsample | GPU shaders | the media engine only replicates chroma when not scaling, so this stays in shaders |
+| Base layer chroma upsample | GPU shaders | or the media engine with Quick Sync scaling set to *Enhancement layer and colour* |
 | Dolby composition (reshaping + NLQ) | GPU shaders | no Intel hardware for this |
 | Standard DV tunnel packing, or HDR10 conversion | GPU shaders | |
-| Scan-out + Dolby VSIF | Intel display engine | patched i915 |
+| Scan-out, Dolby VSIF, QMS refresh rate changes | Intel display engine | patched i915 |
 | Display mapping | TV | TV-led Dolby Vision |
 
 Profile 8.1 and other single-layer content skip the enhancement-layer branch; everything after decode runs
