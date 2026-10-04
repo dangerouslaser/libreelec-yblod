@@ -27,6 +27,21 @@ Please report problems here, not to those projects.
   (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
   update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
 
+## Performance
+
+GPU load during 4K Dolby Vision playback on an Intel Core i5-1135G7 (Iris Xe), per Quick Sync scaling
+setting. *Render* is the GPU shader load, *media engine* is Quick Sync's video-processing unit (otherwise idle
+during playback). Same scene for each row, no dropped frames in any case.
+
+| Content | Off | Enhancement layer (default) | Enhancement layer and colour |
+|---|---|---|---|
+| Profile 7 FEL (*Saving Private Ryan*) | render 45.8% | render **12.1%**, media engine 11.2% | render **10.6%**, media engine 22.3% |
+| Profile 8.1 (*28 Years Later: The Bone Temple*) | render 22.9% | render 23.1% (no enhancement layer) | render **6.3%**, media engine 11.2% |
+
+*Enhancement layer* removes about three quarters of the GPU work for FEL with no measurable cost in accuracy.
+*Enhancement layer and colour* also moves base layer colour upsampling to the media engine, which helps every
+Dolby Vision profile; colour edges are slightly less close to Dolby hardware in that mode (see below).
+
 ## Accuracy against Dolby hardware
 
 yblod's Dolby Vision output was measured against licensed Dolby Vision players (Ugoos AM9 Pro and SK4,
