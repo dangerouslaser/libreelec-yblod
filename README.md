@@ -1,25 +1,41 @@
-# LibreELEC
+# LibreELEC yblod
 
-LibreELEC is a 'Just enough OS' Linux distribution for the award-winning [Kodi](https://kodi.tv) software on popular mediacentre hardware. Further information on the project can be found on the [LibreELEC website](https://libreelec.tv).
+**An unofficial LibreELEC build with native Dolby Vision for Intel HDMI systems.**
 
-**Documentation**
+yblod ("dolby" backwards) is a personal LibreELEC build for Intel PCs. It is **not** an official
+LibreELEC release and is not affiliated with or supported by LibreELEC, Kodi, Dolby or Intel.
+Please report problems here, not to those projects.
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — how to report issues and submit pull requests
-- [STANDARDS.md](STANDARDS.md) — coding standards for build scripts and package files
-- [packages/README.md](packages/README.md) — detailed guide to `package.mk` structure and variables
+## What it is
 
-**Issues & Support**
+- **LibreELEC master** (Kodi 22), pinned to a known commit and updated deliberately.
+- **CroqueMr's Intel Dolby Vision engine** ([CroqueMr/intel-dv-libreelec](https://github.com/CroqueMr/intel-dv-libreelec)):
+  Standard (TV-led) Dolby Vision output from Kodi's own player, including Profile 7 FEL, on supported Intel GPUs.
+- **Extra fixes** on top of that engine:
+  - one HDMI mode change per Dolby Vision start/stop, instead of several
+  - audio engine handles a lost/reset display in every state (fewer silent-audio cases)
+  - black picture fixed on live 10-bit TV channels decoded with VAAPI
+- **Updates come from this repository only.** The LibreELEC update settings list yblod releases
+  (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
+  update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
 
-Please ask questions in the [LibreELEC forum: Help & Support](https://forum.libreelec.tv/forum-3.html) or ask a member of project staff in the #libreelec IRC channel on Libera.Chat. Please report bugs via [GitHub Issues](https://github.com/LibreELEC/LibreELEC.tv/issues).
+## Install
 
-**Donations**
+Download the `.tar` from [Releases](https://github.com/dangerouslaser/libreelec-yblod/releases), copy it to the
+`Update` share (`/storage/.update`) of an existing LibreELEC x86_64 install and reboot. Fresh installs use the
+`.img.gz` the same way as LibreELEC's own images.
 
-Contributions towards current project funding goals can be made via [OpenCollective](https://opencollective.com/libreelec/donate).
+## Build
 
-**License**
+The build runs in LibreELEC's Docker build environment. `tools/yblod/build.sh <version>` builds an image with
+a memory cap (see the script for details).
 
-LibreELEC original code is released under [GPLv2](https://www.gnu.org/licenses/gpl-2.0.html).
+## Source and licences
 
-**Copyright**
+Everything needed to rebuild a release is public: this repository (LibreELEC plus all changes) at the release
+tag, and the upstream source archives it downloads. The Dolby Vision engine's documentation, licences and
+notices are kept in [docs/intel-dv](docs/intel-dv) and [licenses/intel-dv](licenses/intel-dv). LibreELEC's own
+licences are in [licenses](licenses).
 
-As LibreELEC includes code from many upstream projects it has many copyright owners; notably [OpenELEC](https://openelec.tv) which we forked from after disagreeing with project direction and management, and [OpenBricks/GeeXboX](https://github.com/OpenBricks/openbricks/blob/master/AUTHORS) the uncredited source of the original 2009 build system. LibreELEC makes no claim of copyright on any upstream code. However all original LibreELEC authored code is copyright LibreELEC.tv. Patches to upstream code have the same license as the upstream project unless specified otherwise. For a complete copyright list please checkout the source code to examine license headers. Unless expressly stated otherwise all code submitted to the LibreELEC project (in any form) is licensed under [GPLv2](https://www.gnu.org/licenses/gpl-2.0.html) and copyright is donated to the project. This approach gives the project freedom to maintain the code without the overhead of preserving contact with every submitter, e.g. GPLv3. You are free to retain copyright by adding your copyright header to each submitted code page. If you submit code that is not your own work it is your responsibility to place a header stating the copyright.
+Dolby, Dolby Vision and the double-D symbol are trademarks of Dolby Laboratories. LibreELEC is a trademark of
+Team LibreELEC; this project is independent.

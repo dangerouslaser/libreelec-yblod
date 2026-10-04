@@ -1,0 +1,15 @@
+--- a/resources/lib/defaults.py	2026-10-04 13:05:02
++++ b/resources/lib/defaults.py	2026-10-04 13:05:02
+@@ -96,8 +96,10 @@
+ 
+ updates = {
+     'ENABLED': not os.path.exists('/dev/.update_disabled'),
+-    'UPDATE_REQUEST_URL': 'https://update.libreelec.tv/updates.php',
+-    'UPDATE_DOWNLOAD_URL': 'http://%s.libreelec.tv/%s',
++    # libreelec-yblod: never offer official LibreELEC builds. The automatic check reads a
++    # stub that reports no update; the update channels list comes from the yblod repository.
++    'UPDATE_REQUEST_URL': 'https://raw.githubusercontent.com/dangerouslaser/libreelec-yblod/main/releases/updates.json',
++    'UPDATE_DOWNLOAD_URL': 'https://raw.githubusercontent.com/dangerouslaser/libreelec-yblod/main/%s/%s',
+     'LOCAL_UPDATE_DIR': '/storage/.update/',
+     }
+ 
