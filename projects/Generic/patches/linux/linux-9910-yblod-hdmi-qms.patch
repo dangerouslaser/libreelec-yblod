@@ -1,0 +1,550 @@
+diff -ru a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
+--- a/drivers/gpu/drm/i915/display/intel_display.c	2026-10-04 16:49:40.165940267 -0400
++++ b/drivers/gpu/drm/i915/display/intel_display.c	2026-10-04 16:49:40.208583531 -0400
+@@ -1051,6 +1051,8 @@
+ 
+ 	intel_fbc_post_update(state, crtc);
+ 
++	intel_hdmi_qms_post_update(state, crtc);
++
+ 	if (needs_async_flip_vtd_wa(old_crtc_state) &&
+ 	    !needs_async_flip_vtd_wa(new_crtc_state))
+ 		intel_async_flip_vtd_wa(display, pipe, false);
+@@ -1179,6 +1181,8 @@
+ 	if (intel_crtc_lobf_disabling(old_crtc_state, new_crtc_state))
+ 		intel_alpm_lobf_disable(new_crtc_state);
+ 
++	intel_hdmi_qms_pre_update(state, crtc);
++
+ 	intel_psr_pre_plane_update(state, crtc);
+ 
+ 	if (intel_crtc_vrr_disabling(state, crtc)) {
+@@ -2512,6 +2516,7 @@
+ 		return ilk_fdi_compute_config(crtc, crtc_state);
+ 
+ 	intel_vrr_compute_guardband(crtc_state);
++	intel_hdmi_qms_compute_guardband(crtc_state);
+ 
+ 	return 0;
+ }
+@@ -5260,7 +5265,8 @@
+ 		PIPE_CONF_CHECK_I(name.crtc_vblank_start); \
+ 	PIPE_CONF_CHECK_I(name.crtc_vsync_start); \
+ 	PIPE_CONF_CHECK_I(name.crtc_vsync_end); \
+-	if (!fastset || !pipe_config->update_lrr) { \
++	if ((!fastset || !pipe_config->update_lrr) && \
++	    current_config->qms.lines_den <= 1 && pipe_config->qms.lines_den <= 1) { \
+ 		PIPE_CONF_CHECK_I(name.crtc_vtotal); \
+ 		PIPE_CONF_CHECK_I(name.crtc_vblank_end); \
+ 	} \
+diff -ru a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
+--- a/drivers/gpu/drm/i915/display/intel_display_types.h	2026-10-04 16:49:40.170088202 -0400
++++ b/drivers/gpu/drm/i915/display/intel_display_types.h	2026-10-04 16:49:40.207578888 -0400
+@@ -1410,6 +1410,14 @@
+ 		} dc_balance;
+ 	} vrr;
+ 
++	/* HDMI QMS-VRR: rates sent on the 60 Hz base timing */
++	struct {
++		bool active;
++		u8 tfr, base_vfront;
++		u16 base_vtotal;
++		u32 lines_num, lines_den;
++	} qms;
++
+ 	/* Content Match Refresh Rate state */
+ 	struct {
+ 		bool enable;
+diff -ru a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c	2026-10-04 16:49:40.153664449 -0400
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c	2026-10-04 16:51:24.570615729 -0400
+@@ -27,11 +27,15 @@
+  */
+ 
+ #include <linux/delay.h>
++#include <linux/gcd.h>
+ #include <linux/hdmi.h>
+ #include <linux/i2c.h>
+ #include <linux/iopoll.h>
++#include <linux/kthread.h>
++#include <linux/sched.h>
+ #include <linux/slab.h>
+ #include <linux/string_helpers.h>
++#include <linux/unaligned.h>
+ 
+ #include <drm/display/drm_hdcp_helper.h>
+ #include <drm/display/drm_hdmi_helper.h>
+@@ -41,6 +45,7 @@
+ #include <drm/drm_edid.h>
+ #include <drm/drm_print.h>
+ #include <drm/drm_probe_helper.h>
++#include <drm/drm_vblank.h>
+ #include <drm/intel/intel_lpe_audio.h>
+ #include <media/cec-notifier.h>
+ 
+@@ -50,6 +55,7 @@
+ #include "intel_dvbridge_hdr_policy.h"
+ #include "intel_audio.h"
+ #include "intel_connector.h"
++#include "intel_crtc.h"
+ #include "intel_cx0_phy.h"
+ #include "intel_ddi.h"
+ #include "intel_de.h"
+@@ -1297,6 +1303,10 @@
+ 			      &crtc_state->infoframes.drm);
+ }
+ 
++static void intel_hdmi_qms_write_vtem(struct intel_display *display,
++				      const struct intel_crtc_state *crtc_state,
++				      bool constant);
++
+ static void hsw_set_infoframes(struct intel_encoder *encoder,
+ 			       bool enable,
+ 			       const struct intel_crtc_state *crtc_state,
+@@ -1339,6 +1349,9 @@
+ 	intel_write_infoframe(encoder, crtc_state,
+ 			      HDMI_INFOFRAME_TYPE_DRM,
+ 			      &crtc_state->infoframes.drm);
++
++	if (crtc_state->qms.active)
++		intel_hdmi_qms_write_vtem(display, crtc_state, true);
+ }
+ 
+ void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable)
+@@ -2452,6 +2465,404 @@
+ 		!intel_hdmi_is_cloned(crtc_state);
+ }
+ 
++/*
++ * HDMI 2.1 Quick Media Switching (QMS-VRR).
++ *
++ * When the sink supports QMS, every frame rate the sink can switch to at
++ * 1080p or 2160p is sent on the CTA 60 Hz timing of that resolution with a
++ * longer vertical blank. The pixel clock and the link never change, so a
++ * refresh rate change only changes the vertical total (the LRR fastset path)
++ * and the sink switches without dropping the picture. Rates such as 23.976
++ * need a fractional number of lines per frame; a small thread alternates the
++ * vertical total every frame to hold the exact average.
++ *
++ * Every frame carries a VTEM packet (Extended Metadata, HDMI Forum data set
++ * 1) with QMS_EN set. It announces the next rate with M_CONST cleared for
++ * four frames before the change. It is sent in the gamut metadata DIP, whose
++ * header is written by software.
++ */
++static bool qms_enable = true;
++module_param_named(qms, qms_enable, bool, 0644);
++MODULE_PARM_DESC(qms, "Change HDMI refresh rates with QMS-VRR when the sink supports it (default: true)");
++
++#define QMS_BASE_REFRESH	60
++#define QMS_ANNOUNCE_FRAMES	4
++
++struct intel_hdmi_qms_base {
++	int clock;
++	u16 hdisplay, hsync_start, hsync_end, htotal;
++	u16 vdisplay, vsync_start, vsync_end, vtotal;
++};
++
++/* CTA-861 VIC 16 and VIC 97 */
++static const struct intel_hdmi_qms_base qms_bases[] = {
++	{ 148500, 1920, 2008, 2052, 2200, 1080, 1084, 1089, 1125 },
++	{ 594000, 3840, 4016, 4104, 4400, 2160, 2168, 2178, 2250 },
++};
++
++/* HDMI 2.1 target frame rate codes; rate = num / den Hz */
++static const struct {
++	u16 num, den;
++	u8 tfr;
++} qms_rates[] = {
++	{ 24000, 1001, 1 }, { 24, 1, 2 }, { 25, 1, 3 }, { 30000, 1001, 4 },
++	{ 30, 1, 5 }, { 48000, 1001, 6 }, { 48, 1, 7 }, { 50, 1, 8 },
++	{ 60000, 1001, 9 }, { 60, 1, 10 },
++};
++
++/* QMS bit of the HDMI Forum VSDB or SCDB */
++static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
++{
++	const struct drm_property_blob *blob = connector->edid_blob_ptr;
++	size_t ext;
++
++	if (!blob)
++		return false;
++
++	for (ext = 128; ext + 128 <= blob->length; ext += 128) {
++		const u8 *b = (const u8 *)blob->data + ext;
++		int i, end = b[2];
++
++		if (b[0] != 0x02 || end < 4 || end > 127)
++			continue;
++
++		for (i = 4; i < end; i += (b[i] & 0x1f) + 1) {
++			const u8 *d = b + i;
++			int len = d[0] & 0x1f;
++
++			if (i + len >= end)
++				break;
++			if (len < 8)
++				continue;
++			if ((d[0] >> 5) == 3 && d[1] == 0xd8 && d[2] == 0x5d && d[3] == 0xc4)
++				return d[8] & BIT(6);
++			if ((d[0] >> 5) == 7 && d[1] == 0x79)
++				return d[8] & BIT(6);
++		}
++	}
++
++	return false;
++}
++
++/*
++ * Replace the requested timing with the 60 Hz base timing, so everything
++ * computed from the mode (TMDS clock, AVI VIC, quantization range, Dolby
++ * Vision checks) describes the signal that is actually sent. The vertical
++ * blank is stretched at the end of compute_config.
++ */
++static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
++				   struct intel_crtc_state *crtc_state,
++				   const struct drm_connector_state *conn_state)
++{
++	const struct intel_digital_connector_state *intel_conn_state =
++		to_intel_digital_connector_state(conn_state);
++	const struct drm_display_info *info = &conn_state->connector->display_info;
++	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
++	const struct intel_hdmi_qms_base *b = NULL;
++	u64 num, den, g;
++	int i;
++
++	memset(&crtc_state->qms, 0, sizeof(crtc_state->qms));
++
++	if (!qms_enable || !crtc_state->has_hdmi_sink ||
++	    m->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN |
++			DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK))
++		return;
++
++	/* the 60 Hz base can't carry deep color at 2160p; HDR10 keeps its own timing */
++	if (conn_state->hdr_output_metadata || intel_conn_state->dv_hdr10_deep_color)
++		return;
++
++	for (i = 0; i < ARRAY_SIZE(qms_bases); i++)
++		if (qms_bases[i].hdisplay == m->crtc_hdisplay &&
++		    qms_bases[i].vdisplay == m->crtc_vdisplay)
++			b = &qms_bases[i];
++	if (!b)
++		return;
++
++	for (i = 0; i < ARRAY_SIZE(qms_rates); i++) {
++		u64 a = (u64)m->crtc_clock * 1000 * qms_rates[i].den;
++		u64 c = (u64)qms_rates[i].num * m->crtc_htotal * m->crtc_vtotal;
++
++		if (a * 2000 >= c * 1999 && a * 2000 <= c * 2001)
++			break;
++	}
++	if (i == ARRAY_SIZE(qms_rates))
++		return;
++
++	if (b->clock > 340000 &&
++	    (b->clock > intel_hdmi_source_max_tmds_clock(encoder) ||
++	     info->max_tmds_clock < b->clock ||
++	     !info->hdmi.scdc.scrambling.supported))
++		return;
++
++	if (!intel_hdmi_sink_has_qms(conn_state->connector))
++		return;
++
++	if (intel_conn_state->dv_lab_standard && b->vdisplay == 2160) {
++		const struct drm_property_blob *edid = conn_state->connector->edid_blob_ptr;
++		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
++			edid ? edid->data : NULL, edid ? edid->length : 0);
++
++		if (!caps.supports_2160p60)
++			return;
++	}
++
++	/* lines per frame at the base pixel clock */
++	num = (u64)b->clock * 1000 * qms_rates[i].den;
++	den = (u64)b->htotal * qms_rates[i].num;
++	g = gcd(num, den);
++	num /= g;
++	den /= g;
++	if (div64_u64(num, den) < b->vtotal || div64_u64(num, den) > 8192 ||
++	    num > U32_MAX || den > U16_MAX)
++		return;
++
++	m->clock = m->crtc_clock = b->clock;
++	m->hdisplay = m->crtc_hdisplay = b->hdisplay;
++	m->hsync_start = m->crtc_hsync_start = b->hsync_start;
++	m->hsync_end = m->crtc_hsync_end = b->hsync_end;
++	m->htotal = m->crtc_htotal = b->htotal;
++	m->crtc_hblank_start = b->hdisplay;
++	m->crtc_hblank_end = b->htotal;
++	m->hskew = m->crtc_hskew = 0;
++	m->vdisplay = m->crtc_vdisplay = b->vdisplay;
++	m->vsync_start = m->crtc_vsync_start = b->vsync_start;
++	m->vsync_end = m->crtc_vsync_end = b->vsync_end;
++	m->vtotal = m->crtc_vtotal = b->vtotal;
++	m->crtc_vblank_start = b->vdisplay;
++	m->crtc_vblank_end = b->vtotal;
++	m->flags &= ~(DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC);
++	m->flags |= DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC;
++
++	crtc_state->qms.active = true;
++	crtc_state->qms.tfr = qms_rates[i].tfr;
++	crtc_state->qms.base_vfront = b->vsync_start - b->vdisplay;
++	crtc_state->qms.base_vtotal = b->vtotal;
++	crtc_state->qms.lines_num = num;
++	crtc_state->qms.lines_den = den;
++}
++
++static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
++				   struct drm_connector_state *conn_state)
++{
++	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
++	int vtotal;
++
++	if (!crtc_state->qms.active)
++		return;
++
++	vtotal = crtc_state->qms.lines_num / crtc_state->qms.lines_den;
++	m->vtotal = m->crtc_vtotal = vtotal;
++	m->crtc_vblank_end = vtotal;
++
++	/* rate changes keep the clock and only change the vertical total */
++	crtc_state->update_lrr = true;
++	crtc_state->infoframes.enable |=
++		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
++
++	intel_vrr_compute_config(crtc_state, conn_state);
++}
++
++/*
++ * The VRR guardband (pipeline full on TGL) is only programmed by a modeset,
++ * so keep the one of the base timing for every rate.
++ */
++void intel_hdmi_qms_compute_guardband(struct intel_crtc_state *crtc_state)
++{
++	struct intel_display *display = to_intel_display(crtc_state);
++	int guardband;
++
++	if (!crtc_state->qms.active || !crtc_state->vrr.flipline)
++		return;
++
++	guardband = crtc_state->qms.base_vtotal -
++		crtc_state->hw.adjusted_mode.crtc_vdisplay -
++		crtc_state->set_context_latency -
++		(DISPLAY_VER(display) < 13 ? 1 : 0);
++	if (crtc_state->vrr.guardband <= guardband)
++		return;
++
++	crtc_state->vrr.guardband = guardband;
++	if (DISPLAY_VER(display) < 13)
++		crtc_state->vrr.pipeline_full = guardband - crtc_state->framestart_delay - 1;
++}
++
++static void intel_hdmi_qms_write_vtem(struct intel_display *display,
++				      const struct intel_crtc_state *crtc_state,
++				      bool constant)
++{
++	enum transcoder trans = crtc_state->cpu_transcoder;
++	u8 pkt[VIDEO_DIP_GMP_DATA_SIZE] = {
++		0x7f, 0xc0, 0x00, 0x00,	/* EMP, first + last, sequence 0, ECC */
++		0x06, 0x00,		/* VFR, Sync */
++		0x01,			/* organization: HDMI Forum */
++		0x00, 0x01,		/* data set tag 1: VTEM */
++		0x00, 0x04,		/* data set length */
++	};
++	int i;
++
++	pkt[11] = BIT(2) | (constant ? BIT(1) : 0);	/* QMS_EN, M_CONST */
++	pkt[12] = crtc_state->qms.base_vfront;
++	pkt[13] = crtc_state->qms.tfr << 3 | (QMS_BASE_REFRESH >> 8);
++	pkt[14] = QMS_BASE_REFRESH & 0xff;
++
++	/* rewritten in place: the packet must not miss a frame */
++	for (i = 0; i < VIDEO_DIP_GMP_DATA_SIZE / 4; i++)
++		intel_de_write(display, HSW_TVIDEO_DIP_GMP_DATA(display, trans, i),
++			       get_unaligned_le32(pkt + i * 4));
++	intel_de_rmw(display, HSW_TVIDEO_DIP_CTL(display, trans),
++		     0, VIDEO_DIP_ENABLE_GMP_HSW);
++}
++
++/* write after the sync, where the sink is not receiving the packet */
++static void intel_hdmi_qms_update_vtem(struct intel_crtc *crtc,
++				       const struct intel_crtc_state *crtc_state,
++				       bool constant)
++{
++	intel_crtc_wait_for_next_vblank(crtc);
++	usleep_range(1500, 2500);
++	intel_hdmi_qms_write_vtem(to_intel_display(crtc), crtc_state, constant);
++}
++
++struct intel_hdmi_qms_pacer {
++	struct task_struct *task;
++	struct intel_crtc *crtc;
++	enum transcoder trans;
++	u16 vdisplay, vblank_start;
++	u32 num, den;
++};
++
++static struct intel_hdmi_qms_pacer qms_pacers[I915_MAX_PIPES];
++
++static int intel_hdmi_qms_pacer_fn(void *data)
++{
++	struct intel_hdmi_qms_pacer *p = data;
++	struct intel_display *display = to_intel_display(p->crtc);
++	u32 last = 0;
++
++	while (!kthread_should_stop()) {
++		u32 k, lines;
++
++		if (drm_crtc_wait_one_vblank(&p->crtc->base)) {
++			msleep(10);
++			continue;
++		}
++
++		/* lines for the next frame, so the running sum stays exact */
++		k = (intel_de_read(display, PIPE_FRMCOUNT_G4X(display, p->crtc->pipe)) + 1) % p->den;
++		lines = div_u64((u64)(k + 1) * p->num, p->den) -
++			div_u64((u64)k * p->num, p->den);
++		if (lines == last)
++			continue;
++
++		intel_de_write(display, TRANS_VBLANK(display, p->trans),
++			       VBLANK_START(p->vblank_start - 1) | VBLANK_END(lines - 1));
++		intel_de_write(display, TRANS_VTOTAL(display, p->trans),
++			       VACTIVE(p->vdisplay - 1) | VTOTAL(lines - 1));
++		last = lines;
++	}
++
++	return 0;
++}
++
++static void intel_hdmi_qms_pacer_stop(struct intel_crtc *crtc)
++{
++	struct intel_hdmi_qms_pacer *p = &qms_pacers[crtc->pipe];
++
++	if (p->task) {
++		kthread_stop(p->task);
++		p->task = NULL;
++	}
++}
++
++static void intel_hdmi_qms_pacer_start(struct intel_crtc *crtc,
++				       const struct intel_crtc_state *crtc_state)
++{
++	struct intel_display *display = to_intel_display(crtc);
++	struct intel_hdmi_qms_pacer *p = &qms_pacers[crtc->pipe];
++	struct task_struct *task;
++
++	if (p->task || crtc_state->qms.lines_den <= 1)
++		return;
++
++	p->crtc = crtc;
++	p->trans = crtc_state->cpu_transcoder;
++	p->vdisplay = crtc_state->hw.adjusted_mode.crtc_vdisplay;
++	/* as the LRR path: on TGL VBLANK_START - VACTIVE defines the SCL */
++	p->vblank_start = DISPLAY_VER(display) >= 13 ? 1 :
++		p->vdisplay + crtc_state->set_context_latency;
++	p->num = crtc_state->qms.lines_num;
++	p->den = crtc_state->qms.lines_den;
++
++	task = kthread_run(intel_hdmi_qms_pacer_fn, p, "i915-qms-%c",
++			   pipe_name(crtc->pipe));
++	if (IS_ERR(task)) {
++		drm_err(display->drm, "[CRTC:%d:%s] QMS: can't start the frame pacer\n",
++			crtc->base.base.id, crtc->base.name);
++		return;
++	}
++	sched_set_fifo_low(task);
++	p->task = task;
++}
++
++static bool intel_hdmi_qms_rate_changed(const struct intel_crtc_state *old_crtc_state,
++					const struct intel_crtc_state *new_crtc_state)
++{
++	return old_crtc_state->qms.active != new_crtc_state->qms.active ||
++		old_crtc_state->qms.tfr != new_crtc_state->qms.tfr ||
++		old_crtc_state->qms.lines_num != new_crtc_state->qms.lines_num ||
++		old_crtc_state->qms.lines_den != new_crtc_state->qms.lines_den;
++}
++
++void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
++			       struct intel_crtc *crtc)
++{
++	const struct intel_crtc_state *old_crtc_state =
++		intel_atomic_get_old_crtc_state(state, crtc);
++	const struct intel_crtc_state *new_crtc_state =
++		intel_atomic_get_new_crtc_state(state, crtc);
++	bool modeset = intel_crtc_needs_modeset(new_crtc_state);
++
++	if (!old_crtc_state->qms.active ||
++	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
++		return;
++
++	intel_hdmi_qms_pacer_stop(crtc);
++
++	if (modeset || !new_crtc_state->qms.active)
++		return;
++
++	/* announce the next rate for four frames at the current one */
++	intel_hdmi_qms_update_vtem(crtc, new_crtc_state, false);
++	for (int i = 0; i < QMS_ANNOUNCE_FRAMES; i++)
++		intel_crtc_wait_for_next_vblank(crtc);
++}
++
++void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
++				struct intel_crtc *crtc)
++{
++	struct intel_display *display = to_intel_display(crtc);
++	const struct intel_crtc_state *old_crtc_state =
++		intel_atomic_get_old_crtc_state(state, crtc);
++	const struct intel_crtc_state *new_crtc_state =
++		intel_atomic_get_new_crtc_state(state, crtc);
++	bool modeset = intel_crtc_needs_modeset(new_crtc_state);
++
++	if (!new_crtc_state->hw.active || !new_crtc_state->qms.active ||
++	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
++		return;
++
++	if (!modeset)
++		intel_hdmi_qms_update_vtem(crtc, new_crtc_state, true);
++
++	intel_hdmi_qms_pacer_start(crtc, new_crtc_state);
++
++	drm_dbg_kms(display->drm, "[CRTC:%d:%s] QMS: target frame rate %u, %u/%u lines per frame\n",
++		    crtc->base.base.id, crtc->base.name, new_crtc_state->qms.tfr,
++		    new_crtc_state->qms.lines_num, new_crtc_state->qms.lines_den);
++}
++
+ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+ 			      struct intel_crtc_state *pipe_config,
+ 			      struct drm_connector_state *conn_state)
+@@ -2477,6 +2888,8 @@
+ 	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
+ 		pipe_config->pixel_multiplier = 2;
+ 
++	intel_hdmi_qms_prepare(encoder, pipe_config, conn_state);
++
+ 	if (!intel_link_bw_compute_pipe_bpp(pipe_config))
+ 		return -EINVAL;
+ 	/* This opt-in applies only to reconstructed HDR10, never ordinary Kodi HDR.
+@@ -2620,6 +3033,8 @@
+ 		return -EINVAL;
+ 	}
+ 
++	intel_hdmi_qms_stretch(pipe_config, conn_state);
++
+ 	return 0;
+ }
+ 
+diff -ru a/drivers/gpu/drm/i915/display/intel_hdmi.h b/drivers/gpu/drm/i915/display/intel_hdmi.h
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.h	2026-10-04 16:49:40.160270174 -0400
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.h	2026-10-04 16:49:40.207465559 -0400
+@@ -73,4 +73,10 @@
+ void intel_hdmi_poll_for_scrambling_enable(const struct intel_crtc_state *crtc_state,
+ 					   struct drm_connector *_connector);
+ 
++void intel_hdmi_qms_compute_guardband(struct intel_crtc_state *crtc_state);
++void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
++			       struct intel_crtc *crtc);
++void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
++				struct intel_crtc *crtc);
++
+ #endif /* __INTEL_HDMI_H__ */

@@ -11,18 +11,22 @@ Please report problems here, not to those projects.
 - **LibreELEC master** (Kodi 22), pinned to a known commit and updated deliberately.
 - **CroqueMr's Intel Dolby Vision engine** ([CroqueMr/intel-dv-libreelec](https://github.com/CroqueMr/intel-dv-libreelec)):
   Standard (TV-led) Dolby Vision output from Kodi's own player, including Profile 7 FEL, on supported Intel GPUs.
+- **Video pipeline calibrated to licensed Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
+  4:2:2 packing and Gaussian chroma upsampling (see below).
+- **Quick Sync enhancement-layer offload**: Profile 7 FEL playback scales the
+  enhancement layer on the Intel media engine (Quick Sync, via VA-API) instead of in shaders. On an
+  i5-1135G7 this cut GPU render load during FEL playback from about 46% to about 12%, with no dropped
+  frames, and the HDMI output stays within about one 12-bit code of the shader path. It is aimed at
+  making FEL playable on smaller Intel GPUs. It can be switched off, and falls back to the shader path
+  automatically when the media engine or driver can't do it.
+- **Seamless refresh rate changes (QMS-VRR)**: on TVs with HDMI 2.1 Quick Media Switching, a change between
+  24, 25, 30, 50 and 60 Hz (and 23.976, 29.97, 59.94) no longer blanks the screen (see below).
+- **Dolby Vision menu** (optional): the menu is sent in Dolby Vision too, so a Dolby Vision film starts without
+  the TV switching picture format. With QMS, starting and stopping a Dolby Vision film causes no blackout at all.
 - **Extra fixes** on top of that engine:
   - one HDMI mode change per Dolby Vision start/stop, instead of several
   - audio engine handles a lost/reset display in every state (fewer silent-audio cases)
   - black picture fixed on live 10-bit TV channels decoded with VAAPI
-- **Quick Sync enhancement-layer offload**: Profile 7 FEL playback scales the
-  enhancement layer on the Intel media engine (Quick Sync, via VA-API) instead of in shaders. On an
-  i5-1135G7 this cut GPU render load during FEL playback from about 53% to about 13%, with no dropped
-  frames, and the HDMI output stays within about one 12-bit code of the shader path. It is aimed at
-  making FEL playable on smaller Intel GPUs. It can be switched off, and falls back to the shader path
-  automatically when the media engine or driver can't do it.
-- **Picture matched to Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
-  4:2:2 packing and Gaussian chroma upsampling (see below).
 - **Updates come from this repository only.** The LibreELEC update settings list yblod releases
   (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
   update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
@@ -56,6 +60,23 @@ Amlogic, TV-led) by capturing both devices' HDMI signal and comparing them frame
 That puts the typical pixel within one code of Dolby's own hardware, below what is visible. Details, method
 and tools: [docs/yblod/ACCURACY.md](docs/yblod/ACCURACY.md).
 
+## Seamless refresh rate changes (QMS)
+
+Normally a refresh rate change (60 Hz menu to a 23.976 Hz film) is a new HDMI mode, and the TV blanks for a
+second or more. HDMI 2.1 Quick Media Switching avoids that: the source keeps the 60 Hz timing and only lengthens
+the blank interval between frames, and announces the new rate to the TV beforehand, so the TV changes rate
+without losing the picture.
+
+yblod does this in the kernel when the TV supports QMS (read from the TV's EDID; nothing to set):
+
+- 1920x1080 and 3840x2160 at 23.976, 24, 25, 29.97, 30, 47.95, 48, 50, 59.94 and 60 Hz.
+- SDR and Dolby Vision. HDR10 and other deep colour output keeps its own timing (at 2160p the 60 Hz link has no
+  room for 10-bit colour), so those still switch normally.
+- Tested on an LG TV with an Intel Core i5-1135G7. It can be turned off with the kernel option `i915.qms=0`.
+
+Kodi chooses refresh rates from the whitelist (Settings > System > Display > Whitelist). Left empty, Kodi uses
+every rate the TV reports at the desktop resolution, which is the best choice with QMS.
+
 ## Dolby Vision settings
 
 Player > Videos > Dolby Vision:
@@ -64,6 +85,12 @@ Player > Videos > Dolby Vision:
   Intel media engine; *Enhancement layer and colour* also upsamples base layer colour there (lighter on the
   GPU, slightly less accurate colour edges); *Off* uses the GPU shaders only.
 - **Match Dolby hardware levels** (default on): applies the small constant offset measured on Dolby hardware.
+- **Dolby Vision for the menu** (default off): keeps the Dolby Vision output on while the menu is shown, so
+  Dolby Vision films start and stop without the TV switching picture format. Needs a 3840x2160 desktop.
+- **Menu brightness, saturation, gamma and wide colour** (menu only): how the Dolby Vision menu looks. Brightness
+  sets menu white from 203 nits (HDR reference white, as the on-screen display over films) to 800 nits
+  (default 400); saturation 80-150%; gamma sRGB, 2.2 or 2.4 for more contrast; wide colour shows the menu on the
+  TV's full colour range, like a vivid mode. Films and the on-screen display over films are never affected.
 
 ## How playback works
 
@@ -90,17 +117,17 @@ flowchart TD
 
     subgraph GPU["GPU shaders (libplacebo, OpenGL ES)"]
         IMPORT["Zero-copy import (DMA-BUF)<br/>BL planes + scaled EL"]
-        CHROMA["Base layer chroma<br/>4:2:0 → 4:4:4 (Lanczos)"]
+        CHROMA["Base layer chroma<br/>4:2:0 → 4:4:4 (Gaussian, left-sited)"]
         ELS["Sample scaled EL<br/>with half-pixel alignment fix"]
-        FALLBACK["Fallback: shader Lanczos<br/>EL upscale (if Quick Sync unavailable)"]
+        FALLBACK["Fallback: shader<br/>EL upscale (if Quick Sync unavailable)"]
         COMPOSE["Dolby composition<br/>BL reshaping + NLQ residual from EL<br/>→ 12-bit picture (32-bit float math)"]
-        PACK["Pack Standard DV tunnel<br/>12-bit YCbCr 4:2:2 + metadata in pixel LSBs<br/>→ 8-bit RGB frame"]
+        PACK["Pack Standard DV tunnel<br/>12-bit IPT-PQ 4:2:2 (as Dolby hardware) + metadata in pixel LSBs<br/>→ 8-bit RGB frame"]
         HDR10["or: HDR10 conversion<br/>(tone map, 10-bit HDR10)"]
-        GUI["GUI / subtitles composited<br/>(when on screen)"]
+        GUI["GUI / subtitles composited<br/>(when on screen; with the Dolby Vision menu<br/>on, the menu itself is packed the same way)"]
     end
 
     subgraph DISP["Intel display engine (patched i915)"]
-        SCAN["Scan out packed frame<br/>+ Dolby Vision VSIF"]
+        SCAN["Scan out packed frame<br/>+ Dolby Vision VSIF<br/>+ QMS: 60 Hz timing stretched to the film's rate"]
     end
 
     TV["TV (Dolby Vision, TV-led)<br/>unpacks tunnel, display mapping"]
@@ -134,10 +161,10 @@ flowchart TD
 | Base layer decode (4K) | Intel video engine | hardware HEVC |
 | Enhancement layer decode (1080p) | Intel video engine | second hardware decoder |
 | **Enhancement layer upscale 1080p → 4K** | **Intel media engine (Quick Sync)** | yblod; falls back to GPU shaders automatically |
-| Base layer chroma upsample | GPU shaders | the media engine only replicates chroma when not scaling, so this stays in shaders |
+| Base layer chroma upsample | GPU shaders | or the media engine with Quick Sync scaling set to *Enhancement layer and colour* |
 | Dolby composition (reshaping + NLQ) | GPU shaders | no Intel hardware for this |
 | Standard DV tunnel packing, or HDR10 conversion | GPU shaders | |
-| Scan-out + Dolby VSIF | Intel display engine | patched i915 |
+| Scan-out, Dolby VSIF, QMS refresh rate changes | Intel display engine | patched i915 |
 | Display mapping | TV | TV-led Dolby Vision |
 
 Profile 8.1 and other single-layer content skip the enhancement-layer branch; everything after decode runs

@@ -1,0 +1,973 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 58636b2..61b8436 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -25875,3 +25875,133 @@ msgstr ""
+ msgctxt "#40836"
+ msgid "Apply the small constant signal offset measured on Dolby Vision hardware players (Amlogic, TV-led), so the picture matches them as closely as possible. Disable for the exact mathematical conversion. Applies to the next video."
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40837"
++msgid "Dolby Vision for the menu"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40838"
++msgid "Keep the Dolby Vision output on while the menu is shown, so Dolby Vision videos start without the TV switching picture format. Needs a 3840x2160 desktop resolution. Other videos switch the output back to their own format. The menu settings below change only how the menu looks."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40839"
++msgid "Menu brightness"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40840"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Brightness of white in the menu. 203 nits is the HDR reference white the on-screen display uses over videos; Dolby Vision players use about 300 nits for their menus. Higher levels suit bright rooms."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40841"
++msgid "Reference (203 nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40842"
++msgid "300 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40843"
++msgid "400 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40844"
++msgid "500 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40845"
++msgid "600 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40846"
++msgid "800 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40847"
++msgid "Menu saturation"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40848"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Colour saturation of the menu. 100% shows the skin's colours as authored."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40849"
++msgid "80%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40850"
++msgid "90%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40851"
++msgid "100%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40852"
++msgid "110%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40853"
++msgid "120%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40854"
++msgid "130%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40855"
++msgid "150%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40856"
++msgid "Menu gamma"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40857"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. How dark the darker greys of the menu look. sRGB is the flattest; 2.4 gives the deepest shadows and the most contrast."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40858"
++msgid "sRGB"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40859"
++msgid "2.2"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40860"
++msgid "2.4"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40861"
++msgid "Menu wide colour"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40862"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Show the menu's colours on the TV's full wide colour range instead of accurate standard colours, like a TV's vivid colour mode."
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 7c1d467..4872569 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -15,6 +15,74 @@
+           </constraints>
+           <control type="spinner" format="string" />
+         </setting>
++        <setting id="dvbridge.menumode" type="boolean" label="40837" help="40838">
++          <level>0</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.menubrightness" type="integer" label="40839" help="40840">
++          <level>0</level>
++          <default>400</default>
++          <constraints>
++            <options>
++              <option label="40841">203</option>
++              <option label="40842">300</option>
++              <option label="40843">400</option>
++              <option label="40844">500</option>
++              <option label="40845">600</option>
++              <option label="40846">800</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menusaturation" type="integer" label="40847" help="40848">
++          <level>0</level>
++          <default>100</default>
++          <constraints>
++            <options>
++              <option label="40849">80</option>
++              <option label="40850">90</option>
++              <option label="40851">100</option>
++              <option label="40852">110</option>
++              <option label="40853">120</option>
++              <option label="40854">130</option>
++              <option label="40855">150</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menugamma" type="integer" label="40856" help="40857">
++          <level>0</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="40858">0</option>
++              <option label="40859">1</option>
++              <option label="40860">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menuwidecolour" type="boolean" label="40861" help="40862">
++          <level>0</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
+         <setting id="dvbridge.enhancedinfo" type="boolean" label="40816" help="40817">
+           <level>0</level>
+           <default>true</default>
+diff --git a/tools/dvbridge/dvbridge_gl_pack.c b/tools/dvbridge/dvbridge_gl_pack.c
+index 7a618bd..d747837 100644
+--- a/tools/dvbridge/dvbridge_gl_pack.c
++++ b/tools/dvbridge/dvbridge_gl_pack.c
+@@ -7,7 +7,7 @@
+ 
+ struct dvbridge_gl_packer {
+     GLuint program, vao, sampler;
+-    GLint input, words, count, flip, offset;
++    GLint input, words, count, flip, offset, graphics, peak, saturation, gamma, wide;
+     float ipt_offset[3];
+ };
+ 
+@@ -57,7 +57,13 @@ struct dvbridge_gl_packer *dvbridge_gl_packer_create(const char *vertex, const c
+     p->count = glGetUniformLocation(p->program, "packet_count");
+     p->flip = glGetUniformLocation(p->program, "flip_y");
+     p->offset = glGetUniformLocation(p->program, "ipt_offset");
+-    if (!linked || p->input < 0 || p->words < 0 || p->count < 0 || p->flip < 0) {
++    p->graphics = glGetUniformLocation(p->program, "graphics");
++    p->peak = glGetUniformLocation(p->program, "graphics_peak");
++    p->saturation = glGetUniformLocation(p->program, "graphics_saturation");
++    p->gamma = glGetUniformLocation(p->program, "graphics_gamma");
++    p->wide = glGetUniformLocation(p->program, "graphics_wide");
++    if (!linked || p->input < 0 || p->words < 0 || p->count < 0 || p->flip < 0 ||
++        p->graphics < 0 || p->peak < 0) {
+         dvbridge_gl_packer_destroy(p);
+         return NULL;
+     }
+@@ -80,8 +86,9 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *p)
+     free(p);
+ }
+ 
+-bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned framebuffer,
+-                     int width, int height, const uint32_t packets[512], unsigned count, bool flip)
++static bool pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned framebuffer,
++                 int width, int height, const uint32_t packets[512], unsigned count, bool flip,
++                 float graphics_peak, const struct dvbridge_graphics_style *style)
+ {
+     if (!p || !texture || !packets || !count || count > 4 || width != 3840 || height != 2160)
+         return false;
+@@ -137,6 +144,11 @@ bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned f
+     glUniform1ui(p->count, count);
+     glUniform1ui(p->flip, flip);
+     glUniform3fv(p->offset, 1, p->ipt_offset);
++    glUniform1ui(p->graphics, graphics_peak > 0.0f);
++    glUniform1f(p->peak, graphics_peak);
++    glUniform1f(p->saturation, style ? style->saturation : 1.0f);
++    glUniform1ui(p->gamma, style ? style->gamma : 0u);
++    glUniform1ui(p->wide, style && style->wide_colour);
+     glDrawArrays(GL_TRIANGLES, 0, 3);
+     ok = glGetError() == GL_NO_ERROR;
+ restore:
+@@ -154,6 +166,24 @@ restore:
+     return ok && glGetError() == GL_NO_ERROR;
+ }
+ 
++bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned framebuffer,
++                     int width, int height, const uint32_t packets[512], unsigned count, bool flip)
++{
++    return pack(p, texture, framebuffer, width, height, packets, count, flip, 0.0f, NULL);
++}
++
++bool dvbridge_gl_pack_graphics(struct dvbridge_gl_packer *p, unsigned gui_texture,
++                              unsigned framebuffer, int width, int height,
++                              const uint32_t packets[512], unsigned count, bool flip,
++                              const struct dvbridge_graphics_style *style)
++{
++    if (!style || !(style->white_nits > 0.0f && style->white_nits <= 10000.0f) ||
++        !(style->saturation >= 0.0f && style->saturation <= 2.0f) || style->gamma > 2)
++        return false;
++    return pack(p, gui_texture, framebuffer, width, height, packets, count, flip,
++                style->white_nits / 10000.0f, style);
++}
++
+ void dvbridge_gl_packer_set_ipt_offset(struct dvbridge_gl_packer *p, const float offset[3])
+ {
+     if (p)
+diff --git a/tools/dvbridge/dvbridge_gl_pack.h b/tools/dvbridge/dvbridge_gl_pack.h
+index 80fbddf..d7d6ec3 100644
+--- a/tools/dvbridge/dvbridge_gl_pack.h
++++ b/tools/dvbridge/dvbridge_gl_pack.h
+@@ -11,6 +11,19 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *packer);
+ bool dvbridge_gl_pack(struct dvbridge_gl_packer *packer, unsigned pq_texture,
+                      unsigned framebuffer, int width, int height,
+                      const uint32_t packets[512], unsigned count, bool flip_y);
++/* As dvbridge_gl_pack, from an sRGB BT.709 GUI texture (bottom-up rows, 3840x2160) drawn over
++ * black with its white at white_nits, instead of a PQ BT.2020 texture. */
++/* Look of a graphics-only frame (the menu). */
++struct dvbridge_graphics_style {
++    float white_nits;   /* GUI white */
++    float saturation;   /* 1 = as authored */
++    unsigned gamma;     /* 0 sRGB, 1 2.2, 2 2.4 */
++    bool wide_colour;   /* BT.709 values on BT.2020 primaries */
++};
++bool dvbridge_gl_pack_graphics(struct dvbridge_gl_packer *packer, unsigned gui_texture,
++                              unsigned framebuffer, int width, int height,
++                              const uint32_t packets[512], unsigned count, bool flip_y,
++                              const struct dvbridge_graphics_style *style);
+ /* Constant I, P, T code offset added to the IPT tunnel signal. */
+ void dvbridge_gl_packer_set_ipt_offset(struct dvbridge_gl_packer *packer, const float offset[3]);
+ #endif
+diff --git a/tools/dvbridge/dvbridge_render.c b/tools/dvbridge/dvbridge_render.c
+index 9ac288f..9ce6ef3 100644
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -3,6 +3,7 @@
+ #include "dvbridge_render.h"
+ #include "dvbridge_placebo.h"
+ #include <libavutil/dovi_meta.h>
++#include <libavutil/mem.h>
+ #include <libplacebo/shaders/custom.h>
+ #include <libplacebo/opengl.h>
+ #include <GLES3/gl31.h>
+@@ -20,6 +21,8 @@ struct dvbridge_renderer {
+     bool ready;
+     bool packed, fragment_quad;
+     struct pl_color_space reconstructed_color;
++    AVDOVIMetadata *graphics;
++    size_t graphics_size;
+ };
+ 
+ struct active_mask {
+@@ -193,6 +196,7 @@ void dvbridge_renderer_destroy(struct dvbridge_renderer *r)
+         return;
+     dvbridge_candidate_destroy(r->pending);
+     dvbridge_destroy(r->context);
++    av_free(r->graphics);
+     pl_tex_destroy(r->gpu, &r->rgb);
+     pl_renderer_destroy(&r->renderer);
+     free(r);
+@@ -399,6 +403,41 @@ bool dvbridge_render_hdr10(struct dvbridge_renderer *r, pl_tex output,
+     return ok && !errors.errors && !errors.num_disabled_hooks;
+ }
+ 
++/* Static frame metadata for graphics only: no reshaping, one L1 block, full-raster L5 (added by the
++ * serializer). Mastering display and scene ranges are both the graphics range. */
++bool dvbridge_render_graphics(struct dvbridge_renderer *r, unsigned min_pq, unsigned max_pq,
++                              unsigned avg_pq, double pts)
++{
++    if (!r)
++        return false;
++    r->ready = false;
++    r->packed = true;
++    dvbridge_candidate_destroy(r->pending);
++    r->pending = NULL;
++    if (!(min_pq <= avg_pq && avg_pq <= max_pq && max_pq <= 4095))
++        return false;
++    if (!r->graphics && !(r->graphics = av_dovi_metadata_alloc(&r->graphics_size)))
++        return false;
++    AVDOVIRpuDataHeader *header = av_dovi_get_header(r->graphics);
++    AVDOVIColorMetadata *color = av_dovi_get_color(r->graphics);
++    header->disable_residual_flag = 1;
++    color->signal_eotf = 65535;
++    color->signal_color_space = 0;
++    color->source_min_pq = min_pq;
++    color->source_max_pq = max_pq;
++    r->graphics->num_ext_blocks = 1;
++    AVDOVIDmData *l1 = av_dovi_get_ext(r->graphics, 0);
++    memset(l1, 0, sizeof(*l1));
++    l1->level = 1;
++    l1->l1.min_pq = min_pq;
++    l1->l1.max_pq = max_pq;
++    l1->l1.avg_pq = avg_pq;
++    const struct dvbridge_geometry geometry = {3840, 2160, 0, 0, 3840, 2160};
++    r->pending = dvbridge_prepare(r->context, r->graphics, r->graphics_size, pts, geometry, false);
++    r->ready = r->pending != NULL;
++    return r->ready;
++}
++
+ const struct dvbridge_candidate *dvbridge_render_candidate(const struct dvbridge_renderer *r)
+ {
+     return r && r->ready ? r->pending : NULL;
+diff --git a/tools/dvbridge/dvbridge_render.h b/tools/dvbridge/dvbridge_render.h
+index 8d9c711..9f31eb3 100644
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -28,6 +28,10 @@ pl_tex dvbridge_render_texture(const struct dvbridge_renderer *renderer);
+ /* Quantize the composed PQ image without applying tone mapping again. */
+ bool dvbridge_render_hdr10(struct dvbridge_renderer *renderer, pl_tex target,
+                           bool flip_y, bool limited, unsigned bits);
++/* Candidate for a graphics-only frame (no video): static metadata from 12-bit PQ codes. The frame
++ * itself is packed by the caller (dvbridge_gl_pack_graphics). */
++bool dvbridge_render_graphics(struct dvbridge_renderer *renderer, unsigned min_pq, unsigned max_pq,
++                              unsigned avg_pq, double pts);
+ const struct dvbridge_candidate *dvbridge_render_candidate(const struct dvbridge_renderer *renderer);
+ bool dvbridge_render_commit(struct dvbridge_renderer *renderer);
+ #endif
+diff --git a/tools/dvbridge/pack_gles300.frag b/tools/dvbridge/pack_gles300.frag
+index 56e8158..1695dbd 100644
+--- a/tools/dvbridge/pack_gles300.frag
++++ b/tools/dvbridge/pack_gles300.frag
+@@ -8,6 +8,15 @@ uniform uvec4 metadata_words[128];
+ uniform uint packet_count;
+ uniform uint flip_y;
+ uniform vec3 ipt_offset;
++// Nonzero: pq_input is Kodi's GUI framebuffer (sRGB BT.709, bottom-up rows), drawn over black with
++// its white at graphics_peak (fraction of 10000 cd/m2), as the GUI composite does over video.
++uniform uint graphics;
++uniform float graphics_peak;
++// Menu look: saturation (1 = as authored), gamma (0 sRGB, 1 2.2, 2 2.4), wide colour (the GUI's
++// BT.709 values shown on BT.2020 primaries, like a TV's vivid colour mode).
++uniform float graphics_saturation;
++uniform uint graphics_gamma;
++uniform uint graphics_wide;
+ out vec4 color;
+ 
+ // IPT-PQ-c2, as Dolby Vision hardware sends in TV-led mode. The matrices are the exact inverses of
+@@ -28,6 +37,24 @@ vec3 dv_ipt_codes(vec3 rgb, vec3 offset) {
+     return clamp(floor(ipt * 4096.0 + offset + 0.5), 0.0, 4095.0);
+ }
+ 
++const mat3 BT2020_FROM_BT709 = mat3(0.6274, 0.0691, 0.0164, 0.3293, 0.9195, 0.0880, 0.0433, 0.0114, 0.8956);
++vec3 graphics_pq(vec4 gui) {
++    vec3 c = clamp(gui.rgb, 0.0, 1.0);
++    vec3 linear = graphics_gamma == 0u
++        ? mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c))
++        : pow(c, vec3(graphics_gamma == 1u ? 2.2 : 2.4));
++    float luma = dot(linear, vec3(0.2126, 0.7152, 0.0722));
++    linear = max(mix(vec3(luma), linear, graphics_saturation), 0.0);
++    vec3 rgb = graphics_wide != 0u ? linear : BT2020_FROM_BT709 * linear;
++    // Never above the white level the metadata signals.
++    return dv_pq_oetf(min(rgb, vec3(1.0)) * graphics_peak) * gui.a;
++}
++vec3 fetch_pq(ivec2 p) {
++    if (graphics == 0u)
++        return texelFetch(pq_input, p, 0).rgb;
++    return graphics_pq(texelFetch(pq_input, ivec2(p.x, 2159 - p.y), 0));
++}
++
+ uint parity(uint value)
+ {
+     value ^= value >> 16u;
+@@ -45,8 +72,8 @@ void main()
+     ivec2 q = ivec2(p.x & ~1, p.y);
+     // Co-sited 4:2:2 in IPT: P and T come from the even pixel of each pair (I from every pixel).
+     // Measured against Dolby hardware (Amlogic S928X and S7D TV-led output).
+-    vec3 self_k = dv_ipt_codes(texelFetch(pq_input, p, 0).rgb, ipt_offset);
+-    vec3 even_k = (p.x & 1) == 0 ? self_k : dv_ipt_codes(texelFetch(pq_input, q, 0).rgb, ipt_offset);
++    vec3 self_k = dv_ipt_codes(fetch_pq(p), ipt_offset);
++    vec3 even_k = (p.x & 1) == 0 ? self_k : dv_ipt_codes(fetch_pq(q), ipt_offset);
+     uint y = uint(self_k.x);
+     uint c = uint((p.x & 1) == 0 ? even_k.y : even_k.z);
+     uint index = uint(p.y * 3840 + p.x);
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index 6aab28a..b731e9f 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -31,6 +31,59 @@ inline void SelectOutputSettings()
+   playbackMatchHardware.store(!settings || settings->GetBool("dvbridge.matchhardware"));
+ }
+ 
++// GUI white in the menu output (dvbridge.menubrightness). Read live, as the setting can change while
++// the menu is shown.
++inline float MenuWhiteNits()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int nits = settings ? settings->GetInt("dvbridge.menubrightness") : 400;
++  switch (nits)
++  {
++    case 203:
++    case 300:
++    case 500:
++    case 600:
++    case 800:
++      return static_cast<float>(nits);
++    default:
++      return 400.0f;
++  }
++}
++
++// Read live: the menu output follows the settings without a playback.
++inline bool MenuModeEnabled()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  return settings && settings->GetBool("dvbridge.menumode") &&
++         settings->GetInt("dvbridge.outputmode") == static_cast<int>(OutputMode::Standard);
++}
++
++// Menu look (Dolby Vision menu only), read live like the brightness.
++inline float MenuSaturation()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int percent = settings ? settings->GetInt("dvbridge.menusaturation") : 100;
++  return percent >= 50 && percent <= 200 ? percent / 100.0f : 1.0f;
++}
++
++inline unsigned MenuGamma()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int gamma = settings ? settings->GetInt("dvbridge.menugamma") : 0;
++  return gamma >= 0 && gamma <= 2 ? static_cast<unsigned>(gamma) : 0u;
++}
++
++inline bool MenuWideColour()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  return settings && settings->GetBool("dvbridge.menuwidecolour");
++}
++
+ inline bool EnhancedInfoEnabled()
+ {
+   const auto component = CServiceBroker::GetSettingsComponent();
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h
+index c2ea10b..94226d9 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h
+@@ -21,4 +21,7 @@ bool WantsNativeOutput(const VideoPicture* picture);
+ // window system can leave the mode change for the bridge's first commit (one HDMI change).
+ void ExpectNativeOutput(bool expected);
+ bool NativeOutputExpected();
++// Set around any refresh-rate switch made for a video stream.
++void ExpectVideoModeset(bool expected);
++bool VideoModesetExpected();
+ } // namespace DVBRIDGE
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index 5bd3f8e..a6a247a 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -4468,10 +4468,12 @@ bool CVideoPlayer::OpenVideoStream(CDVDStreamInfo& hint, bool reset)
+       RESOLUTION res = CResolutionUtils::ChooseBestResolution(static_cast<float>(framerate), hint.width, hint.height, !hint.stereo_mode.empty(), nativeDV);
+ #ifdef HAVE_DVBRIDGE
+       DVBRIDGE::ExpectNativeOutput(nativeDV);
++      DVBRIDGE::ExpectVideoModeset(true);
+ #endif
+       CServiceBroker::GetWinSystem()->GetGfxContext().SetVideoResolution(res, false);
+ #ifdef HAVE_DVBRIDGE
+       DVBRIDGE::ExpectNativeOutput(false);
++      DVBRIDGE::ExpectVideoModeset(false);
+ #endif
+       m_renderManager.TriggerUpdateResolution(framerate, hint.width, hint.height, hint.stereo_mode,
+                                               nativeDV);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 5409a7e..2076417 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -20,6 +20,7 @@ extern "C"
+ 
+ #include <EGL/egl.h>
+ #include <algorithm>
++#include <cmath>
+ #include <GLES3/gl3.h>
+ #include <limits>
+ #include <mutex>
+@@ -40,6 +41,24 @@ void BackendLog(void*, pl_log_level level, const char* message)
+ }
+ }
+ 
++namespace
++{
++unsigned PQCode(float nits)
++{
++  const double y = std::pow(std::clamp(static_cast<double>(nits) / 10000.0, 0.0, 1.0), 2610.0 / 16384);
++  const double e = std::pow((3424.0 / 4096 + 2413.0 / 128 * y) / (1 + 2392.0 / 128 * y), 2523.0 / 32);
++  return static_cast<unsigned>(std::lround(e * 4095));
++}
++
++void SetIptOffset(dvbridge_renderer* renderer, dvbridge_gl_packer* packer)
++{
++  static constexpr float zero[3] = {0.0f, 0.0f, 0.0f};
++  const float* offset = DVBRIDGE::playbackMatchHardware.load() ? DVBRIDGE::kHardwareIptOffset : zero;
++  dvbridge_renderer_set_ipt_offset(renderer, offset);
++  dvbridge_gl_packer_set_ipt_offset(packer, offset);
++}
++} // namespace
++
+ bool CDVBridgeGLES::Failure(const char* stage)
+ {
+   if (DVBRIDGE::DiagnosticsEnabled() && m_failures.Record(DVBRIDGE::DiagnosticNowMs(), stage))
+@@ -152,12 +171,7 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+     return Failure("renderer-unavailable");
+   if (!metadata.Data())
+     return Failure("metadata-unavailable");
+-  {
+-    static constexpr float zero[3] = {0.0f, 0.0f, 0.0f};
+-    const float* offset = DVBRIDGE::playbackMatchHardware.load() ? DVBRIDGE::kHardwareIptOffset : zero;
+-    dvbridge_renderer_set_ipt_offset(m_renderer, offset);
+-    dvbridge_gl_packer_set_ipt_offset(m_packer, offset);
+-  }
++  SetIptOffset(m_renderer, m_packer);
+   dvbridge_gl_frame bl{}, el{};
+   if (!dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
+     return Failure("base-import");
+@@ -348,6 +362,39 @@ bool CDVBridgeGLES::ResolveHDR10(bool limited)
+   return m_packed || Failure("hdr10-resolve");
+ }
+ 
++bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
++{
++  m_prepared = m_packed = false;
++  m_direct = false;
++  m_pendingInfo = 0;
++  if (!m_renderer || !m_packer || m_hdr10)
++    return Failure("graphics-unavailable");
++  SetIptOffset(m_renderer, m_packer);
++  // 0.005 cd/m2 black (the spec's default source minimum, as Amlogic's graphics minimum). The
++  // average follows the static-metadata convention of midway between the scene limits.
++  const unsigned black = PQCode(0.005f);
++  const unsigned white = PQCode(whiteNits);
++  m_graphicsWhite = whiteNits;
++  m_prepared = white > black &&
++               dvbridge_render_graphics(m_renderer, black, white, (black + white) / 2, pts);
++  return m_prepared || Failure("graphics-prepare");
++}
++
++bool CDVBridgeGLES::PackGraphics(unsigned int guiTexture, unsigned int framebuffer, int width,
++                                 int height, bool flipY, float saturation, unsigned gamma,
++                                 bool wideColour)
++{
++  m_packed = false;
++  if (!m_prepared)
++    return Failure("pack-without-prepared-graphics");
++  unsigned int count;
++  const auto* packets = dvbridge_packets(dvbridge_render_candidate(m_renderer), &count);
++  const dvbridge_graphics_style style{m_graphicsWhite, saturation, gamma, wideColour};
++  m_packed = dvbridge_gl_pack_graphics(m_packer, guiTexture, framebuffer, width, height, packets,
++                                       count, flipY, &style);
++  return m_packed || Failure("graphics-pack");
++}
++
+ unsigned int CDVBridgeGLES::GetPQFramebuffer()
+ {
+   const auto texture = GetPQTexture();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index 389389f..8f1e93f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -43,6 +43,11 @@ public:
+   unsigned int GetPQFramebuffer();
+   bool Pack(unsigned int framebuffer, int width, int height, bool flipY);
+   bool ResolveHDR10(bool limited);
++  // Graphics only (no video): static metadata for a GUI whose white is at whiteNits, then the
++  // transport packed directly from the sRGB GUI texture.
++  bool PrepareGraphics(float whiteNits, double pts);
++  bool PackGraphics(unsigned int guiTexture, unsigned int framebuffer, int width, int height,
++                    bool flipY, float saturation, unsigned gamma, bool wideColour);
+   bool Presented(bool success);
+ 
+ private:
+@@ -54,6 +59,7 @@ private:
+   bool m_firstFrame{true};
+   bool m_hdr10{false};
+   unsigned m_outputBits{8};
++  float m_graphicsWhite{0.0f};
+   // All methods, including destruction, require the owning GL context/thread.
+   pl_opengl m_gl = nullptr;
+   pl_log m_log = nullptr;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+index 7452e6c..b3e8576 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+@@ -824,10 +824,12 @@ void CRenderManager::UpdateResolution()
+             m_fps, m_picture.iWidth, m_picture.iHeight, !m_picture.stereoMode.empty(), m_nativeDVRate);
+ #ifdef HAVE_DVBRIDGE
+         DVBRIDGE::ExpectNativeOutput(m_nativeDVRate);
++        DVBRIDGE::ExpectVideoModeset(true);
+ #endif
+         CServiceBroker::GetWinSystem()->GetGfxContext().SetVideoResolution(res, false);
+ #ifdef HAVE_DVBRIDGE
+         DVBRIDGE::ExpectNativeOutput(false);
++        DVBRIDGE::ExpectVideoModeset(false);
+ #endif
+         UpdateLatencyTweak();
+         if (m_pRenderer)
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index db24790..b46cf55 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -44,6 +44,8 @@ extern "C"
+ #include <cstring>
+ #ifdef HAVE_DVBRIDGE
+ #include "ServiceBroker.h"
++#include "application/ApplicationComponents.h"
++#include "application/ApplicationPlayer.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
+@@ -55,6 +57,7 @@ extern "C"
+ #include "windowing/GraphicContext.h"
+ 
+ #include <atomic>
++#include <chrono>
+ #endif
+ 
+ #include <gbm.h>
+@@ -141,17 +144,25 @@ bool CWinSystemGbmGLESContext::SetFullScreen(bool fullScreen,
+   // stream that will use native output leaves the mode to the bridge's first commit. Both
+   // happen in CompleteModeset().
+   const bool sameSize = res.iWidth == m_nWidth && res.iHeight == m_nHeight;
++  // The menu output stays through a refresh change, except one for a video that will not use
++  // native output: that restores the signal in the mode change, as a held stop does.
++  const bool keepMenu = m_dvMenu && sameSize &&
++                        (DVBRIDGE::NativeOutputExpected() || !DVBRIDGE::VideoModesetExpected());
++  if (m_dvMenu && sameSize && !keepMenu)
++    m_dvExitPending = true;
++  m_dvMenuFailed = false;
+   m_dvRestoreWithModeset = m_dvExitPending && sameSize;
+   m_dvExitPending = false;
+-  if (!m_dvRestoreWithModeset)
++  if (!m_dvRestoreWithModeset && !keepMenu)
+   {
+     if (!EndDVBridge())
+       return false;
+     m_dvBridge.reset();
+   }
+-  m_dvModesetDeferred = !m_dvRestoreWithModeset && sameSize && res.iWidth == 3840 &&
++  m_dvMenuModeset = keepMenu;
++  m_dvModesetDeferred = !keepMenu && !m_dvRestoreWithModeset && sameSize && res.iWidth == 3840 &&
+                         res.iHeight == 2160 && DVBRIDGE::NativeOutputExpected();
+-  swap = !m_dvRestoreWithModeset && !m_dvModesetDeferred;
++  swap = !m_dvRestoreWithModeset && !m_dvModesetDeferred && !keepMenu;
+ #endif
+   if (res.iWidth != m_nWidth || res.iHeight != m_nHeight)
+   {
+@@ -235,6 +246,12 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+     sendPendingDisplayReset();
+     return;
+   }
++  if (m_dvMenu)
++  {
++    PresentDVMenu(rendered);
++    sendPendingDisplayReset();
++    return;
++  }
+   if (m_dvState.Captured())
+   {
+     bool presented = false;
+@@ -329,6 +346,11 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+ 
+ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+ {
++#ifdef HAVE_DVBRIDGE
++  // Renderer teardown turns compositing off; the menu output still needs it.
++  if (m_dvMenu && colorTransfer == 0)
++    return m_guiCompositing;
++#endif
+   m_guiCompositing = (colorTransfer != 0);
+ 
+   if (m_guiCompositing)
+@@ -373,6 +395,9 @@ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+ 
+ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+ {
++#ifdef HAVE_DVBRIDGE
++  UpdateDVMenu();
++#endif
+   if (!m_guiCompositing)
+     return false;
+ 
+@@ -632,6 +657,21 @@ bool DVBRIDGE::NativeOutputExpected()
+   return nativeOutputExpected.load();
+ }
+ 
++namespace
++{
++std::atomic<bool> videoModesetExpected{false};
++} // namespace
++
++void DVBRIDGE::ExpectVideoModeset(bool expected)
++{
++  videoModesetExpected = expected;
++}
++
++bool DVBRIDGE::VideoModesetExpected()
++{
++  return videoModesetExpected.load();
++}
++
+ bool DVBRIDGE::WantsNativeOutput(const VideoPicture* picture)
+ {
+   return picture && NativeDVEligible(picture->doviMetadata.Data() != nullptr, false,
+@@ -749,11 +789,23 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+ 
+ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
+ {
++  m_dvVideo = picture != nullptr;
+   // A stop held for the refresh restore (EndDVBridgeAtStop) keeps the signal through renderer
+   // teardown while the surface keeps its depth; it is restored in the refresh change.
+-  const bool keepHeldStop =
+-      m_dvExitPending && !picture && VideoOutputBitDepth(picture) == GetOutputBitDepth();
+-  if (!keepHeldStop)
++  const bool sameDepth = VideoOutputBitDepth(picture) == GetOutputBitDepth();
++  const bool keepHeldStop = m_dvExitPending && !picture && sameDepth;
++  // The menu output continues into native DV video, and through the teardown that handed it back.
++  const bool keepMenu = m_dvMenu && sameDepth &&
++                        (!picture || (DVBridgeRequested(picture) &&
++                                      DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard));
++  if (keepMenu && picture)
++  {
++    m_dvMenu = false;
++    m_dvMenuModeset = false;
++    m_dvBridge->Reset();
++    CLog::Log(LOGINFO, "DVBridge: menu output handed to the video");
++  }
++  else if (!keepHeldStop && !keepMenu)
+   {
+     // Restore with the current surface before EGL replaces its buffers.
+     if ((m_dvState.Captured() || m_hdrConversion) && !EndDVBridge())
+@@ -784,6 +836,8 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+ bool CWinSystemGbmGLESContext::EndDVBridge()
+ {
+   m_dvExitPending = false;
++  m_dvMenu = false;
++  m_dvMenuModeset = false;
+   if (m_hdrDeepColorPrevious)
+   {
+     auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
+@@ -839,6 +893,16 @@ bool CWinSystemGbmGLESContext::EndDVBridge()
+ 
+ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+ {
++  // The menu output continues; a refresh restore is carried by its next frame.
++  if (m_dvState.Captured() && !m_hdrConversion && m_dvBridge && !m_dvMenuFailed &&
++      DVBRIDGE::MenuModeEnabled())
++  {
++    m_dvMenu = true;
++    m_dvFrame = false;
++    m_dvBridge->Reset();
++    CLog::Log(LOGINFO, "DVBridge: output handed back to the menu");
++    return true;
++  }
+   // Kodi restores the desktop refresh rate right after a stop when it switched for the video.
+   // Keep the DV signal (and the last frame) until then, so the restore is one HDMI change.
+   // Only Standard DV: HDR10 conversion keeps its deep-colour policy, which a later
+@@ -877,6 +941,11 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
+     CLog::Log(LOGINFO, "DVBridge: signal restored in the refresh change");
+     return true;
+   }
++  if (m_dvMenuModeset)
++  {
++    CLog::Log(LOGINFO, "DVBridge: refresh change left to the next menu frame");
++    return true;
++  }
+   if (m_dvModesetDeferred)
+   {
+     // The bridge's first commit carries the mode (see PresentRender).
+@@ -887,6 +956,94 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
+   return CWinSystemGbm::CompleteModeset();
+ }
+ 
++void CWinSystemGbmGLESContext::UpdateDVMenu()
++{
++  const bool enabled = DVBRIDGE::MenuModeEnabled();
++  if (m_dvMenu)
++  {
++    if (!enabled && EndDVBridge())
++      m_dvBridge.reset();
++    return;
++  }
++  if (!enabled)
++  {
++    m_dvMenuFailed = false;
++    return;
++  }
++  if (m_dvMenuFailed || m_dvVideo || m_dvState.Captured() || m_hdrConversion ||
++      m_dvModesetDeferred || m_dvRestoreWithModeset || !SupportsNativeDVOutput())
++    return;
++  const auto& components = CServiceBroker::GetAppComponents();
++  const auto player = components.GetComponent<CApplicationPlayer>();
++  if (player && player->IsPlaying())
++    return;
++  if (!BeginDVMenu())
++  {
++    m_dvMenuFailed = true;
++    CLog::Log(LOGWARNING, "DVBridge: menu output unavailable");
++  }
++}
++
++bool CWinSystemGbmGLESContext::BeginDVMenu()
++{
++  auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  if (!drm || m_nWidth != 3840 || m_nHeight != 2160 || GetOutputBitDepth() != 8 ||
++      m_renderableType != EGL_OPENGL_ES3_BIT)
++    return false;
++  m_dvBridge = std::make_unique<CDVBridgeGLES>();
++  if (!m_dvBridge->Initialize(false, false) || !m_dvState.Capture(*drm))
++  {
++    m_dvBridge.reset();
++    return false;
++  }
++  m_compositeShader.reset();
++  if (!SetGuiCompositing(AVCOL_TRC_SMPTE2084))
++  {
++    // Nothing was committed yet.
++    m_dvState.Restored();
++    m_dvBridge.reset();
++    return false;
++  }
++  m_dvMenu = true;
++  m_dvMenuModeset = false;
++  CLog::Log(LOGINFO, "DVBridge: menu output started (graphics white {} cd/m2)",
++            DVBRIDGE::MenuWhiteNits());
++  return true;
++}
++
++void CWinSystemGbmGLESContext::PresentDVMenu(bool rendered)
++{
++  // Without a new GUI frame the scanout keeps the last one, metadata included.
++  if (!rendered && !m_dvMenuModeset)
++  {
++    KODI::TIME::Sleep(10ms);
++    return;
++  }
++  const double pts = std::chrono::duration<double>(
++                         std::chrono::steady_clock::now().time_since_epoch())
++                         .count();
++  bool presented = false;
++  if (m_guiFbo.IsValid() && m_dvBridge->PrepareGraphics(DVBRIDGE::MenuWhiteNits(), pts) &&
++      m_dvBridge->PackGraphics(m_guiFbo.Texture(), 0, m_nWidth, m_nHeight, true,
++                                DVBRIDGE::MenuSaturation(), DVBRIDGE::MenuGamma(),
++                                DVBRIDGE::MenuWideColour()))
++  {
++    glFinish();
++    if (m_eglContext.TrySwapBuffers())
++      presented = FlipDVBridgePage(m_dvState, false);
++  }
++  m_dvBridge->Presented(presented);
++  if (presented)
++  {
++    m_dvMenuModeset = false;
++    return;
++  }
++  CLog::Log(LOGWARNING, "DVBridge: menu output failed, restoring the normal display");
++  m_dvMenuFailed = true;
++  if (EndDVBridge())
++    m_dvBridge.reset();
++}
++
+ bool CWinSystemGbmGLESContext::DestroyWindowSystem()
+ {
+   if (!EndDVBridge())
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 2ee01e5..8e7597c 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -107,6 +107,16 @@ private:
+   bool m_dvExitPending = false;
+   bool m_dvRestoreWithModeset = false;
+   XbmcThreads::EndTime<> m_dvExitDeadline;
++  // Menu output (dvbridge.menumode): while no video is shown, the GUI is packed into the DV
++  // transport with static graphics metadata. Native DV video takes this output over and hands it
++  // back at its end; mode changes are carried by the next menu frame (m_dvMenuModeset).
++  void UpdateDVMenu();
++  bool BeginDVMenu();
++  void PresentDVMenu(bool rendered);
++  bool m_dvMenu = false;
++  bool m_dvMenuModeset = false;
++  bool m_dvMenuFailed = false;
++  bool m_dvVideo = false;
+ #endif
+ };
+ 
