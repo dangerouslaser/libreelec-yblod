@@ -5,10 +5,10 @@
 PKG_NAME="kodi"
 PKG_VERSION="22.0rc1-Piers"
 PKG_SHA256="21daa839b978ff3fc6a7a058717fe9232f1ae4087d492b31c288eeffb2a7a447"
-PKG_LICENSE="GPL-2.0-or-later"
+PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre2 swig:host libass curl exiv2 fontconfig fribidi tinyxml tinyxml2 libjpeg-turbo freetype libcdio taglib libxml2 libxslt nlohmann-json sqlite ffmpeg crossguid libdvdnav libfmt libfstrcmp flatbuffers:host flatbuffers libudfread spdlog libxkbcommon"
+PKG_DEPENDS_TARGET="toolchain libplacebo JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre2 swig:host libass curl exiv2 fontconfig fribidi tinyxml tinyxml2 libjpeg-turbo freetype libcdio taglib libxml2 libxslt nlohmann-json sqlite ffmpeg crossguid libdvdnav libfmt libfstrcmp flatbuffers:host flatbuffers libudfread spdlog libxkbcommon"
 PKG_DEPENDS_UNPACK="commons-lang3 commons-text groovy"
 PKG_DEPENDS_HOST="toolchain"
 PKG_LONGDESC="A free and open source cross-platform media player."
@@ -250,7 +250,7 @@ configure_package() {
                -DLIBDVDREAD_URL=${SOURCES}/libdvdread/libdvdread-$(get_pkg_version libdvdread).tar.xz \
                -DLIBDVDREAD_HASH=SHA256=$(get_pkg_variable libdvdread PKG_SHA256)"
 
-  PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=${TOOLCHAIN} \
+  PKG_CMAKE_OPTS_TARGET="-DENABLE_DVBRIDGE=ON -DNATIVEPREFIX=${TOOLCHAIN} \
                          -DWITH_TEXTUREPACKER=${TOOLCHAIN}/bin/TexturePacker \
                          -DWITH_JSONSCHEMABUILDER=${TOOLCHAIN}/bin/JsonSchemaBuilder \
                          -DSWIG_EXECUTABLE=${TOOLCHAIN}/bin/swig \
@@ -327,6 +327,9 @@ makeinstall_host() {
 }
 
 pre_configure_target() {
+  # Keep source-location diagnostics useful without embedding build-host paths.
+  export CFLAGS+=" -ffile-prefix-map=${ROOT}=/usr/src/libreelec"
+  export CXXFLAGS+=" -ffile-prefix-map=${ROOT}=/usr/src/libreelec"
   export LIBS="${LIBS} -lncurses"
   if [ "${TARGET_ARCH}" = "arm" ]; then
     LDFLAGS+=" -Wl,--allow-shlib-undefined"
