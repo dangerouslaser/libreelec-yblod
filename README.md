@@ -2,7 +2,7 @@
 
 **An unofficial LibreELEC build with native Dolby Vision for Intel HDMI systems.**
 
-yblod ("dolby" backwards) is a personal LibreELEC build for Intel PCs. It is **not** an official
+yblod is a personal LibreELEC build for Intel PCs. It is **not** an official
 LibreELEC release and is not affiliated with or supported by LibreELEC, Kodi, Dolby or Intel.
 Please report problems here, not to those projects.
 
@@ -15,6 +15,12 @@ Please report problems here, not to those projects.
   - one HDMI mode change per Dolby Vision start/stop, instead of several
   - audio engine handles a lost/reset display in every state (fewer silent-audio cases)
   - black picture fixed on live 10-bit TV channels decoded with VAAPI
+- **Quick Sync enhancement-layer offload** (in development for 0.1): Profile 7 FEL playback scales the
+  enhancement layer on the Intel media engine (Quick Sync, via VA-API) instead of in shaders. On an
+  i5-1135G7 this cut GPU render load during FEL playback from about 53% to about 13%, with no dropped
+  frames, and the HDMI output stays within about one 12-bit code of the shader path. It is aimed at
+  making FEL playable on smaller Intel GPUs. It can be switched off, and falls back to the shader path
+  automatically when the media engine or driver can't do it.
 - **Updates come from this repository only.** The LibreELEC update settings list yblod releases
   (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
   update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
