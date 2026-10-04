@@ -139,6 +139,10 @@ Download the `.tar` from [Releases](https://github.com/dangerouslaser/libreelec-
 The build runs in LibreELEC's Docker build environment. `tools/yblod/build.sh <version>` builds an image with
 a memory cap (see the script for details).
 
+## Branches and releases
+
+How this repository tracks LibreELEC and how releases are made: [docs/yblod/BRANCHES.md](docs/yblod/BRANCHES.md).
+
 ## Source and licences
 
 Everything needed to rebuild a release is public: this repository (LibreELEC plus all changes) at the release
