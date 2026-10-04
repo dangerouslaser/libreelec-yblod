@@ -23,6 +23,10 @@ Please report problems here, not to those projects.
   automatically when the media engine or driver can't do it.
 - **Picture matched to Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
   4:2:2 packing and Gaussian chroma upsampling (see below).
+- **Seamless refresh rate changes (QMS-VRR)**: on TVs with HDMI 2.1 Quick Media Switching, a change between
+  24, 25, 30, 50 and 60 Hz (and 23.976, 29.97, 59.94) no longer blanks the screen (see below).
+- **Dolby Vision menu** (optional): the menu is sent in Dolby Vision too, so a Dolby Vision film starts without
+  the TV switching picture format. With QMS, starting and stopping a Dolby Vision film causes no blackout at all.
 - **Updates come from this repository only.** The LibreELEC update settings list yblod releases
   (Settings > LibreELEC > Updates). The automatic check never offers official LibreELEC builds, so an
   update cannot silently replace this build. Add-ons still come from the normal LibreELEC add-on repository.
@@ -56,6 +60,23 @@ Amlogic, TV-led) by capturing both devices' HDMI signal and comparing them frame
 That puts the typical pixel within one code of Dolby's own hardware, below what is visible. Details, method
 and tools: [docs/yblod/ACCURACY.md](docs/yblod/ACCURACY.md).
 
+## Seamless refresh rate changes (QMS)
+
+Normally a refresh rate change (60 Hz menu to a 23.976 Hz film) is a new HDMI mode, and the TV blanks for a
+second or more. HDMI 2.1 Quick Media Switching avoids that: the source keeps the 60 Hz timing and only lengthens
+the blank interval between frames, and announces the new rate to the TV beforehand, so the TV changes rate
+without losing the picture.
+
+yblod does this in the kernel when the TV supports QMS (read from the TV's EDID; nothing to set):
+
+- 1920x1080 and 3840x2160 at 23.976, 24, 25, 29.97, 30, 47.95, 48, 50, 59.94 and 60 Hz.
+- SDR and Dolby Vision. HDR10 and other deep colour output keeps its own timing (at 2160p the 60 Hz link has no
+  room for 10-bit colour), so those still switch normally.
+- Tested on an LG TV with an Intel Core i5-1135G7. It can be turned off with the kernel option `i915.qms=0`.
+
+Kodi chooses refresh rates from the whitelist (Settings > System > Display > Whitelist). Left empty, Kodi uses
+every rate the TV reports at the desktop resolution, which is the best choice with QMS.
+
 ## Dolby Vision settings
 
 Player > Videos > Dolby Vision:
@@ -64,6 +85,10 @@ Player > Videos > Dolby Vision:
   Intel media engine; *Enhancement layer and colour* also upsamples base layer colour there (lighter on the
   GPU, slightly less accurate colour edges); *Off* uses the GPU shaders only.
 - **Match Dolby hardware levels** (default on): applies the small constant offset measured on Dolby hardware.
+- **Dolby Vision for the menu** (default off): keeps the Dolby Vision output on while the menu is shown, so
+  Dolby Vision films start and stop without the TV switching picture format. Needs a 3840x2160 desktop.
+- **Dolby Vision menu brightness** (default 400 nits): white level of the menu in Dolby Vision, from 203 nits
+  (HDR reference white, as the on-screen display over films) to 800 nits.
 
 ## How playback works
 
