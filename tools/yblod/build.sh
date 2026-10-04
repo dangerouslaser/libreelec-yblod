@@ -5,18 +5,18 @@
 # is used by other services). The container is capped at 12 GB with no swap: if the build runs
 # out of memory, the compiler inside the container is killed and the host keeps running
 # (an uncapped build took the whole host down on 2026-10-01). The build starts with many jobs
-# (10: about 0.8 GB per Kodi compiler, ~8.5 GB) and only steps down when it was killed for memory; LibreELEC builds are incremental, so a
+# (7: Kodi compilers use 1.0-1.4 GB each with LTO, ~9 GB) and only steps down when it was killed for memory; LibreELEC builds are incremental, so a
 # retry resumes where it stopped.
 #
 # usage: tools/yblod/build.sh <version>        e.g. tools/yblod/build.sh 0.1
-# env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("10 8 6")
+# env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3")
 set -u
 V=${1:?usage: tools/yblod/build.sh <version>}
 T=$(cd "$(dirname "$0")/../.." && pwd)
 IMAGE=${BUILD_IMAGE:-libreelec-dv-build}
 MEM=${BUILD_MEMORY:-12g}
 LOG="$T/build-yblod-$V.log"
-for JOBS in ${BUILD_JOBS:-10 8 6}; do
+for JOBS in ${BUILD_JOBS:-7 5 3}; do
   echo "== $(date '+%F %T') yblod-$V: $JOBS jobs, $MEM memory cap" | tee -a "$LOG"
   docker run --rm --name yblod-build --cpu-shares 256 --memory "$MEM" --memory-swap "$MEM" \
     -v "$T":/build -w /build \
