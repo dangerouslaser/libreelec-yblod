@@ -118,7 +118,7 @@ a memory cap (see the script for details).
 
 Everything needed to rebuild a release is public: this repository (LibreELEC plus all changes) at the release
 tag, and the upstream source archives it downloads. The Dolby Vision engine's documentation, licences and
-notices are kept in [docs/intel-dv](docs/intel-dv) and [licenses/intel-dv](licenses/intel-dv). LibreELEC's own
+notices are kept in [docs/intel-dv](docs/intel-dv) and licenses/ (files prefixed `intel-dv-`). LibreELEC's own
 licences are in [licenses](licenses).
 
 Dolby, Dolby Vision and the double-D symbol are trademarks of Dolby Laboratories. LibreELEC is a trademark of
