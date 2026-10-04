@@ -87,8 +87,10 @@ Player > Videos > Dolby Vision:
 - **Match Dolby hardware levels** (default on): applies the small constant offset measured on Dolby hardware.
 - **Dolby Vision for the menu** (default off): keeps the Dolby Vision output on while the menu is shown, so
   Dolby Vision films start and stop without the TV switching picture format. Needs a 3840x2160 desktop.
-- **Dolby Vision menu brightness** (default 400 nits): white level of the menu in Dolby Vision, from 203 nits
-  (HDR reference white, as the on-screen display over films) to 800 nits.
+- **Menu brightness, saturation, gamma and wide colour** (menu only): how the Dolby Vision menu looks. Brightness
+  sets menu white from 203 nits (HDR reference white, as the on-screen display over films) to 800 nits
+  (default 400); saturation 80-150%; gamma sRGB, 2.2 or 2.4 for more contrast; wide colour shows the menu on the
+  TV's full colour range, like a vivid mode. Films and the on-screen display over films are never affected.
 
 ## How playback works
 

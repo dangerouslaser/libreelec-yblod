@@ -1,8 +1,8 @@
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
-index 58636b2..906529f 100644
+index 58636b2..61b8436 100644
 --- a/addons/resource.language.en_gb/resources/strings.po
 +++ b/addons/resource.language.en_gb/resources/strings.po
-@@ -25875,3 +25875,53 @@ msgstr ""
+@@ -25875,3 +25875,133 @@ msgstr ""
  msgctxt "#40836"
  msgid "Apply the small constant signal offset measured on Dolby Vision hardware players (Amlogic, TV-led), so the picture matches them as closely as possible. Disable for the exact mathematical conversion. Applies to the next video."
  msgstr ""
@@ -14,17 +14,17 @@ index 58636b2..906529f 100644
 +
 +#: system/settings/settings.xml
 +msgctxt "#40838"
-+msgid "Keep the Dolby Vision output on while the menu is shown, so Dolby Vision videos start without the TV switching picture format. Needs a 3840x2160 desktop resolution. Other videos switch the output back to their own format."
++msgid "Keep the Dolby Vision output on while the menu is shown, so Dolby Vision videos start without the TV switching picture format. Needs a 3840x2160 desktop resolution. Other videos switch the output back to their own format. The menu settings below change only how the menu looks."
 +msgstr ""
 +
 +#: system/settings/settings.xml
 +msgctxt "#40839"
-+msgid "Dolby Vision menu brightness"
++msgid "Menu brightness"
 +msgstr ""
 +
 +#: system/settings/settings.xml
 +msgctxt "#40840"
-+msgid "Brightness of white in the Dolby Vision menu. 203 nits is the HDR reference white the on-screen display uses over videos; Dolby Vision players use about 300 nits for their menus. Higher levels suit bright rooms."
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Brightness of white in the menu. 203 nits is the HDR reference white the on-screen display uses over videos; Dolby Vision players use about 300 nits for their menus. Higher levels suit bright rooms."
 +msgstr ""
 +
 +#: system/settings/settings.xml
@@ -56,11 +56,91 @@ index 58636b2..906529f 100644
 +msgctxt "#40846"
 +msgid "800 nits"
 +msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40847"
++msgid "Menu saturation"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40848"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Colour saturation of the menu. 100% shows the skin's colours as authored."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40849"
++msgid "80%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40850"
++msgid "90%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40851"
++msgid "100%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40852"
++msgid "110%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40853"
++msgid "120%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40854"
++msgid "130%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40855"
++msgid "150%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40856"
++msgid "Menu gamma"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40857"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. How dark the darker greys of the menu look. sRGB is the flattest; 2.4 gives the deepest shadows and the most contrast."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40858"
++msgid "sRGB"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40859"
++msgid "2.2"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40860"
++msgid "2.4"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40861"
++msgid "Menu wide colour"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40862"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Show the menu's colours on the TV's full wide colour range instead of accurate standard colours, like a TV's vivid colour mode."
++msgstr ""
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 7c1d467..2d7590e 100755
+index 7c1d467..4872569 100755
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -15,6 +15,32 @@
+@@ -15,6 +15,74 @@
            </constraints>
            <control type="spinner" format="string" />
          </setting>
@@ -90,11 +170,53 @@ index 7c1d467..2d7590e 100755
 +          </dependencies>
 +          <control type="spinner" format="string" />
 +        </setting>
++        <setting id="dvbridge.menusaturation" type="integer" label="40847" help="40848">
++          <level>0</level>
++          <default>100</default>
++          <constraints>
++            <options>
++              <option label="40849">80</option>
++              <option label="40850">90</option>
++              <option label="40851">100</option>
++              <option label="40852">110</option>
++              <option label="40853">120</option>
++              <option label="40854">130</option>
++              <option label="40855">150</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menugamma" type="integer" label="40856" help="40857">
++          <level>0</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="40858">0</option>
++              <option label="40859">1</option>
++              <option label="40860">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menuwidecolour" type="boolean" label="40861" help="40862">
++          <level>0</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
          <setting id="dvbridge.enhancedinfo" type="boolean" label="40816" help="40817">
            <level>0</level>
            <default>true</default>
 diff --git a/tools/dvbridge/dvbridge_gl_pack.c b/tools/dvbridge/dvbridge_gl_pack.c
-index 7a618bd..4e78c0d 100644
+index 7a618bd..d747837 100644
 --- a/tools/dvbridge/dvbridge_gl_pack.c
 +++ b/tools/dvbridge/dvbridge_gl_pack.c
 @@ -7,7 +7,7 @@
@@ -102,23 +224,26 @@ index 7a618bd..4e78c0d 100644
  struct dvbridge_gl_packer {
      GLuint program, vao, sampler;
 -    GLint input, words, count, flip, offset;
-+    GLint input, words, count, flip, offset, graphics, peak;
++    GLint input, words, count, flip, offset, graphics, peak, saturation, gamma, wide;
      float ipt_offset[3];
  };
  
-@@ -57,7 +57,10 @@ struct dvbridge_gl_packer *dvbridge_gl_packer_create(const char *vertex, const c
+@@ -57,7 +57,13 @@ struct dvbridge_gl_packer *dvbridge_gl_packer_create(const char *vertex, const c
      p->count = glGetUniformLocation(p->program, "packet_count");
      p->flip = glGetUniformLocation(p->program, "flip_y");
      p->offset = glGetUniformLocation(p->program, "ipt_offset");
 -    if (!linked || p->input < 0 || p->words < 0 || p->count < 0 || p->flip < 0) {
 +    p->graphics = glGetUniformLocation(p->program, "graphics");
 +    p->peak = glGetUniformLocation(p->program, "graphics_peak");
++    p->saturation = glGetUniformLocation(p->program, "graphics_saturation");
++    p->gamma = glGetUniformLocation(p->program, "graphics_gamma");
++    p->wide = glGetUniformLocation(p->program, "graphics_wide");
 +    if (!linked || p->input < 0 || p->words < 0 || p->count < 0 || p->flip < 0 ||
 +        p->graphics < 0 || p->peak < 0) {
          dvbridge_gl_packer_destroy(p);
          return NULL;
      }
-@@ -80,8 +83,9 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *p)
+@@ -80,8 +86,9 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *p)
      free(p);
  }
  
@@ -126,57 +251,68 @@ index 7a618bd..4e78c0d 100644
 -                     int width, int height, const uint32_t packets[512], unsigned count, bool flip)
 +static bool pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned framebuffer,
 +                 int width, int height, const uint32_t packets[512], unsigned count, bool flip,
-+                 float graphics_peak)
++                 float graphics_peak, const struct dvbridge_graphics_style *style)
  {
      if (!p || !texture || !packets || !count || count > 4 || width != 3840 || height != 2160)
          return false;
-@@ -137,6 +141,8 @@ bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned f
+@@ -137,6 +144,11 @@ bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned f
      glUniform1ui(p->count, count);
      glUniform1ui(p->flip, flip);
      glUniform3fv(p->offset, 1, p->ipt_offset);
 +    glUniform1ui(p->graphics, graphics_peak > 0.0f);
 +    glUniform1f(p->peak, graphics_peak);
++    glUniform1f(p->saturation, style ? style->saturation : 1.0f);
++    glUniform1ui(p->gamma, style ? style->gamma : 0u);
++    glUniform1ui(p->wide, style && style->wide_colour);
      glDrawArrays(GL_TRIANGLES, 0, 3);
      ok = glGetError() == GL_NO_ERROR;
  restore:
-@@ -154,6 +160,23 @@ restore:
+@@ -154,6 +166,24 @@ restore:
      return ok && glGetError() == GL_NO_ERROR;
  }
  
 +bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned framebuffer,
 +                     int width, int height, const uint32_t packets[512], unsigned count, bool flip)
 +{
-+    return pack(p, texture, framebuffer, width, height, packets, count, flip, 0.0f);
++    return pack(p, texture, framebuffer, width, height, packets, count, flip, 0.0f, NULL);
 +}
 +
 +bool dvbridge_gl_pack_graphics(struct dvbridge_gl_packer *p, unsigned gui_texture,
 +                              unsigned framebuffer, int width, int height,
 +                              const uint32_t packets[512], unsigned count, bool flip,
-+                              float white_nits)
++                              const struct dvbridge_graphics_style *style)
 +{
-+    if (!(white_nits > 0.0f && white_nits <= 10000.0f))
++    if (!style || !(style->white_nits > 0.0f && style->white_nits <= 10000.0f) ||
++        !(style->saturation >= 0.0f && style->saturation <= 2.0f) || style->gamma > 2)
 +        return false;
 +    return pack(p, gui_texture, framebuffer, width, height, packets, count, flip,
-+                white_nits / 10000.0f);
++                style->white_nits / 10000.0f, style);
 +}
 +
  void dvbridge_gl_packer_set_ipt_offset(struct dvbridge_gl_packer *p, const float offset[3])
  {
      if (p)
 diff --git a/tools/dvbridge/dvbridge_gl_pack.h b/tools/dvbridge/dvbridge_gl_pack.h
-index 80fbddf..30d6dc0 100644
+index 80fbddf..d7d6ec3 100644
 --- a/tools/dvbridge/dvbridge_gl_pack.h
 +++ b/tools/dvbridge/dvbridge_gl_pack.h
-@@ -11,6 +11,12 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *packer);
+@@ -11,6 +11,19 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *packer);
  bool dvbridge_gl_pack(struct dvbridge_gl_packer *packer, unsigned pq_texture,
                       unsigned framebuffer, int width, int height,
                       const uint32_t packets[512], unsigned count, bool flip_y);
 +/* As dvbridge_gl_pack, from an sRGB BT.709 GUI texture (bottom-up rows, 3840x2160) drawn over
 + * black with its white at white_nits, instead of a PQ BT.2020 texture. */
++/* Look of a graphics-only frame (the menu). */
++struct dvbridge_graphics_style {
++    float white_nits;   /* GUI white */
++    float saturation;   /* 1 = as authored */
++    unsigned gamma;     /* 0 sRGB, 1 2.2, 2 2.4 */
++    bool wide_colour;   /* BT.709 values on BT.2020 primaries */
++};
 +bool dvbridge_gl_pack_graphics(struct dvbridge_gl_packer *packer, unsigned gui_texture,
 +                              unsigned framebuffer, int width, int height,
 +                              const uint32_t packets[512], unsigned count, bool flip_y,
-+                              float white_nits);
++                              const struct dvbridge_graphics_style *style);
  /* Constant I, P, T code offset added to the IPT tunnel signal. */
  void dvbridge_gl_packer_set_ipt_offset(struct dvbridge_gl_packer *packer, const float offset[3]);
  #endif
@@ -267,10 +403,10 @@ index 8d9c711..9f31eb3 100644
  bool dvbridge_render_commit(struct dvbridge_renderer *renderer);
  #endif
 diff --git a/tools/dvbridge/pack_gles300.frag b/tools/dvbridge/pack_gles300.frag
-index 56e8158..b531f69 100644
+index 56e8158..1695dbd 100644
 --- a/tools/dvbridge/pack_gles300.frag
 +++ b/tools/dvbridge/pack_gles300.frag
-@@ -8,6 +8,10 @@ uniform uvec4 metadata_words[128];
+@@ -8,6 +8,15 @@ uniform uvec4 metadata_words[128];
  uniform uint packet_count;
  uniform uint flip_y;
  uniform vec3 ipt_offset;
@@ -278,18 +414,29 @@ index 56e8158..b531f69 100644
 +// its white at graphics_peak (fraction of 10000 cd/m2), as the GUI composite does over video.
 +uniform uint graphics;
 +uniform float graphics_peak;
++// Menu look: saturation (1 = as authored), gamma (0 sRGB, 1 2.2, 2 2.4), wide colour (the GUI's
++// BT.709 values shown on BT.2020 primaries, like a TV's vivid colour mode).
++uniform float graphics_saturation;
++uniform uint graphics_gamma;
++uniform uint graphics_wide;
  out vec4 color;
  
  // IPT-PQ-c2, as Dolby Vision hardware sends in TV-led mode. The matrices are the exact inverses of
-@@ -28,6 +32,18 @@ vec3 dv_ipt_codes(vec3 rgb, vec3 offset) {
+@@ -28,6 +37,24 @@ vec3 dv_ipt_codes(vec3 rgb, vec3 offset) {
      return clamp(floor(ipt * 4096.0 + offset + 0.5), 0.0, 4095.0);
  }
  
 +const mat3 BT2020_FROM_BT709 = mat3(0.6274, 0.0691, 0.0164, 0.3293, 0.9195, 0.0880, 0.0433, 0.0114, 0.8956);
 +vec3 graphics_pq(vec4 gui) {
 +    vec3 c = clamp(gui.rgb, 0.0, 1.0);
-+    vec3 linear = mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
-+    return dv_pq_oetf(BT2020_FROM_BT709 * linear * graphics_peak) * gui.a;
++    vec3 linear = graphics_gamma == 0u
++        ? mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c))
++        : pow(c, vec3(graphics_gamma == 1u ? 2.2 : 2.4));
++    float luma = dot(linear, vec3(0.2126, 0.7152, 0.0722));
++    linear = max(mix(vec3(luma), linear, graphics_saturation), 0.0);
++    vec3 rgb = graphics_wide != 0u ? linear : BT2020_FROM_BT709 * linear;
++    // Never above the white level the metadata signals.
++    return dv_pq_oetf(min(rgb, vec3(1.0)) * graphics_peak) * gui.a;
 +}
 +vec3 fetch_pq(ivec2 p) {
 +    if (graphics == 0u)
@@ -300,7 +447,7 @@ index 56e8158..b531f69 100644
  uint parity(uint value)
  {
      value ^= value >> 16u;
-@@ -45,8 +61,8 @@ void main()
+@@ -45,8 +72,8 @@ void main()
      ivec2 q = ivec2(p.x & ~1, p.y);
      // Co-sited 4:2:2 in IPT: P and T come from the even pixel of each pair (I from every pixel).
      // Measured against Dolby hardware (Amlogic S928X and S7D TV-led output).
@@ -312,10 +459,10 @@ index 56e8158..b531f69 100644
      uint c = uint((p.x & 1) == 0 ? even_k.y : even_k.z);
      uint index = uint(p.y * 3840 + p.x);
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
-index 6aab28a..2fb1d37 100644
+index 6aab28a..b731e9f 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
-@@ -31,6 +31,35 @@ inline void SelectOutputSettings()
+@@ -31,6 +31,59 @@ inline void SelectOutputSettings()
    playbackMatchHardware.store(!settings || settings->GetBool("dvbridge.matchhardware"));
  }
  
@@ -346,6 +493,30 @@ index 6aab28a..2fb1d37 100644
 +  const auto settings = component ? component->GetSettings() : nullptr;
 +  return settings && settings->GetBool("dvbridge.menumode") &&
 +         settings->GetInt("dvbridge.outputmode") == static_cast<int>(OutputMode::Standard);
++}
++
++// Menu look (Dolby Vision menu only), read live like the brightness.
++inline float MenuSaturation()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int percent = settings ? settings->GetInt("dvbridge.menusaturation") : 100;
++  return percent >= 50 && percent <= 200 ? percent / 100.0f : 1.0f;
++}
++
++inline unsigned MenuGamma()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int gamma = settings ? settings->GetInt("dvbridge.menugamma") : 0;
++  return gamma >= 0 && gamma <= 2 ? static_cast<unsigned>(gamma) : 0u;
++}
++
++inline bool MenuWideColour()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  return settings && settings->GetBool("dvbridge.menuwidecolour");
 +}
 +
  inline bool EnhancedInfoEnabled()
@@ -381,7 +552,7 @@ index 5bd3f8e..a6a247a 100644
        m_renderManager.TriggerUpdateResolution(framerate, hint.width, hint.height, hint.stereo_mode,
                                                nativeDV);
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
-index 5409a7e..e9dbd08 100644
+index 5409a7e..2076417 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 @@ -20,6 +20,7 @@ extern "C"
@@ -431,7 +602,7 @@ index 5409a7e..e9dbd08 100644
    dvbridge_gl_frame bl{}, el{};
    if (!dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
      return Failure("base-import");
-@@ -348,6 +362,37 @@ bool CDVBridgeGLES::ResolveHDR10(bool limited)
+@@ -348,6 +362,39 @@ bool CDVBridgeGLES::ResolveHDR10(bool limited)
    return m_packed || Failure("hdr10-resolve");
  }
  
@@ -454,15 +625,17 @@ index 5409a7e..e9dbd08 100644
 +}
 +
 +bool CDVBridgeGLES::PackGraphics(unsigned int guiTexture, unsigned int framebuffer, int width,
-+                                 int height, bool flipY)
++                                 int height, bool flipY, float saturation, unsigned gamma,
++                                 bool wideColour)
 +{
 +  m_packed = false;
 +  if (!m_prepared)
 +    return Failure("pack-without-prepared-graphics");
 +  unsigned int count;
 +  const auto* packets = dvbridge_packets(dvbridge_render_candidate(m_renderer), &count);
++  const dvbridge_graphics_style style{m_graphicsWhite, saturation, gamma, wideColour};
 +  m_packed = dvbridge_gl_pack_graphics(m_packer, guiTexture, framebuffer, width, height, packets,
-+                                       count, flipY, m_graphicsWhite);
++                                       count, flipY, &style);
 +  return m_packed || Failure("graphics-pack");
 +}
 +
@@ -470,7 +643,7 @@ index 5409a7e..e9dbd08 100644
  {
    const auto texture = GetPQTexture();
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
-index 389389f..72a7fda 100644
+index 389389f..8f1e93f 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
 @@ -43,6 +43,11 @@ public:
@@ -481,7 +654,7 @@ index 389389f..72a7fda 100644
 +  // transport packed directly from the sRGB GUI texture.
 +  bool PrepareGraphics(float whiteNits, double pts);
 +  bool PackGraphics(unsigned int guiTexture, unsigned int framebuffer, int width, int height,
-+                    bool flipY);
++                    bool flipY, float saturation, unsigned gamma, bool wideColour);
    bool Presented(bool success);
  
  private:
@@ -511,7 +684,7 @@ index 7452e6c..b3e8576 100644
          UpdateLatencyTweak();
          if (m_pRenderer)
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-index db24790..0ef7960 100644
+index db24790..b46cf55 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 @@ -44,6 +44,8 @@ extern "C"
@@ -682,7 +855,7 @@ index db24790..0ef7960 100644
    if (m_dvModesetDeferred)
    {
      // The bridge's first commit carries the mode (see PresentRender).
-@@ -887,6 +956,92 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
+@@ -887,6 +956,94 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
    return CWinSystemGbm::CompleteModeset();
  }
  
@@ -754,7 +927,9 @@ index db24790..0ef7960 100644
 +                         .count();
 +  bool presented = false;
 +  if (m_guiFbo.IsValid() && m_dvBridge->PrepareGraphics(DVBRIDGE::MenuWhiteNits(), pts) &&
-+      m_dvBridge->PackGraphics(m_guiFbo.Texture(), 0, m_nWidth, m_nHeight, true))
++      m_dvBridge->PackGraphics(m_guiFbo.Texture(), 0, m_nWidth, m_nHeight, true,
++                                DVBRIDGE::MenuSaturation(), DVBRIDGE::MenuGamma(),
++                                DVBRIDGE::MenuWideColour()))
 +  {
 +    glFinish();
 +    if (m_eglContext.TrySwapBuffers())
