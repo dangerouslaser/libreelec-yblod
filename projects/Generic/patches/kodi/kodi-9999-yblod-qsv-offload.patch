@@ -1,0 +1,1013 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 3bf7502..58636b2 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -25840,3 +25840,38 @@ msgstr ""
+ msgctxt "#40818"
+ msgid "Player information"
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40830"
++msgid "Quick Sync scaling"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40831"
++msgid "Scale Dolby Vision layers on the Intel media engine instead of the GPU shaders. Enhancement layer: upscale the Profile 7 FEL enhancement layer, which removes most of the GPU load at no measurable cost in accuracy. Enhancement layer and colour: also upsample base layer colour there, for slower GPUs; colour edges are slightly less accurate. Falls back to the shaders automatically. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40832"
++msgid "Off"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40833"
++msgid "Enhancement layer"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40834"
++msgid "Enhancement layer and colour"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40835"
++msgid "Match Dolby hardware levels"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40836"
++msgid "Apply the small constant signal offset measured on Dolby Vision hardware players (Amlogic, TV-led), so the picture matches them as closely as possible. Disable for the exact mathematical conversion. Applies to the next video."
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index dc10796..7c1d467 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -20,6 +20,23 @@
+           <default>true</default>
+           <control type="toggle" />
+         </setting>
++        <setting id="dvbridge.matchhardware" type="boolean" label="40835" help="40836">
++          <level>0</level>
++          <default>true</default>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.qsvmode" type="integer" label="40830" help="40831">
++          <level>0</level>
++          <default>1</default>
++          <constraints>
++            <options>
++              <option label="40832">0</option>
++              <option label="40833">1</option>
++              <option label="40834">2</option>
++            </options>
++          </constraints>
++          <control type="spinner" format="string" />
++        </setting>
+       </group>
+       <group id="1" label="14230">
+         <setting id="videoplayer.autoplaynextitem" type="list[integer]" label="13433" help="36152">
+diff --git a/tools/dvbridge/CMakeLists.txt b/tools/dvbridge/CMakeLists.txt
+index a0bfa3e..b5b2e3a 100644
+--- a/tools/dvbridge/CMakeLists.txt
++++ b/tools/dvbridge/CMakeLists.txt
+@@ -9,10 +9,11 @@ pkg_check_modules(DVAvcodec REQUIRED IMPORTED_TARGET libavcodec>=62)
+ pkg_check_modules(DVGles REQUIRED IMPORTED_TARGET glesv2)
+ pkg_check_modules(DVEgl REQUIRED IMPORTED_TARGET egl)
+ pkg_check_modules(DVDrm REQUIRED IMPORTED_TARGET libdrm)
++pkg_check_modules(DVVa REQUIRED IMPORTED_TARGET libva)
+ add_library(dvbridge_core STATIC dvbridge_core.c dvbridge_placebo.c dvbridge_render.c
+-                                dvbridge_gl_frame.c dvbridge_gl_pack.c dvbridge_fel.c dvbridge_dmabuf.c)
++                                dvbridge_gl_frame.c dvbridge_gl_pack.c dvbridge_fel.c dvbridge_dmabuf.c dvbridge_vpp.c)
+ set_target_properties(dvbridge_core PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
+ target_include_directories(dvbridge_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+ target_link_libraries(dvbridge_core PUBLIC PkgConfig::DVPlacebo PkgConfig::DVAvutil
+                                          PkgConfig::DVAvcodec PkgConfig::DVGles
+-                                         PkgConfig::DVEgl PkgConfig::DVDrm m)
++                                         PkgConfig::DVEgl PkgConfig::DVDrm PkgConfig::DVVa m)
+diff --git a/tools/dvbridge/dvbridge_dmabuf.c b/tools/dvbridge/dvbridge_dmabuf.c
+index 48cc208..1a8c87c 100644
+--- a/tools/dvbridge/dvbridge_dmabuf.c
++++ b/tools/dvbridge/dvbridge_dmabuf.c
+@@ -39,6 +39,10 @@ void dvbridge_dmabuf_release(struct dvbridge_dmabuf *frame)
+ {
+     if (!frame)
+         return;
++    if (frame->borrowed) {
++        memset(frame, 0, sizeof(*frame));
++        return;
++    }
+     PFNEGLDESTROYIMAGEKHRPROC destroy = (void *)eglGetProcAddress("eglDestroyImageKHR");
+     for (int i = 0; i < 2; ++i) {
+         if (frame->planes[i].texture)
+diff --git a/tools/dvbridge/dvbridge_dmabuf.h b/tools/dvbridge/dvbridge_dmabuf.h
+index 3a85409..67b4233 100644
+--- a/tools/dvbridge/dvbridge_dmabuf.h
++++ b/tools/dvbridge/dvbridge_dmabuf.h
+@@ -12,6 +12,7 @@ struct dvbridge_dmabuf {
+     EGLImage images[2];
+     struct dvbridge_gl_plane planes[3];
+     enum dvbridge_gl_layout layout;
++    bool borrowed; /* textures owned by dvbridge_vpp; release only clears the struct */
+ };
+ bool dvbridge_dmabuf_validate_p010(const AVDRMFrameDescriptor *desc, int width, int height);
+ /* Current EGL/GLES context required. Does not transfer pixels through the CPU. */
+diff --git a/tools/dvbridge/dvbridge_gl_frame.c b/tools/dvbridge/dvbridge_gl_frame.c
+index 344769d..c5ea869 100644
+--- a/tools/dvbridge/dvbridge_gl_frame.c
++++ b/tools/dvbridge/dvbridge_gl_frame.c
+@@ -32,9 +32,40 @@ bool dvbridge_gl_frame_import(struct dvbridge_gl_frame *out, pl_gpu gpu,
+     case DVBRIDGE_YUV420P10: depth = 10; storage = 16; shift = 0; planar = true; break;
+     case DVBRIDGE_YUV444P10:
+         depth = 10; storage = 16; shift = 0; planar = true; subsampled = false; break;
++    case DVBRIDGE_Y416:
++    case DVBRIDGE_Y416_EL_ROT180:
++    case DVBRIDGE_Y416_BASE_ROT180:
++        depth = 10; storage = 16; shift = 6; break;
+     default: return false;
+     }
+     struct dvbridge_gl_frame candidate = {.gpu = gpu};
++    if (layout == DVBRIDGE_Y416 || layout == DVBRIDGE_Y416_EL_ROT180 || layout == DVBRIDGE_Y416_BASE_ROT180) {
++        /* One packed U,Y,V,A plane at full size, 12 significant bits in 16. The media engine
++         * scales center-aligned; the DV enhancement layer is co-sited horizontally, so sample it
++         * half a pixel to the right of the scaled grid (to the left when the surface is rotated).
++         * A rotated base layer marks the whole picture as rotated; the renderer turns it back. */
++        if (!planes[0].texture || planes[0].width != width || planes[0].height != height)
++            return false;
++        candidate.frame.num_planes = 1;
++        candidate.frame.crop = (pl_rect2df){0, 0, width, height};
++        candidate.frame.repr.bits = (struct pl_bit_encoding){
++            .sample_depth = 16, .color_depth = 10, .bit_shift = 6};
++        struct pl_plane *plane = &candidate.frame.planes[0];
++        plane->texture = pl_opengl_wrap(gpu, pl_opengl_wrap_params(
++            .texture = planes[0].texture, .target = GL_TEXTURE_2D,
++            .iformat = 0x805B /* GL_RGBA16_EXT */, .width = width, .height = height));
++        if (!plane->texture || !plane->texture->params.sampleable)
++            goto fail;
++        plane->components = 3;
++        plane->component_mapping[0] = 1;
++        plane->component_mapping[1] = 0;
++        plane->component_mapping[2] = 2;
++        plane->shift_x = layout == DVBRIDGE_Y416 ? -0.5f : layout == DVBRIDGE_Y416_EL_ROT180 ? 0.5f : 0.0f;
++        if (layout == DVBRIDGE_Y416_BASE_ROT180)
++            candidate.frame.rotation = PL_ROTATION_180;
++        *out = candidate;
++        return true;
++    }
+     candidate.frame.num_planes = planar ? 3 : 2;
+     candidate.frame.crop = (pl_rect2df){0, 0, width, height};
+     candidate.frame.repr.bits = (struct pl_bit_encoding){
+@@ -60,6 +91,11 @@ bool dvbridge_gl_frame_import(struct dvbridge_gl_frame *out, pl_gpu gpu,
+         plane->component_mapping[0] = i;
+         if (components == 2)
+             plane->component_mapping[1] = 2;
++        /* HEVC and Dolby Vision 4:2:0 chroma is left-sited (co-sited horizontally, centred
++         * vertically). Without this libplacebo assumes centred chroma, a quarter chroma pixel off,
++         * which shows as colour fringes at vertical edges when compared with Dolby hardware. */
++        if (i && subsampled)
++            pl_chroma_location_offset(PL_CHROMA_LEFT, &plane->shift_x, &plane->shift_y);
+     }
+     *out = candidate;
+     return true;
+diff --git a/tools/dvbridge/dvbridge_gl_frame.h b/tools/dvbridge/dvbridge_gl_frame.h
+index e03099d..bc80f51 100644
+--- a/tools/dvbridge/dvbridge_gl_frame.h
++++ b/tools/dvbridge/dvbridge_gl_frame.h
+@@ -7,6 +7,10 @@
+ enum dvbridge_gl_layout {
+     DVBRIDGE_NV12, DVBRIDGE_P010, DVBRIDGE_P012, DVBRIDGE_P016,
+     DVBRIDGE_YUV420P10, DVBRIDGE_YUV444P10,
++    /* Packed 4:4:4 Y416 surfaces from the media engine (dvbridge_vpp): */
++    DVBRIDGE_Y416,             /* enhancement layer scaled to base size */
++    DVBRIDGE_Y416_EL_ROT180,   /* enhancement layer scaled to base size, rotated 180 degrees */
++    DVBRIDGE_Y416_BASE_ROT180, /* base layer, chroma upsampled, rotated 180 degrees */
+ };
+ struct dvbridge_gl_plane {
+     unsigned texture;
+diff --git a/tools/dvbridge/dvbridge_gl_pack.c b/tools/dvbridge/dvbridge_gl_pack.c
+index 29dd931..7a618bd 100644
+--- a/tools/dvbridge/dvbridge_gl_pack.c
++++ b/tools/dvbridge/dvbridge_gl_pack.c
+@@ -7,7 +7,8 @@
+ 
+ struct dvbridge_gl_packer {
+     GLuint program, vao, sampler;
+-    GLint input, words, count, flip;
++    GLint input, words, count, flip, offset;
++    float ipt_offset[3];
+ };
+ 
+ static GLuint compile(GLenum type, const char *source)
+@@ -55,6 +56,7 @@ struct dvbridge_gl_packer *dvbridge_gl_packer_create(const char *vertex, const c
+     p->words = glGetUniformLocation(p->program, "metadata_words");
+     p->count = glGetUniformLocation(p->program, "packet_count");
+     p->flip = glGetUniformLocation(p->program, "flip_y");
++    p->offset = glGetUniformLocation(p->program, "ipt_offset");
+     if (!linked || p->input < 0 || p->words < 0 || p->count < 0 || p->flip < 0) {
+         dvbridge_gl_packer_destroy(p);
+         return NULL;
+@@ -134,6 +136,7 @@ bool dvbridge_gl_pack(struct dvbridge_gl_packer *p, unsigned texture, unsigned f
+     glUniform4uiv(p->words, 128, packets);
+     glUniform1ui(p->count, count);
+     glUniform1ui(p->flip, flip);
++    glUniform3fv(p->offset, 1, p->ipt_offset);
+     glDrawArrays(GL_TRIANGLES, 0, 3);
+     ok = glGetError() == GL_NO_ERROR;
+ restore:
+@@ -150,3 +153,10 @@ restore:
+         if (enabled[i]) glEnable(caps[i]);
+     return ok && glGetError() == GL_NO_ERROR;
+ }
++
++void dvbridge_gl_packer_set_ipt_offset(struct dvbridge_gl_packer *p, const float offset[3])
++{
++    if (p)
++        for (int i = 0; i < 3; ++i)
++            p->ipt_offset[i] = offset[i];
++}
+diff --git a/tools/dvbridge/dvbridge_gl_pack.h b/tools/dvbridge/dvbridge_gl_pack.h
+index 8e2c015..80fbddf 100644
+--- a/tools/dvbridge/dvbridge_gl_pack.h
++++ b/tools/dvbridge/dvbridge_gl_pack.h
+@@ -11,4 +11,6 @@ void dvbridge_gl_packer_destroy(struct dvbridge_gl_packer *packer);
+ bool dvbridge_gl_pack(struct dvbridge_gl_packer *packer, unsigned pq_texture,
+                      unsigned framebuffer, int width, int height,
+                      const uint32_t packets[512], unsigned count, bool flip_y);
++/* Constant I, P, T code offset added to the IPT tunnel signal. */
++void dvbridge_gl_packer_set_ipt_offset(struct dvbridge_gl_packer *packer, const float offset[3]);
+ #endif
+diff --git a/tools/dvbridge/dvbridge_metadata.h b/tools/dvbridge/dvbridge_metadata.h
+index 1a0555e..6bb8b5b 100644
+--- a/tools/dvbridge/dvbridge_metadata.h
++++ b/tools/dvbridge/dvbridge_metadata.h
+@@ -113,13 +113,15 @@ static inline bool dvbridge_dv_metadata(struct dvbridge_dv *d, const AVDOVIMetad
+     d->size = 0;
+     d->payload[d->size++] = 0;
+     d->payload[d->size++] = repeat ? d->previous[1] : refresh ? 1 : c->scene_refresh_flag;
+-    const int matrix[] = {9574,0,13802,9574,-1540,-5348,9574,17610,0};
+-    const unsigned lms[] = {7222,8771,390,2654,12430,1300,0,422,15962};
++    /* The tunnel carries full-range IPT-PQ-c2, as Dolby hardware sends in TV-led mode; these are
++     * the IPT -> L'M'S' and crosstalk matrices it signals (packing shaders use their inverses). */
++    const int matrix[] = {8194,799,1681,8194,-933,1091,8194,267,-5545};
++    const int lms[] = {17080,-348,-348,-348,17080,-348,-348,-348,17080};
+     for (int i = 0; i < 9; i++) dvbridge_dv_u16(d, (uint16_t)matrix[i]);
+-    dvbridge_dv_u32(d, 16777216); dvbridge_dv_u32(d, 134217728); dvbridge_dv_u32(d, 134217728);
+-    for (int i = 0; i < 9; i++) dvbridge_dv_u16(d, lms[i]);
++    dvbridge_dv_u32(d, 0); dvbridge_dv_u32(d, 134217728); dvbridge_dv_u32(d, 134217728);
++    for (int i = 0; i < 9; i++) dvbridge_dv_u16(d, (uint16_t)lms[i]);
+     dvbridge_dv_u16(d, 65535); dvbridge_dv_u32(d, 0); dvbridge_dv_u32(d, 0);
+-    d->payload[d->size++] = 12; d->payload[d->size++] = 0;
++    d->payload[d->size++] = 12; d->payload[d->size++] = 2; /* signal_color_space: IPT */
+     d->payload[d->size++] = 1; d->payload[d->size++] = 1;
+     dvbridge_dv_u16(d, c->source_min_pq); dvbridge_dv_u16(d, c->source_max_pq);
+     dvbridge_dv_u16(d, 42);
+diff --git a/tools/dvbridge/dvbridge_render.c b/tools/dvbridge/dvbridge_render.c
+index 150a541..a7f6b34 100644
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -8,8 +8,10 @@
+ #include <GLES3/gl31.h>
+ #include <math.h>
+ #include <stdlib.h>
++#include <string.h>
+ 
+ struct dvbridge_renderer {
++    float ipt_offset[3];
+     pl_gpu gpu;
+     pl_renderer renderer;
+     pl_tex rgb;
+@@ -22,6 +24,7 @@ struct dvbridge_renderer {
+ 
+ struct active_mask {
+     float rect[4];
++    float ipt_offset[3];
+     bool called, failed;
+     const uint32_t *packets;
+     uint32_t count, flip;
+@@ -51,7 +54,7 @@ static struct pl_hook_res skip_inactive_area(struct active_mask *mask,
+         "uint ei=uint(ep.y*3840+ep.x), ek=ei/3072u, ev=0u;\n"
+         "if(ek<early_count){uint eb=ei%1024u, ew=ek*128u+eb/8u;\n"
+         "ev=(early_words[ew/4u][int(ew%4u)]>>(7u-eb%8u))&1u;}\n"
+-        "return vec4(128.0,16.0,float(ev*16u),255.0)/255.0;}\n"};
++        "return vec4(128.0,0.0,float(ev*16u),255.0)/255.0;}\n"};
+     mask->failed = pl_shader_is_compute(p->sh) || !pl_shader_custom(p->sh, &shader);
+     return (struct pl_hook_res){.failed=mask->failed, .output=PL_HOOK_SIG_NONE};
+ }
+@@ -70,24 +73,42 @@ static struct pl_hook_res pack_active_area(void *priv, const struct pl_hook_para
+         {.var = {.name="metadata_words", .type=PL_VAR_UINT, .dim_v=4, .dim_m=1, .dim_a=128},
+          .data=mask->packets, .dynamic=true},
+         {.var=pl_var_uint("packet_count"), .data=&mask->count, .dynamic=true},
+-        {.var=pl_var_uint("flip_y"), .data=&mask->flip, .dynamic=true}};
++        {.var=pl_var_uint("flip_y"), .data=&mask->flip, .dynamic=true},
++        {.var=pl_var_vec3("ipt_offset"), .data=mask->ipt_offset, .dynamic=true}};
+     struct pl_custom_shader shader = {
+         .prelude="#extension GL_KHR_shader_subgroup_basic : require\n"
+                  "#extension GL_KHR_shader_subgroup_quad : require\n",
++        .header=
++        "// IPT-PQ-c2, as Dolby Vision hardware sends in TV-led mode. The matrices are the exact inverses of\n"
++        "// the ones signalled in the DM metadata (dvbridge_metadata.h), so the TV decodes what we encode.\n"
++        "const mat3 DV_LMS_FROM_RGB = mat3(0.426426931, 0.164319977, 0.012036295, 0.529623456, 0.739572962, 0.050566765, 0.043891015, 0.096105842, 0.937395721);\n"
++        "const mat3 DV_IPT_FROM_LMS = mat3(0.400030779, 4.455344041, 0.805668000, 0.399792671, -4.851464142, 0.357179480, 0.199932469, 0.396120100, -1.162847480);\n"
++        "vec3 dv_pq_eotf(vec3 e) {\n"
++        "    vec3 p = pow(clamp(e, 0.0, 1.0), vec3(1.0 / 78.84375));\n"
++        "    return pow(max(p - 0.8359375, 0.0) / (18.8515625 - 18.6875 * p), vec3(1.0 / 0.1593017578125));\n"
++        "}\n"
++        "vec3 dv_pq_oetf(vec3 y) {\n"
++        "    vec3 p = pow(max(y, 0.0), vec3(0.1593017578125));\n"
++        "    return pow((0.8359375 + 18.8515625 * p) / (1.0 + 18.6875 * p), vec3(78.84375));\n"
++        "}\n"
++        "// 12-bit I, P, T code values (full range), with the optional hardware-matching offset.\n"
++        "vec3 dv_ipt_codes(vec3 rgb, vec3 offset) {\n"
++        "    vec3 ipt = DV_IPT_FROM_LMS * dv_pq_oetf(DV_LMS_FROM_RGB * dv_pq_eotf(rgb)) + vec3(0.0, 0.5, 0.5);\n"
++        "    return clamp(floor(ipt * 4096.0 + offset + 0.5), 0.0, 4095.0);\n"
++        "}\n"
++        ,
+         .input=PL_SHADER_SIG_COLOR, .output=PL_SHADER_SIG_COLOR,
+         .description="Exact full-raster DV transport without intermediate image",
+-        .variables=vars, .num_variables=4,
++        .variables=vars, .num_variables=5,
+         .body=
+         "ivec2 p=ivec2(gl_FragCoord.xy); if(flip_y!=0u) p.y=2159-p.y;\n"
+-        "if(float(p.x)<active_area.x || float(p.x)>=active_area.z || float(p.y)<active_area.y || float(p.y)>=active_area.w) color=vec4(0,0,0,1);\n"
+-        "vec3 self_rgb=clamp(color.rgb,0.0,1.0);\n"
+-        "vec3 peer_rgb=subgroupQuadSwapHorizontal(self_rgb);\n"
+-        "vec3 a=(p.x&1)==0?self_rgb:peer_rgb, b=(p.x&1)==0?peer_rgb:self_rgb;\n"
+-        "float ya=dot(a,vec3(.2627,.6780,.0593)), yb=dot(b,vec3(.2627,.6780,.0593));\n"
+-        "uint y=uint(floor(256.0+3504.0*((p.x&1)==0?ya:yb)+.5));\n"
+-        "float cb=2048.0+3584.0*((a.b-ya)+(b.b-yb))/(2.0*1.8814);\n"
+-        "float cr=2048.0+3584.0*((a.r-ya)+(b.r-yb))/(2.0*1.4746);\n"
+-        "uint c=uint(floor(((p.x&1)==0?cb:cr)+.5));\n"
++        "bool inactive=float(p.x)<active_area.x || float(p.x)>=active_area.z || float(p.y)<active_area.y || float(p.y)>=active_area.w;\n"
++        /* IPT-PQ-c2 like Dolby hardware; co-sited 4:2:2 (P/T of the even pixel), as pack_gles300.frag */
++        "vec3 self_k=inactive?vec3(0.0,2048.0,2048.0):dv_ipt_codes(color.rgb,ipt_offset);\n"
++        "vec3 peer_k=subgroupQuadSwapHorizontal(self_k);\n"
++        "vec3 even_k=(p.x&1)==0?self_k:peer_k;\n"
++        "uint y=uint(self_k.x);\n"
++        "uint c=uint((p.x&1)==0?even_k.y:even_k.z);\n"
+         "uint index=uint(p.y*3840+p.x), packet=index/3072u;\n"
+         "if(packet<packet_count){ uint bit=index%1024u, byte_index=packet*128u+bit/8u;\n"
+         "uint value=(metadata_words[byte_index/4u][int(byte_index%4u)]>>(7u-bit%8u))&1u;\n"
+@@ -186,7 +207,7 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+     r->packed = packed != NULL;
+     dvbridge_candidate_destroy(r->pending);
+     r->pending = NULL;
+-    if (!source || !isfinite(pts) || source->num_planes < 1 || source->num_planes > 4 || source->rotation ||
++    if (!source || !isfinite(pts) || source->num_planes < 1 || source->num_planes > 4 || (source->rotation && source->rotation != PL_ROTATION_180) ||
+         source->crop.x0 != 0 || source->crop.y0 != 0 ||
+         source->crop.x1 != geometry.source_width || source->crop.y1 != geometry.source_height)
+         return false;
+@@ -243,6 +264,10 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+     }
+     r->reconstructed_color = target.color;
+     params.min_fbo_precision = 32;
++    // Plane upsampling (base layer chroma; the enhancement layer when it is not scaled on the media
++    // engine). Of libplacebo's filters, Gaussian came closest to Dolby hardware output on every
++    // matched frame; the enhancement-layer filter made no measurable difference.
++    params.plane_upscaler = &pl_filter_gaussian;
+     params.peak_detect_params = NULL;
+     params.dither_params = NULL;
+     params.frame_mixer = NULL;
+@@ -255,9 +280,10 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+         return false;
+     struct active_mask mask = {.rect = {margins[0], margins[2],
+                                        3840 - margins[1], 2160 - margins[3]}};
++    memcpy(mask.ipt_offset, r->ipt_offset, sizeof(mask.ipt_offset));
+     mask.flip = flip;
+     mask.packets = dvbridge_packets(r->pending, &mask.count);
+-    mask.early_mask = packed && geometry.source_width == 3840 && geometry.source_height == 2160 &&
++    mask.early_mask = packed && !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
+                       (margins[0] || margins[1] || margins[2] || margins[3]);
+     const struct pl_hook hook = {
+         .stages = PL_HOOK_OUTPUT | (mask.early_mask ? PL_HOOK_NATIVE : 0),
+@@ -381,3 +407,9 @@ bool dvbridge_render_commit(struct dvbridge_renderer *r)
+ {
+     return r && r->ready && r->pending && dvbridge_commit(r->context, r->pending);
+ }
++
++void dvbridge_renderer_set_ipt_offset(struct dvbridge_renderer *r, const float offset[3])
++{
++    if (r)
++        memcpy(r->ipt_offset, offset, sizeof(r->ipt_offset));
++}
+diff --git a/tools/dvbridge/dvbridge_render.h b/tools/dvbridge/dvbridge_render.h
+index d867250..8d9c711 100644
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -8,6 +8,8 @@ struct dvbridge_renderer;
+ struct dvbridge_renderer *dvbridge_renderer_create(pl_gpu gpu);
+ void dvbridge_renderer_destroy(struct dvbridge_renderer *renderer);
+ void dvbridge_renderer_reset(struct dvbridge_renderer *renderer);
++/* Constant I, P, T code offset added to the IPT tunnel signal (zero = exact conversion). */
++void dvbridge_renderer_set_ipt_offset(struct dvbridge_renderer *renderer, const float offset[3]);
+ 
+ /* Produces an intermediate PQ RGB image, not a scanout-ready DV frame. */
+ bool dvbridge_render_rgb(struct dvbridge_renderer *renderer, const struct pl_frame *source,
+diff --git a/tools/dvbridge/dvbridge_vpp.c b/tools/dvbridge/dvbridge_vpp.c
+new file mode 100644
+index 0000000..b18f9bf
+--- /dev/null
++++ b/tools/dvbridge/dvbridge_vpp.c
+@@ -0,0 +1,289 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++/* Dolby Vision scaling on the Intel media engine (VA-API video processing, "Quick Sync").
++ *
++ * Two jobs move from libplacebo's shaders to the media engine:
++ *  - base layer chroma, 4:2:0 -> 4:4:4 at the same size;
++ *  - the Profile 7 FEL enhancement layer, 1920x1080 -> base layer size.
++ * The output is a packed 4:4:4 Y416 surface (12 significant bits), shared with the renderer through
++ * DMA-BUF.
++ *
++ * Measured on Tiger Lake (iHD 26.3):
++ *  - SCALING_DEFAULT runs on the video-enhance engine (SFC); HQ and FAST run as render-engine
++ *    kernels with much worse results, so DEFAULT is forced.
++ *  - At 1:1 the driver bypasses the SFC and replicates chroma (nearest neighbour, wrong siting).
++ *    Requesting a 180 degree rotation forces the SFC path: chroma is then filtered (Catmull-Rom class)
++ *    with correct left siting, and luma stays bit-exact.
++ *  - The SFC scales center-aligned; the DV enhancement layer is co-sited horizontally, which the
++ *    renderer corrects with a half-pixel shift when sampling.
++ *
++ * Surfaces from the decoders (Kodi's VAAPI decoder for the base layer, FFmpeg's for the enhancement
++ * layer) are imported into this module's own VADisplay through DMA-BUF, so its lifetime does not
++ * depend on either decoder.
++ */
++#include "dvbridge_vpp.h"
++#include <EGL/eglext.h>
++#include <GLES3/gl3.h>
++#include <GLES2/gl2ext.h>
++#include <fcntl.h>
++#include <libdrm/drm_fourcc.h>
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include <unistd.h>
++#include <va/va.h>
++#include <va/va_drm.h>
++#include <va/va_drmcommon.h>
++#include <va/va_vpp.h>
++
++#define VPP_RING 3
++
++struct vpp_ring {
++    VASurfaceID surf[VPP_RING];
++    EGLImage image[VPP_RING];
++    unsigned tex[VPP_RING];
++    bool have_surf;
++    int w, h, next;
++};
++
++struct dvbridge_vpp {
++    int fd;
++    VADisplay dpy;
++    VAConfigID cfg;
++    VAContextID ctx;
++    bool have_cfg, have_ctx;
++    EGLDisplay egl;
++    struct vpp_ring ring[2];
++};
++
++struct dvbridge_vpp *dvbridge_vpp_create(void)
++{
++    struct dvbridge_vpp *v = calloc(1, sizeof(*v));
++    if (v)
++        v->fd = -1;
++    return v;
++}
++
++static void ring_release(struct dvbridge_vpp *v, struct vpp_ring *r)
++{
++    PFNEGLDESTROYIMAGEKHRPROC destroy = (void *)eglGetProcAddress("eglDestroyImageKHR");
++    for (int i = 0; i < VPP_RING; ++i) {
++        if (r->tex[i])
++            glDeleteTextures(1, &r->tex[i]);
++        if (r->image[i] && destroy)
++            destroy(v->egl, r->image[i]);
++    }
++    if (r->have_surf)
++        vaDestroySurfaces(v->dpy, r->surf, VPP_RING);
++    memset(r, 0, sizeof(*r));
++}
++
++void dvbridge_vpp_release(struct dvbridge_vpp *v)
++{
++    if (!v)
++        return;
++    for (int i = 0; i < 2; ++i)
++        ring_release(v, &v->ring[i]);
++    if (v->have_ctx)
++        vaDestroyContext(v->dpy, v->ctx);
++    if (v->have_cfg)
++        vaDestroyConfig(v->dpy, v->cfg);
++    if (v->dpy)
++        vaTerminate(v->dpy);
++    if (v->fd >= 0)
++        close(v->fd);
++    memset(v, 0, sizeof(*v));
++    v->fd = -1;
++}
++
++void dvbridge_vpp_destroy(struct dvbridge_vpp **v)
++{
++    if (!v || !*v)
++        return;
++    dvbridge_vpp_release(*v);
++    free(*v);
++    *v = NULL;
++}
++
++/* Open a VADisplay on the GPU that renders, as reported by the current EGL display. */
++static const char *open_display(struct dvbridge_vpp *v)
++{
++    v->egl = eglGetCurrentDisplay();
++    if (v->egl == EGL_NO_DISPLAY)
++        return "egl";
++    const char *node = NULL;
++    PFNEGLQUERYDISPLAYATTRIBEXTPROC query_display = (void *)eglGetProcAddress("eglQueryDisplayAttribEXT");
++    PFNEGLQUERYDEVICESTRINGEXTPROC query_device = (void *)eglGetProcAddress("eglQueryDeviceStringEXT");
++    EGLAttrib device = 0;
++    if (query_display && query_device && query_display(v->egl, EGL_DEVICE_EXT, &device) && device)
++        node = query_device((EGLDeviceEXT)device, EGL_DRM_RENDER_NODE_FILE_EXT);
++    v->fd = open(node ? node : "/dev/dri/renderD128", O_RDWR | O_CLOEXEC);
++    if (v->fd < 0)
++        return "render-node";
++    v->dpy = vaGetDisplayDRM(v->fd);
++    int major, minor;
++    if (!v->dpy || vaInitialize(v->dpy, &major, &minor) != VA_STATUS_SUCCESS) {
++        v->dpy = NULL;
++        return "va-initialize";
++    }
++    if (vaCreateConfig(v->dpy, VAProfileNone, VAEntrypointVideoProc, NULL, 0, &v->cfg) != VA_STATUS_SUCCESS)
++        return "va-config";
++    v->have_cfg = true;
++    return NULL;
++}
++
++static const char *ring_setup(struct dvbridge_vpp *v, struct vpp_ring *r, int w, int h)
++{
++    PFNEGLCREATEIMAGEKHRPROC create = (void *)eglGetProcAddress("eglCreateImageKHR");
++    PFNGLEGLIMAGETARGETTEXTURE2DOESPROC bind = (void *)eglGetProcAddress("glEGLImageTargetTexture2DOES");
++    const char *extensions = eglQueryString(v->egl, EGL_EXTENSIONS);
++    if (!create || !bind || !extensions || !strstr(extensions, "EGL_EXT_image_dma_buf_import_modifiers"))
++        return "egl-modifiers";
++    VASurfaceAttrib attr = {.type = VASurfaceAttribPixelFormat, .flags = VA_SURFACE_ATTRIB_SETTABLE,
++                            .value = {.type = VAGenericValueTypeInteger, .value.i = VA_FOURCC_Y416}};
++    if (vaCreateSurfaces(v->dpy, VA_RT_FORMAT_YUV444_12, w, h, r->surf, VPP_RING, &attr, 1) != VA_STATUS_SUCCESS)
++        return "y416-surfaces";
++    r->have_surf = true;
++    r->w = w;
++    r->h = h;
++    for (int i = 0; i < VPP_RING; ++i) {
++        VADRMPRIMESurfaceDescriptor desc;
++        if (vaExportSurfaceHandle(v->dpy, r->surf[i], VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
++                                  VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_COMPOSED_LAYERS,
++                                  &desc) != VA_STATUS_SUCCESS)
++            return "export";
++        bool single = desc.num_layers == 1 && desc.layers[0].num_planes == 1 &&
++                      desc.layers[0].drm_format == DRM_FORMAT_Y416;
++        uint64_t mod = desc.objects[0].drm_format_modifier;
++        EGLint attrs[] = {
++            EGL_WIDTH, w, EGL_HEIGHT, h, EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR16161616,
++            EGL_DMA_BUF_PLANE0_FD_EXT, desc.objects[0].fd,
++            EGL_DMA_BUF_PLANE0_OFFSET_EXT, (EGLint)desc.layers[0].offset[0],
++            EGL_DMA_BUF_PLANE0_PITCH_EXT, (EGLint)desc.layers[0].pitch[0],
++            EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, (EGLint)(mod & UINT32_MAX),
++            EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, (EGLint)(mod >> 32),
++            EGL_NONE};
++        r->image[i] = single ? create(v->egl, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, NULL, attrs) : NULL;
++        for (uint32_t o = 0; o < desc.num_objects; ++o)
++            close(desc.objects[o].fd);
++        if (!single)
++            return "export-layout";
++        if (!r->image[i])
++            return "egl-import";
++        GLint previous;
++        glGetIntegerv(GL_TEXTURE_BINDING_2D, &previous);
++        glGenTextures(1, &r->tex[i]);
++        glBindTexture(GL_TEXTURE_2D, r->tex[i]);
++        bind(GL_TEXTURE_2D, r->image[i]);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
++        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
++        glBindTexture(GL_TEXTURE_2D, previous);
++        if (glGetError() != GL_NO_ERROR)
++            return "gl-texture";
++    }
++    return NULL;
++}
++
++/* Import a decoder's P010 surface into our display through DMA-BUF. */
++static const char *import_source(struct dvbridge_vpp *v, VADisplay source_display, VASurfaceID source,
++                                 VASurfaceID *imported)
++{
++    if (vaSyncSurface(source_display, source) != VA_STATUS_SUCCESS)
++        return "source-sync";
++    VADRMPRIMESurfaceDescriptor desc;
++    if (vaExportSurfaceHandle(source_display, source, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
++                              VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
++                              &desc) != VA_STATUS_SUCCESS)
++        return "source-export";
++    const char *reason = NULL;
++    if (desc.fourcc != VA_FOURCC_P010)
++        reason = "source-format";
++    VASurfaceAttrib attrs[2] = {
++        {.type = VASurfaceAttribMemoryType, .flags = VA_SURFACE_ATTRIB_SETTABLE,
++         .value = {.type = VAGenericValueTypeInteger, .value.i = VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2}},
++        {.type = VASurfaceAttribExternalBufferDescriptor, .flags = VA_SURFACE_ATTRIB_SETTABLE,
++         .value = {.type = VAGenericValueTypePointer, .value.p = &desc}},
++    };
++    if (!reason && vaCreateSurfaces(v->dpy, VA_RT_FORMAT_YUV420_10, desc.width, desc.height,
++                                    imported, 1, attrs, 2) != VA_STATUS_SUCCESS)
++        reason = "source-import";
++    for (uint32_t o = 0; o < desc.num_objects; ++o)
++        close(desc.objects[o].fd);
++    return reason;
++}
++
++const char *dvbridge_vpp_process(struct dvbridge_vpp *v, enum dvbridge_vpp_role role,
++                                 void *source_display, unsigned source_surface,
++                                 int source_width, int source_height,
++                                 int out_width, int out_height, bool rotate180,
++                                 struct dvbridge_dmabuf *out)
++{
++    if (!v || !out || out->mapping || !source_display || source_surface == VA_INVALID_SURFACE ||
++        (role != DVBRIDGE_VPP_BASE && role != DVBRIDGE_VPP_ENHANCEMENT))
++        return "input";
++    if (source_width < 1 || source_height < 1 || out_width < 1 || out_height < 1 ||
++        out_width > 3840 || out_height > 2160 || source_width > out_width || source_height > out_height)
++        return "geometry";
++    const char *reason;
++    if (!v->dpy && (reason = open_display(v)))
++        return reason;
++    struct vpp_ring *r = &v->ring[role];
++    if (!r->have_surf || r->w != out_width || r->h != out_height) {
++        ring_release(v, r);
++        if ((reason = ring_setup(v, r, out_width, out_height))) {
++            ring_release(v, r);
++            return reason;
++        }
++        if (v->have_ctx) {
++            vaDestroyContext(v->dpy, v->ctx);
++            v->have_ctx = false;
++        }
++    }
++    if (!v->have_ctx) {
++        /* Render targets are passed per picture; the context only needs a size hint. */
++        if (vaCreateContext(v->dpy, v->cfg, 3840, 2160, VA_PROGRESSIVE, NULL, 0, &v->ctx) != VA_STATUS_SUCCESS)
++            return "va-context";
++        v->have_ctx = true;
++    }
++    VASurfaceID input;
++    if ((reason = import_source(v, (VADisplay)source_display, (VASurfaceID)source_surface, &input)))
++        return reason;
++    int k = r->next;
++    r->next = (r->next + 1) % VPP_RING;
++    VARectangle sr = {0, 0, (uint16_t)source_width, (uint16_t)source_height};
++    VARectangle dr = {0, 0, (uint16_t)out_width, (uint16_t)out_height};
++    VAProcPipelineParameterBuffer pp = {0};
++    pp.surface = input;
++    pp.surface_region = &sr;
++    pp.output_region = &dr;
++    pp.surface_color_standard = pp.output_color_standard = VAProcColorStandardBT2020;
++    pp.input_color_properties.color_range = pp.output_color_properties.color_range = VA_SOURCE_RANGE_REDUCED;
++    pp.input_color_properties.chroma_sample_location =
++        VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
++    pp.filter_flags = VA_FILTER_SCALING_DEFAULT;
++    if (rotate180)
++        pp.rotation_state = VA_ROTATION_180;
++    VABufferID buf;
++    bool ok = vaCreateBuffer(v->dpy, v->ctx, VAProcPipelineParameterBufferType, sizeof(pp), 1, &pp, &buf) ==
++              VA_STATUS_SUCCESS;
++    /* Synchronous: the media engine finishes before composition starts, so it does not compete
++     * with the shaders for memory bandwidth on the same frame. */
++    if (ok) {
++        ok = vaBeginPicture(v->dpy, v->ctx, r->surf[k]) == VA_STATUS_SUCCESS &&
++             vaRenderPicture(v->dpy, v->ctx, &buf, 1) == VA_STATUS_SUCCESS &&
++             vaEndPicture(v->dpy, v->ctx) == VA_STATUS_SUCCESS &&
++             vaSyncSurface(v->dpy, r->surf[k]) == VA_STATUS_SUCCESS;
++        vaDestroyBuffer(v->dpy, buf);
++    }
++    vaDestroySurfaces(v->dpy, &input, 1);
++    if (!ok)
++        return "process";
++    memset(out, 0, sizeof(*out));
++    out->borrowed = true;
++    out->layout = DVBRIDGE_Y416;
++    out->planes[0].texture = r->tex[k];
++    out->planes[0].width = out_width;
++    out->planes[0].height = out_height;
++    return NULL;
++}
+diff --git a/tools/dvbridge/dvbridge_vpp.h b/tools/dvbridge/dvbridge_vpp.h
+new file mode 100644
+index 0000000..694e2b3
+--- /dev/null
++++ b/tools/dvbridge/dvbridge_vpp.h
+@@ -0,0 +1,32 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++/* Dolby Vision scaling on the Intel media engine (VA-API video processing, "Quick Sync"). */
++#ifndef DVBRIDGE_VPP_H
++#define DVBRIDGE_VPP_H
++#include "dvbridge_dmabuf.h"
++#include <stdbool.h>
++
++struct dvbridge_vpp;
++
++enum dvbridge_vpp_role {
++    DVBRIDGE_VPP_BASE,        /* base layer: 4:2:0 -> 4:4:4 at the same size */
++    DVBRIDGE_VPP_ENHANCEMENT, /* enhancement layer: upscale to the base layer size */
++};
++
++/* Every call, including destruction, requires the renderer's current EGL/GLES context. */
++struct dvbridge_vpp *dvbridge_vpp_create(void);
++void dvbridge_vpp_destroy(struct dvbridge_vpp **vpp);
++/* Free all media-engine and GL resources (e.g. between playbacks). The object stays usable. */
++void dvbridge_vpp_release(struct dvbridge_vpp *vpp);
++
++/* Process one decoded VAAPI P010 surface (owned by any VADisplay on the same GPU) into a packed
++ * 4:4:4 Y416 texture of out_width x out_height. With rotate180 the output is rotated by 180 degrees,
++ * which makes the driver use its full scaler (proper chroma filtering) even at 1:1; the renderer then
++ * rotates the composed picture back. On success, returns NULL and *out holds one DVBRIDGE_Y416
++ * texture owned by vpp, valid until the next call for the same role. On failure, returns a short
++ * reason and leaves *out untouched. */
++const char *dvbridge_vpp_process(struct dvbridge_vpp *vpp, enum dvbridge_vpp_role role,
++                                 void *source_display, unsigned source_surface,
++                                 int source_width, int source_height,
++                                 int out_width, int out_height, bool rotate180,
++                                 struct dvbridge_dmabuf *out);
++#endif
+diff --git a/tools/dvbridge/pack_gles300.frag b/tools/dvbridge/pack_gles300.frag
+index 9b0f1e6..56e8158 100644
+--- a/tools/dvbridge/pack_gles300.frag
++++ b/tools/dvbridge/pack_gles300.frag
+@@ -7,8 +7,27 @@ uniform highp sampler2D pq_input;
+ uniform uvec4 metadata_words[128];
+ uniform uint packet_count;
+ uniform uint flip_y;
++uniform vec3 ipt_offset;
+ out vec4 color;
+ 
++// IPT-PQ-c2, as Dolby Vision hardware sends in TV-led mode. The matrices are the exact inverses of
++// the ones signalled in the DM metadata (dvbridge_metadata.h), so the TV decodes what we encode.
++const mat3 DV_LMS_FROM_RGB = mat3(0.426426931, 0.164319977, 0.012036295, 0.529623456, 0.739572962, 0.050566765, 0.043891015, 0.096105842, 0.937395721);
++const mat3 DV_IPT_FROM_LMS = mat3(0.400030779, 4.455344041, 0.805668000, 0.399792671, -4.851464142, 0.357179480, 0.199932469, 0.396120100, -1.162847480);
++vec3 dv_pq_eotf(vec3 e) {
++    vec3 p = pow(clamp(e, 0.0, 1.0), vec3(1.0 / 78.84375));
++    return pow(max(p - 0.8359375, 0.0) / (18.8515625 - 18.6875 * p), vec3(1.0 / 0.1593017578125));
++}
++vec3 dv_pq_oetf(vec3 y) {
++    vec3 p = pow(max(y, 0.0), vec3(0.1593017578125));
++    return pow((0.8359375 + 18.8515625 * p) / (1.0 + 18.6875 * p), vec3(78.84375));
++}
++// 12-bit I, P, T code values (full range), with the optional hardware-matching offset.
++vec3 dv_ipt_codes(vec3 rgb, vec3 offset) {
++    vec3 ipt = DV_IPT_FROM_LMS * dv_pq_oetf(DV_LMS_FROM_RGB * dv_pq_eotf(rgb)) + vec3(0.0, 0.5, 0.5);
++    return clamp(floor(ipt * 4096.0 + offset + 0.5), 0.0, 4095.0);
++}
++
+ uint parity(uint value)
+ {
+     value ^= value >> 16u;
+@@ -24,14 +43,12 @@ void main()
+     ivec2 p = ivec2(gl_FragCoord.xy);
+     if (flip_y != 0u) p.y = 2159 - p.y;
+     ivec2 q = ivec2(p.x & ~1, p.y);
+-    vec3 a = clamp(texelFetch(pq_input, q, 0).rgb, 0.0, 1.0);
+-    vec3 b = clamp(texelFetch(pq_input, q + ivec2(1, 0), 0).rgb, 0.0, 1.0);
+-    float ya = dot(a, vec3(.2627, .6780, .0593));
+-    float yb = dot(b, vec3(.2627, .6780, .0593));
+-    uint y = uint(floor(256.0 + 3504.0 * ((p.x & 1) == 0 ? ya : yb) + .5));
+-    float cb = 2048.0 + 3584.0 * ((a.b - ya) + (b.b - yb)) / (2.0 * 1.8814);
+-    float cr = 2048.0 + 3584.0 * ((a.r - ya) + (b.r - yb)) / (2.0 * 1.4746);
+-    uint c = uint(floor(((p.x & 1) == 0 ? cb : cr) + .5));
++    // Co-sited 4:2:2 in IPT: P and T come from the even pixel of each pair (I from every pixel).
++    // Measured against Dolby hardware (Amlogic S928X and S7D TV-led output).
++    vec3 self_k = dv_ipt_codes(texelFetch(pq_input, p, 0).rgb, ipt_offset);
++    vec3 even_k = (p.x & 1) == 0 ? self_k : dv_ipt_codes(texelFetch(pq_input, q, 0).rgb, ipt_offset);
++    uint y = uint(self_k.x);
++    uint c = uint((p.x & 1) == 0 ? even_k.y : even_k.z);
+     uint index = uint(p.y * 3840 + p.x);
+     uint packet = index / 3072u;
+     if (packet < packet_count)
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index 00eee79..6aab28a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -13,6 +13,12 @@ enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2 };
+ // Playback preparation latches the preferences. An open settings dialog must not
+ // change the output encoding of an already running playback session.
+ inline std::atomic<OutputMode> playbackMode{OutputMode::Standard};
++// Quick Sync scaling: 0 off, 1 enhancement layer, 2 enhancement layer and base layer colour.
++inline std::atomic<int> playbackQsvMode{1};
++// Constant IPT code offset measured on Dolby Vision hardware (Amlogic S928X and S7D, TV-led):
++// reference minus exact conversion, in 12-bit I, P, T codes.
++inline std::atomic<bool> playbackMatchHardware{true};
++inline constexpr float kHardwareIptOffset[3] = {-5.07f, -7.94f, 3.62f};
+ 
+ inline void SelectOutputSettings()
+ {
+@@ -20,6 +26,9 @@ inline void SelectOutputSettings()
+   const auto settings = component ? component->GetSettings() : nullptr;
+   const int mode = settings ? settings->GetInt("dvbridge.outputmode") : 0;
+   playbackMode.store(mode >= 0 && mode <= 2 ? static_cast<OutputMode>(mode) : OutputMode::Standard);
++  const int qsv = settings ? settings->GetInt("dvbridge.qsvmode") : 1;
++  playbackQsvMode.store(qsv >= 0 && qsv <= 2 ? qsv : 1);
++  playbackMatchHardware.store(!settings || settings->GetBool("dvbridge.matchhardware"));
+ }
+ 
+ inline bool EnhancedInfoEnabled()
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 8435f7a..5409a7e 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -1,5 +1,13 @@
+ /* SPDX-License-Identifier: GPL-3.0-or-later */
+ #include "DVBridgeGLES.h"
++
++extern "C"
++{
++#include <libavutil/hwcontext.h>
++#include <libavutil/hwcontext_vaapi.h>
++}
++
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "DVBridgeShaders.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
+@@ -57,6 +65,7 @@ CDVBridgeGLES::~CDVBridgeGLES()
+   glDeleteFramebuffers(1, &m_framebuffer);
+   dvbridge_gl_packer_destroy(m_packer);
+   dvbridge_renderer_destroy(m_renderer);
++  dvbridge_vpp_destroy(&m_vpp);
+   if (m_gl)
+     pl_tex_destroy(m_gl->gpu, &m_scanout);
+   pl_opengl_destroy(&m_gl);
+@@ -128,6 +137,10 @@ void CDVBridgeGLES::Reset()
+   m_prepared = m_packed = false;
+   m_direct = false;
+   dvbridge_renderer_reset(m_renderer);
++  // Playback ended: free the media-engine surfaces and the decoder's VA device reference.
++  dvbridge_vpp_release(m_vpp);
++  m_vppFailed = false;
++  m_vppLogged = false;
+ }
+ 
+ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+@@ -139,6 +152,12 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+     return Failure("renderer-unavailable");
+   if (!metadata.Data())
+     return Failure("metadata-unavailable");
++  {
++    static constexpr float zero[3] = {0.0f, 0.0f, 0.0f};
++    const float* offset = DVBRIDGE::playbackMatchHardware.load() ? DVBRIDGE::kHardwareIptOffset : zero;
++    dvbridge_renderer_set_ipt_offset(m_renderer, offset);
++    dvbridge_gl_packer_set_ipt_offset(m_packer, offset);
++  }
+   dvbridge_gl_frame bl{}, el{};
+   if (!dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
+     return Failure("base-import");
+@@ -223,20 +242,85 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+                                   const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked)
+ {
+   m_prepared = m_packed = false;
++  // Quick Sync scaling on the Intel media engine (see dvbridge_vpp.c):
++  //  mode 1: the FEL enhancement layer is upscaled there (default);
++  //  mode 2: base layer colour is upsampled there too. Both layers then come back rotated by 180
++  //          degrees (that makes the driver filter colour properly) and the renderer turns the
++  //          composed picture back.
++  // If anything fails, this playback continues on the shader path.
++  const int mode = m_vppFailed ? 0 : DVBRIDGE::playbackQsvMode.load();
++  const bool elScaled = enhancement && enhancement->width < base.width && enhancement->height < base.height;
++  const bool doBase = mode == 2 && base.vaDisplay && base.layout == DVBRIDGE_P010 && (!enhancement || elScaled);
++  const bool doEnhancement = mode >= 1 && elScaled && (mode == 1 || doBase);
++  dvbridge_dmabuf baseImported{}, elImported{};
++  bool offloaded = false;
++  if (doBase || doEnhancement)
++  {
++    if (!m_vpp)
++      m_vpp = dvbridge_vpp_create();
++    const char* reason = m_vpp ? nullptr : "allocation";
++    if (!reason && doBase)
++      reason = dvbridge_vpp_process(m_vpp, DVBRIDGE_VPP_BASE, base.vaDisplay, base.vaSurface, base.width,
++                                    base.height, base.width, base.height, true, &baseImported);
++    if (!reason && doEnhancement)
++    {
++      const auto* frames = enhancement->hw_frames_ctx
++                               ? reinterpret_cast<const AVHWFramesContext*>(enhancement->hw_frames_ctx->data)
++                               : nullptr;
++      const auto* device = frames && frames->device_ctx
++                               ? static_cast<const AVVAAPIDeviceContext*>(frames->device_ctx->hwctx)
++                               : nullptr;
++      if (enhancement->format != AV_PIX_FMT_VAAPI || !device || frames->sw_format != AV_PIX_FMT_P010)
++        reason = "enhancement-format";
++      else
++        reason = dvbridge_vpp_process(
++            m_vpp, DVBRIDGE_VPP_ENHANCEMENT, device->display,
++            static_cast<unsigned>(reinterpret_cast<uintptr_t>(enhancement->data[3])), enhancement->width,
++            enhancement->height, base.width, base.height, doBase, &elImported);
++    }
++    offloaded = reason == nullptr;
++    if (!offloaded)
++    {
++      dvbridge_dmabuf_release(&baseImported);
++      dvbridge_dmabuf_release(&elImported);
++      m_vppFailed = true;
++      dvbridge_vpp_release(m_vpp);
++      CLog::Log(LOGWARNING, "DVBridge: Quick Sync scaling unavailable ({}), using GPU shaders", reason);
++    }
++    else if (!m_vppLogged)
++    {
++      m_vppLogged = true;
++      CLog::Log(LOGINFO, "DVBridge: Quick Sync on the Intel media engine:{}{}",
++                doBase ? " base layer colour" : "",
++                doEnhancement ? " enhancement layer upscale" : "");
++    }
++  }
++  Layer baseLayer = base;
++  if (offloaded && doBase)
++  {
++    baseLayer.layout = DVBRIDGE_Y416_BASE_ROT180;
++    baseLayer.planes[0] = baseImported.planes[0];
++    baseLayer.planes[1] = baseLayer.planes[2] = {};
++  }
+   if (!enhancement)
+-    return Prepare(base, nullptr, metadata, geometry, allowPacked);
+-  dvbridge_dmabuf imported{};
+-  if (!dvbridge_dmabuf_import(&imported, enhancement))
++  {
++    const bool result = Prepare(baseLayer, nullptr, metadata, geometry, allowPacked);
++    dvbridge_dmabuf_release(&baseImported);
++    return result;
++  }
++  const bool elOffloaded = offloaded && doEnhancement;
++  if (!elOffloaded && !dvbridge_dmabuf_import(&elImported, enhancement))
+     return Failure("enhancement-dmabuf-import");
+   Layer layer{};
+-  layer.layout = imported.layout;
+-  layer.width = enhancement->width;
+-  layer.height = enhancement->height;
++  layer.layout = !elOffloaded ? elImported.layout : doBase ? DVBRIDGE_Y416_EL_ROT180 : DVBRIDGE_Y416;
++  layer.width = elOffloaded ? elImported.planes[0].width : enhancement->width;
++  layer.height = elOffloaded ? elImported.planes[0].height : enhancement->height;
+   layer.pts = static_cast<double>(enhancement->pts);
+   for (int i = 0; i < 3; ++i)
+-    layer.planes[i] = imported.planes[i];
+-  bool result = Prepare(base, &layer, metadata, geometry, allowPacked);
+-  dvbridge_dmabuf_release(&imported);
++    layer.planes[i] = elImported.planes[i];
++  bool result = Prepare(baseLayer, &layer, metadata, geometry, allowPacked);
++  dvbridge_dmabuf_release(&elImported);
++  dvbridge_dmabuf_release(&baseImported);
+   return result;
+ }
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index d801523..389389f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -10,6 +10,7 @@ extern "C"
+ #include "dvbridge_gl_pack.h"
+ #include "dvbridge_render.h"
+ #include "dvbridge_dmabuf.h"
++#include "dvbridge_vpp.h"
+ }
+ 
+ class CDVBridgeGLES
+@@ -22,6 +23,9 @@ public:
+     int height;
+     dvbridge_gl_plane planes[3];
+     double pts;
++    // Decoded VAAPI surface of this layer, when available (for Quick Sync processing).
++    void* vaDisplay = nullptr;
++    unsigned vaSurface = 0xffffffff; // VA_INVALID_SURFACE
+   };
+ 
+   CDVBridgeGLES() = default;
+@@ -62,4 +66,10 @@ private:
+   bool m_packed = false;
+   unsigned m_pendingInfo = 0;
+   unsigned int m_framebuffer = 0;
++  // Base layer chroma and enhancement-layer scaling on the Intel media engine (Quick Sync). Disabled
++  // for the rest of a playback after a failure, so a driver problem costs one log line, not a broken
++  // picture.
++  dvbridge_vpp* m_vpp = nullptr;
++  bool m_vppFailed = false;
++  bool m_vppLogged = false;
+ };
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+index 4016c4c..124672a 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -200,6 +200,11 @@ bool CRendererVAAPIGLES::RenderDVBridge(int idx)
+   layer.width = m_sourceWidth;
+   layer.height = m_sourceHeight;
+   layer.pts = buffer.doviPts;
++  if (auto* pic = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer); pic && pic->valid)
++  {
++    layer.vaDisplay = pic->vadsp;
++    layer.vaSurface = pic->procPic.videoSurface;
++  }
+   for (int p = 0; p < 2; ++p)
+   {
+     const auto& plane = buffer.fields[FIELD_FULL][p];
