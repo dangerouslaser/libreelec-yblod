@@ -1,0 +1,37 @@
+#version 430 core
+// Synthetic observation of source-style float arithmetic, not licensed DV rules.
+layout(local_size_x=64,local_size_y=1,local_size_z=1) in;
+layout(binding=0) uniform sampler2D nearest_tex;
+layout(binding=1) uniform sampler2D linear_tex;
+layout(binding=2) uniform usampler2D integer_tex;
+layout(std430,binding=0) readonly buffer Queries { ivec4 q[]; };
+layout(std430,binding=1) writeonly buffer Results { uint output_words[]; };
+layout(std430,binding=2) readonly buffer Parameters { uint p[]; };
+void put4(uint base,uint offset,uvec4 words)
+{ for(uint c=0;c<4;c++)output_words[base+offset+c]=words[c]; }
+void main()
+{
+    uint i=gl_GlobalInvocationID.x;
+    if(i>=p[0])return;
+    uint base=i*36u;
+    ivec2 point=ivec2(q[i].w%8,q[i].w/8);
+    uvec4 raw=texelFetch(integer_tex,point,0);
+    vec4 fetched=texelFetch(nearest_tex,point,0);
+    vec2 position=(vec2(q[i].xy)*0.25+vec2(0.5))/vec2(8.0,2.0);
+    vec4 sampled=q[i].z==0?textureLod(nearest_tex,position,0.0):textureLod(linear_tex,position,0.0);
+    vec4 scaled=sampled*uintBitsToFloat(p[1]);
+    vec3 e=scaled.rgb-vec3(uintBitsToFloat(p[2]));
+    vec3 noise=2.384185791015625e-7*max(abs(scaled.rgb),abs(vec3(uintBitsToFloat(p[2]))));
+    bvec3 guarded=lessThanEqual(abs(e),noise);
+    vec3 cleaned=mix(e,vec3(0.0),guarded);
+    vec3 residual=sign(cleaned)*(abs(cleaned)*uintBitsToFloat(p[3])+uintBitsToFloat(p[4]));
+    put4(base,0,raw);
+    put4(base,4,floatBitsToUint(fetched));
+    put4(base,8,floatBitsToUint(sampled));
+    put4(base,12,floatBitsToUint(scaled));
+    put4(base,16,floatBitsToUint(vec4(e,0.0)));
+    put4(base,20,floatBitsToUint(vec4(noise,0.0)));
+    put4(base,24,floatBitsToUint(vec4(cleaned,0.0)));
+    put4(base,28,floatBitsToUint(vec4(residual,0.0)));
+    put4(base,32,uvec4(guarded.x?1u:0u,guarded.y?1u:0u,guarded.z?1u:0u,0u));
+}

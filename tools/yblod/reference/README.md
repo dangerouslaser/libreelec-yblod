@@ -137,7 +137,12 @@ filter and normalization declarations separate; it selects no playback policy.
 colour conversion, the existing TV-led metadata/transport hand-off, and a
 separate future player-led display-mapping contract.
 
-Latest complete Ollie check: **755 reference tests plus 8 accuracy tests**, no
+[NATIVE_TEXTURE_PROBE.md](NATIVE_TEXTURE_PROBE.md) records the small synthetic
+GPU sampling check: sampled/intermediate values matched its declared float
+model, with separately recorded final-correction differences. It is not a
+Kodi import or licensed fractional-input rule.
+
+Latest complete published-candidate Ollie check: **774 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 
