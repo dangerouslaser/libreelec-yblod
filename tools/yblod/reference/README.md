@@ -69,6 +69,11 @@ correction component: validated immutable configuration, explicit metadata cap
 before signed flooring, and lazy sample/row processing. It does not choose how
 fractional scaler samples become integer inputs or alter current playback.
 
+[COMPOSITION_STAGE.md](COMPOSITION_STAGE.md) connects that component to signed
+addition, output rounding and final bounds, with strict paired-stream length
+checks and an explicit base-only path. Synthetic bundle tests match the old
+reference's Y/Cb/Cr output; base mapping still comes from that reference.
+
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
 `test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,
