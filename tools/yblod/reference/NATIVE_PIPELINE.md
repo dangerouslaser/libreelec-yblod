@@ -14,7 +14,8 @@ does not establish real-time 4K performance.
   architecture. The C API can be called directly by a native player.
 - `streaming_composer.py --backend native`: every-stage frame dumps for checking
   arithmetic and recording build provenance. No hardware surface is accepted.
-- Colour conversion is being implemented separately in C. Explicit target
+- `native_colour.c` implements colour conversion separately in C, with the
+  opt-in `colour_frame.py --backend native` diagnostic adapter. Explicit target
   coordinates and out-of-range policies remain diagnostic choices; these do
   not implement complete Dolby display management.
 

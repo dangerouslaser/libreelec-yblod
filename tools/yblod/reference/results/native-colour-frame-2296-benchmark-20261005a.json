@@ -1,0 +1,241 @@
+{
+  "colour_run_seconds": 67.43062532198383,
+  "configuration_sha256": "54c719583b0c64466349b7a1d4942dfc8730c2b5d6a4de5c255cf835469495bd",
+  "executed_source_sha256": {
+    "colour_frame.py": "9422de8c96e6582170c0e0d1be47084f56721f9f4359a19d7da273c6a0c20bdd",
+    "native_colour.c": "2d90cef334b5c0c32a59a7ed8b6a161171f13cc3719821c1395bb534a57753cb",
+    "native_colour.h": "f44655c982da822c8db340155ea2b7694b5c399c4e195ed52e70aa39c088726d",
+    "native_colour_stage.py": "67d6af3a3a3046e3dfcee2dc3a0204b76fb90e31e59c160a30eda83e64799b88"
+  },
+  "frame_number": 2296,
+  "input_report_sha256": "e6482eea917583063602fe08af6f747fc395d6c73069c966120283dacb30ef75",
+  "limitations": [
+    "One saved-frame offline CPU run, including Python row orchestration and diagnostic output IO; not real-time playback or GPU cost.",
+    "No fresh paired Python timing, so no measured speedup factor is claimed.",
+    "Byte equality here is not universal libm portability, licensed-player agreement or Dolby conformance.",
+    "Global source association revalidated from saved extraction; no new hardware capture or output/default change."
+  ],
+  "limits_after": {
+    "memory.events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory.max": 536870912,
+    "memory.peak": 199983104,
+    "memory.swap.current": 0,
+    "memory.swap.max": 0
+  },
+  "limits_before": {
+    "memory.events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory.max": 536870912,
+    "memory.peak": 10104832,
+    "memory.swap.current": 0,
+    "memory.swap.max": 0
+  },
+  "maximum_rss_kib": 31220,
+  "native_output_report_sha256": "0b09d9b695c1890b9ee55ee97e4b2f4cc9059b7c3d7a09a2ec968c90b539a462",
+  "native_provenance": {
+    "abi_version": 1,
+    "backend": "native-c-colour-double",
+    "build_record": {
+      "abi_version": 1,
+      "command": [
+        "cc",
+        "-std=c11",
+        "-O2",
+        "-fPIC",
+        "-shared",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-Wconversion",
+        "-Wshadow",
+        "-fno-fast-math",
+        "-ffp-contract=off",
+        "/home/bryan/Projects/libreelec-yblod-reconstruction/tools/yblod/reference/native_colour.c",
+        "-lm",
+        "-o",
+        "/home/bryan/Projects/libreelec-yblod-reconstruction/target/native-colour-build-20261005a/libnative_colour.so"
+      ],
+      "compiler_version": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "library": "libnative_colour.so",
+      "library_sha256": "2c423da12bf5919509df26d8da4450f89a9bc2908e0486edf5fde35f06ea5031",
+      "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.39",
+      "schema": "yblod.native-colour-build.v1",
+      "source_sha256": {
+        "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+        "colour_stage.py": "405ac904ae8711587ad20d4f77658a54838804035b7d6eaef4cb484e70ed7217",
+        "native_colour.c": "2d90cef334b5c0c32a59a7ed8b6a161171f13cc3719821c1395bb534a57753cb",
+        "native_colour.h": "f44655c982da822c8db340155ea2b7694b5c399c4e195ed52e70aa39c088726d",
+        "native_colour_stage.py": "67d6af3a3a3046e3dfcee2dc3a0204b76fb90e31e59c160a30eda83e64799b88",
+        "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687",
+        "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e"
+      },
+      "status": "complete"
+    },
+    "build_record_sha256": "23e0714b924e44ee69fca30fa58bd53ffd85d873b1c56b3a672f3dfe45b89ed9",
+    "library_sha256": "2c423da12bf5919509df26d8da4450f89a9bc2908e0486edf5fde35f06ea5031",
+    "scope": "CPU double/libm colour coordinates; explicit PQ policy, not display mapping or GPU emulation.",
+    "source_sha256": {
+      "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+      "colour_stage.py": "405ac904ae8711587ad20d4f77658a54838804035b7d6eaef4cb484e70ed7217",
+      "native_colour.c": "2d90cef334b5c0c32a59a7ed8b6a161171f13cc3719821c1395bb534a57753cb",
+      "native_colour.h": "f44655c982da822c8db340155ea2b7694b5c399c4e195ed52e70aa39c088726d",
+      "native_colour_stage.py": "67d6af3a3a3046e3dfcee2dc3a0204b76fb90e31e59c160a30eda83e64799b88",
+      "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687",
+      "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e"
+    }
+  },
+  "outputs": {
+    "transport_ipt444.u16le": {
+      "byte_identical": true,
+      "bytes_native": 49766400,
+      "bytes_python": 49766400,
+      "first_differing_byte": null,
+      "native_hash_matches_report": true,
+      "native_sha256": "7e0048b6da96184f46154ba45098662bd7e65dfe2e5df9d231cf98876e45d0db",
+      "python_hash_matches_report": true,
+      "python_sha256": "7e0048b6da96184f46154ba45098662bd7e65dfe2e5df9d231cf98876e45d0db"
+    },
+    "unembedded_tunnel.rgb8": {
+      "byte_identical": true,
+      "bytes_native": 24883200,
+      "bytes_python": 24883200,
+      "first_differing_byte": null,
+      "native_hash_matches_report": true,
+      "native_sha256": "4959013735674617716117f1f08e4455de95f317f13a5f506961e32e2253fc58",
+      "python_hash_matches_report": true,
+      "python_sha256": "4959013735674617716117f1f08e4455de95f317f13a5f506961e32e2253fc58"
+    }
+  },
+  "python_output_report_sha256": "e593cd983f1e60d391161eec99b3d41ac85c2e15ca68b69a9767af9b259c4371",
+  "schema": "yblod.native-colour-frame-benchmark.v1",
+  "source_dm_association": "verified against supplied extracted RPU and frame identity; not independent source-film authentication",
+  "source_scope": "Saved private prepared frame; no film pixels, RPU payload or source-DM values included.",
+  "statistics": {
+    "common_linear_lms": {
+      "above_one": {
+        "absolute_difference": 0,
+        "native": 2372757,
+        "python": 2372757,
+        "within_tolerance": true
+      },
+      "below_zero": {
+        "absolute_difference": 0,
+        "native": 0,
+        "python": 0,
+        "within_tolerance": true
+      },
+      "maximum": {
+        "absolute_difference": 0.0,
+        "native": 73.92833009558991,
+        "python": 73.92833009558991,
+        "within_tolerance": true
+      },
+      "minimum": {
+        "absolute_difference": 0.0,
+        "native": 0.0004643162049397619,
+        "python": 0.0004643162049397619,
+        "within_tolerance": true
+      }
+    },
+    "source_nonlinear": {
+      "above_one": {
+        "absolute_difference": 0,
+        "native": 1468577,
+        "python": 1468577,
+        "within_tolerance": true
+      },
+      "below_zero": {
+        "absolute_difference": 0,
+        "native": 554369,
+        "python": 554369,
+        "within_tolerance": true
+      },
+      "maximum": {
+        "absolute_difference": 0.0,
+        "native": 1.39815092086792,
+        "python": 1.39815092086792,
+        "within_tolerance": true
+      },
+      "minimum": {
+        "absolute_difference": 0.0,
+        "native": -0.07350745797157288,
+        "python": -0.07350745797157288,
+        "within_tolerance": true
+      }
+    },
+    "target_linear": {
+      "above_one": {
+        "absolute_difference": 0,
+        "native": 2484617,
+        "python": 2484617,
+        "within_tolerance": true
+      },
+      "below_zero": {
+        "absolute_difference": 0,
+        "native": 0,
+        "python": 0,
+        "within_tolerance": true
+      },
+      "maximum": {
+        "absolute_difference": 0.0,
+        "native": 71.1370800944978,
+        "python": 71.1370800944978,
+        "within_tolerance": true
+      },
+      "minimum": {
+        "absolute_difference": 0.0,
+        "native": 0.0004702630763198264,
+        "python": 0.0004702630763198264,
+        "within_tolerance": true
+      }
+    },
+    "transport_before_quantization": {
+      "above_one": {
+        "absolute_difference": 0,
+        "native": 615611,
+        "python": 615611,
+        "within_tolerance": true
+      },
+      "below_zero": {
+        "absolute_difference": 0,
+        "native": 0,
+        "python": 0,
+        "within_tolerance": true
+      },
+      "maximum": {
+        "absolute_difference": 0.0,
+        "native": 1.2087779785162163,
+        "python": 1.2087779785162163,
+        "within_tolerance": true
+      },
+      "minimum": {
+        "absolute_difference": 5.551115123125783e-17,
+        "native": 0.14513620895758272,
+        "python": 0.14513620895758267,
+        "within_tolerance": true
+      }
+    }
+  },
+  "statistics_maximum_absolute_difference": 5.551115123125783e-17,
+  "statistics_tolerance": {
+    "absolute": 2e-12,
+    "integer_counters": "exact",
+    "relative": 2e-11
+  },
+  "status": "complete"
+}

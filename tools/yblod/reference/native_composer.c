@@ -309,7 +309,7 @@ int yb_process_chunk(const struct yb_mapping_config *map,
             return YB_INVALID_CONFIG;
     }
     const uint16_t base_max = (uint16_t)((1 << map->bit_depth) - 1);
-    const uint16_t enhancement_max = enabled ? (uint16_t)((1 << nlq->bit_depth) - 1) : 0;
+    const uint16_t enhancement_max = (uint16_t)(enabled ? (1 << nlq->bit_depth) - 1 : 0);
     for (uint32_t index = 0; index < count; ++index)
         if (y[index] > base_max || cb[index] > base_max || cr[index] > base_max ||
             (enabled && el[index] > enhancement_max))

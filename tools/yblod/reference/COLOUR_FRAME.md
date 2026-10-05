@@ -31,6 +31,22 @@ of a display target or an asserted correct out-of-range rule.
 
 ## Configuration and checks
 
+The opt-in C backend performs each row's colour arithmetic in one native call:
+
+```sh
+python3 tools/yblod/reference/native_colour_stage.py target/native-colour-build
+python3 tools/yblod/reference/colour_frame.py \
+  target/colour-composed target/colour-settings.json target/colour-native-output \
+  --backend native \
+  --native-library target/native-colour-build/libnative_colour.so
+```
+
+Add `--extraction DIRECTORY` for verified real-frame settings. Library build and
+source pins are checked before output creation and recorded in the result.
+Python still prepares rows, aggregates statistics and writes diagnostic files;
+future native playback can call the C API directly. See `NATIVE_COLOUR.md` and
+`NATIVE_COLOUR_RESULTS.md`. Neither path changes the declared target or policy.
+
 The JSON configuration is hash-bound to the exact composer report and supplies:
 source colour instructions, target matrices/offsets,4096 code scale, PQ policy,
 `bilinear-left-diagnostic` expansion, an explicit active rectangle, and explicit
