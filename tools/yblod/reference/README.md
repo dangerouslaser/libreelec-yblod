@@ -64,6 +64,14 @@ inverse quantization and addition/rounding). This is a public compound-content
 specification, not evidence that every current Dolby implementation is identical.
 No implementation code was imported from another renderer.
 
+`known_answers.py` supplies a separate arithmetic oracle using exact fractions
+and 60-digit decimal calculations, rather than the renderer's own functions.
+`test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,
+all 1024 input codes of a nonlinear mapping, enhancement signs and saturation,
+and exact rounding boundaries. None of these expected answers comes from SK4
+pixels. The project transport conventions are distinguished from published
+arithmetic; passing these tests is not Dolby conformance certification.
+
 Implementation decisions to keep visible during review:
 
 - Arbitrary-width Python integer accumulators avoid overflow. Floating-point
@@ -170,10 +178,13 @@ python3 tools/yblod/reference/import_rpu.py target/another-frame-2296-run
 python3 tools/yblod/reference/verify_extraction.py target/another-frame-2296-run
 ```
 
-`--pts` is in the container stream's time base, not seconds. The extractor is
-currently restricted to single-track Profile 7 with monotonic, non-reordered
-container packets. Enhancement decoder reordering is handled through packet
-positions. It is not a general extractor for arbitrary HEVC containers.
+`--pts` is in the container stream's time base, not seconds. The extractor accepts
+single-track Profile 7 streams with unique integer presentation timestamps,
+including reordered pictures. It distinguishes coded packet order, source
+presentation order and the local decoder output order; none is automatically an
+on-screen frame number. Reordered streams currently require a paired BL/EL/RPU
+for every coded picture. Missing/duplicate timing, unsupported metadata reuse
+and ambiguous associations are rejected. This is not a general HEVC extractor.
 
 The checks are deliberately stronger than selecting the same ordinal from two
 decoder outputs:
@@ -186,8 +197,14 @@ decoder outputs:
   representation omits that header and adds a start code. No conversion mode is
   used and no metadata values are edited.
 - Find each layer's own preceding access point, require complete parameter sets,
-  and decode a bounded window. EL uses a closed IDR rather than an open CRA to
-  avoid multi-slice leading-picture seek issues.
+  and decode a bounded window. When starting at an open CRA, remove only complete
+  initial leading RASL pictures that cannot be decoded without earlier references.
+  Preserve RADL pictures and later groups. A target needing earlier references
+  forces an earlier access point or fails closed; decoder errors are never ignored.
+- Record every retained/discarded packet, source and rewritten byte offsets, and
+  hashes. A discarded packet may carry redundant parameter sets only when their
+  bytes exactly match the latest retained definitions; other decoder-state changes
+  fail closed. Verification reconstructs the window from this source mapping.
 - Match the selected decoded frame back to its encoded packet offset. Strict
   decoding errors abort the run. FFmpeg's packet-boundary zero padding is
   handled separately from the exact full-stream coded-slice comparison.
@@ -200,6 +217,15 @@ remains in `rpu.json`. `verification/verification.json` records the repeat-decod
 and integrity checks. Earlier failed attempts have no completed extraction
 report and must not be used as input. All movie material stays under ignored
 `target/`, separate from source control.
+
+Use short lossless clips and an external memory limit. `--max-window-frames`
+bounds the decode window (1024 coded pictures by default, 256 in movie tests),
+not all memory or disk use: packet tables and RPU export still scale with clip
+duration. On Ollie, heavy jobs run sequentially under `MemoryMax=512M` and
+`MemorySwapMax=0`; that limit is not automatically installed by these tools.
+Check remuxed timestamps: one tested FFmpeg remux lost or duplicated leading
+timestamps despite exiting successfully. The tested `mkvmerge` clips preserve
+the timing required by our association checks.
 
 ## Verified frame 2296 extraction — 2026-10-04
 
@@ -292,8 +318,9 @@ final output bounds. This identifies a concrete reconstruction-stage limit to
 investigate. It does **not** show that the older RGB clamp was correct or explain
 the old/fast hardware-output discrepancy by itself.
 
-Current automated coverage: 115 reference/extraction/preparation/output/report tests
-plus all eight existing accuracy-tool tests. The real-frame inspector also
+Automated coverage includes independent known-answer vectors, extraction,
+preparation, reconstruction, transport packing and diagnostic reports,
+plus the eight existing accuracy-tool tests. The real-frame inspector also
 verifies every saved component's signed addition and final rounding/bounds.
 
 ## Hardware scaling is a production requirement
@@ -541,13 +568,69 @@ float intermediates for the full sweep occupy about 10 GiB under ignored
 `target/`; only source and numerical reports are public. These are offline
 measurements, not evidence of playback performance.
 
+## Independent checks and movie extraction checkpoint — 2026-10-04
+
+The full suite now passes **166 reference tests plus 8 existing accuracy-tool
+tests** on Ollie. This includes the independent arithmetic vectors above and new
+diagnostic/extraction safeguards reviewed by separate agents. Tests passing does
+not mean the hardware discrepancy is solved.
+
+See [frame 1960's investigation](FRAME1960.md) for the remaining mismatch. Its
+alternating-row colour difference provides a concrete sampling-position lead;
+the backwards-conversion experiment is explicitly limited and does not locate
+a faulty stage by itself. No fitted correction was added.
+
+[Movie extraction results](results/movie-extractions.json) cover one frame each
+from short lossless **1917** and **Saving Private Ryan** clips, at container PTS
+208 in time base 1/1000. In both clips, the selected coded packet is index 3 but
+its presentation rank and global RPU index are 5. The complete clips' compressed
+packet hashes, sizes and PTS/DTS match the corresponding original packets.
+Each selected BL/EL frame is byte-identical between independent one- and
+four-thread decoder runs, and its metadata matches the exact source packet.
+Both offline reconstructions pass saved-stage addition and rounding checks.
+Repeating numbered frame 2296 with the new extractor preserves the original
+BL/EL pixels and parsed RPU JSON byte-for-byte.
+
+These movies have different reconstruction and scene instructions, but their
+source linear colour matrices match the numbered test. They therefore do not
+yet supply the desired real-world matrix diversity. They also have **no matched
+SK4 capture in this checkpoint**; source extraction verification is not hardware
+frame association, and no movie/SK4 accuracy score is claimed.
+
+The successful movie extractions peaked below 222,000 KiB process RSS;
+preparation used about 290,000 KiB. The longer numbered-frame regression peaked
+at 512,192 KiB under the 512 MiB hard cap. All heavy jobs were sequential, with
+no swaps or OOM failures. The extraction cap is deliberately retained; packet
+table/probe overhead still needs attention before long movies are suitable inputs.
+Nothing was installed on the playback VM or changed in the production renderer.
+
+To reproduce the movie workflow with your own clip and unused output paths:
+
+```sh
+# Run each heavyweight command separately inside your memory-limited scope.
+python3 tools/yblod/reference/extract_frame.py "$MOVIE_CLIP" target/movie-native \
+  --pts 208 --max-window-frames 256 --expected-sha256 "$MOVIE_SHA256" \
+  --dovi-tool target/reference-tools/dovi_tool-2.3.4/dovi_tool
+python3 tools/yblod/reference/import_rpu.py target/movie-native
+python3 tools/yblod/reference/verify_extraction.py target/movie-native
+python3 tools/yblod/reference/prepare_frame.py target/movie-native target/movie-prepared --phase-filter linear
+python3 tools/yblod/reference/reference.py target/movie-prepared/frame.json target/movie-composed
+python3 tools/yblod/reference/inspect_composition.py target/movie-composed --output target/movie-inspection.json
+```
+
+PTS 208 identifies the tested clips, not an arbitrary movie. Set the source,
+checksum and timestamp appropriately. This remains an offline reference, not a
+replacement real-time player. Intel Quick Sync and supported AMD media scaling
+remain explicit production requirements.
+
 ## Next milestone
 
 1. Compare earlier-PQ and later-RGB bounds on additional matched SK4 material
-   with different source matrices, including ordinary movie scenes. The current
-   extractor rejects reordered streams; extend and verify frame association
-   before using it on typical movie encodes. Isolate the remaining differences
-   without fitting offsets. No AM9 recapture is currently needed.
+   with different source matrices, including ordinary movie scenes. Reordered
+   movie extraction is now supported within the restrictions above; source-frame
+   verification does not establish the identity of a separate hardware capture.
+   Establish that association before reporting movie/SK4 pixel scores. Isolate
+   remaining differences without fitting offsets. No AM9 recapture is needed.
 2. Add independent dynamic-metadata serialization/embedding before claiming
    complete standalone HDMI output; preserve trim/active-area instructions.
 3. Connect the saved EL-stage comparison boundary to the existing Intel path;

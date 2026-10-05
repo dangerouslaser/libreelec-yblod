@@ -5,7 +5,8 @@ import hashlib
 import json
 from pathlib import Path
 
-from extract_frame import Commands, digest, save_json
+from extract_frame import (Commands, decoded_picture_index, digest, save_json,
+                           verify_picture_geometry, verify_picture_window)
 from import_rpu import normalize
 
 
@@ -50,16 +51,41 @@ def verify(directory):
         window = directory / f"{label}-decode-window.hevc"
         if digest(window) != layer["window_sha256"]:
             raise ValueError(f"{label}: decode window changed")
+        if "window_mapping" in layer:
+            mapping = layer["window_mapping"]
+            verify_picture_window(directory / ("BL.hevc" if label == "bl" else "EL.hevc"), window, mapping)
+            if (mapping["packets"][-1]["source_packet_index"] != extraction["source_packet_index_zero_based"]
+                    or mapping["packets"][-1]["layer_coded_index"] != layer["decode_index_zero_based"]
+                    or mapping["target_window_byte"] != layer["window_target_byte"]):
+                raise ValueError(f"{label}: decode-window mapping does not preserve target identity")
+            target_position = layer["window_target_byte"]
+        else:
+            # Earlier unfiltered bundles retain their original offset identity.
+            target_position = int(layer["decoder_packet"]["pos"]) - layer["window_start_byte"]
+        if str(layer["decoded_frame"].get("pkt_pos")) != str(target_position):
+            raise ValueError(f"{label}: saved decoded picture does not identify the source packet")
+        # Decoder presentation order is not container/coded packet order. Resolve
+        # it independently with one thread, including B-picture delayed output.
+        decoded = commands.probe(f"repeat-{label}-frames", ["-threads", "1", "-err_detect", "explode",
+            "-show_frames", "-show_entries", "frame=pkt_pos,pkt_size,pict_type,width,height,pix_fmt,chroma_location"], window)["frames"]
+        if (output / f"repeat-{label}-frames.stderr").read_text().strip():
+            raise ValueError(f"{label}: single-thread packet-position probe reported a decode error")
+        presentation_index = decoded_picture_index(decoded, target_position)
+        verify_picture_geometry(layer["decoded_frame"], decoded[presentation_index])
+        if presentation_index != layer["presentation_index_zero_based"]:
+            raise ValueError(f"{label}: decoder thread counts disagree about presentation order")
         raw = output / f"{label}-single-thread.yuv"
         commands.run(f"repeat-{label}", ["ffmpeg", "-nostdin", "-v", "error", "-n", "-xerror",
             "-threads", "1", "-err_detect", "explode", "-i", str(window), "-map", "0:v:0",
-            "-vf", f"select=eq(n\\,{layer['presentation_index_zero_based']})", "-filter_threads", "1",
+            "-vf", f"select=eq(n\\,{presentation_index})", "-filter_threads", "1",
             "-frames:v", "1", "-fps_mode", "passthrough", "-c:v", "rawvideo", "-threads:v", "1",
             "-pix_fmt", "+yuv420p10le", "-f", "rawvideo", str(raw)])
         if digest(raw) != layer["raw_sha256"]:
             raise ValueError(f"{label}: single-thread decode differs from extraction")
         result["layers"][label] = {"plane_hashes_valid": True, "planes_reassemble_exactly": True,
                                    "single_and_four_thread_decodes_identical": True,
+                                   "packet_position_verified_with_both_thread_counts": True,
+                                   "window_reconstructed_from_source_mapping": "window_mapping" in layer,
                                    "sha256": layer["raw_sha256"]}
     result["commands"] = commands.commands
     save_json(output / "verification.json", result)

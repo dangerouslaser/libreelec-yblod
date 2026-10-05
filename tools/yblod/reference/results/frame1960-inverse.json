@@ -1,0 +1,402 @@
+{
+  "schema": "yblod.inverse-stage-diagnosis.v1",
+  "status": "complete",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1960",
+    "pts": 81748,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "provenance": {
+    "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-direct",
+    "output_report_sha256": "055e681faae0ae687772fee5c2f46f01bc327e8bea1e9523a99594f2d69ce413",
+    "comparison_report_sha256": "e8501fd6ad997840441bdce79a7f40bb8ad202f294f37af2bdf69a8d1ceecf43",
+    "compared_tunnel_sha256": "96d12416c5afd16e0ee58e4de629bdb447239d37b646a01155b77b7b6039087f"
+  },
+  "composer_report_sha256": "c0c999728160ca9f3e4f69131b1516703b253ad94e806889cbae116f61abe1d6",
+  "rpu_sha256": "ac2a665b24f5370988cf7c1e71ec61fb9ccd3680bb33b70bb594bd078f06520c",
+  "capture_sha256": "dffabbc1e19d4b6cbdee5bfee7fb9a25a9f461946e0721c842a1c084c560fba3",
+  "metadata": {
+    "packets": 2,
+    "copies_per_packet": 3,
+    "all_crc_valid": true,
+    "copies_identical": true,
+    "packet_hex": [
+      "400000008800002002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c020101003e0e70002a05000000060100450b95062c0000000e020821083108000818072b09420200000000040405bf03db000000080500000000152a9d99",
+      "c000000000000000000008060fa000320f97093b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000058a9c804"
+    ]
+  },
+  "source_dm": {
+    "compressed": false,
+    "affected_dm_metadata_id": 0,
+    "current_dm_metadata_id": 0,
+    "scene_refresh_flag": 0,
+    "ycc_to_rgb_coef0": 9574,
+    "ycc_to_rgb_coef1": 0,
+    "ycc_to_rgb_coef2": 13802,
+    "ycc_to_rgb_coef3": 9574,
+    "ycc_to_rgb_coef4": -1540,
+    "ycc_to_rgb_coef5": -5348,
+    "ycc_to_rgb_coef6": 9574,
+    "ycc_to_rgb_coef7": 17610,
+    "ycc_to_rgb_coef8": 0,
+    "ycc_to_rgb_offset0": 16777216,
+    "ycc_to_rgb_offset1": 134217728,
+    "ycc_to_rgb_offset2": 134217728,
+    "rgb_to_lms_coef0": 7222,
+    "rgb_to_lms_coef1": 8771,
+    "rgb_to_lms_coef2": 390,
+    "rgb_to_lms_coef3": 2654,
+    "rgb_to_lms_coef4": 12430,
+    "rgb_to_lms_coef5": 1300,
+    "rgb_to_lms_coef6": 0,
+    "rgb_to_lms_coef7": 422,
+    "rgb_to_lms_coef8": 15962,
+    "signal_eotf": 65535,
+    "signal_eotf_param0": 0,
+    "signal_eotf_param1": 0,
+    "signal_eotf_param2": 0,
+    "signal_bit_depth": 12,
+    "signal_color_space": 0,
+    "signal_chroma_format": 0,
+    "signal_full_range_flag": 1,
+    "source_min_pq": 62,
+    "source_max_pq": 3696,
+    "source_diagonal": 42,
+    "cmv29_metadata": {
+      "num_ext_blocks": 5,
+      "ext_metadata_blocks": [
+        {
+          "Level1": {
+            "min_pq": 69,
+            "max_pq": 2965,
+            "avg_pq": 1580
+          }
+        },
+        {
+          "Level2": {
+            "target_max_pq": 2081,
+            "trim_slope": 2097,
+            "trim_offset": 2048,
+            "trim_power": 2072,
+            "trim_chroma_weight": 1835,
+            "trim_saturation_gain": 2370,
+            "ms_weight": 512
+          }
+        },
+        {
+          "Level4": {
+            "anchor_pq": 1515,
+            "anchor_power": 1001
+          }
+        },
+        {
+          "Level5": {
+            "active_area_left_offset": 0,
+            "active_area_right_offset": 0,
+            "active_area_top_offset": 275,
+            "active_area_bottom_offset": 276
+          }
+        },
+        {
+          "Level6": {
+            "max_display_mastering_luminance": 4000,
+            "min_display_mastering_luminance": 50,
+            "max_content_light_level": 3991,
+            "max_frame_average_light_level": 2363
+          }
+        }
+      ]
+    }
+  },
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "processing_strip_rows": 32,
+  "sample_grid": "even x only; I,P,T are co-sited, no capture interpolation",
+  "exclusions": {
+    "samples": 3089280,
+    "source_forward_domain_or_target_boundary": 33,
+    "capture_transport_boundary": 0,
+    "capture_inverse_domain": 693605,
+    "generated_inverse_domain": 128746,
+    "union_excluded": 725751,
+    "valid": 2363529
+  },
+  "inverse_domain_counts": {
+    "capture": {
+      "target_nonlinear_outside_unit_domain": 0,
+      "source_linear_outside_unit_domain_after_valid_target": 693605,
+      "valid_inverse_source_codes_outside_storage_range": 0,
+      "valid": 2395675
+    },
+    "generated": {
+      "target_nonlinear_outside_unit_domain": 0,
+      "source_linear_outside_unit_domain_after_valid_target": 128746,
+      "valid_inverse_source_codes_outside_storage_range": 0,
+      "valid": 2960534
+    }
+  },
+  "comparisons": {
+    "capture_minus_composer": {
+      "Y": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": 19.46008178475296,
+          "mean_absolute_codes": 47.78205436877625,
+          "rmse_codes": 90.64787366832188,
+          "maximum_absolute_codes": 735.9942068169914
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": -4.594110050026384,
+          "mean_absolute_codes": 34.814007713299844,
+          "rmse_codes": 68.55793408985701,
+          "maximum_absolute_codes": 606.9371293064289
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": 38.84322327495165,
+          "mean_absolute_codes": 58.23185392559027,
+          "rmse_codes": 105.12350863724022,
+          "maximum_absolute_codes": 735.9942068169914
+        }
+      },
+      "Cb": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": -9.22275593612539,
+          "mean_absolute_codes": 39.799876750982136,
+          "rmse_codes": 61.81362936971761,
+          "maximum_absolute_codes": 402.1377683396636
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": 22.381682730711752,
+          "mean_absolute_codes": 35.647774822861,
+          "rmse_codes": 54.02182770639708,
+          "maximum_absolute_codes": 329.81865747496977
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": -34.689972236939845,
+          "mean_absolute_codes": 43.1456877309267,
+          "rmse_codes": 67.44051793848612,
+          "maximum_absolute_codes": 402.1377683396636
+        }
+      },
+      "Cr": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": -33.883203796006576,
+          "mean_absolute_codes": 47.654357858211576,
+          "rmse_codes": 82.97851050224224,
+          "maximum_absolute_codes": 593.586572923602
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": -23.872348454157628,
+          "mean_absolute_codes": 36.899657650117106,
+          "rmse_codes": 60.535906864076104,
+          "maximum_absolute_codes": 466.68868693103127
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": -41.95006494277808,
+          "mean_absolute_codes": 56.32061766232428,
+          "rmse_codes": 97.36950476721765,
+          "maximum_absolute_codes": 593.586572923602
+        }
+      }
+    },
+    "generated_roundtrip_minus_composer": {
+      "Y": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": 1.0578087527588336,
+          "mean_absolute_codes": 5.710517733213525,
+          "rmse_codes": 17.732024511040958,
+          "maximum_absolute_codes": 302.7621169316267
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": 0.8642774335750166,
+          "mean_absolute_codes": 4.052211465554431,
+          "rmse_codes": 14.98320785177888,
+          "maximum_absolute_codes": 294.1910176331198
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": 1.213758491926578,
+          "mean_absolute_codes": 7.046799793359251,
+          "rmse_codes": 19.669515513749854,
+          "maximum_absolute_codes": 302.7621169316267
+        }
+      },
+      "Cb": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": -0.5911585681134112,
+          "mean_absolute_codes": 3.76199921667446,
+          "rmse_codes": 9.844848014535907,
+          "maximum_absolute_codes": 164.9125627694989
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": -0.48882822652173574,
+          "mean_absolute_codes": 3.001003354988461,
+          "rmse_codes": 8.430835981518527,
+          "maximum_absolute_codes": 160.3221173517859
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": -0.6736175217725378,
+          "mean_absolute_codes": 4.375218341300713,
+          "rmse_codes": 10.851029442565837,
+          "maximum_absolute_codes": 164.9125627694989
+        }
+      },
+      "Cr": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": -0.8397323631085061,
+          "mean_absolute_codes": 4.702536767887554,
+          "rmse_codes": 13.16512305293536,
+          "maximum_absolute_codes": 276.14074727506136
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": -0.6073965235347651,
+          "mean_absolute_codes": 3.1953881734946803,
+          "rmse_codes": 10.593140402289867,
+          "maximum_absolute_codes": 204.3543511406624
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": -1.0269512263583858,
+          "mean_absolute_codes": 5.917014254910519,
+          "rmse_codes": 14.918453248515787,
+          "maximum_absolute_codes": 276.14074727506136
+        }
+      }
+    },
+    "capture_minus_generated_roundtrip": {
+      "Y": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": 18.402273031994127,
+          "mean_absolute_codes": 46.89479518359073,
+          "rmse_codes": 86.8359636699314,
+          "maximum_absolute_codes": 703.9199136235331
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": -5.458387483601401,
+          "mean_absolute_codes": 34.07786752576302,
+          "rmse_codes": 65.0887520720221,
+          "maximum_absolute_codes": 579.5635808999091
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": 37.629464783025064,
+          "mean_absolute_codes": 57.2228213325347,
+          "rmse_codes": 101.00908958907368,
+          "maximum_absolute_codes": 703.9199136235331
+        }
+      },
+      "Cb": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": -8.631597368011978,
+          "mean_absolute_codes": 39.34064223824619,
+          "rmse_codes": 60.24626749564073,
+          "maximum_absolute_codes": 384.6027539388938
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": 22.87051095723348,
+          "mean_absolute_codes": 35.275442809128016,
+          "rmse_codes": 52.84270336298955,
+          "maximum_absolute_codes": 311.856167260496
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": -34.0163547151673,
+          "mean_absolute_codes": 42.61642619564122,
+          "rmse_codes": 65.60706935545703,
+          "maximum_absolute_codes": 384.6027539388938
+        }
+      },
+      "Cr": {
+        "all": {
+          "samples": 2363529,
+          "mean_signed_codes": -33.043471432898066,
+          "mean_absolute_codes": 47.091837812605256,
+          "rmse_codes": 81.03176415667193,
+          "maximum_absolute_codes": 722.1248590362898
+        },
+        "even_row": {
+          "samples": 1054683,
+          "mean_signed_codes": -23.264951930622857,
+          "mean_absolute_codes": 36.36593828634302,
+          "rmse_codes": 58.42360098906107,
+          "maximum_absolute_codes": 463.75019127220094
+        },
+        "odd_row": {
+          "samples": 1308846,
+          "mean_signed_codes": -40.92311371641967,
+          "mean_absolute_codes": 55.73488969957808,
+          "rmse_codes": 95.42920312896183,
+          "maximum_absolute_codes": 722.1248590362898
+        }
+      }
+    }
+  },
+  "Y_enhancement_hypotheses": {
+    "capture_minus_full_enhancement_Y": {
+      "samples": 2363529,
+      "mean_signed_codes": 19.46008178475296,
+      "mean_absolute_codes": 47.78205436877625,
+      "rmse_codes": 90.64787366832188,
+      "maximum_absolute_codes": 735.9942068169914
+    },
+    "capture_minus_zero_enhancement_Y": {
+      "samples": 2363529,
+      "mean_signed_codes": 106.34034219196607,
+      "mean_absolute_codes": 111.70557188503247,
+      "rmse_codes": 138.68788705263032,
+      "maximum_absolute_codes": 803.8396488030239
+    },
+    "expected_enhancement_Y": {
+      "samples": 2363529,
+      "mean_signed_codes": 86.88026040721311,
+      "mean_absolute_codes": 86.88026040721311,
+      "rmse_codes": 91.31837138425455,
+      "maximum_absolute_codes": 132.0
+    },
+    "capture_implied_enhancement_Y": {
+      "samples": 2363529,
+      "mean_signed_codes": 106.34034219196607,
+      "mean_absolute_codes": 111.70557188503247,
+      "rmse_codes": 138.68788705263032,
+      "maximum_absolute_codes": 803.8396488030239
+    }
+  },
+  "caveats": [
+    "Back-projected source coordinates are inferred, not observed internal SK4 buffers.",
+    "Generated quantized round-trip is a control, not a rigorous bound on capture quantization error; sensitivity depends on local colour.",
+    "Finite inverse source codes outside 0..4095 are reported and retained: they may indicate quantization or a model mismatch, not observed illegal decoder output.",
+    "Exclusions are strict and shared across all comparisons; exclusion category counts overlap.",
+    "Captured or generated transport endpoints 0 and 4095 are conservatively excluded because the unclipped value cannot be recovered.",
+    "A mismatch here does not by itself prove a reconstruction bug: different colour processing, capture association, or irreversible hardware operations can also produce it.",
+    "Zero-enhancement Y is a diagnostic counterfactual, not a permitted playback fallback and not a fitted residual gain.",
+    "Source-frame association is hash-verified; capture identity remains the supplied visible-counter association.",
+    "All valid samples contribute to the main result; parity groups do not change coordinates or fit offsets."
+  ],
+  "implementation_sha256": "cd1fb33703de254c3414a340f706283372dd652b48f5c1ccbeac7a0edd240171"
+}

@@ -1,0 +1,391 @@
+{
+  "schema": "yblod.movie-extraction-checkpoint.v1",
+  "status": "complete",
+  "cases": [
+    {
+      "name": "1917",
+      "source_sha256": "cb598a7924594d88c13855b79e159a42f5286aed5b63305e949550db335c0be3",
+      "pts": 208,
+      "time_base": [
+        1,
+        1000
+      ],
+      "source_coded_packet_index": 3,
+      "source_presentation_rank": 5,
+      "global_rpu_presentation_index": 5,
+      "profile": 7,
+      "enhancement_type": "FEL",
+      "source_packet_sha256": "a07582354d1d96e9e49446e1325a056e8a6981280c72f8a19632a86230016c18",
+      "rpu_json_sha256": "7a13db44645cb9706f1fcbb70d49cda302c4df40cc28081c7e007f62f21e3c0a",
+      "remux_original_sha256": "c0a1d44af7ec2dfe865038881a054423e3349f1c2d0f9137b69772a4af89c02c",
+      "remux_all_packet_payload_hashes_and_pts_dts_sizes_identical": true,
+      "remux_packets_checked": 210,
+      "extraction_report_sha256": "431efc27af45cd4f02a146cea1343bf6c8d07037b5f1093774545bb1fdb7c6ce",
+      "verification_report_sha256": "10f048e82d0cba0f7ad99413fc3eaf359fc67868b9cb7f2d9a83c1eda93e0653",
+      "extractor_sha256": "814a414221ba212b2317ad6ee080ff9cdf5fb0e3a39730381c458f92db400dda",
+      "source_linear_matrices_identical_to_numbered_test": true,
+      "scene_metadata": {
+        "num_ext_blocks": 5,
+        "ext_metadata_blocks": [
+          {
+            "Level1": {
+              "min_pq": 0,
+              "max_pq": 2818,
+              "avg_pq": 791
+            }
+          },
+          {
+            "Level2": {
+              "target_max_pq": 2081,
+              "trim_slope": 2235,
+              "trim_offset": 2085,
+              "trim_power": 2048,
+              "trim_chroma_weight": 2048,
+              "trim_saturation_gain": 1556,
+              "ms_weight": 0
+            }
+          },
+          {
+            "Level4": {
+              "anchor_pq": 319,
+              "anchor_power": 305
+            }
+          },
+          {
+            "Level5": {
+              "active_area_left_offset": 0,
+              "active_area_right_offset": 0,
+              "active_area_top_offset": 276,
+              "active_area_bottom_offset": 277
+            }
+          },
+          {
+            "Level6": {
+              "max_display_mastering_luminance": 1000,
+              "min_display_mastering_luminance": 1,
+              "max_content_light_level": 1712,
+              "max_frame_average_light_level": 175
+            }
+          }
+        ]
+      },
+      "layers": {
+        "bl": {
+          "native_sha256": "3376f635a1974f8d8b3aaa8a30c9ef43d5479e0cf7ef16014c0aa02d6a40797a",
+          "source_vcl_identical": true,
+          "window_policy": "drop-complete-initial-CRA-RASL-pictures-keep-RADL-v2",
+          "discarded_source_indices": [
+            1,
+            2
+          ],
+          "verification": {
+            "plane_hashes_valid": true,
+            "planes_reassemble_exactly": true,
+            "single_and_four_thread_decodes_identical": true,
+            "packet_position_verified_with_both_thread_counts": true,
+            "window_reconstructed_from_source_mapping": true,
+            "sha256": "3376f635a1974f8d8b3aaa8a30c9ef43d5479e0cf7ef16014c0aa02d6a40797a"
+          }
+        },
+        "el": {
+          "native_sha256": "b727c5818316446527b59d4824d9f1debeca263e06abe8949ae7ff1b15924f45",
+          "source_vcl_identical": true,
+          "window_policy": "drop-complete-initial-CRA-RASL-pictures-keep-RADL-v2",
+          "discarded_source_indices": [
+            1,
+            2
+          ],
+          "verification": {
+            "plane_hashes_valid": true,
+            "planes_reassemble_exactly": true,
+            "single_and_four_thread_decodes_identical": true,
+            "packet_position_verified_with_both_thread_counts": true,
+            "window_reconstructed_from_source_mapping": true,
+            "sha256": "b727c5818316446527b59d4824d9f1debeca263e06abe8949ae7ff1b15924f45"
+          }
+        }
+      },
+      "composition_inspection": {
+        "result_report_sha256": "d29cbe76ec4146d46fdde5438efd647a92408de94e719fd6e86670147918f185",
+        "scope": "reconstruction-stage checks, not rendered-picture accuracy",
+        "output_bit_depth": 12,
+        "channels": {
+          "Y": {
+            "samples": 8294400,
+            "signed_addition_verified": true,
+            "final_rounding_and_bounds_verified": true,
+            "rounded_below_zero": 0,
+            "rounded_above_output_maximum": 0,
+            "mapped_at_lower_bound": 0,
+            "mapped_at_upper_bound": 0,
+            "ranges": {
+              "mapped": [
+                3328,
+                31423
+              ],
+              "residual": [
+                -424,
+                408
+              ],
+              "sum": [
+                3320,
+                31479
+              ],
+              "reconstructed": [
+                208,
+                1967
+              ]
+            }
+          },
+          "Cb": {
+            "samples": 2073600,
+            "signed_addition_verified": true,
+            "final_rounding_and_bounds_verified": true,
+            "rounded_below_zero": 0,
+            "rounded_above_output_maximum": 0,
+            "mapped_at_lower_bound": 0,
+            "mapped_at_upper_bound": 0,
+            "ranges": {
+              "mapped": [
+                25297,
+                33339
+              ],
+              "residual": [
+                -232,
+                216
+              ],
+              "sum": [
+                25209,
+                33331
+              ],
+              "reconstructed": [
+                1576,
+                2083
+              ]
+            }
+          },
+          "Cr": {
+            "samples": 2073600,
+            "signed_addition_verified": true,
+            "final_rounding_and_bounds_verified": true,
+            "rounded_below_zero": 0,
+            "rounded_above_output_maximum": 0,
+            "mapped_at_lower_bound": 0,
+            "mapped_at_upper_bound": 0,
+            "ranges": {
+              "mapped": [
+                32561,
+                36097
+              ],
+              "residual": [
+                -168,
+                168
+              ],
+              "sum": [
+                32561,
+                36119
+              ],
+              "reconstructed": [
+                2035,
+                2257
+              ]
+            }
+          }
+        }
+      },
+      "composition_native_inputs_identical_to_final_extraction": true,
+      "hardware_capture_matched": false
+    },
+    {
+      "name": "Saving Private Ryan",
+      "source_sha256": "c55cefec2bf7b6044e8173d72b872b9cbe7f0955434cd582bdcc9f5e0c43c296",
+      "pts": 208,
+      "time_base": [
+        1,
+        1000
+      ],
+      "source_coded_packet_index": 3,
+      "source_presentation_rank": 5,
+      "global_rpu_presentation_index": 5,
+      "profile": 7,
+      "enhancement_type": "FEL",
+      "source_packet_sha256": "b39140d183a5128cac08d6d71d3b7f53eff0002f0f2d96a5996600bcfb0f14f6",
+      "rpu_json_sha256": "ce1b776d1be2270ac8dd1998cd2ca5109bd9cf2ba00c6889a5428962cff3bec9",
+      "remux_original_sha256": "37e97145e460472cfd21e496ce5cfb2460ff2135dd5c0da6adddecbc5a1ffa83",
+      "remux_all_packet_payload_hashes_and_pts_dts_sizes_identical": true,
+      "remux_packets_checked": 193,
+      "extraction_report_sha256": "5cfecb3448a65eb6d44a503473d5d4b171a5f842cbada2b04d89c84b609d6940",
+      "verification_report_sha256": "d4e57f154866d65f05f3cc6dc900f44a0db814274abaca92302a7db66026053d",
+      "extractor_sha256": "814a414221ba212b2317ad6ee080ff9cdf5fb0e3a39730381c458f92db400dda",
+      "source_linear_matrices_identical_to_numbered_test": true,
+      "scene_metadata": {
+        "num_ext_blocks": 4,
+        "ext_metadata_blocks": [
+          {
+            "Level1": {
+              "min_pq": 44,
+              "max_pq": 2877,
+              "avg_pq": 891
+            }
+          },
+          {
+            "Level2": {
+              "target_max_pq": 2081,
+              "trim_slope": 2023,
+              "trim_offset": 2095,
+              "trim_power": 2022,
+              "trim_chroma_weight": 2048,
+              "trim_saturation_gain": 1827,
+              "ms_weight": 512
+            }
+          },
+          {
+            "Level4": {
+              "anchor_pq": 760,
+              "anchor_power": 437
+            }
+          },
+          {
+            "Level6": {
+              "max_display_mastering_luminance": 4000,
+              "min_display_mastering_luminance": 50,
+              "max_content_light_level": 0,
+              "max_frame_average_light_level": 0
+            }
+          }
+        ]
+      },
+      "layers": {
+        "bl": {
+          "native_sha256": "71e4e295c31656e00bc2e2ee5f62fcc2425b7cdeca67673a97bae417caa2e42c",
+          "source_vcl_identical": true,
+          "window_policy": "drop-complete-initial-CRA-RASL-pictures-keep-RADL-v2",
+          "discarded_source_indices": [],
+          "verification": {
+            "plane_hashes_valid": true,
+            "planes_reassemble_exactly": true,
+            "single_and_four_thread_decodes_identical": true,
+            "packet_position_verified_with_both_thread_counts": true,
+            "window_reconstructed_from_source_mapping": true,
+            "sha256": "71e4e295c31656e00bc2e2ee5f62fcc2425b7cdeca67673a97bae417caa2e42c"
+          }
+        },
+        "el": {
+          "native_sha256": "3a48251ab9b6fa876e3b39270339ebe082dbebf8b77bb13e1f056ac5fde8f402",
+          "source_vcl_identical": true,
+          "window_policy": "drop-complete-initial-CRA-RASL-pictures-keep-RADL-v2",
+          "discarded_source_indices": [],
+          "verification": {
+            "plane_hashes_valid": true,
+            "planes_reassemble_exactly": true,
+            "single_and_four_thread_decodes_identical": true,
+            "packet_position_verified_with_both_thread_counts": true,
+            "window_reconstructed_from_source_mapping": true,
+            "sha256": "3a48251ab9b6fa876e3b39270339ebe082dbebf8b77bb13e1f056ac5fde8f402"
+          }
+        }
+      },
+      "composition_inspection": {
+        "result_report_sha256": "f33395ec5c35022c534caa8de3ad9249c4466fbedd3058521833dd1996a306c0",
+        "scope": "reconstruction-stage checks, not rendered-picture accuracy",
+        "output_bit_depth": 12,
+        "channels": {
+          "Y": {
+            "samples": 8294400,
+            "signed_addition_verified": true,
+            "final_rounding_and_bounds_verified": true,
+            "rounded_below_zero": 0,
+            "rounded_above_output_maximum": 0,
+            "mapped_at_lower_bound": 0,
+            "mapped_at_upper_bound": 0,
+            "ranges": {
+              "mapped": [
+                3160,
+                39141
+              ],
+              "residual": [
+                -1352,
+                2024
+              ],
+              "sum": [
+                3328,
+                39405
+              ],
+              "reconstructed": [
+                208,
+                2463
+              ]
+            }
+          },
+          "Cb": {
+            "samples": 2073600,
+            "signed_addition_verified": true,
+            "final_rounding_and_bounds_verified": true,
+            "rounded_below_zero": 0,
+            "rounded_above_output_maximum": 0,
+            "mapped_at_lower_bound": 0,
+            "mapped_at_upper_bound": 0,
+            "ranges": {
+              "mapped": [
+                28764,
+                34001
+              ],
+              "residual": [
+                -1016,
+                776
+              ],
+              "sum": [
+                28581,
+                34162
+              ],
+              "reconstructed": [
+                1786,
+                2135
+              ]
+            }
+          },
+          "Cr": {
+            "samples": 2073600,
+            "signed_addition_verified": true,
+            "final_rounding_and_bounds_verified": true,
+            "rounded_below_zero": 0,
+            "rounded_above_output_maximum": 0,
+            "mapped_at_lower_bound": 0,
+            "mapped_at_upper_bound": 0,
+            "ranges": {
+              "mapped": [
+                31354,
+                37489
+              ],
+              "residual": [
+                -712,
+                792
+              ],
+              "sum": [
+                31387,
+                37465
+              ],
+              "reconstructed": [
+                1962,
+                2342
+              ]
+            }
+          }
+        }
+      },
+      "composition_native_inputs_identical_to_final_extraction": true,
+      "hardware_capture_matched": false
+    }
+  ],
+  "numbered_2296_regression": {
+    "native_BL_EL_and_RPU_JSON_byte_identical": true,
+    "new_extraction_sha256": "b23a1ea277c25a1d015bbd21eeef06403610b31e9d4453bec11a5868d43ce457"
+  },
+  "scope": "Verified extraction and offline composition; not SK4 movie matching or Dolby accuracy certification.",
+  "limits": [
+    "Two short movie clips and one selected picture per movie.",
+    "Both movies use the same source linear matrices as the numbered test, despite different reconstruction and scene instructions.",
+    "No playback performance measurement or production renderer change.",
+    "Heavy work executed sequentially with an external 512 MiB memory cap and no swap."
+  ]
+}

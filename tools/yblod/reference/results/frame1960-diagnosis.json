@@ -1,0 +1,3396 @@
+{
+  "schema": "yblod.frame-diagnosis.v1",
+  "status": "complete",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1960",
+    "pts": 81748,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "policy": "direct",
+  "provenance": {
+    "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-direct",
+    "output_report_sha256": "055e681faae0ae687772fee5c2f46f01bc327e8bea1e9523a99594f2d69ce413",
+    "comparison_report_sha256": "e8501fd6ad997840441bdce79a7f40bb8ad202f294f37af2bdf69a8d1ceecf43",
+    "compared_tunnel_sha256": "96d12416c5afd16e0ee58e4de629bdb447239d37b646a01155b77b7b6039087f"
+  },
+  "capture_sha256": "dffabbc1e19d4b6cbdee5bfee7fb9a25a9f461946e0721c842a1c084c560fba3",
+  "source_nonlinear_sha256": "d1620116c640d2127c00c54d052de7c80858630c7f1200a33cd62cb05026c67e",
+  "metadata": {
+    "packets": 2,
+    "copies_per_packet": 3,
+    "all_crc_valid": true,
+    "copies_identical": true,
+    "packet_hex": [
+      "400000008800002002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c020101003e0e70002a05000000060100450b95062c0000000e020821083108000818072b09420200000000040405bf03db000000080500000000152a9d99",
+      "c000000000000000000008060fa000320f97093b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000058a9c804"
+    ]
+  },
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "processing_strip_rows": 32,
+  "direction": "generated minus capture, no fitted correction or alignment",
+  "group_definitions": {
+    "gradient": "Four-neighbour maximum on the capture channel grid; active-area edge replicated, strip halos retained.",
+    "tiles": "Fixed 8 columns by 4 rows covering the active rectangle.",
+    "source_domain": "Any saved source nonlinear RGB component outside [0,1]; float32 diagnostic, not float64 decision.",
+    "chroma_coordinates": "P and T sample locations both reported at co-sited even x."
+  },
+  "caveats": [
+    "Frame association is inherited from the supplied visible-counter record, not independently timestamp-verified.",
+    "No perceptual accuracy score, compliance result, or determination of the proprietary algorithm.",
+    "Smooth-region error can implicate arithmetic/metadata but does not exclude a slowly varying alignment error.",
+    "Edge-region error alone does not distinguish chroma phase, scaling kernel, temporal mismatch, or nonlinear ordering."
+  ],
+  "implementation_sha256": "97fcc2d8c810397fec8802eca65bb2f424b519d01e8977d8ecea53eaa019deb3",
+  "channels": {
+    "I": {
+      "groups": {
+        "all": {
+          "samples": 6178560,
+          "negative": 2154357,
+          "zero": 213129,
+          "positive": 3811074,
+          "maximum_absolute_codes": 123,
+          "mean_signed_codes": 5.755876126476072,
+          "mean_absolute_codes": 13.218079617257095,
+          "rmse_codes": 19.403026485931413
+        },
+        "smooth_le_4": {
+          "samples": 3203905,
+          "negative": 1146742,
+          "zero": 119470,
+          "positive": 1937693,
+          "maximum_absolute_codes": 116,
+          "mean_signed_codes": 5.408849825447383,
+          "mean_absolute_codes": 12.050149114908214,
+          "rmse_codes": 17.96356803907224
+        },
+        "intermediate_5_16": {
+          "samples": 2933915,
+          "negative": 995422,
+          "zero": 92559,
+          "positive": 1845934,
+          "maximum_absolute_codes": 116,
+          "mean_signed_codes": 6.086326972662807,
+          "mean_absolute_codes": 14.394823980926509,
+          "rmse_codes": 20.7232360017176
+        },
+        "edge_gt_16": {
+          "samples": 40740,
+          "negative": 12193,
+          "zero": 1100,
+          "positive": 27447,
+          "maximum_absolute_codes": 123,
+          "mean_signed_codes": 9.249361806578301,
+          "mean_absolute_codes": 20.323392243495338,
+          "rmse_codes": 28.132811902605354
+        },
+        "source_in_range": {
+          "samples": 6178493,
+          "negative": 2154357,
+          "zero": 213129,
+          "positive": 3811007,
+          "maximum_absolute_codes": 123,
+          "mean_signed_codes": 5.75573687629006,
+          "mean_absolute_codes": 13.218021287715306,
+          "rmse_codes": 19.40302998100133
+        },
+        "source_outside": {
+          "samples": 67,
+          "negative": 0,
+          "zero": 0,
+          "positive": 67,
+          "maximum_absolute_codes": 28,
+          "mean_signed_codes": 18.597014925373134,
+          "mean_absolute_codes": 18.597014925373134,
+          "rmse_codes": 19.07800171018263
+        },
+        "even_row": {
+          "samples": 3087360,
+          "negative": 1161418,
+          "zero": 96506,
+          "positive": 1829436,
+          "maximum_absolute_codes": 123,
+          "mean_signed_codes": 5.196451660966003,
+          "mean_absolute_codes": 13.298632164697347,
+          "rmse_codes": 19.39035690911631
+        },
+        "odd_row": {
+          "samples": 3091200,
+          "negative": 992939,
+          "zero": 116623,
+          "positive": 1981638,
+          "maximum_absolute_codes": 123,
+          "mean_signed_codes": 6.3146056547619045,
+          "mean_absolute_codes": 13.137627135093167,
+          "rmse_codes": 19.4156720720883
+        },
+        "tile_0_0": {
+          "samples": 193440,
+          "negative": 3858,
+          "zero": 1888,
+          "positive": 187694,
+          "maximum_absolute_codes": 46,
+          "mean_signed_codes": 9.481492969396195,
+          "mean_absolute_codes": 9.590953267162945,
+          "rmse_codes": 10.610858710804003
+        },
+        "tile_0_1": {
+          "samples": 193440,
+          "negative": 8180,
+          "zero": 1396,
+          "positive": 183864,
+          "maximum_absolute_codes": 70,
+          "mean_signed_codes": 18.70382547559967,
+          "mean_absolute_codes": 19.19882133995037,
+          "rmse_codes": 21.97921465288628
+        },
+        "tile_0_2": {
+          "samples": 193440,
+          "negative": 9323,
+          "zero": 1544,
+          "positive": 182573,
+          "maximum_absolute_codes": 66,
+          "mean_signed_codes": 16.19114454094293,
+          "mean_absolute_codes": 16.75787324234905,
+          "rmse_codes": 19.0555805995281
+        },
+        "tile_0_3": {
+          "samples": 193440,
+          "negative": 52116,
+          "zero": 4308,
+          "positive": 137016,
+          "maximum_absolute_codes": 73,
+          "mean_signed_codes": 7.428179280397022,
+          "mean_absolute_codes": 13.545321546732836,
+          "rmse_codes": 17.534298039375976
+        },
+        "tile_0_4": {
+          "samples": 193440,
+          "negative": 57710,
+          "zero": 12605,
+          "positive": 123125,
+          "maximum_absolute_codes": 74,
+          "mean_signed_codes": -1.0323252688172042,
+          "mean_absolute_codes": 7.073568031430935,
+          "rmse_codes": 12.798096288527518
+        },
+        "tile_0_5": {
+          "samples": 193440,
+          "negative": 27182,
+          "zero": 10564,
+          "positive": 155694,
+          "maximum_absolute_codes": 23,
+          "mean_signed_codes": 4.124431348221671,
+          "mean_absolute_codes": 4.973717948717948,
+          "rmse_codes": 5.969807027623564
+        },
+        "tile_0_6": {
+          "samples": 193440,
+          "negative": 81610,
+          "zero": 18296,
+          "positive": 93534,
+          "maximum_absolute_codes": 20,
+          "mean_signed_codes": 0.3000465260545906,
+          "mean_absolute_codes": 3.293243382961125,
+          "rmse_codes": 4.143247044424598
+        },
+        "tile_0_7": {
+          "samples": 193440,
+          "negative": 120758,
+          "zero": 20582,
+          "positive": 52100,
+          "maximum_absolute_codes": 19,
+          "mean_signed_codes": -1.64735835401158,
+          "mean_absolute_codes": 3.0400899503722085,
+          "rmse_codes": 3.86008060682024
+        },
+        "tile_1_0": {
+          "samples": 192960,
+          "negative": 13412,
+          "zero": 3632,
+          "positive": 175916,
+          "maximum_absolute_codes": 60,
+          "mean_signed_codes": 11.221056177446103,
+          "mean_absolute_codes": 11.809748134328359,
+          "rmse_codes": 14.894978361505533
+        },
+        "tile_1_1": {
+          "samples": 192960,
+          "negative": 26112,
+          "zero": 2324,
+          "positive": 164524,
+          "maximum_absolute_codes": 106,
+          "mean_signed_codes": 10.648025497512437,
+          "mean_absolute_codes": 15.073782131011608,
+          "rmse_codes": 19.29752632284156
+        },
+        "tile_1_2": {
+          "samples": 192960,
+          "negative": 56934,
+          "zero": 2582,
+          "positive": 133444,
+          "maximum_absolute_codes": 107,
+          "mean_signed_codes": 10.6594320066335,
+          "mean_absolute_codes": 22.57049129353234,
+          "rmse_codes": 29.015929961700152
+        },
+        "tile_1_3": {
+          "samples": 192960,
+          "negative": 56728,
+          "zero": 4984,
+          "positive": 131248,
+          "maximum_absolute_codes": 115,
+          "mean_signed_codes": 6.888733416252073,
+          "mean_absolute_codes": 16.603803897180764,
+          "rmse_codes": 23.319642394192815
+        },
+        "tile_1_4": {
+          "samples": 192960,
+          "negative": 87317,
+          "zero": 6591,
+          "positive": 99052,
+          "maximum_absolute_codes": 110,
+          "mean_signed_codes": 1.7852611940298508,
+          "mean_absolute_codes": 18.15575248756219,
+          "rmse_codes": 25.979009896912558
+        },
+        "tile_1_5": {
+          "samples": 192960,
+          "negative": 108213,
+          "zero": 6127,
+          "positive": 78620,
+          "maximum_absolute_codes": 94,
+          "mean_signed_codes": 0.08526637645107794,
+          "mean_absolute_codes": 19.049974087893865,
+          "rmse_codes": 26.794627785265316
+        },
+        "tile_1_6": {
+          "samples": 192960,
+          "negative": 157871,
+          "zero": 9462,
+          "positive": 25627,
+          "maximum_absolute_codes": 98,
+          "mean_signed_codes": -4.068563432835821,
+          "mean_absolute_codes": 6.452394278606965,
+          "rmse_codes": 11.521958360497063
+        },
+        "tile_1_7": {
+          "samples": 192960,
+          "negative": 153963,
+          "zero": 14749,
+          "positive": 24248,
+          "maximum_absolute_codes": 20,
+          "mean_signed_codes": -3.2935064262023217,
+          "mean_absolute_codes": 3.8358675373134328,
+          "rmse_codes": 4.7197896988102155
+        },
+        "tile_2_0": {
+          "samples": 192960,
+          "negative": 7877,
+          "zero": 1955,
+          "positive": 183128,
+          "maximum_absolute_codes": 77,
+          "mean_signed_codes": 12.417164179104478,
+          "mean_absolute_codes": 13.351990049751244,
+          "rmse_codes": 16.311834134634307
+        },
+        "tile_2_1": {
+          "samples": 192960,
+          "negative": 13543,
+          "zero": 1721,
+          "positive": 177696,
+          "maximum_absolute_codes": 77,
+          "mean_signed_codes": 10.33078876451078,
+          "mean_absolute_codes": 12.793040008291873,
+          "rmse_codes": 15.248056553161932
+        },
+        "tile_2_2": {
+          "samples": 192960,
+          "negative": 26260,
+          "zero": 2494,
+          "positive": 164206,
+          "maximum_absolute_codes": 108,
+          "mean_signed_codes": 11.985644693200664,
+          "mean_absolute_codes": 16.87695895522388,
+          "rmse_codes": 21.380451212026625
+        },
+        "tile_2_3": {
+          "samples": 192960,
+          "negative": 46542,
+          "zero": 4482,
+          "positive": 141936,
+          "maximum_absolute_codes": 123,
+          "mean_signed_codes": 9.469651741293532,
+          "mean_absolute_codes": 18.658001658374793,
+          "rmse_codes": 27.722939235718314
+        },
+        "tile_2_4": {
+          "samples": 192960,
+          "negative": 88427,
+          "zero": 6251,
+          "positive": 98282,
+          "maximum_absolute_codes": 93,
+          "mean_signed_codes": 2.358716832504146,
+          "mean_absolute_codes": 18.65961857379768,
+          "rmse_codes": 26.055725259960695
+        },
+        "tile_2_5": {
+          "samples": 192960,
+          "negative": 124144,
+          "zero": 4673,
+          "positive": 64143,
+          "maximum_absolute_codes": 107,
+          "mean_signed_codes": -8.991609660033168,
+          "mean_absolute_codes": 22.411644900497514,
+          "rmse_codes": 30.144511926637502
+        },
+        "tile_2_6": {
+          "samples": 192960,
+          "negative": 129001,
+          "zero": 8877,
+          "positive": 55082,
+          "maximum_absolute_codes": 104,
+          "mean_signed_codes": 0.842723880597015,
+          "mean_absolute_codes": 12.706706053067993,
+          "rmse_codes": 23.45765675526354
+        },
+        "tile_2_7": {
+          "samples": 192960,
+          "negative": 154777,
+          "zero": 13743,
+          "positive": 24440,
+          "maximum_absolute_codes": 19,
+          "mean_signed_codes": -3.510712064676617,
+          "mean_absolute_codes": 4.079213308457711,
+          "rmse_codes": 5.008245171035526
+        },
+        "tile_3_0": {
+          "samples": 192960,
+          "negative": 701,
+          "zero": 472,
+          "positive": 191787,
+          "maximum_absolute_codes": 36,
+          "mean_signed_codes": 12.670594941956882,
+          "mean_absolute_codes": 12.687116500829188,
+          "rmse_codes": 13.488040584383269
+        },
+        "tile_3_1": {
+          "samples": 192960,
+          "negative": 31674,
+          "zero": 874,
+          "positive": 160412,
+          "maximum_absolute_codes": 99,
+          "mean_signed_codes": 11.43942267827529,
+          "mean_absolute_codes": 21.16133395522388,
+          "rmse_codes": 25.875082718320606
+        },
+        "tile_3_2": {
+          "samples": 192960,
+          "negative": 2565,
+          "zero": 192,
+          "positive": 190203,
+          "maximum_absolute_codes": 63,
+          "mean_signed_codes": 25.78179933665008,
+          "mean_absolute_codes": 26.25336857379768,
+          "rmse_codes": 28.039679595901163
+        },
+        "tile_3_3": {
+          "samples": 192960,
+          "negative": 16458,
+          "zero": 3582,
+          "positive": 172920,
+          "maximum_absolute_codes": 99,
+          "mean_signed_codes": 13.72425891376451,
+          "mean_absolute_codes": 14.433193407960198,
+          "rmse_codes": 17.724391899319517
+        },
+        "tile_3_4": {
+          "samples": 192960,
+          "negative": 102527,
+          "zero": 7702,
+          "positive": 82731,
+          "maximum_absolute_codes": 102,
+          "mean_signed_codes": 0.12076596185737977,
+          "mean_absolute_codes": 11.666806592039801,
+          "rmse_codes": 18.760298305087105
+        },
+        "tile_3_5": {
+          "samples": 192960,
+          "negative": 121284,
+          "zero": 7119,
+          "positive": 64557,
+          "maximum_absolute_codes": 103,
+          "mean_signed_codes": -1.8351523631840796,
+          "mean_absolute_codes": 12.813127072968491,
+          "rmse_codes": 21.05037847337442
+        },
+        "tile_3_6": {
+          "samples": 192960,
+          "negative": 125317,
+          "zero": 10945,
+          "positive": 56698,
+          "maximum_absolute_codes": 95,
+          "mean_signed_codes": 2.6550114013267,
+          "mean_absolute_codes": 9.825741086235489,
+          "rmse_codes": 19.25290530185481
+        },
+        "tile_3_7": {
+          "samples": 192960,
+          "negative": 141973,
+          "zero": 16413,
+          "positive": 34574,
+          "maximum_absolute_codes": 20,
+          "mean_signed_codes": -2.764837271973466,
+          "mean_absolute_codes": 3.6456104892205636,
+          "rmse_codes": 4.545301845203822
+        }
+      },
+      "signed_histogram_nonzero_bins": [
+        [
+          -111,
+          1
+        ],
+        [
+          -107,
+          2
+        ],
+        [
+          -105,
+          3
+        ],
+        [
+          -104,
+          1
+        ],
+        [
+          -103,
+          8
+        ],
+        [
+          -102,
+          22
+        ],
+        [
+          -101,
+          34
+        ],
+        [
+          -100,
+          38
+        ],
+        [
+          -99,
+          43
+        ],
+        [
+          -98,
+          80
+        ],
+        [
+          -97,
+          94
+        ],
+        [
+          -96,
+          131
+        ],
+        [
+          -95,
+          155
+        ],
+        [
+          -94,
+          212
+        ],
+        [
+          -93,
+          256
+        ],
+        [
+          -92,
+          284
+        ],
+        [
+          -91,
+          328
+        ],
+        [
+          -90,
+          307
+        ],
+        [
+          -89,
+          342
+        ],
+        [
+          -88,
+          387
+        ],
+        [
+          -87,
+          454
+        ],
+        [
+          -86,
+          454
+        ],
+        [
+          -85,
+          434
+        ],
+        [
+          -84,
+          529
+        ],
+        [
+          -83,
+          506
+        ],
+        [
+          -82,
+          592
+        ],
+        [
+          -81,
+          652
+        ],
+        [
+          -80,
+          632
+        ],
+        [
+          -79,
+          684
+        ],
+        [
+          -78,
+          763
+        ],
+        [
+          -77,
+          820
+        ],
+        [
+          -76,
+          804
+        ],
+        [
+          -75,
+          851
+        ],
+        [
+          -74,
+          972
+        ],
+        [
+          -73,
+          955
+        ],
+        [
+          -72,
+          1010
+        ],
+        [
+          -71,
+          1114
+        ],
+        [
+          -70,
+          1202
+        ],
+        [
+          -69,
+          1237
+        ],
+        [
+          -68,
+          1370
+        ],
+        [
+          -67,
+          1472
+        ],
+        [
+          -66,
+          1654
+        ],
+        [
+          -65,
+          1713
+        ],
+        [
+          -64,
+          1820
+        ],
+        [
+          -63,
+          1920
+        ],
+        [
+          -62,
+          2156
+        ],
+        [
+          -61,
+          2348
+        ],
+        [
+          -60,
+          2492
+        ],
+        [
+          -59,
+          2827
+        ],
+        [
+          -58,
+          3007
+        ],
+        [
+          -57,
+          3241
+        ],
+        [
+          -56,
+          3429
+        ],
+        [
+          -55,
+          3843
+        ],
+        [
+          -54,
+          4083
+        ],
+        [
+          -53,
+          4305
+        ],
+        [
+          -52,
+          4483
+        ],
+        [
+          -51,
+          4740
+        ],
+        [
+          -50,
+          4831
+        ],
+        [
+          -49,
+          4971
+        ],
+        [
+          -48,
+          5306
+        ],
+        [
+          -47,
+          5388
+        ],
+        [
+          -46,
+          5571
+        ],
+        [
+          -45,
+          5689
+        ],
+        [
+          -44,
+          5835
+        ],
+        [
+          -43,
+          5816
+        ],
+        [
+          -42,
+          6011
+        ],
+        [
+          -41,
+          6383
+        ],
+        [
+          -40,
+          6435
+        ],
+        [
+          -39,
+          6714
+        ],
+        [
+          -38,
+          6992
+        ],
+        [
+          -37,
+          7316
+        ],
+        [
+          -36,
+          7708
+        ],
+        [
+          -35,
+          7763
+        ],
+        [
+          -34,
+          8114
+        ],
+        [
+          -33,
+          8161
+        ],
+        [
+          -32,
+          8370
+        ],
+        [
+          -31,
+          8957
+        ],
+        [
+          -30,
+          9214
+        ],
+        [
+          -29,
+          9354
+        ],
+        [
+          -28,
+          9569
+        ],
+        [
+          -27,
+          10275
+        ],
+        [
+          -26,
+          10435
+        ],
+        [
+          -25,
+          10994
+        ],
+        [
+          -24,
+          11551
+        ],
+        [
+          -23,
+          12413
+        ],
+        [
+          -22,
+          12903
+        ],
+        [
+          -21,
+          13638
+        ],
+        [
+          -20,
+          14824
+        ],
+        [
+          -19,
+          15959
+        ],
+        [
+          -18,
+          17137
+        ],
+        [
+          -17,
+          18748
+        ],
+        [
+          -16,
+          20737
+        ],
+        [
+          -15,
+          23661
+        ],
+        [
+          -14,
+          27018
+        ],
+        [
+          -13,
+          31721
+        ],
+        [
+          -12,
+          39038
+        ],
+        [
+          -11,
+          48299
+        ],
+        [
+          -10,
+          62276
+        ],
+        [
+          -9,
+          79789
+        ],
+        [
+          -8,
+          101951
+        ],
+        [
+          -7,
+          128356
+        ],
+        [
+          -6,
+          154723
+        ],
+        [
+          -5,
+          182380
+        ],
+        [
+          -4,
+          205103
+        ],
+        [
+          -3,
+          220730
+        ],
+        [
+          -2,
+          227381
+        ],
+        [
+          -1,
+          223553
+        ],
+        [
+          0,
+          213129
+        ],
+        [
+          1,
+          199449
+        ],
+        [
+          2,
+          187031
+        ],
+        [
+          3,
+          176526
+        ],
+        [
+          4,
+          169860
+        ],
+        [
+          5,
+          166259
+        ],
+        [
+          6,
+          164132
+        ],
+        [
+          7,
+          164640
+        ],
+        [
+          8,
+          166069
+        ],
+        [
+          9,
+          165479
+        ],
+        [
+          10,
+          163360
+        ],
+        [
+          11,
+          160194
+        ],
+        [
+          12,
+          153454
+        ],
+        [
+          13,
+          146719
+        ],
+        [
+          14,
+          136797
+        ],
+        [
+          15,
+          126957
+        ],
+        [
+          16,
+          115336
+        ],
+        [
+          17,
+          104284
+        ],
+        [
+          18,
+          93332
+        ],
+        [
+          19,
+          83202
+        ],
+        [
+          20,
+          74253
+        ],
+        [
+          21,
+          65997
+        ],
+        [
+          22,
+          58961
+        ],
+        [
+          23,
+          53218
+        ],
+        [
+          24,
+          48367
+        ],
+        [
+          25,
+          43472
+        ],
+        [
+          26,
+          39939
+        ],
+        [
+          27,
+          37141
+        ],
+        [
+          28,
+          35093
+        ],
+        [
+          29,
+          32197
+        ],
+        [
+          30,
+          30313
+        ],
+        [
+          31,
+          28467
+        ],
+        [
+          32,
+          26995
+        ],
+        [
+          33,
+          25621
+        ],
+        [
+          34,
+          24390
+        ],
+        [
+          35,
+          22733
+        ],
+        [
+          36,
+          21347
+        ],
+        [
+          37,
+          19924
+        ],
+        [
+          38,
+          18951
+        ],
+        [
+          39,
+          17480
+        ],
+        [
+          40,
+          15961
+        ],
+        [
+          41,
+          14520
+        ],
+        [
+          42,
+          13636
+        ],
+        [
+          43,
+          12154
+        ],
+        [
+          44,
+          11227
+        ],
+        [
+          45,
+          10232
+        ],
+        [
+          46,
+          9368
+        ],
+        [
+          47,
+          8644
+        ],
+        [
+          48,
+          7892
+        ],
+        [
+          49,
+          7377
+        ],
+        [
+          50,
+          6822
+        ],
+        [
+          51,
+          6351
+        ],
+        [
+          52,
+          5977
+        ],
+        [
+          53,
+          5664
+        ],
+        [
+          54,
+          5174
+        ],
+        [
+          55,
+          4902
+        ],
+        [
+          56,
+          4669
+        ],
+        [
+          57,
+          4386
+        ],
+        [
+          58,
+          4079
+        ],
+        [
+          59,
+          3871
+        ],
+        [
+          60,
+          3851
+        ],
+        [
+          61,
+          3554
+        ],
+        [
+          62,
+          3620
+        ],
+        [
+          63,
+          3479
+        ],
+        [
+          64,
+          3349
+        ],
+        [
+          65,
+          3410
+        ],
+        [
+          66,
+          3373
+        ],
+        [
+          67,
+          3141
+        ],
+        [
+          68,
+          2922
+        ],
+        [
+          69,
+          3034
+        ],
+        [
+          70,
+          2886
+        ],
+        [
+          71,
+          2730
+        ],
+        [
+          72,
+          2706
+        ],
+        [
+          73,
+          2620
+        ],
+        [
+          74,
+          2517
+        ],
+        [
+          75,
+          2455
+        ],
+        [
+          76,
+          2333
+        ],
+        [
+          77,
+          2165
+        ],
+        [
+          78,
+          2112
+        ],
+        [
+          79,
+          2015
+        ],
+        [
+          80,
+          1906
+        ],
+        [
+          81,
+          1856
+        ],
+        [
+          82,
+          1717
+        ],
+        [
+          83,
+          1654
+        ],
+        [
+          84,
+          1532
+        ],
+        [
+          85,
+          1373
+        ],
+        [
+          86,
+          1415
+        ],
+        [
+          87,
+          1290
+        ],
+        [
+          88,
+          1195
+        ],
+        [
+          89,
+          1066
+        ],
+        [
+          90,
+          930
+        ],
+        [
+          91,
+          922
+        ],
+        [
+          92,
+          854
+        ],
+        [
+          93,
+          735
+        ],
+        [
+          94,
+          613
+        ],
+        [
+          95,
+          490
+        ],
+        [
+          96,
+          354
+        ],
+        [
+          97,
+          304
+        ],
+        [
+          98,
+          303
+        ],
+        [
+          99,
+          236
+        ],
+        [
+          100,
+          211
+        ],
+        [
+          101,
+          180
+        ],
+        [
+          102,
+          134
+        ],
+        [
+          103,
+          133
+        ],
+        [
+          104,
+          106
+        ],
+        [
+          105,
+          88
+        ],
+        [
+          106,
+          98
+        ],
+        [
+          107,
+          52
+        ],
+        [
+          108,
+          43
+        ],
+        [
+          109,
+          42
+        ],
+        [
+          110,
+          39
+        ],
+        [
+          111,
+          13
+        ],
+        [
+          112,
+          27
+        ],
+        [
+          113,
+          14
+        ],
+        [
+          114,
+          8
+        ],
+        [
+          115,
+          8
+        ],
+        [
+          116,
+          5
+        ],
+        [
+          117,
+          2
+        ],
+        [
+          118,
+          2
+        ],
+        [
+          119,
+          1
+        ],
+        [
+          120,
+          2
+        ],
+        [
+          121,
+          1
+        ],
+        [
+          123,
+          3
+        ]
+      ],
+      "p99_absolute_codes_nearest_rank": 70,
+      "worst_sample": {
+        "x": 1846,
+        "y": 1107,
+        "signed_codes": 123,
+        "generated": 1847,
+        "capture": 1724
+      }
+    },
+    "P": {
+      "groups": {
+        "all": {
+          "samples": 3089280,
+          "negative": 250856,
+          "zero": 88768,
+          "positive": 2749656,
+          "maximum_absolute_codes": 96,
+          "mean_signed_codes": 18.153392699917134,
+          "mean_absolute_codes": 18.66709233219391,
+          "rmse_codes": 25.946782308374438
+        },
+        "smooth_le_4": {
+          "samples": 841264,
+          "negative": 55670,
+          "zero": 39822,
+          "positive": 745772,
+          "maximum_absolute_codes": 92,
+          "mean_signed_codes": 13.299474362388025,
+          "mean_absolute_codes": 13.562923172749576,
+          "rmse_codes": 21.11629386946049
+        },
+        "intermediate_5_16": {
+          "samples": 2127103,
+          "negative": 169894,
+          "zero": 46931,
+          "positive": 1910278,
+          "maximum_absolute_codes": 96,
+          "mean_signed_codes": 20.244845689183833,
+          "mean_absolute_codes": 20.74239094204653,
+          "rmse_codes": 27.715840864818027
+        },
+        "edge_gt_16": {
+          "samples": 120913,
+          "negative": 25292,
+          "zero": 2015,
+          "positive": 93606,
+          "maximum_absolute_codes": 90,
+          "mean_signed_codes": 15.132136329426944,
+          "mean_absolute_codes": 17.67116852613036,
+          "rmse_codes": 24.184887204925797
+        },
+        "source_in_range": {
+          "samples": 3089247,
+          "negative": 250845,
+          "zero": 88768,
+          "positive": 2749634,
+          "maximum_absolute_codes": 96,
+          "mean_signed_codes": 18.153558132451046,
+          "mean_absolute_codes": 18.667202395923667,
+          "rmse_codes": 25.94689591638644
+        },
+        "source_outside": {
+          "samples": 33,
+          "negative": 11,
+          "zero": 0,
+          "positive": 22,
+          "maximum_absolute_codes": 48,
+          "mean_signed_codes": 2.6666666666666665,
+          "mean_absolute_codes": 8.363636363636363,
+          "rmse_codes": 11.015141094572204
+        },
+        "even_row": {
+          "samples": 1543680,
+          "negative": 65579,
+          "zero": 35016,
+          "positive": 1443085,
+          "maximum_absolute_codes": 95,
+          "mean_signed_codes": 18.952332737354894,
+          "mean_absolute_codes": 19.15802044465174,
+          "rmse_codes": 26.0933685648033
+        },
+        "odd_row": {
+          "samples": 1545600,
+          "negative": 185277,
+          "zero": 53752,
+          "positive": 1306571,
+          "maximum_absolute_codes": 96,
+          "mean_signed_codes": 17.355445134575568,
+          "mean_absolute_codes": 18.17677406832298,
+          "rmse_codes": 25.799546846695275
+        },
+        "tile_0_0": {
+          "samples": 96720,
+          "negative": 16397,
+          "zero": 4055,
+          "positive": 76268,
+          "maximum_absolute_codes": 26,
+          "mean_signed_codes": 5.374172870140612,
+          "mean_absolute_codes": 6.583995037220844,
+          "rmse_codes": 7.962401307019643
+        },
+        "tile_0_1": {
+          "samples": 96720,
+          "negative": 33030,
+          "zero": 6689,
+          "positive": 57001,
+          "maximum_absolute_codes": 20,
+          "mean_signed_codes": 1.8736765922249794,
+          "mean_absolute_codes": 4.5532051282051285,
+          "rmse_codes": 5.655064632406201
+        },
+        "tile_0_2": {
+          "samples": 96720,
+          "negative": 26291,
+          "zero": 6330,
+          "positive": 64099,
+          "maximum_absolute_codes": 19,
+          "mean_signed_codes": 2.592535153019024,
+          "mean_absolute_codes": 4.575268817204301,
+          "rmse_codes": 5.595235329757639
+        },
+        "tile_0_3": {
+          "samples": 96720,
+          "negative": 12336,
+          "zero": 4213,
+          "positive": 80171,
+          "maximum_absolute_codes": 30,
+          "mean_signed_codes": 5.273976426799007,
+          "mean_absolute_codes": 6.078773779983457,
+          "rmse_codes": 7.286643371913149
+        },
+        "tile_0_4": {
+          "samples": 96720,
+          "negative": 754,
+          "zero": 358,
+          "positive": 95608,
+          "maximum_absolute_codes": 78,
+          "mean_signed_codes": 26.666552936311,
+          "mean_absolute_codes": 26.709687758478083,
+          "rmse_codes": 30.992854008407082
+        },
+        "tile_0_5": {
+          "samples": 96720,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96720,
+          "maximum_absolute_codes": 95,
+          "mean_signed_codes": 60.80740281224152,
+          "mean_absolute_codes": 60.80740281224152,
+          "rmse_codes": 61.71652071258418
+        },
+        "tile_0_6": {
+          "samples": 96720,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96720,
+          "maximum_absolute_codes": 86,
+          "mean_signed_codes": 45.12453473945409,
+          "mean_absolute_codes": 45.12453473945409,
+          "rmse_codes": 46.50461891287355
+        },
+        "tile_0_7": {
+          "samples": 96720,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96720,
+          "maximum_absolute_codes": 54,
+          "mean_signed_codes": 24.34705334987593,
+          "mean_absolute_codes": 24.34705334987593,
+          "rmse_codes": 25.266943925512393
+        },
+        "tile_1_0": {
+          "samples": 96480,
+          "negative": 2608,
+          "zero": 1111,
+          "positive": 92761,
+          "maximum_absolute_codes": 43,
+          "mean_signed_codes": 12.610302653399668,
+          "mean_absolute_codes": 12.777694859038142,
+          "rmse_codes": 14.385263298453646
+        },
+        "tile_1_1": {
+          "samples": 96480,
+          "negative": 12998,
+          "zero": 3289,
+          "positive": 80193,
+          "maximum_absolute_codes": 38,
+          "mean_signed_codes": 7.4966003316749585,
+          "mean_absolute_codes": 8.51679104477612,
+          "rmse_codes": 10.388812510250357
+        },
+        "tile_1_2": {
+          "samples": 96480,
+          "negative": 16173,
+          "zero": 3302,
+          "positive": 77005,
+          "maximum_absolute_codes": 46,
+          "mean_signed_codes": 7.481177446102819,
+          "mean_absolute_codes": 9.0094320066335,
+          "rmse_codes": 11.10333175013543
+        },
+        "tile_1_3": {
+          "samples": 96480,
+          "negative": 6549,
+          "zero": 2418,
+          "positive": 87513,
+          "maximum_absolute_codes": 48,
+          "mean_signed_codes": 8.525860281923714,
+          "mean_absolute_codes": 9.0305451907131,
+          "rmse_codes": 10.842315927725815
+        },
+        "tile_1_4": {
+          "samples": 96480,
+          "negative": 2114,
+          "zero": 1179,
+          "positive": 93187,
+          "maximum_absolute_codes": 54,
+          "mean_signed_codes": 11.740474709784412,
+          "mean_absolute_codes": 11.89167703150912,
+          "rmse_codes": 14.021586281187876
+        },
+        "tile_1_5": {
+          "samples": 96480,
+          "negative": 126,
+          "zero": 175,
+          "positive": 96179,
+          "maximum_absolute_codes": 60,
+          "mean_signed_codes": 22.087251243781093,
+          "mean_absolute_codes": 22.0912728026534,
+          "rmse_codes": 24.91854017149895
+        },
+        "tile_1_6": {
+          "samples": 96480,
+          "negative": 500,
+          "zero": 421,
+          "positive": 95559,
+          "maximum_absolute_codes": 55,
+          "mean_signed_codes": 16.868781094527364,
+          "mean_absolute_codes": 16.88785240464345,
+          "rmse_codes": 19.144541631890554
+        },
+        "tile_1_7": {
+          "samples": 96480,
+          "negative": 123,
+          "zero": 219,
+          "positive": 96138,
+          "maximum_absolute_codes": 34,
+          "mean_signed_codes": 11.828949004975124,
+          "mean_absolute_codes": 11.832224295190713,
+          "rmse_codes": 12.820379761555976
+        },
+        "tile_2_0": {
+          "samples": 96480,
+          "negative": 44,
+          "zero": 22,
+          "positive": 96414,
+          "maximum_absolute_codes": 78,
+          "mean_signed_codes": 30.16066542288557,
+          "mean_absolute_codes": 30.16292495854063,
+          "rmse_codes": 31.516106631329745
+        },
+        "tile_2_1": {
+          "samples": 96480,
+          "negative": 6,
+          "zero": 3,
+          "positive": 96471,
+          "maximum_absolute_codes": 85,
+          "mean_signed_codes": 37.359121061359865,
+          "mean_absolute_codes": 37.359328358208955,
+          "rmse_codes": 39.24842847357213
+        },
+        "tile_2_2": {
+          "samples": 96480,
+          "negative": 52,
+          "zero": 17,
+          "positive": 96411,
+          "maximum_absolute_codes": 86,
+          "mean_signed_codes": 37.42237769485904,
+          "mean_absolute_codes": 37.42641998341625,
+          "rmse_codes": 39.292739693488315
+        },
+        "tile_2_3": {
+          "samples": 96480,
+          "negative": 3149,
+          "zero": 1010,
+          "positive": 92321,
+          "maximum_absolute_codes": 71,
+          "mean_signed_codes": 15.70025912106136,
+          "mean_absolute_codes": 16.013526119402986,
+          "rmse_codes": 19.012745844841316
+        },
+        "tile_2_4": {
+          "samples": 96480,
+          "negative": 7764,
+          "zero": 4320,
+          "positive": 84396,
+          "maximum_absolute_codes": 39,
+          "mean_signed_codes": 5.111007462686567,
+          "mean_absolute_codes": 5.521413764510779,
+          "rmse_codes": 6.596178978350107
+        },
+        "tile_2_5": {
+          "samples": 96480,
+          "negative": 10584,
+          "zero": 5687,
+          "positive": 80209,
+          "maximum_absolute_codes": 19,
+          "mean_signed_codes": 4.391449004975124,
+          "mean_absolute_codes": 4.9197864842454395,
+          "rmse_codes": 5.977954073827382
+        },
+        "tile_2_6": {
+          "samples": 96480,
+          "negative": 16613,
+          "zero": 9195,
+          "positive": 70672,
+          "maximum_absolute_codes": 18,
+          "mean_signed_codes": 2.801523631840796,
+          "mean_absolute_codes": 3.552539386401327,
+          "rmse_codes": 4.4907277330227116
+        },
+        "tile_2_7": {
+          "samples": 96480,
+          "negative": 3582,
+          "zero": 3706,
+          "positive": 89192,
+          "maximum_absolute_codes": 17,
+          "mean_signed_codes": 5.342951907131011,
+          "mean_absolute_codes": 5.458913764510779,
+          "rmse_codes": 6.303676636507072
+        },
+        "tile_3_0": {
+          "samples": 96480,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96480,
+          "maximum_absolute_codes": 81,
+          "mean_signed_codes": 40.87048092868989,
+          "mean_absolute_codes": 40.87048092868989,
+          "rmse_codes": 41.61907007845908
+        },
+        "tile_3_1": {
+          "samples": 96480,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96480,
+          "maximum_absolute_codes": 96,
+          "mean_signed_codes": 49.62733208955224,
+          "mean_absolute_codes": 49.62733208955224,
+          "rmse_codes": 50.246431376628486
+        },
+        "tile_3_2": {
+          "samples": 96480,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96480,
+          "maximum_absolute_codes": 82,
+          "mean_signed_codes": 46.49604063018242,
+          "mean_absolute_codes": 46.49604063018242,
+          "rmse_codes": 47.01190394750553
+        },
+        "tile_3_3": {
+          "samples": 96480,
+          "negative": 1268,
+          "zero": 518,
+          "positive": 94694,
+          "maximum_absolute_codes": 69,
+          "mean_signed_codes": 23.967133084577114,
+          "mean_absolute_codes": 24.048994610281923,
+          "rmse_codes": 27.401527485536825
+        },
+        "tile_3_4": {
+          "samples": 96480,
+          "negative": 10586,
+          "zero": 5782,
+          "positive": 80112,
+          "maximum_absolute_codes": 28,
+          "mean_signed_codes": 4.167910447761194,
+          "mean_absolute_codes": 4.699979270315091,
+          "rmse_codes": 5.763131231547638
+        },
+        "tile_3_5": {
+          "samples": 96480,
+          "negative": 24837,
+          "zero": 7604,
+          "positive": 64039,
+          "maximum_absolute_codes": 14,
+          "mean_signed_codes": 2.0614842454394693,
+          "mean_absolute_codes": 3.471849087893864,
+          "rmse_codes": 4.331469652812292
+        },
+        "tile_3_6": {
+          "samples": 96480,
+          "negative": 32868,
+          "zero": 11183,
+          "positive": 52429,
+          "maximum_absolute_codes": 11,
+          "mean_signed_codes": 0.9495854063018242,
+          "mean_absolute_codes": 2.71113184079602,
+          "rmse_codes": 3.3743834274952453
+        },
+        "tile_3_7": {
+          "samples": 96480,
+          "negative": 9504,
+          "zero": 5962,
+          "positive": 81014,
+          "maximum_absolute_codes": 13,
+          "mean_signed_codes": 3.7131944444444445,
+          "mean_absolute_codes": 4.1156405472636814,
+          "rmse_codes": 4.8723815096373615
+        }
+      },
+      "signed_histogram_nonzero_bins": [
+        [
+          -45,
+          1
+        ],
+        [
+          -43,
+          2
+        ],
+        [
+          -42,
+          1
+        ],
+        [
+          -41,
+          2
+        ],
+        [
+          -40,
+          3
+        ],
+        [
+          -39,
+          1
+        ],
+        [
+          -38,
+          5
+        ],
+        [
+          -37,
+          5
+        ],
+        [
+          -36,
+          3
+        ],
+        [
+          -35,
+          3
+        ],
+        [
+          -34,
+          3
+        ],
+        [
+          -33,
+          10
+        ],
+        [
+          -32,
+          1
+        ],
+        [
+          -31,
+          2
+        ],
+        [
+          -30,
+          11
+        ],
+        [
+          -29,
+          5
+        ],
+        [
+          -28,
+          7
+        ],
+        [
+          -27,
+          10
+        ],
+        [
+          -26,
+          16
+        ],
+        [
+          -25,
+          10
+        ],
+        [
+          -24,
+          17
+        ],
+        [
+          -23,
+          12
+        ],
+        [
+          -22,
+          18
+        ],
+        [
+          -21,
+          20
+        ],
+        [
+          -20,
+          23
+        ],
+        [
+          -19,
+          43
+        ],
+        [
+          -18,
+          51
+        ],
+        [
+          -17,
+          81
+        ],
+        [
+          -16,
+          124
+        ],
+        [
+          -15,
+          151
+        ],
+        [
+          -14,
+          204
+        ],
+        [
+          -13,
+          378
+        ],
+        [
+          -12,
+          629
+        ],
+        [
+          -11,
+          1209
+        ],
+        [
+          -10,
+          2335
+        ],
+        [
+          -9,
+          3953
+        ],
+        [
+          -8,
+          6077
+        ],
+        [
+          -7,
+          8575
+        ],
+        [
+          -6,
+          11802
+        ],
+        [
+          -5,
+          18471
+        ],
+        [
+          -4,
+          29729
+        ],
+        [
+          -3,
+          40896
+        ],
+        [
+          -2,
+          54112
+        ],
+        [
+          -1,
+          71845
+        ],
+        [
+          0,
+          88768
+        ],
+        [
+          1,
+          103530
+        ],
+        [
+          2,
+          119249
+        ],
+        [
+          3,
+          133984
+        ],
+        [
+          4,
+          132540
+        ],
+        [
+          5,
+          133437
+        ],
+        [
+          6,
+          130532
+        ],
+        [
+          7,
+          122393
+        ],
+        [
+          8,
+          112184
+        ],
+        [
+          9,
+          99520
+        ],
+        [
+          10,
+          87593
+        ],
+        [
+          11,
+          78203
+        ],
+        [
+          12,
+          68325
+        ],
+        [
+          13,
+          60942
+        ],
+        [
+          14,
+          54900
+        ],
+        [
+          15,
+          48744
+        ],
+        [
+          16,
+          43640
+        ],
+        [
+          17,
+          39700
+        ],
+        [
+          18,
+          36518
+        ],
+        [
+          19,
+          34626
+        ],
+        [
+          20,
+          33587
+        ],
+        [
+          21,
+          33310
+        ],
+        [
+          22,
+          33177
+        ],
+        [
+          23,
+          32196
+        ],
+        [
+          24,
+          31304
+        ],
+        [
+          25,
+          30414
+        ],
+        [
+          26,
+          29156
+        ],
+        [
+          27,
+          28300
+        ],
+        [
+          28,
+          27134
+        ],
+        [
+          29,
+          26673
+        ],
+        [
+          30,
+          26226
+        ],
+        [
+          31,
+          25659
+        ],
+        [
+          32,
+          25226
+        ],
+        [
+          33,
+          25365
+        ],
+        [
+          34,
+          25274
+        ],
+        [
+          35,
+          25940
+        ],
+        [
+          36,
+          26445
+        ],
+        [
+          37,
+          27356
+        ],
+        [
+          38,
+          28212
+        ],
+        [
+          39,
+          29088
+        ],
+        [
+          40,
+          29611
+        ],
+        [
+          41,
+          30001
+        ],
+        [
+          42,
+          30201
+        ],
+        [
+          43,
+          30797
+        ],
+        [
+          44,
+          30169
+        ],
+        [
+          45,
+          29927
+        ],
+        [
+          46,
+          29331
+        ],
+        [
+          47,
+          28248
+        ],
+        [
+          48,
+          26834
+        ],
+        [
+          49,
+          25348
+        ],
+        [
+          50,
+          23524
+        ],
+        [
+          51,
+          21769
+        ],
+        [
+          52,
+          19889
+        ],
+        [
+          53,
+          18214
+        ],
+        [
+          54,
+          16535
+        ],
+        [
+          55,
+          14853
+        ],
+        [
+          56,
+          13553
+        ],
+        [
+          57,
+          11925
+        ],
+        [
+          58,
+          10990
+        ],
+        [
+          59,
+          9653
+        ],
+        [
+          60,
+          8521
+        ],
+        [
+          61,
+          7757
+        ],
+        [
+          62,
+          7020
+        ],
+        [
+          63,
+          6583
+        ],
+        [
+          64,
+          6076
+        ],
+        [
+          65,
+          5817
+        ],
+        [
+          66,
+          5603
+        ],
+        [
+          67,
+          5306
+        ],
+        [
+          68,
+          5062
+        ],
+        [
+          69,
+          4444
+        ],
+        [
+          70,
+          4224
+        ],
+        [
+          71,
+          3758
+        ],
+        [
+          72,
+          3313
+        ],
+        [
+          73,
+          2861
+        ],
+        [
+          74,
+          2451
+        ],
+        [
+          75,
+          1969
+        ],
+        [
+          76,
+          1794
+        ],
+        [
+          77,
+          1351
+        ],
+        [
+          78,
+          908
+        ],
+        [
+          79,
+          783
+        ],
+        [
+          80,
+          599
+        ],
+        [
+          81,
+          450
+        ],
+        [
+          82,
+          300
+        ],
+        [
+          83,
+          221
+        ],
+        [
+          84,
+          161
+        ],
+        [
+          85,
+          118
+        ],
+        [
+          86,
+          93
+        ],
+        [
+          87,
+          57
+        ],
+        [
+          88,
+          27
+        ],
+        [
+          89,
+          19
+        ],
+        [
+          90,
+          14
+        ],
+        [
+          91,
+          8
+        ],
+        [
+          92,
+          7
+        ],
+        [
+          93,
+          3
+        ],
+        [
+          94,
+          1
+        ],
+        [
+          95,
+          2
+        ],
+        [
+          96,
+          1
+        ]
+      ],
+      "p99_absolute_codes_nearest_rank": 68,
+      "worst_sample": {
+        "x": 706,
+        "y": 1667,
+        "signed_codes": 96,
+        "generated": 3185,
+        "capture": 3089
+      }
+    },
+    "T": {
+      "groups": {
+        "all": {
+          "samples": 3089280,
+          "negative": 781188,
+          "zero": 134116,
+          "positive": 2173976,
+          "maximum_absolute_codes": 84,
+          "mean_signed_codes": 6.51710592759478,
+          "mean_absolute_codes": 9.314628975036255,
+          "rmse_codes": 13.44354533846449
+        },
+        "smooth_le_4": {
+          "samples": 748017,
+          "negative": 80482,
+          "zero": 51474,
+          "positive": 616061,
+          "maximum_absolute_codes": 68,
+          "mean_signed_codes": 7.534447746508435,
+          "mean_absolute_codes": 8.025359049326418,
+          "rmse_codes": 13.252712325328133
+        },
+        "intermediate_5_16": {
+          "samples": 1642799,
+          "negative": 403358,
+          "zero": 71005,
+          "positive": 1168436,
+          "maximum_absolute_codes": 83,
+          "mean_signed_codes": 7.291539622315329,
+          "mean_absolute_codes": 9.657579533466967,
+          "rmse_codes": 14.234063887577774
+        },
+        "edge_gt_16": {
+          "samples": 698464,
+          "negative": 297348,
+          "zero": 11637,
+          "positive": 389479,
+          "maximum_absolute_codes": 84,
+          "mean_signed_codes": 3.6061071150410045,
+          "mean_absolute_codes": 9.888741581527466,
+          "rmse_codes": 11.607046957776921
+        },
+        "source_in_range": {
+          "samples": 3089247,
+          "negative": 781177,
+          "zero": 134116,
+          "positive": 2173954,
+          "maximum_absolute_codes": 84,
+          "mean_signed_codes": 6.51714673511053,
+          "mean_absolute_codes": 9.314683481120156,
+          "rmse_codes": 13.443590257908488
+        },
+        "source_outside": {
+          "samples": 33,
+          "negative": 11,
+          "zero": 0,
+          "positive": 22,
+          "maximum_absolute_codes": 44,
+          "mean_signed_codes": 2.696969696969697,
+          "mean_absolute_codes": 4.212121212121212,
+          "rmse_codes": 8.225975119502044
+        },
+        "even_row": {
+          "samples": 1543680,
+          "negative": 60584,
+          "zero": 39450,
+          "positive": 1443646,
+          "maximum_absolute_codes": 84,
+          "mean_signed_codes": 10.928404850746269,
+          "mean_absolute_codes": 11.142271714344941,
+          "rmse_codes": 15.163173896314298
+        },
+        "odd_row": {
+          "samples": 1545600,
+          "negative": 720604,
+          "zero": 94666,
+          "positive": 730330,
+          "maximum_absolute_codes": 83,
+          "mean_signed_codes": 2.1112868788819874,
+          "mean_absolute_codes": 7.489256599378882,
+          "rmse_codes": 11.471577448473017
+        },
+        "tile_0_0": {
+          "samples": 96720,
+          "negative": 39341,
+          "zero": 1509,
+          "positive": 55870,
+          "maximum_absolute_codes": 16,
+          "mean_signed_codes": -0.5113110008271299,
+          "mean_absolute_codes": 7.005314309346567,
+          "rmse_codes": 7.685192221875747
+        },
+        "tile_0_1": {
+          "samples": 96720,
+          "negative": 14428,
+          "zero": 9948,
+          "positive": 72344,
+          "maximum_absolute_codes": 17,
+          "mean_signed_codes": 1.3904052936311,
+          "mean_absolute_codes": 3.186579818031431,
+          "rmse_codes": 4.305984352119128
+        },
+        "tile_0_2": {
+          "samples": 96720,
+          "negative": 12347,
+          "zero": 6590,
+          "positive": 77783,
+          "maximum_absolute_codes": 16,
+          "mean_signed_codes": 2.351106286186931,
+          "mean_absolute_codes": 4.232475186104218,
+          "rmse_codes": 5.071911533189067
+        },
+        "tile_0_3": {
+          "samples": 96720,
+          "negative": 45585,
+          "zero": 5984,
+          "positive": 45151,
+          "maximum_absolute_codes": 27,
+          "mean_signed_codes": 0.13913358147229116,
+          "mean_absolute_codes": 4.931896195202647,
+          "rmse_codes": 6.022946025449307
+        },
+        "tile_0_4": {
+          "samples": 96720,
+          "negative": 27323,
+          "zero": 3908,
+          "positive": 65489,
+          "maximum_absolute_codes": 29,
+          "mean_signed_codes": 4.678391232423491,
+          "mean_absolute_codes": 7.3270264681555,
+          "rmse_codes": 9.09247819002404
+        },
+        "tile_0_5": {
+          "samples": 96720,
+          "negative": 5387,
+          "zero": 2067,
+          "positive": 89266,
+          "maximum_absolute_codes": 33,
+          "mean_signed_codes": 11.881182795698924,
+          "mean_absolute_codes": 12.165818858560794,
+          "rmse_codes": 14.18249687238298
+        },
+        "tile_0_6": {
+          "samples": 96720,
+          "negative": 13719,
+          "zero": 3025,
+          "positive": 79976,
+          "maximum_absolute_codes": 30,
+          "mean_signed_codes": 8.599483043837882,
+          "mean_absolute_codes": 9.52874276261373,
+          "rmse_codes": 11.46909664415292
+        },
+        "tile_0_7": {
+          "samples": 96720,
+          "negative": 25306,
+          "zero": 3642,
+          "positive": 67772,
+          "maximum_absolute_codes": 24,
+          "mean_signed_codes": 4.199679487179488,
+          "mean_absolute_codes": 6.747156741108354,
+          "rmse_codes": 8.192033870857333
+        },
+        "tile_1_0": {
+          "samples": 96480,
+          "negative": 30611,
+          "zero": 6543,
+          "positive": 59326,
+          "maximum_absolute_codes": 21,
+          "mean_signed_codes": 2.6049025704809288,
+          "mean_absolute_codes": 5.169537728026534,
+          "rmse_codes": 6.533663149102269
+        },
+        "tile_1_1": {
+          "samples": 96480,
+          "negative": 29836,
+          "zero": 9027,
+          "positive": 57617,
+          "maximum_absolute_codes": 21,
+          "mean_signed_codes": 1.20367951907131,
+          "mean_absolute_codes": 4.049803067993366,
+          "rmse_codes": 5.364236301145519
+        },
+        "tile_1_2": {
+          "samples": 96480,
+          "negative": 34479,
+          "zero": 5065,
+          "positive": 56936,
+          "maximum_absolute_codes": 25,
+          "mean_signed_codes": 1.0058146766169154,
+          "mean_absolute_codes": 5.926668739635158,
+          "rmse_codes": 7.239396517686989
+        },
+        "tile_1_3": {
+          "samples": 96480,
+          "negative": 37087,
+          "zero": 5866,
+          "positive": 53527,
+          "maximum_absolute_codes": 75,
+          "mean_signed_codes": 1.3841832504145937,
+          "mean_absolute_codes": 5.328399668325042,
+          "rmse_codes": 6.8123646851624455
+        },
+        "tile_1_4": {
+          "samples": 96480,
+          "negative": 37465,
+          "zero": 4984,
+          "positive": 54031,
+          "maximum_absolute_codes": 60,
+          "mean_signed_codes": 1.5916148424543948,
+          "mean_absolute_codes": 5.717962271973466,
+          "rmse_codes": 7.118485354900088
+        },
+        "tile_1_5": {
+          "samples": 96480,
+          "negative": 28200,
+          "zero": 3850,
+          "positive": 64430,
+          "maximum_absolute_codes": 31,
+          "mean_signed_codes": 4.2185530679933665,
+          "mean_absolute_codes": 7.3894900497512435,
+          "rmse_codes": 9.089747381676048
+        },
+        "tile_1_6": {
+          "samples": 96480,
+          "negative": 31394,
+          "zero": 4243,
+          "positive": 60843,
+          "maximum_absolute_codes": 26,
+          "mean_signed_codes": 2.971735074626866,
+          "mean_absolute_codes": 6.401191956882255,
+          "rmse_codes": 7.845611342018962
+        },
+        "tile_1_7": {
+          "samples": 96480,
+          "negative": 34218,
+          "zero": 5010,
+          "positive": 57252,
+          "maximum_absolute_codes": 20,
+          "mean_signed_codes": 1.9662106135986732,
+          "mean_absolute_codes": 5.909349087893864,
+          "rmse_codes": 7.187759657145534
+        },
+        "tile_2_0": {
+          "samples": 96480,
+          "negative": 9171,
+          "zero": 2953,
+          "positive": 84356,
+          "maximum_absolute_codes": 29,
+          "mean_signed_codes": 8.052943615257048,
+          "mean_absolute_codes": 8.614966832504146,
+          "rmse_codes": 10.224777850376615
+        },
+        "tile_2_1": {
+          "samples": 96480,
+          "negative": 6241,
+          "zero": 1820,
+          "positive": 88419,
+          "maximum_absolute_codes": 47,
+          "mean_signed_codes": 12.04709784411277,
+          "mean_absolute_codes": 12.43872305140962,
+          "rmse_codes": 14.661985486555366
+        },
+        "tile_2_2": {
+          "samples": 96480,
+          "negative": 3782,
+          "zero": 1269,
+          "positive": 91429,
+          "maximum_absolute_codes": 48,
+          "mean_signed_codes": 14.826046849087893,
+          "mean_absolute_codes": 15.102083333333333,
+          "rmse_codes": 17.388933560309052
+        },
+        "tile_2_3": {
+          "samples": 96480,
+          "negative": 22440,
+          "zero": 4024,
+          "positive": 70016,
+          "maximum_absolute_codes": 84,
+          "mean_signed_codes": 5.337862769485904,
+          "mean_absolute_codes": 7.632307213930348,
+          "rmse_codes": 9.814721719835513
+        },
+        "tile_2_4": {
+          "samples": 96480,
+          "negative": 36617,
+          "zero": 5470,
+          "positive": 54393,
+          "maximum_absolute_codes": 53,
+          "mean_signed_codes": 1.4244092039800995,
+          "mean_absolute_codes": 5.22492744610282,
+          "rmse_codes": 6.460683651937664
+        },
+        "tile_2_5": {
+          "samples": 96480,
+          "negative": 39162,
+          "zero": 4997,
+          "positive": 52321,
+          "maximum_absolute_codes": 24,
+          "mean_signed_codes": 1.1072450248756218,
+          "mean_absolute_codes": 6.167236733001658,
+          "rmse_codes": 7.597937798467845
+        },
+        "tile_2_6": {
+          "samples": 96480,
+          "negative": 33542,
+          "zero": 4964,
+          "positive": 57974,
+          "maximum_absolute_codes": 27,
+          "mean_signed_codes": 2.2563432835820896,
+          "mean_absolute_codes": 6.4247305140961855,
+          "rmse_codes": 7.842781694640264
+        },
+        "tile_2_7": {
+          "samples": 96480,
+          "negative": 34530,
+          "zero": 5978,
+          "positive": 55972,
+          "maximum_absolute_codes": 18,
+          "mean_signed_codes": 1.6540526533996682,
+          "mean_absolute_codes": 5.645346185737977,
+          "rmse_codes": 6.856462646043056
+        },
+        "tile_3_0": {
+          "samples": 96480,
+          "negative": 393,
+          "zero": 308,
+          "positive": 95779,
+          "maximum_absolute_codes": 45,
+          "mean_signed_codes": 16.29568822553897,
+          "mean_absolute_codes": 16.31247927031509,
+          "rmse_codes": 17.715729652329532
+        },
+        "tile_3_1": {
+          "samples": 96480,
+          "negative": 11,
+          "zero": 3,
+          "positive": 96466,
+          "maximum_absolute_codes": 71,
+          "mean_signed_codes": 30.629166666666666,
+          "mean_absolute_codes": 30.629892205638473,
+          "rmse_codes": 32.09985424609015
+        },
+        "tile_3_2": {
+          "samples": 96480,
+          "negative": 0,
+          "zero": 0,
+          "positive": 96480,
+          "maximum_absolute_codes": 83,
+          "mean_signed_codes": 41.476648009950246,
+          "mean_absolute_codes": 41.476648009950246,
+          "rmse_codes": 42.682306412375766
+        },
+        "tile_3_3": {
+          "samples": 96480,
+          "negative": 10379,
+          "zero": 1894,
+          "positive": 84207,
+          "maximum_absolute_codes": 62,
+          "mean_signed_codes": 15.85650912106136,
+          "mean_absolute_codes": 16.897989220563847,
+          "rmse_codes": 20.7617621361565
+        },
+        "tile_3_4": {
+          "samples": 96480,
+          "negative": 34925,
+          "zero": 5124,
+          "positive": 56431,
+          "maximum_absolute_codes": 31,
+          "mean_signed_codes": 1.8988909618573797,
+          "mean_absolute_codes": 5.512883499170813,
+          "rmse_codes": 6.763175060490386
+        },
+        "tile_3_5": {
+          "samples": 96480,
+          "negative": 33938,
+          "zero": 3942,
+          "positive": 58600,
+          "maximum_absolute_codes": 25,
+          "mean_signed_codes": 1.7776741293532339,
+          "mean_absolute_codes": 6.662956053067993,
+          "rmse_codes": 7.885617299806336
+        },
+        "tile_3_6": {
+          "samples": 96480,
+          "negative": 32704,
+          "zero": 4196,
+          "positive": 59580,
+          "maximum_absolute_codes": 24,
+          "mean_signed_codes": 2.475580431177446,
+          "mean_absolute_codes": 6.5748548922056385,
+          "rmse_codes": 8.114455142237816
+        },
+        "tile_3_7": {
+          "samples": 96480,
+          "negative": 36627,
+          "zero": 5913,
+          "positive": 53940,
+          "maximum_absolute_codes": 18,
+          "mean_signed_codes": 1.8047470978441127,
+          "mean_absolute_codes": 5.780928689883914,
+          "rmse_codes": 7.032138671498928
+        }
+      },
+      "signed_histogram_nonzero_bins": [
+        [
+          -83,
+          1
+        ],
+        [
+          -76,
+          1
+        ],
+        [
+          -74,
+          1
+        ],
+        [
+          -72,
+          1
+        ],
+        [
+          -71,
+          1
+        ],
+        [
+          -70,
+          1
+        ],
+        [
+          -68,
+          2
+        ],
+        [
+          -66,
+          1
+        ],
+        [
+          -65,
+          1
+        ],
+        [
+          -64,
+          1
+        ],
+        [
+          -62,
+          2
+        ],
+        [
+          -61,
+          1
+        ],
+        [
+          -60,
+          2
+        ],
+        [
+          -58,
+          4
+        ],
+        [
+          -57,
+          1
+        ],
+        [
+          -56,
+          2
+        ],
+        [
+          -55,
+          2
+        ],
+        [
+          -54,
+          2
+        ],
+        [
+          -53,
+          2
+        ],
+        [
+          -52,
+          2
+        ],
+        [
+          -51,
+          7
+        ],
+        [
+          -50,
+          3
+        ],
+        [
+          -49,
+          3
+        ],
+        [
+          -48,
+          2
+        ],
+        [
+          -47,
+          4
+        ],
+        [
+          -46,
+          2
+        ],
+        [
+          -45,
+          2
+        ],
+        [
+          -44,
+          4
+        ],
+        [
+          -43,
+          7
+        ],
+        [
+          -42,
+          6
+        ],
+        [
+          -41,
+          5
+        ],
+        [
+          -40,
+          12
+        ],
+        [
+          -39,
+          9
+        ],
+        [
+          -38,
+          16
+        ],
+        [
+          -37,
+          11
+        ],
+        [
+          -36,
+          15
+        ],
+        [
+          -35,
+          18
+        ],
+        [
+          -34,
+          18
+        ],
+        [
+          -33,
+          18
+        ],
+        [
+          -32,
+          20
+        ],
+        [
+          -31,
+          22
+        ],
+        [
+          -30,
+          33
+        ],
+        [
+          -29,
+          40
+        ],
+        [
+          -28,
+          29
+        ],
+        [
+          -27,
+          32
+        ],
+        [
+          -26,
+          40
+        ],
+        [
+          -25,
+          64
+        ],
+        [
+          -24,
+          53
+        ],
+        [
+          -23,
+          102
+        ],
+        [
+          -22,
+          162
+        ],
+        [
+          -21,
+          223
+        ],
+        [
+          -20,
+          277
+        ],
+        [
+          -19,
+          458
+        ],
+        [
+          -18,
+          736
+        ],
+        [
+          -17,
+          1194
+        ],
+        [
+          -16,
+          1896
+        ],
+        [
+          -15,
+          3329
+        ],
+        [
+          -14,
+          6432
+        ],
+        [
+          -13,
+          12660
+        ],
+        [
+          -12,
+          20263
+        ],
+        [
+          -11,
+          29991
+        ],
+        [
+          -10,
+          41766
+        ],
+        [
+          -9,
+          51369
+        ],
+        [
+          -8,
+          57692
+        ],
+        [
+          -7,
+          60913
+        ],
+        [
+          -6,
+          64313
+        ],
+        [
+          -5,
+          69436
+        ],
+        [
+          -4,
+          74556
+        ],
+        [
+          -3,
+          81544
+        ],
+        [
+          -2,
+          92410
+        ],
+        [
+          -1,
+          108940
+        ],
+        [
+          0,
+          134116
+        ],
+        [
+          1,
+          155489
+        ],
+        [
+          2,
+          163730
+        ],
+        [
+          3,
+          163422
+        ],
+        [
+          4,
+          151335
+        ],
+        [
+          5,
+          144294
+        ],
+        [
+          6,
+          137180
+        ],
+        [
+          7,
+          119133
+        ],
+        [
+          8,
+          108923
+        ],
+        [
+          9,
+          99617
+        ],
+        [
+          10,
+          93086
+        ],
+        [
+          11,
+          87325
+        ],
+        [
+          12,
+          80260
+        ],
+        [
+          13,
+          71901
+        ],
+        [
+          14,
+          63279
+        ],
+        [
+          15,
+          53613
+        ],
+        [
+          16,
+          43759
+        ],
+        [
+          17,
+          37189
+        ],
+        [
+          18,
+          33130
+        ],
+        [
+          19,
+          29594
+        ],
+        [
+          20,
+          25527
+        ],
+        [
+          21,
+          22885
+        ],
+        [
+          22,
+          20820
+        ],
+        [
+          23,
+          19059
+        ],
+        [
+          24,
+          17788
+        ],
+        [
+          25,
+          16014
+        ],
+        [
+          26,
+          15249
+        ],
+        [
+          27,
+          14098
+        ],
+        [
+          28,
+          12890
+        ],
+        [
+          29,
+          11348
+        ],
+        [
+          30,
+          10773
+        ],
+        [
+          31,
+          9794
+        ],
+        [
+          32,
+          9356
+        ],
+        [
+          33,
+          8657
+        ],
+        [
+          34,
+          8248
+        ],
+        [
+          35,
+          7966
+        ],
+        [
+          36,
+          7484
+        ],
+        [
+          37,
+          7343
+        ],
+        [
+          38,
+          6996
+        ],
+        [
+          39,
+          6620
+        ],
+        [
+          40,
+          6321
+        ],
+        [
+          41,
+          5857
+        ],
+        [
+          42,
+          5839
+        ],
+        [
+          43,
+          5765
+        ],
+        [
+          44,
+          5467
+        ],
+        [
+          45,
+          5212
+        ],
+        [
+          46,
+          4949
+        ],
+        [
+          47,
+          4674
+        ],
+        [
+          48,
+          4561
+        ],
+        [
+          49,
+          4076
+        ],
+        [
+          50,
+          3964
+        ],
+        [
+          51,
+          3580
+        ],
+        [
+          52,
+          3118
+        ],
+        [
+          53,
+          2764
+        ],
+        [
+          54,
+          2437
+        ],
+        [
+          55,
+          2114
+        ],
+        [
+          56,
+          1792
+        ],
+        [
+          57,
+          1626
+        ],
+        [
+          58,
+          1292
+        ],
+        [
+          59,
+          940
+        ],
+        [
+          60,
+          702
+        ],
+        [
+          61,
+          504
+        ],
+        [
+          62,
+          391
+        ],
+        [
+          63,
+          237
+        ],
+        [
+          64,
+          207
+        ],
+        [
+          65,
+          154
+        ],
+        [
+          66,
+          90
+        ],
+        [
+          67,
+          63
+        ],
+        [
+          68,
+          37
+        ],
+        [
+          69,
+          20
+        ],
+        [
+          70,
+          12
+        ],
+        [
+          71,
+          12
+        ],
+        [
+          72,
+          4
+        ],
+        [
+          73,
+          4
+        ],
+        [
+          74,
+          4
+        ],
+        [
+          75,
+          4
+        ],
+        [
+          77,
+          2
+        ],
+        [
+          78,
+          1
+        ],
+        [
+          79,
+          2
+        ],
+        [
+          81,
+          1
+        ],
+        [
+          82,
+          1
+        ],
+        [
+          83,
+          1
+        ],
+        [
+          84,
+          1
+        ]
+      ],
+      "p99_absolute_codes_nearest_rank": 48,
+      "worst_sample": {
+        "x": 1810,
+        "y": 1110,
+        "signed_codes": 84,
+        "generated": 2029,
+        "capture": 1945
+      }
+    }
+  }
+}
