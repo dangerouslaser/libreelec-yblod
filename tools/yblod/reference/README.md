@@ -103,6 +103,10 @@ the devices.
 Annex-B oracle and synthetic P010 probes. These check scaling without fitting
 movie captures; they do not yet invoke Intel/AMD hardware.
 
+[HARDWARE_SCALING.md](HARDWARE_SCALING.md) documents the now-built standalone
+VA-API probe and larger synthetic vectors. Actual VM GPU measurements remain
+pending; the source is public without implying a validated hardware result.
+
 ## Input contract
 
 Use the generated `frame.json` as the executable example of schema

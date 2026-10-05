@@ -1,0 +1,303 @@
+/* Standalone native-code P010 upload/readback and submitted VPP probe.
+ * No Kodi, display-owned surfaces, RPU, RGB conversion or playback settings.
+ * Build against the target libva SDK; see HARDWARE_SCALING.md.
+ */
+#define _POSIX_C_SOURCE 200809L
+#include <va/va.h>
+#include <va/va_drm.h>
+#include <va/va_vpp.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+static VADisplay display;
+static int device_fd = -1, initialized;
+static VAConfigID config = VA_INVALID_ID;
+static VAContextID context = VA_INVALID_ID;
+static VABufferID pipeline = VA_INVALID_ID;
+static VASurfaceID surfaces[2] = {VA_INVALID_ID, VA_INVALID_ID};
+
+static void cleanup(void)
+{
+    if (initialized) {
+        if (pipeline != VA_INVALID_ID) vaDestroyBuffer(display, pipeline);
+        if (context != VA_INVALID_ID) vaDestroyContext(display, context);
+        if (config != VA_INVALID_ID) vaDestroyConfig(display, config);
+        for (unsigned i = 0; i < 2; ++i)
+            if (surfaces[i] != VA_INVALID_ID) vaDestroySurfaces(display, &surfaces[i], 1);
+        vaTerminate(display);
+    }
+    if (device_fd >= 0) close(device_fd);
+}
+
+static void fail(const char *message)
+{
+    fprintf(stderr, "probe failed: %s\n", message);
+    exit(EXIT_FAILURE);
+}
+
+static void checked(VAStatus status, const char *name)
+{
+    fprintf(stderr, "api %s status=%d (%s)\n", name, status, vaErrorStr(status));
+    if (status != VA_STATUS_SUCCESS) fail(name);
+}
+#define VA_CHECK(call) checked((call), #call)
+
+static unsigned dimension(const char *text)
+{
+    char *end;
+    errno = 0;
+    unsigned long n = strtoul(text, &end, 10);
+    if (errno || !*text || *end || n < 2 || n > 4096 || n % 2)
+        fail("dimensions must be even integers in [2,4096]");
+    return (unsigned)n;
+}
+
+static void json_string(const char *text)
+{
+    putchar('"');
+    for (const unsigned char *s = (const unsigned char *)text; *s; ++s) {
+        if (*s == '"' || *s == '\\') printf("\\%c", *s);
+        else if (*s < 32) printf("\\u%04x", *s);
+        else putchar(*s);
+    }
+    putchar('"');
+}
+
+static VAImage image_create(unsigned width, unsigned height)
+{
+    int maximum = vaMaxNumImageFormats(display), count = 0, found = 0;
+    if (maximum <= 0 || maximum > 4096) fail("invalid image format capacity");
+    VAImageFormat *formats = calloc((size_t)maximum, sizeof(*formats));
+    if (!formats) fail("image format allocation");
+    VA_CHECK(vaQueryImageFormats(display, formats, &count));
+    if (count < 0 || count > maximum) fail("invalid image format count");
+    VAImageFormat selected = {0};
+    for (int i = 0; i < count && i < maximum; ++i)
+        if (formats[i].fourcc == VA_FOURCC_P010) { selected = formats[i]; found = 1; break; }
+    free(formats);
+    if (!found) fail("P010 image format unavailable; no substitute conversion");
+    if (selected.byte_order != VA_LSB_FIRST) fail("P010 image format is not little endian");
+    VAImage image;
+    VA_CHECK(vaCreateImage(display, &selected, (int)width, (int)height, &image));
+    if (image.format.fourcc != VA_FOURCC_P010 || image.format.byte_order != VA_LSB_FIRST || image.num_planes != 2
+            || image.width != width || image.height != height)
+        fail("unexpected image format or size");
+    if (image.data_size > 128u * 1024u * 1024u) fail("image storage exceeds probe memory bound");
+    uint64_t ends[2];
+    for (unsigned p = 0; p < 2; ++p) {
+        unsigned rows = p ? height / 2 : height;
+        ends[p] = (uint64_t)image.offsets[p] + (uint64_t)(rows - 1) * image.pitches[p] + width * 2;
+        if (image.pitches[p] < width * 2 || ends[p] > image.data_size)
+            fail("image stride/offset exceeds mapped storage");
+    }
+    if ((uint64_t)image.offsets[0] < ends[1] && (uint64_t)image.offsets[1] < ends[0])
+        fail("active Y/UV image storage spans overlap");
+    fprintf(stderr, "image %ux%u size=%u pitches=%u,%u offsets=%u,%u\n",
+            width, height, image.data_size, image.pitches[0], image.pitches[1],
+            image.offsets[0], image.offsets[1]);
+    return image;
+}
+
+static void upload(const unsigned char *packed, unsigned width, unsigned height)
+{
+    VAImage image = image_create(width, height);
+    unsigned char *mapped;
+    VA_CHECK(vaMapBuffer(display, image.buf, (void **)&mapped));
+    if (!mapped) fail("null upload mapping");
+    memset(mapped, 0, image.data_size);
+    size_t cursor = 0;
+    for (unsigned p = 0; p < 2; ++p)
+        for (unsigned y = 0; y < (p ? height / 2 : height); ++y) {
+            memcpy(mapped + image.offsets[p] + (size_t)y * image.pitches[p],
+                    packed + cursor, width * 2);
+            cursor += width * 2;
+        }
+    VA_CHECK(vaUnmapBuffer(display, image.buf));
+    VA_CHECK(vaPutImage(display, surfaces[0], image.image_id, 0, 0, width, height,
+                       0, 0, width, height));
+    VA_CHECK(vaSyncSurface(display, surfaces[0]));
+    VA_CHECK(vaDestroyImage(display, image.image_id));
+}
+
+static unsigned char *download(VASurfaceID surface, unsigned width, unsigned height)
+{
+    VA_CHECK(vaSyncSurface(display, surface));
+    VAImage image = image_create(width, height);
+    VA_CHECK(vaGetImage(display, surface, 0, 0, width, height, image.image_id));
+    unsigned char *mapped;
+    VA_CHECK(vaMapBuffer(display, image.buf, (void **)&mapped));
+    if (!mapped) fail("null download mapping");
+    size_t size = (size_t)width * height * 3, cursor = 0;
+    unsigned char *packed = malloc(size);
+    if (!packed) fail("download allocation");
+    for (unsigned p = 0; p < 2; ++p)
+        for (unsigned y = 0; y < (p ? height / 2 : height); ++y) {
+            memcpy(packed + cursor, mapped + image.offsets[p] + (size_t)y * image.pitches[p], width * 2);
+            cursor += width * 2;
+        }
+    VA_CHECK(vaUnmapBuffer(display, image.buf));
+    VA_CHECK(vaDestroyImage(display, image.image_id));
+    /* Preserve failures in raw output for diagnosis; do not drop precision. */
+    for (size_t i = 0; i < size; i += 2)
+        if (packed[i] & 63) { fprintf(stderr, "warning: downloaded P010 low bits are nonzero\n"); break; }
+    return packed;
+}
+
+static void surface_create(unsigned width, unsigned height, unsigned index)
+{
+    VASurfaceAttrib attribute = {0};
+    attribute.type = VASurfaceAttribPixelFormat;
+    attribute.flags = VA_SURFACE_ATTRIB_SETTABLE;
+    attribute.value.type = VAGenericValueTypeInteger;
+    attribute.value.value.i = VA_FOURCC_P010;
+    VA_CHECK(vaCreateSurfaces(display, VA_RT_FORMAT_YUV420_10, width, height,
+                             &surfaces[index], 1, &attribute, 1));
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 9) {
+        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+    unsigned iw = dimension(argv[4]), ih = dimension(argv[5]);
+    unsigned ow = dimension(argv[6]), oh = dimension(argv[7]);
+    int copy = !strcmp(argv[8], "copy");
+    unsigned flags = 0;
+    if (!strcmp(argv[8], "fast")) flags = VA_FILTER_SCALING_FAST;
+    else if (!strcmp(argv[8], "hq")) flags = VA_FILTER_SCALING_HQ;
+    else if (!strcmp(argv[8], "bilinear")) flags = VA_FILTER_INTERPOLATION_BILINEAR;
+    else if (!strcmp(argv[8], "nearest")) flags = VA_FILTER_INTERPOLATION_NEAREST_NEIGHBOR;
+    else if (!copy && strcmp(argv[8], "default")) fail("unknown filter request");
+    if (copy && (iw != ow || ih != oh)) fail("copy test requires identical dimensions");
+    size_t input_size = (size_t)iw * ih * 3;
+    unsigned char *input = malloc(input_size);
+    if (!input) fail("input allocation");
+    FILE *file = fopen(argv[2], "rb");
+    if (!file) fail("open input");
+    if (fread(input, 1, input_size, file) != input_size || fgetc(file) != EOF || ferror(file))
+        fail("input must be exactly one tightly packed P010 frame");
+    fclose(file);
+    for (size_t i = 0; i < input_size; i += 2)
+        if (input[i] & 63) fail("input P010 contains nonzero low six bits");
+    device_fd = open(argv[1], O_RDWR | O_CLOEXEC);
+    if (device_fd < 0) fail("open render device");
+    atexit(cleanup);
+    display = vaGetDisplayDRM(device_fd);
+    if (!display) fail("DRM VA display unavailable");
+    int major, minor;
+    VA_CHECK(vaInitialize(display, &major, &minor));
+    initialized = 1;
+    surface_create(iw, ih, 0);
+    upload(input, iw, ih);
+    free(input);
+    if (!copy) {
+        VAConfigAttrib attribute = {VAConfigAttribRTFormat, 0};
+        VA_CHECK(vaGetConfigAttributes(display, VAProfileNone, VAEntrypointVideoProc, &attribute, 1));
+        if (attribute.value == VA_ATTRIB_NOT_SUPPORTED || !(attribute.value & VA_RT_FORMAT_YUV420_10))
+            fail("VPP 10bit420 unavailable");
+        attribute.value = VA_RT_FORMAT_YUV420_10;
+        VA_CHECK(vaCreateConfig(display, VAProfileNone, VAEntrypointVideoProc, &attribute, 1, &config));
+        surface_create(ow, oh, 1);
+        VA_CHECK(vaCreateContext(display, config, (int)ow, (int)oh, VA_PROGRESSIVE,
+                                &surfaces[1], 1, &context));
+        uint32_t input_formats[64] = {0}, output_formats[64] = {0};
+        VAProcColorStandardType input_standards[64] = {0}, output_standards[64] = {0};
+        VAProcPipelineCaps caps = {0};
+        caps.input_pixel_format = input_formats;
+        caps.num_input_pixel_formats = 64;
+        caps.output_pixel_format = output_formats;
+        caps.num_output_pixel_formats = 64;
+        caps.input_color_standards = input_standards;
+        caps.num_input_color_standards = 64;
+        caps.output_color_standards = output_standards;
+        caps.num_output_color_standards = 64;
+        VA_CHECK(vaQueryVideoProcPipelineCaps(display, context, NULL, 0, &caps));
+        if (caps.num_input_pixel_formats > 64 || caps.num_output_pixel_formats > 64
+                || caps.num_input_color_standards > 64 || caps.num_output_color_standards > 64)
+            fail("pipeline capability list exceeds capacity");
+        int input_p010 = 0, output_p010 = 0;
+        for (unsigned i = 0; i < caps.num_input_pixel_formats; ++i) {
+            fprintf(stderr, "input format fourcc=0x%08x\n", input_formats[i]);
+            input_p010 |= input_formats[i] == VA_FOURCC_P010;
+        }
+        for (unsigned i = 0; i < caps.num_output_pixel_formats; ++i) {
+            fprintf(stderr, "output format fourcc=0x%08x\n", output_formats[i]);
+            output_p010 |= output_formats[i] == VA_FOURCC_P010;
+        }
+        int input_bt2020 = 0, output_bt2020 = 0;
+        for (unsigned i = 0; i < caps.num_input_color_standards; ++i) {
+            fprintf(stderr, "input colour standard=%d\n", input_standards[i]);
+            input_bt2020 |= input_standards[i] == VAProcColorStandardBT2020;
+        }
+        for (unsigned i = 0; i < caps.num_output_color_standards; ++i) {
+            fprintf(stderr, "output colour standard=%d\n", output_standards[i]);
+            output_bt2020 |= output_standards[i] == VAProcColorStandardBT2020;
+        }
+        if (!input_bt2020 || !output_bt2020)
+            fail("matching BT2020 input/output convention not advertised");
+        if ((caps.num_input_pixel_formats && !input_p010)
+                || (caps.num_output_pixel_formats && !output_p010))
+            fail("queried pipeline format list lacks P010");
+        fprintf(stderr, "caps filter_flags=%u input=%ux%u..%ux%u output=%ux%u..%ux%u\n",
+                caps.filter_flags, caps.min_input_width, caps.min_input_height,
+                caps.max_input_width, caps.max_input_height, caps.min_output_width,
+                caps.min_output_height, caps.max_output_width, caps.max_output_height);
+        /* Scaling/interpolation flags are encoded selectors, not independent
+         * capability bits. Record raw caps; accepted submission is separate. */
+        if (iw < caps.min_input_width || ih < caps.min_input_height
+                || (caps.max_input_width && iw > caps.max_input_width)
+                || (caps.max_input_height && ih > caps.max_input_height)
+                || ow < caps.min_output_width || oh < caps.min_output_height
+                || (caps.max_output_width && ow > caps.max_output_width)
+                || (caps.max_output_height && oh > caps.max_output_height))
+            fail("requested dimensions outside advertised pipeline bounds");
+        VARectangle source = {0, 0, (uint16_t)iw, (uint16_t)ih};
+        VARectangle target = {0, 0, (uint16_t)ow, (uint16_t)oh};
+        VAProcPipelineParameterBuffer parameters = {0};
+        parameters.surface = surfaces[0];
+        parameters.surface_region = &source;
+        parameters.output_region = &target;
+        parameters.filter_flags = flags;
+        /* None can select a size-dependent colour standard in Intel drivers.
+         * Equal explicit standards prevent a hidden resize-time CSC request.
+         * This is a native-code transport convention, not RPU interpretation. */
+        parameters.surface_color_standard = VAProcColorStandardBT2020;
+        parameters.output_color_standard = VAProcColorStandardBT2020;
+        parameters.input_color_properties.color_range = VA_SOURCE_RANGE_FULL;
+        parameters.output_color_properties.color_range = VA_SOURCE_RANGE_FULL;
+        parameters.input_color_properties.chroma_sample_location =
+            VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
+        parameters.output_color_properties = parameters.input_color_properties;
+        VA_CHECK(vaCreateBuffer(display, context, VAProcPipelineParameterBufferType,
+                               sizeof(parameters), 1, &parameters, &pipeline));
+        VA_CHECK(vaBeginPicture(display, context, surfaces[1]));
+        VA_CHECK(vaRenderPicture(display, context, &pipeline, 1));
+        VA_CHECK(vaEndPicture(display, context));
+    }
+    unsigned char *output = download(surfaces[copy ? 0 : 1], ow, oh);
+    int out_fd = open(argv[3], O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+    if (out_fd < 0) fail("output must be a new writable path");
+    FILE *out = fdopen(out_fd, "wb");
+    if (!out) { close(out_fd); fail("output stream"); }
+    size_t output_size = (size_t)ow * oh * 3;
+    if (fwrite(output, 1, output_size, out) != output_size || fflush(out) || fclose(out))
+        fail("write output");
+    free(output);
+    printf("{\"schema\":\"yblod.vaapi-scaler-invocation.v1\",\"status\":\"complete\",\"vendor\":");
+    json_string(vaQueryVendorString(display) ? vaQueryVendorString(display) : "unknown");
+    printf(",\"va_version\":[%d,%d],\"input_size\":[%u,%u],\"output_size\":[%u,%u],"
+           "\"filter_flags\":%u,\"input_chroma_siting\":%s,\"output_chroma_siting\":%s,",
+           major, minor, iw, ih, ow, oh, flags, copy ? "null" : "6", copy ? "null" : "6");
+    if (copy) printf("\"colour_standard\":null,\"colour_range\":null,");
+    else printf("\"colour_standard\":%d,\"colour_range\":%u,",
+                VAProcColorStandardBT2020, VA_SOURCE_RANGE_FULL);
+    printf("\"vpp_submitted\":%s,\"hardware_engine_verified\":false}\n", copy ? "false" : "true");
+    if (fflush(stdout) || ferror(stdout)) fail("write invocation report");
+    return EXIT_SUCCESS;
+}
