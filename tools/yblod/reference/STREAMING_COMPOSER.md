@@ -64,6 +64,10 @@ byte-for-byte. Its source/input-pinned synthetic report is
 `results/streaming-demo-v1.json`. Bounded read and write sizes are instrumented
 in the failure/IO tests; no actual peak-memory or playback-speed claim follows.
 
+The subsequent full-HD check and measured process-memory results are recorded
+in `STREAMING_FULL_HD_RESULTS.md`, together with the synthetic diagnostic
+colour-path bridge. These do not change the arithmetic or colour policies.
+
 These are synthetic prepared inputs, not film capture data, licensed-player
 ground truth or proof of Dolby conformance. Fractional hardware-scaled samples
 still need an explicit input contract; they are not silently rounded by this

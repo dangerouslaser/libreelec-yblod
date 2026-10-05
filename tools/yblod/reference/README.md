@@ -81,6 +81,11 @@ saved arithmetic stages match the unchanged reference in synthetic differential
 tests. Frame-manifest validation is still explicitly shared with the reference;
 decoding, spatial preparation, colour conversion and playback remain separate.
 
+[STREAMING_FULL_HD_RESULTS.md](STREAMING_FULL_HD_RESULTS.md) records exact
+1920x1080 synthetic equality, measured process memory, and compatibility tests
+with the existing diagnostic colour helpers. `make_streaming_demo.py` generates
+that larger fixture without copyrighted inputs.
+
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
 `test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,

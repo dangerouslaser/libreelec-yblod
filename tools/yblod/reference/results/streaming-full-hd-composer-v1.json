@@ -1,0 +1,274 @@
+{
+  "schema": "yblod.composer-result.v1",
+  "status": "complete",
+  "scope": "prepared-input streaming reconstruction only; not HDMI or display-referred RGB",
+  "specification": "https://www.etsi.org/deliver/etsi_gs/CCM/001_099/001/01.01.01_60/gs_ccm001v010101p.pdf",
+  "input_manifest": {
+    "schema": "yblod.composer-frame.v1",
+    "width": 1920,
+    "height": 1080,
+    "format": "yuv420p-u16le-lsb",
+    "transfer": "pq",
+    "chroma_location": "left",
+    "preparation": "Synthetic already-aligned native layers and explicit synthetic MMR guide; no resampling.",
+    "bl": {
+      "frame_id": "synthetic-stream-1920x1080",
+      "pts": 0,
+      "time_base": [
+        1,
+        24
+      ],
+      "planes": {
+        "Y": "bl_Y.u16le",
+        "Cb": "bl_Cb.u16le",
+        "Cr": "bl_Cr.u16le"
+      }
+    },
+    "el": {
+      "frame_id": "synthetic-stream-1920x1080",
+      "pts": 0,
+      "time_base": [
+        1,
+        24
+      ],
+      "planes": {
+        "Y": "el_Y.u16le",
+        "Cb": "el_Cb.u16le",
+        "Cr": "el_Cr.u16le"
+      }
+    },
+    "mmr_luma": "guide.u16le",
+    "metadata": {
+      "frame_id": "synthetic-stream-1920x1080",
+      "pts": 0,
+      "time_base": [
+        1,
+        24
+      ],
+      "bl_bit_depth": 10,
+      "el_bit_depth": 10,
+      "output_bit_depth": 12,
+      "coefficient_log2_denom": 20,
+      "disable_residual": false,
+      "mappings": [
+        {
+          "pivots": [
+            0,
+            512,
+            1023
+          ],
+          "segments": [
+            {
+              "method": "polynomial",
+              "coefficients": [
+                131072,
+                524288,
+                262144
+              ]
+            },
+            {
+              "method": "polynomial",
+              "coefficients": [
+                0,
+                1048576
+              ]
+            }
+          ]
+        },
+        {
+          "pivots": [
+            0,
+            1023
+          ],
+          "segments": [
+            {
+              "method": "mmr",
+              "constant": 262144,
+              "coefficients": [
+                [
+                  262144,
+                  262144,
+                  0,
+                  131072,
+                  -65536,
+                  0,
+                  262144
+                ],
+                [
+                  0,
+                  32768,
+                  0,
+                  0,
+                  0,
+                  0,
+                  -16384
+                ],
+                [
+                  0,
+                  0,
+                  16384,
+                  0,
+                  0,
+                  0,
+                  8192
+                ]
+              ]
+            }
+          ]
+        },
+        {
+          "pivots": [
+            0,
+            512,
+            1023
+          ],
+          "segments": [
+            {
+              "method": "polynomial",
+              "coefficients": [
+                131072,
+                524288,
+                262144
+              ]
+            },
+            {
+              "method": "polynomial",
+              "coefficients": [
+                0,
+                1048576
+              ]
+            }
+          ]
+        }
+      ],
+      "nlq_method": "linear_deadzone",
+      "nlq": [
+        {
+          "offset": 512,
+          "slope": 2048,
+          "threshold": 0,
+          "maximum": 1025
+        },
+        {
+          "offset": 512,
+          "slope": 17,
+          "threshold": 11,
+          "maximum": 1024
+        },
+        {
+          "offset": 512,
+          "slope": 512,
+          "threshold": 128,
+          "maximum": 0
+        }
+      ]
+    }
+  },
+  "manifest_sha256": "fd0cc066e40721b1878a9c935a56302ef21054b4b05b1a3186c85a44982ffc69",
+  "implementation_sha256": "2409586e24130d18c3dd2431985c4fa709ea04b396575c54c6c4ea80c8d8fcc4",
+  "helper_sha256": {
+    "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+    "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e",
+    "composition_stage.py": "b724d8b6bd0baaca345da8e12525c1583ce72ae987b910cde168cb759d44680a",
+    "reference.py": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73"
+  },
+  "validation_basis": "reference.validate supplies global manifest/identity validation; arithmetic uses separate stage modules",
+  "input_validation_scope": "only consumed planes: disabled EL and unused guide are not opened or hashed",
+  "input_change_check": "descriptor and resolved-path size/inode/mtime/ctime before/after; not an immutable or adversarial snapshot guarantee",
+  "chunk_samples": 4096,
+  "input_sha256": {
+    "bl_Y.u16le": "75f847dc2ec2c86f79867329cbfa87151e2e40a0afd5e494b725715a4bf6da18",
+    "bl_Cb.u16le": "00f23b65a3f3d313b0d543683e2b9060e226ad766cd9ddbb6d15abf14f4ec0c8",
+    "bl_Cr.u16le": "83aae536c5679826fd3071496825d3c9a5a9b0ec88b313d402f598958d7b2c0a",
+    "el_Y.u16le": "b26200a9c9a9b27d7ab51936b1e0e4ee37369c641a0192b11055ce50d4ff37d8",
+    "el_Cb.u16le": "7397740b94be9be9006b9e58822885f2fa666d8fcf0fbaf52ff84ad941c47fcc",
+    "el_Cr.u16le": "28501ee7abcf356310e2375fc656f11a9d40d6457b458104a121a2b629ba79db",
+    "guide.u16le": "f42a84f19f536599173154b4b3e135b4c437a1cc69734c0992a6e88c6e18fe6f"
+  },
+  "stages": {
+    "mapped_Y": {
+      "file": "mapped_Y.u16le",
+      "samples": 2073600,
+      "minimum": 8192,
+      "maximum": 65472,
+      "sha256": "3a6bcc3d6a05dec659ef5da4d09cc52a3d5931985187d27c4447bf9523aad91b"
+    },
+    "residual_Y": {
+      "file": "residual_Y.i32le",
+      "samples": 2073600,
+      "minimum": -65,
+      "maximum": 64,
+      "sha256": "f4541473c8f6aeb960fc1b95cd0d79013b34f73f4fbe7267cf763460adc9ac28"
+    },
+    "sum_Y": {
+      "file": "sum_Y.i32le",
+      "samples": 2073600,
+      "minimum": 8127,
+      "maximum": 65536,
+      "sha256": "37aa18ab349422f72c36f051a50a19591d3d58bcd0587dc7e6d6f9700cf40e49"
+    },
+    "reconstructed_Y": {
+      "file": "reconstructed_Y.u16le",
+      "samples": 2073600,
+      "minimum": 508,
+      "maximum": 4095,
+      "sha256": "c9f51430e7883b3f1b33ddecff7ef424df79e17af10a8cf728d903a2e245e1be"
+    },
+    "mapped_Cb": {
+      "file": "mapped_Cb.u16le",
+      "samples": 518400,
+      "minimum": 16608,
+      "maximum": 65535,
+      "sha256": "ba2e33e1f46f33ef3d611d9872f859b76d9db4fcf13b862a89bfe56748173313"
+    },
+    "residual_Cb": {
+      "file": "residual_Cb.i32le",
+      "samples": 518400,
+      "minimum": -5,
+      "maximum": 4,
+      "sha256": "a258609d6c7904ab27e369fc7106493ae8ce1fa65b349c861f47624c4642372b"
+    },
+    "sum_Cb": {
+      "file": "sum_Cb.i32le",
+      "samples": 518400,
+      "minimum": 16603,
+      "maximum": 65539,
+      "sha256": "cef13ddb55480103e583d20a31102caf990452fcd5cf56eb9e2e4fd247253b11"
+    },
+    "reconstructed_Cb": {
+      "file": "reconstructed_Cb.u16le",
+      "samples": 518400,
+      "minimum": 1038,
+      "maximum": 4095,
+      "sha256": "e03c9ea0dad60f1ff4f463ccf1c6c87da03fd83715387ec0f1fc82a4f177af36"
+    },
+    "mapped_Cr": {
+      "file": "mapped_Cr.u16le",
+      "samples": 518400,
+      "minimum": 8192,
+      "maximum": 65472,
+      "sha256": "215707be374dfaad3013b70f2560edf3d61540b95bedf5ad353ee825f00dfe5a"
+    },
+    "residual_Cr": {
+      "file": "residual_Cr.i32le",
+      "samples": 518400,
+      "minimum": 0,
+      "maximum": 0,
+      "sha256": "11283ef755895422e6f28b93f3d78cad7539891cf2893c9fdccefb923c5bf70b"
+    },
+    "sum_Cr": {
+      "file": "sum_Cr.i32le",
+      "samples": 518400,
+      "minimum": 8192,
+      "maximum": 65472,
+      "sha256": "02c53c1883872cb8cad5fe8b5d6eb912f152e778ba4e639803f96a9edf9c130b"
+    },
+    "reconstructed_Cr": {
+      "file": "reconstructed_Cr.u16le",
+      "samples": 518400,
+      "minimum": 512,
+      "maximum": 4092,
+      "sha256": "8332227d0391c4c01aa85a664422f53b0ea312a72721a7c526df473f3b5414a3"
+    }
+  }
+}
