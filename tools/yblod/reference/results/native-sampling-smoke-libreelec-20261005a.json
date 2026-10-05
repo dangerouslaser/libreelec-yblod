@@ -1,0 +1,31 @@
+{
+  "schema": "yblod.native-sampling-smoke-checkpoint.v1",
+  "status": "complete",
+  "compiler": "GCC 16.2.0",
+  "binary_sha256": "a0bc823647ea9458cc737429df797fcc3af4c3b094a25a8d61bf0c4fc099aebe",
+  "source_sha256": {
+    "native_sampling_smoke.c": "713658dd573fa02e36827b2cab042dfd8d34037c37c22b2bf92e0527d304d890",
+    "native_y416.c": "1286a746b0a63b36b663a6894cd3d41a34a4d79b84611e148ae1944bbc989903",
+    "native_y416.h": "545bda41583e1c18b05193e008a4f636c9af78a3a9472874a4bf956e7c1cbd53",
+    "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+    "native_annexb_probe.c": "c6d4655e3ed07c14b81de86b8e6f1da0aa3e009dc182a3d529230777a342f124",
+    "native_annexb_probe.h": "053b8ee2a09839c44f2d3ee7f3157f199cc757643887a6d27fdea6c76b716b67"
+  },
+  "cpu_only": true,
+  "gpu_attempted": false,
+  "test_only": true,
+  "pipeline_verified": false,
+  "precision_policy_selected": false,
+  "sampled_raw_word": 32776,
+  "normalization_divisor": 65472,
+  "overshoot_preserved": true,
+  "annex_b_components_checked": 3,
+  "configured_memory_max_bytes": 536870912,
+  "configured_memory_swap_max_bytes": 0,
+  "observed_memory_peak_bytes": 1024000,
+  "observed_memory_swap_current_bytes": 0,
+  "observed_memory_events": {"max": 0, "oom": 0, "oom_kill": 0},
+  "kodi_active_afterwards": true,
+  "interpretation": "Tiny standalone CPU diagnostic, not a full-frame memory requirement, playback timing, GPU integration or Dolby conformance."
+}
