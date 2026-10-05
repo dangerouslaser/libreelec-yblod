@@ -32,6 +32,10 @@ class GPUVectorTests(unittest.TestCase):
                          (4096, 4096, 4096, 4096, 8192, 8192, 16384, 16384, 16384, 16384))
         self.assertEqual(expected_stages(cases["negative-cap-before-floor"]),
                          ((32,)*5, (-9, -8, 0, 8, 8), (23, 24, 32, 40, 40), (1, 2, 2, 3, 3)))
+        self.assertEqual(expected_stages(cases["cross-depth-bl8-el10"])[1],
+                         (-8184, -8, 0, 8, 8168))
+        self.assertEqual(expected_stages(cases["cross-depth-bl10-el8"])[1],
+                         (-2040, -8, 0, 8, 2024))
 
     def test_width_boundary_expected_rejection_is_explicit(self):
         cases = {v.name: v for v in vector_fixtures()}

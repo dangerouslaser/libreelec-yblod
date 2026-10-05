@@ -125,4 +125,14 @@ def vector_fixtures():
         triples = ((0, 0, 0), (1, 1, 1), (top//2, top//2, top//2), (top, top, top))
         vectors.append(GPUVector(f"nlq-extreme-b{depth}-d{denominator}", mapping, 0,
                                  triples, nlq, (0, 1, 1 << (depth-1), top), 10))
+    # BL and EL depths are separate contracts, even with one denominator.
+    # In particular the NLQ gain/shift must never use the BL bit depth.
+    for bl_depth, el_depth in ((8, 10), (10, 8)):
+        bl_top, el_top = (1 << bl_depth)-1, (1 << el_depth)-1
+        mapping = config([poly((0, bl_top), (0, 1 << 23)) for _ in range(3)], bl_depth, 23)
+        offset = 1 << (el_depth-1)
+        nlq = NLQConfig(el_depth, 23, offset, 2048, 0, 1048576)
+        triples = tuple((x, x, x) for x in (0, 1, bl_top//2, bl_top-1, bl_top))
+        vectors.append(GPUVector(f"cross-depth-bl{bl_depth}-el{el_depth}", mapping, 1,
+                                 triples, nlq, (0, offset-1, offset, offset+1, el_top), 12))
     return tuple(vectors)

@@ -41,5 +41,17 @@ class ObservedPrecisionTests(unittest.TestCase):
         self.assertEqual(answers[32800]["policies"]["nearest_half_up"]["integer_residual"],8)
         self.assertEqual(answers[32800]["policies"]["nearest_ties_even"]["integer_residual"],0)
 
+    def test_production_observations_do_not_inherit_small_profile(self):
+        report=Path(__file__).with_name("intel-y416-near-neutral-large-v11.json")
+        if not report.exists():report=Path(__file__).parent/"results"/report.name
+        if not report.exists():self.skipTest("production synthetic observation artifact not installed")
+        result=precision.analyse(report)
+        self.assertEqual(result["observations"],[{"stage":"scaled","case":"Y-x-step-plus",
+                         "component":"Y","raw_word":32784,"count":2160}])
+        answers={row["raw_word"]:row for row in result["alternatives"]}
+        self.assertEqual(sorted(answers),[32768,32784])
+        self.assertTrue(all(p["integer_residual"]==0 for p in answers[32784]["policies"].values()))
+        self.assertEqual(answers[32784]["hypothetical_literal"]["numerator"],-4)
+
 
 if __name__=="__main__":unittest.main()

@@ -8,6 +8,11 @@ Evidence: [measured surfaces and invocation records](results/intel-y416-near-neu
 and [explicit arithmetic alternatives](results/intel-y416-near-neutral-precision-v11-v2.json).
 The latter is reproducible with `hardware_y416_neutral_precision.py`.
 
+The separately approved [production-size checkpoint](results/intel-y416-near-neutral-large-v11.json)
+and its [arithmetic alternatives](results/intel-y416-near-neutral-large-precision-v11.json)
+are now complete too. They demonstrate why the small result must not be
+extrapolated unchanged to 4K.
+
 ## What was measured
 
 Four 64×64 P010 inputs: neutral 512, a Y horizontal 512→513 step, a Cb vertical
@@ -47,6 +52,42 @@ Engine-counter deltas were zero in this small cohort. They therefore identify
 neither the engine used nor a hardware scaling path. These 64→128 observations
 must not be assumed to describe production-size 1920→3840 processing.
 
+## Production-size checkpoint
+
+Two 1920×1080 inputs—neutral and the same one-code Y step—were processed into
+3840×2160 Y416 with the same flags. Native-size Y416 was explicitly omitted.
+All four P010 copy/native identity gates passed before four scaled Y416 jobs;
+**eight jobs** total, stable repeat hashes and 288.72 MiB of retained raw files.
+All 26 archived input/output/log files were independently hash-verified on
+Ollie. Standard-library little-endian decoding independently checked every word
+of all 16 stored centre-row/column profiles for the two first-repeat surfaces.
+
+Neutral and inactive colour words remained exactly 32768. The Y step now
+produced raw word **32784 (+¼ native code), in 2160 samples**, rather than the
+small case's −¼/+½ values. The full set of Y words was
+`32768, 32784, 32816, 32832, 32848`. The following centre-row deltas use the
+declared input step at the native midpoint, with output position measured
+relative to twice that index; no fitted registration was applied:
+
+| Output position | −3 | −2 | −1 | 0 | +1 | +2 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Small Y-step raw delta | −16 | 0 | +32 | +64 | +80 | +64 |
+| Production-size Y-step raw delta | 0 | 0 | +16 | +48 | +80 | +64 |
+
+All six submitted VPP jobs had positive `video-enhance` accounting deltas and
+zero render deltas. This is measured per-client engine activity, not proof of
+a separately identifiable scaling unit or a portable hardware-engine promise.
+Alpha was observed at 65472, versus 65280 in the small scaled surfaces; it was
+retained, not interpreted as colour or forced to an assumed opaque value.
+
+The production-size runner took 10.854 seconds offline. Python peak RSS was
+27,468 KiB, but actual kernel cgroup peak was **505,266,176 bytes (481.86 MiB)**
+under the unchanged 512 MiB limit. Job swap and all max/OOM events were zero.
+The cgroup includes child processes and charged file cache, not just Python
+working memory. This peak is close to the limit: future large experiments
+need a reduced output/cache-retention strategy, not a higher memory cap.
+No files were deleted and no additional large cohort was started.
+
 ## What the alternatives show—and do not show
 
 The comparison deliberately uses an artificial arithmetic fixture:
@@ -77,13 +118,9 @@ precision and licensed fractional handling remain separate uncertainties.
 
 ## Next non-fitting check
 
-First repeat only neutral and the one-code Y step at production size, retaining
-the same declared flags and identity gates. Two inputs with native Y416 omitted
-would require eight jobs and about 288.72 MiB of raw files, within the runner's
-300 MiB cap. This larger cohort has not been run. Compare raw
-values and profiles directly, without adjusting phase or coefficients.
-
-Then an explicit offscreen shader diagnostic can observe the sampled EL value
+The production-size checkpoint above is complete; it did not choose a policy
+or compare against an empirical RPU/capture target. Next, an explicit offscreen
+shader diagnostic can observe the sampled EL value
 after its declared coordinate shift and normalization, and the correction
 before colour conversion, using a constant mapped base layer. Integer anchors,
 neutral and these measured fractional words would discriminate implementation
