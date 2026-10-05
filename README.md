@@ -1,22 +1,34 @@
 # LibreELEC yblod
 
-**An unofficial LibreELEC build with native Dolby Vision for Intel HDMI systems.**
+**An unofficial LibreELEC build with experimental Dolby Vision processing for Intel HDMI systems.**
 
 yblod is a personal LibreELEC build for Intel PCs. It is **not** an official
 LibreELEC release and is not affiliated with or supported by LibreELEC, Kodi, Dolby or Intel.
 Please report problems here, not to those projects.
+This project is not Dolby-certified. Hardware comparisons do not establish
+Dolby compliance, endorsement, or a grant of patent or technology licenses.
+
+The `experiment/dv-reconstruction` branch also contains a separate
+[offline reconstruction reference](tools/yblod/reference/README.md). It is not
+yet a replacement for the playback engine described below. Its tests use
+documented arithmetic and explicitly labelled experiments, with no fitted
+hardware-matching offsets; remaining discrepancies are published.
 
 ## What it is
 
 - **LibreELEC master** (Kodi 22), pinned to a known commit and updated deliberately.
 - **CroqueMr's Intel Dolby Vision engine** ([CroqueMr/intel-dv-libreelec](https://github.com/CroqueMr/intel-dv-libreelec)):
   Standard (TV-led) Dolby Vision output from Kodi's own player, including Profile 7 FEL, on supported Intel GPUs.
-- **Video pipeline calibrated to licensed Dolby hardware**: IPT tunnel signal like Dolby players, a chroma siting fix, co-sited
-  4:2:2 packing and Gaussian chroma upsampling (see below).
+- **Experimental video processing evaluated with documented tests and hardware-output comparisons**:
+  IPT transport, chroma positioning, co-sited 4:2:2 packing and Gaussian chroma
+  upsampling in the existing playback engine. Some historical choices were
+  fitted to sampled hardware output, not independently established as correct
+  Dolby processing; see the method and limitations below.
 - **Quick Sync enhancement-layer offload**: Profile 7 FEL playback scales the
   enhancement layer on the Intel media engine (Quick Sync, via VA-API) instead of in shaders. On an
   i5-1135G7 this cut GPU render load during FEL playback from about 46% to about 12%, with no dropped
-  frames, and the HDMI output stays within about one 12-bit code of the shader path. It is aimed at
+  frames in the measured scenes and small measured signal differences from the
+  shader path in those comparisons. This is not a general accuracy guarantee. It is aimed at
   making FEL playable on smaller Intel GPUs. It can be switched off, and falls back to the shader path
   automatically when the media engine or driver can't do it.
 - **Seamless refresh rate changes (QMS-VRR)**: on TVs with HDMI 2.1 Quick Media Switching, a change between
@@ -42,23 +54,32 @@ during playback). Same scene for each row, no dropped frames in any case.
 | Profile 7 FEL (*Saving Private Ryan*) | render 45.8% | render **12.1%**, media engine 11.2% | render **10.6%**, media engine 22.3% |
 | Profile 8.1 (*28 Years Later: The Bone Temple*) | render 22.9% | render 23.1% (no enhancement layer) | render **6.3%**, media engine 11.2% |
 
-*Enhancement layer* removes about three quarters of the GPU work for FEL with no measurable cost in accuracy.
+*Enhancement layer* removed about three quarters of the render-engine load in this
+FEL measurement, with small measured signal differences from the shader path.
 *Enhancement layer and colour* also moves base layer colour upsampling to the media engine, which helps every
 Dolby Vision profile; colour edges are slightly less close to Dolby hardware in that mode (see below).
 
-## Accuracy against Dolby hardware
+## Historical hardware-output comparisons
 
-yblod's Dolby Vision output was measured against licensed Dolby Vision players (Ugoos AM9 Pro and SK4,
-Amlogic, TV-led) by capturing both devices' HDMI signal and comparing them frame by frame:
+yblod's existing playback output was compared with Ugoos AM9 Pro and SK4 Pro
+(Amlogic, TV-led) captures. The following historical figures are from **four
+matched frames of one Profile 8.1 clip against the AM9 Pro**, not a general result
+for Profile 7 FEL, all movies, both devices, or the new standalone reference.
+They include the playback engine's fitted offset. Units are 12-bit PQ codes after
+conversion into a common comparison colour space:
 
 | | Original engine | yblod |
 |---|---|---|
-| Typical pixel difference (12-bit PQ codes) | 4.37 | **0.72** |
+| Median pixel difference (12-bit PQ codes) | 4.37 | **0.72** |
 | Pixels within 4 codes | 42.5% | **97.9%** |
 | Colour edges (RMS) | 16.4 | **3.4** |
 
-That puts the typical pixel within one code of Dolby's own hardware, below what is visible. Details, method
-and tools: [docs/yblod/ACCURACY.md](docs/yblod/ACCURACY.md).
+These figures measure agreement with a particular captured output, not absolute
+colour accuracy or a visibility threshold. The hardware is a useful cross-check,
+not the definition of correct processing. New Profile 7 experiments expose
+remaining disagreements and show that a closer match on one frame does not prove
+a generally correct rule. Details, historical fitting choices, and current
+acceptance criteria: [docs/yblod/ACCURACY.md](docs/yblod/ACCURACY.md).
 
 ## Seamless refresh rate changes (QMS)
 
@@ -83,8 +104,11 @@ Player > Videos > Dolby Vision:
 
 - **Quick Sync scaling**: *Enhancement layer* (default) upscales the Profile 7 FEL enhancement layer on the
   Intel media engine; *Enhancement layer and colour* also upsamples base layer colour there (lighter on the
-  GPU, slightly less accurate colour edges); *Off* uses the GPU shaders only.
-- **Match Dolby hardware levels** (default on): applies the small constant offset measured on Dolby hardware.
+  GPU, with larger measured differences at colour edges in the tested captures);
+  *Off* uses the GPU shaders only.
+- **Match Dolby hardware levels** (default on in the existing playback engine):
+  applies the historical fitted offset. Its underlying cause is not established;
+  it is not a Dolby-defined correction. The standalone reference does not use it.
 - **Dolby Vision for the menu** (default off): keeps the Dolby Vision output on while the menu is shown, so
   Dolby Vision films start and stop without the TV switching picture format. Needs a 3840x2160 desktop.
 - **Menu brightness, saturation, gamma and wide colour** (menu only): how the Dolby Vision menu looks. Brightness
@@ -167,8 +191,9 @@ flowchart TD
 | Scan-out, Dolby VSIF, QMS refresh rate changes | Intel display engine | patched i915 |
 | Display mapping | TV | TV-led Dolby Vision |
 
-Profile 8.1 and other single-layer content skip the enhancement-layer branch; everything after decode runs
-in the GPU shaders.
+Profile 8.1 and other single-layer content skip the enhancement-layer branch.
+Subsequent colour processing uses GPU shaders, except base-colour media-engine
+offload when enabled; final scanout remains the display pipeline's job.
 
 ## Install
 
