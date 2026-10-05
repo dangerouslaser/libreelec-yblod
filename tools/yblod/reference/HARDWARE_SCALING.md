@@ -285,7 +285,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **427 reference tests**, including vector/scoring, runner failure gates,
+- **442 reference tests**, including vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
@@ -309,3 +309,18 @@ YBLOD_VAAPI_PROBE_BINARY=/absolute/path/vaapi_scaler_probe \
 
 Without that environment variable, the sixteen compiled tests explicitly skip;
 the synthetic Python tests remain runnable from the public source.
+
+## Raw Y416 isolated-channel gradients
+
+`hardware_y416_spatial.py` runs26 exact P010 gates before52 repeated native64
+and enlarged128 Y416 observations. Each gradient changes only Y, Cb or Cr along
+one axis, in both directions. The raw word histograms and centre-line profiles
+are preserved without truncation. All Y416 jobs are explicitly allocation
+diagnostics, with production-source DEFAULT/REDUCED/LEFT→unspecified conventions.
+
+`y416_affine_geometry.py` scores the aggregate centre-line profiles against
+three predeclared exact coordinate hypotheses. The LEFT420 source has chroma
+at luma coordinates `(2i,2j+1/2)`; enlarging the image2x while converting to444
+expands the chroma grid4x. No hypothesis is selected by fitting, and no correction
+is applied. Centre-line scores are not whole-frame acceptance or licensed-player
+reference scores. See `INTEL_Y416_SPATIAL_RESULTS.md` for measured limitations.
