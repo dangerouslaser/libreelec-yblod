@@ -1,0 +1,158 @@
+{
+  "schema": "yblod.native-mmr-additional-frame.v1",
+  "status": "complete",
+  "date": "2026-10-05",
+  "frame_label": 1406,
+  "aggregate_only": true,
+  "source_inventory_scope": "Current public-engine source snapshot, not a complete producer/packer executed-build inventory; actual earlier SDK producer/packer executable hashes are recorded separately.",
+  "backend": "native_mmr_terms_composer.c",
+  "scaling_fixture": "saved software-linear enhancement planes packed losslessly to whole-code P010; no Intel scaling run",
+  "original_stream_pts_verified": false,
+  "producer": {
+    "schema": "yblod.native-decoder-ingestion.v1",
+    "status": "complete",
+    "local_presentation_index": 31,
+    "frames_received": 32,
+    "packets_sent": 32,
+    "original_pts_verified": false,
+    "decoder_metadata": true,
+    "raw_rpu_exact": true,
+    "el_active_planes_exact": true,
+    "crc_requested": true,
+    "warning_or_error_logs": 0,
+    "adapter_abi": 1,
+    "instructions_bytes": 9216,
+    "avcodec_version": 4129126,
+    "avformat_version": 4129126,
+    "avutil_version": 3998054
+  },
+  "producer_packer_executable_sha256": {
+    "native_decoder_ingestion": "1ddc08c54603ff590bb1f058a410e93c4269573d47fba08e89a552753ffd1b9b",
+    "native_p010_fixture": "b85349304cf4ce4beb8d45d93b46f85c6a14f9eaf2287ef773d0089c3875654b"
+  },
+  "source_sha256": {
+    "native_scaled_frame_mmr_benchmark.c": "508d191cd094a62277653fbb7d954b9eeb59c15b953738b82a065d87361040ef",
+    "native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+    "native_mmr_prepared_composer.c": "21872597c1794c5c546f2e8c5baca0ea5af0e7b583ee3cbb2ba580ef6ced4977",
+    "native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+    "native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+    "native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+    "native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+    "native_mmr_terms_composer.c": "f3666f2b2ba039bbba487bb971f16c171e528edc25ca6bc3a041cf30a2d1f168",
+    "native_decoder_ingestion.c": "0f5fddfa3768ae42a457e5f2c8c8a9b4706fe03d79879f7c58fe57df5decd3fd",
+    "native_p010_fixture.c": "8d8f08b024f6aa4e0e2039fc46952ee7bdb566a2a3b009b6795a3df8583948f9"
+  },
+  "benchmark_binary_sha256": "36dc0f3f1e4e5f8036d2b982363c1352407131c44e39cb07cf5408db00644553",
+  "producer_and_packer_resources": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "pre_exit_peak_bytes": 44900352,
+    "zero_limit_and_oom_events": true,
+    "zero_swap": true,
+    "kodi_before": "active",
+    "kodi_after": "active"
+  },
+  "benchmark": {
+    "schema": "yblod.native-mmr-paired-benchmark.v1",
+    "status": "complete",
+    "all_four_stages_full_frame_byte_exact": true,
+    "verification_scope": "untimed-full-frame-before-timing",
+    "verified_dispatches": 191,
+    "verified_stage_values": 49766400,
+    "plan_bytes": 46064,
+    "frame_bytes": 9384,
+    "warmups_per_backend": 1,
+    "paired_repeats": 3,
+    "orders": [
+      "reference,mmr",
+      "mmr,reference",
+      "reference,mmr"
+    ],
+    "preparation_and_teardown_included": true,
+    "timed_last_chunk_crosschecks": 8,
+    "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+    "counts": [
+      8294400,
+      2073600,
+      2073600
+    ],
+    "reference": {
+      "wall_ns": [
+        552459930,
+        530715048,
+        530553347
+      ],
+      "cpu_ns": [
+        552363822,
+        530680349,
+        530502107
+      ],
+      "preparation_wall_ns": [
+        3753,
+        3310,
+        3292
+      ],
+      "preparation_cpu_ns": [
+        3378,
+        3137,
+        2911
+      ]
+    },
+    "mmr": {
+      "wall_ns": [
+        208982065,
+        206892203,
+        205909971
+      ],
+      "cpu_ns": [
+        208983203,
+        206886515,
+        205863216
+      ],
+      "preparation_wall_ns": [
+        624714,
+        652036,
+        692106
+      ],
+      "preparation_cpu_ns": [
+        624667,
+        652567,
+        691956
+      ]
+    },
+    "component_routes": [
+      1,
+      0,
+      0
+    ],
+    "mmr_segment_counts_by_64_128_bits": [
+      2,
+      0
+    ]
+  },
+  "benchmark_resources": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "pre_exit_peak_bytes": 57253888,
+    "zero_limit_and_oom_events": true,
+    "zero_swap": true,
+    "kodi_before": "active",
+    "kodi_after": "active"
+  },
+  "limits": [
+    "Producer local presentation index does not verify original media PTS.",
+    "Enhancement input is software-linear, not Intel hardware-scaled.",
+    "Native metadata/pixel identity gates passed; requested CRC is not Dolby certification.",
+    "Whole-code reference equivalence, not independent DV conformance or SK4 matching.",
+    "Candidate/reference pair, not a direct older-optimized/newer-optimized pair.",
+    "No Kodi/default-build changes; private pixels, coefficients, paths and input hashes excluded."
+  ]
+}
