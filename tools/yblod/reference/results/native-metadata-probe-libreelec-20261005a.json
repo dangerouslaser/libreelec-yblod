@@ -1,0 +1,341 @@
+{
+  "schema": "yblod.native-metadata-checkpoint.v1",
+  "status": "complete",
+  "synthetic_only": true,
+  "gpu_attempted": false,
+  "platform": "LibreELEC x86_64",
+  "source_sha256": {
+    "native_metadata_probe.c": "80c002c2c67fba9886011fade103e7aa839937788866fa7aae20b9ae73c84841",
+    "run_native_metadata_probe.sh": "629ea1d6848d870f160493f6bec556eef18e47442f0c0bf2a348dc2393a2b797"
+  },
+  "analysis_sha256": {
+    "test_native_metadata_probe.py": "f724ea2ebf1e6c1f27a769a891dc7aba91ab18eb5bdc27b231dbcf3073d98833",
+    "test_display_metadata_sensitivity.py": "ce3fed719417c9ff38ade6fd02ce39d05b4670720ece322373c369e0513e77c9",
+    "NATIVE_METADATA_PROBE.md": "9bf7bc63a3176a4952d8c4e066e52d821834016883b44b1e23abb87c060660ae"
+  },
+  "analysis_pin_scope": "Final replay tests were updated after the measured cohort. Only source_sha256 C/script pins describe executed sources; analysis_sha256 describes publication-time verification.",
+  "binary_sha256": "3957e0c4c55c8f9206841ab74e074902f3af73f531793f95d6a42279665d0d1b",
+  "dependency_sha256": {
+    "dvbridge_metadata.h": "da799ab08381318601bb0a3f8a1a74ed3293ca09b2cdde52228ea6f7e4c06d36",
+    "mpv_dvbridge_cm4.h": "f6762808f5d7a5824983d72b0188098f19e86bd2a6db7b997ef63e2d35612661",
+    "dovi_meta.h": "f860511cb8be3c992b4ef7da6747d8dc9670d64d276aeab3a7e6867112857a02"
+  },
+  "sdk_and_installed_libavutil_sha256": "16e16a2ab0f89a48c7e487d365e84f1c005f119fa8754c146daaeff40883c108",
+  "abi_gate": "SDK and installed library SHA256 identical; real patched SDK header and existing allocator, no ABI stand-ins; ldd resolves libavutil.so.61 to installed /usr/lib",
+  "compiler_version": "x86_64-libreelec-linux-gnu-gcc-16.2.0 (GCC) 16.2.0",
+  "compiler_flags": [
+    "-std=c11",
+    "-O2",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-lavutil",
+    "-lm"
+  ],
+  "counts": {
+    "cases": 9,
+    "accepted_cases": 8,
+    "accepted_records": 12,
+    "deliberately_rejected_cases": 1,
+    "independent_native_assertion_tests": 4,
+    "parser_known_answer_tests": 1,
+    "metadata_sensitivity_tests": 3,
+    "later_checkpoint_reader_regression_tests": 2,
+    "final_public_replay_total_tests": 10
+  },
+  "memory": {
+    "max_bytes": 536870912,
+    "swap_max_bytes": 0,
+    "swap_current_before_bytes": 0,
+    "swap_current_after_bytes": 0,
+    "peak_observed_before_exit_bytes": 4046848,
+    "peak_scope": "in-scope final script snapshot before subsequent shell/unit cleanup; not full process RSS, all GPU memory or completed-unit final peak",
+    "events_before": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    },
+    "events_after": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    }
+  },
+  "cases": [
+    {
+      "case": "baseline",
+      "exit_status": 0,
+      "stdout_sha256": "198e23a61f0531e516ab94836cd9d2dcc5c5832d613d3d7d0fb83651293f1531",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "baseline",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000018fe59c1"
+          }
+        ]
+      }
+    },
+    {
+      "case": "l1-changed",
+      "exit_status": 0,
+      "stdout_sha256": "21711a45a52e71524efb4708da5d58fedc7cb7f4d58f76dbaa438d894be19f98",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "l1-changed",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020100000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020100000008050000000000000000000000000000000000000000000000000000000000000000edef5a74"
+          }
+        ]
+      }
+    },
+    {
+      "case": "l2-added",
+      "exit_status": 0,
+      "stdout_sha256": "1a24dc15873296142c08da1bef4ba267a9bbdbcd52c76c383d31feb245282a01",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "l2-added",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb802000000000e0209c408000800080008000800ffff00000008050000000000000000",
+            "packet_hex": "000000007200012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb802000000000e0209c408000800080008000800ffff00000008050000000000000000000000000070dcf954"
+          }
+        ]
+      }
+    },
+    {
+      "case": "l2-changed",
+      "exit_status": 0,
+      "stdout_sha256": "1926694e9add506710a84c7379a6ec112f37342b8024ee8fb2465d0d715cb9dc",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "l2-changed",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb802000000000e0209c408010800080008000800ffff00000008050000000000000000",
+            "packet_hex": "000000007200012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb802000000000e0209c408010800080008000800ffff0000000805000000000000000000000000000562bfe3"
+          }
+        ]
+      }
+    },
+    {
+      "case": "l8-added",
+      "exit_status": 0,
+      "stdout_sha256": "e499f05b416976d79b04e2cdd3daf20a7248d53d7074202eab20c8135b3decf4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "l8-added",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb80200000000080500000000000000000000000d0801080008000800080008000800",
+            "packet_hex": "000000007100012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb80200000000080500000000000000000000000d08010800080008000800080008000000000000000adde878"
+          }
+        ]
+      }
+    },
+    {
+      "case": "l8-changed",
+      "exit_status": 0,
+      "stdout_sha256": "4ce7785bf1499038f36c75c25bf77c45f4622ea6c0d7f1665d7f60bdeddbf152",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "l8-changed",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb80200000000080500000000000000000000000d0801080108000800080008000800",
+            "packet_hex": "000000007100012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a03000000060100000bb80200000000080500000000000000000000000d08010801080008000800080008000000000000001d0ed925"
+          }
+        ]
+      }
+    },
+    {
+      "case": "repeat",
+      "exit_status": 0,
+      "stdout_sha256": "a9cb96257dca2c2f0ae156c59fb25b2ed1c9ef132acdfe51f1f2f1b85d421cf0",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "repeat",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000018fe59c1"
+          },
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 2,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000018fe59c1"
+          },
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 3,
+            "changes": 1,
+            "packet_count": 1,
+            "payload_hex": "00002002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "001100005f00002002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000077ad32e4"
+          }
+        ]
+      }
+    },
+    {
+      "case": "seek",
+      "exit_status": 0,
+      "stdout_sha256": "97bd39c1d432b8340f398dc2733c5525a4de7011880cff35bacda5b79bff1a4b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "seek",
+        "records": [
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 1,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000018fe59c1"
+          },
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 2,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000018fe59c1"
+          },
+          {
+            "accepted": true,
+            "committed": true,
+            "failure_preserved_outer_state": false,
+            "inner_mutated_on_failure": false,
+            "frames": 3,
+            "changes": 0,
+            "packet_count": 1,
+            "payload_hex": "00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb8020000000008050000000000000000",
+            "packet_hex": "000000005f00012002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c02010100000fa0002a02000000060100000bb802000000000805000000000000000000000000000000000000000000000000000000000000000018fe59c1"
+          }
+        ]
+      }
+    },
+    {
+      "case": "invalid-duplicate-l1",
+      "exit_status": 3,
+      "stdout_sha256": "7098448d37c2be42494980e23e8b26296057f0c4a93e3c838e05a6408096fef8",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "schema": "yblod.native-metadata-probe.v1",
+        "synthetic_only": true,
+        "case": "invalid-duplicate-l1",
+        "records": [
+          {
+            "accepted": false,
+            "committed": false,
+            "failure_preserved_outer_state": true,
+            "inner_mutated_on_failure": true,
+            "frames": 0,
+            "changes": 0,
+            "packet_count": 0,
+            "payload_hex": "",
+            "packet_hex": ""
+          }
+        ]
+      }
+    }
+  ],
+  "assertion_result": "Eight tests passed with no skips against archived actual C outputs and separate synthetic association fixtures.",
+  "limitations": [
+    "All successful synthetic payloads fit one packet; multi-packet fragmentation not exercised.",
+    "No film bytes, real RPU decode, shader, GPU, HDMI, Kodi or TV behavior is tested.",
+    "Wire preservation and colour-core invariance do not establish trim interpretation, LLDV mapping or Dolby conformance.",
+    "The copied harness state is transactional; the existing inline serializer can mutate failed candidate state."
+  ]
+}

@@ -111,6 +111,14 @@ yet reduce the substantial saved SK4 colour differences or replace Kodi.
 [NATIVE_BUILD.md](NATIVE_BUILD.md) documents the Python-free C library and
 LibreELEC build/run checks. [NATIVE_KERNEL_RESULTS.md](NATIVE_KERNEL_RESULTS.md)
 records direct C kernel measurements, not playback FPS.
+[NATIVE_INTEGRATION_CONTRACT.md](NATIVE_INTEGRATION_CONTRACT.md) describes the
+standalone C frame adapter: copied configuration, explicit whole-code versus raw
+diagnostic routes, frame/count checks and arithmetic-only completion.
+[NATIVE_INTEGRATION_FRAME.md](NATIVE_INTEGRATION_FRAME.md) records the bounded
+full-frame adapter check; it does not select fractional enhancement handling or
+establish real-time playback. [NATIVE_METADATA_PROBE.md](NATIVE_METADATA_PROBE.md)
+records synthetic tests of the existing TV-led serializer, with reproducible
+public output replay clearly separated from fresh C execution.
 [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
 [NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
 conservative arithmetic-width gates, not a working GPU playback engine.
@@ -142,7 +150,7 @@ GPU sampling check: sampled/intermediate values matched its declared float
 model, with separately recorded final-correction differences. It is not a
 Kodi import or licensed fractional-input rule.
 
-Latest complete published-candidate Ollie check: **774 reference tests plus 8 accuracy tests**, no
+Latest complete published-candidate Ollie check: **804 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 
