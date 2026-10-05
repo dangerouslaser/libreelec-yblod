@@ -166,6 +166,10 @@ documented in [NATIVE_P010_FIXTURE.md](NATIVE_P010_FIXTURE.md).
 exact whole-code lookup backend with owned per-frame metadata and tracked
 completion. MMR components retain unchanged reference batch processing; no
 fractional policy or performance result is implied by the lookup implementation.
+[NATIVE_CACHED_FRAME_BENCHMARK.md](NATIVE_CACHED_FRAME_BENCHMARK.md) now records
+an exact full-frame gate and paired LibreELEC CPU measurements with preparation
+and teardown included: about one-third less time for the measured whole-code
+workload, not playback FPS, independent arithmetic conformance or SK4 accuracy.
 [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
 [NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
 conservative arithmetic-width gates, not a working GPU playback engine.
