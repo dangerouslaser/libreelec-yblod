@@ -54,7 +54,12 @@ experiment needs an independently derived coordinate contract first.
 
 ## Current checkpoint
 
-Per-layer controls are implemented, and all **20 preparation tests** pass on
-Ollie under the 512 MiB hard cap with swap disabled. The four real-frame runs
-and independently derived geometry tests are the next checkpoint; no numerical
-filter result is asserted here yet.
+Per-layer controls are implemented, and all **20 preparation tests** plus **12
+independent geometry tests** pass on Ollie under the 512 MiB hard cap with swap
+disabled. The independent [oracle](preparation_oracle.py) evaluates the cubic
+from exact endpoint values and slopes rather than copying production taps. Its
+tests cover constants, ramps, impulses, edge replication, signed rounding,
+overshoot/bounds, independent columns and FIR chunk boundaries.
+
+The complete reference suite currently passes **309 tests**. The four real-frame
+runs are the next checkpoint; no numerical filter result is asserted here yet.
