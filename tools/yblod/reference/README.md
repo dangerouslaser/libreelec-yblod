@@ -144,6 +144,10 @@ full prepared-frame C reconstruction on Ollie. All twelve frame-2296 arithmetic
 stages are byte-exact against the native-C baseline, without JSON configuration
 initializing this path. This is not full-frame VM playback, hardware-scaled
 fractional reconstruction, closer SK4 output or a new accuracy guarantee.
+[NATIVE_SCALED_FRAME_BENCHMARK.md](NATIVE_SCALED_FRAME_BENCHMARK.md) records the
+first offline C-only VM baseline: 583–601 ms per full 4K reconstruction, excluding
+decode, GPU scaling, colour and display. This is not a playback FPS measurement.
+
 [NATIVE_SCALED_SURFACE.md](NATIVE_SCALED_SURFACE.md) documents the experimental
 C handoff for already synchronized, CPU-readable P010 surfaces. Raw words are
 preserved; exact whole-code extraction rejects fractional chunks atomically.

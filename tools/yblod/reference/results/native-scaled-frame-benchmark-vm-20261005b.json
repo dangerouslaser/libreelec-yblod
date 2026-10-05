@@ -1,0 +1,47 @@
+{
+  "schema": "yblod.native-scaled-frame-benchmark.v1",
+  "status": "complete",
+  "scope": "Offline CPU diagnostic: exact P010 extraction, all four integer reconstruction stages and frame completion. Not live playback or a production performance prediction.",
+  "geometry": [3840, 2160],
+  "counts": [8294400, 2073600, 2073600],
+  "chunk_samples_max": 65536,
+  "warmup_passes": 1,
+  "timed_passes": 3,
+  "nanoseconds": [587463160, 600529263, 583151558],
+  "timing_excludes": ["file reads", "input verification", "whole-frame preflight", "initialization and reset", "decoding", "GPU scaling", "colour processing", "packing and display output"],
+  "cpu_context": {
+    "architecture": "x86_64",
+    "guest_cpu_model": "11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz",
+    "online_vcpus": 4,
+    "cpu_quota": "controller unavailable in this scope",
+    "throttling_counters": "not exposed",
+    "scope_cpu_usage_before_usec": 137214,
+    "scope_cpu_usage_after_usec": 2589087
+  },
+  "memory": {
+    "cap_bytes": 536870912,
+    "peak_snapshot_bytes": 55922688,
+    "peak_kind": "pre-exit scope snapshot, not final lifetime peak",
+    "swap_max_bytes": 0,
+    "swap_current_before_bytes": 0,
+    "swap_current_after_bytes": 0,
+    "max_events": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0
+  },
+  "abi": {"version": 1, "instruction_bytes": 9216},
+  "compiler": {"target": "LibreELEC x86_64 SDK", "version": "GCC 16.2.0", "optimization": "O2", "strict_warnings": true, "fast_math": false, "fp_contract": "off"},
+  "source_sha256": {
+    "native_scaled_frame_benchmark.c": "128cda86049a317f1e70cdd6f9cbbec0dfcb4dc0ec4047a83a5d6a2c09ff1656",
+    "test_native_scaled_frame_benchmark.py": "e55895766787c51a4c099be21c2218a398d15afc3c8b180bf11e899b23ea897c"
+  },
+  "executable_sha256": "78279106c646423cc677990dd3019b6baf13102455cce8ec21b5ee5ee9522a66",
+  "private_inputs_pinned_before_and_after": true,
+  "source_and_runtime_pinned_before_and_after": true,
+  "kodi_active_before_and_after": true,
+  "playback_settings_changed": false,
+  "old_linear_baseline_compared": false,
+  "independent_arithmetic_reference": false,
+  "synthetic_guard_tests_passed": 5,
+  "earlier_preflight_attempt": "Stopped before benchmark because optional CPU quota file was absent; preserved privately, not counted as a benchmark pass."
+}
