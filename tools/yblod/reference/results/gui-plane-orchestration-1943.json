@@ -1,0 +1,11 @@
+{
+  "operation": "temporarily hide Kodi framebuffer GUI plane only",
+  "control": "/sys/class/graphics/fb0/blank",
+  "initial_state_basis": "Kodi paused GUI visibly present in prior capture; blank attr read is empty",
+  "hide_value": 1,
+  "restore_value": 0,
+  "video_precision_settings_changed": false,
+  "gui_restore_write_completed": true,
+  "hide_write_completed": true,
+  "restoration_scope": "write completed; source-reviewed enable action, no independent register readback"
+}

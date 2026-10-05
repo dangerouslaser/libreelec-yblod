@@ -670,16 +670,22 @@ the independent analyzer found no picture or metadata differences. All repeated
 metadata copies validate. See
 [the aggregate report](results/repeat-comparison-1960-osd.json).
 
-This first run includes Kodi's pause overlay, so it is a repeatability diagnostic,
-not a clean colour reference. Driver dumps were unavailable and DMA
-synchronization remains unverified; matching reads cannot exclude stale cached
-data. No renderer correction follows from this result. A clean, overlay-free run
-is still needed before comparing it with the earlier frame-1960 pipeline output.
+The first run includes Kodi's pause overlay, so it is a repeatability diagnostic,
+not a clean colour reference. A second, visually verified overlay-free run shows
+**frame 1943**, captured with only the GUI framebuffer plane temporarily disabled.
+All six reads are again byte-identical, with valid matching metadata; see
+[the second report](results/repeat-comparison-1943-gui-disabled.json).
+The menu plane was restored and playback stopped after capture.
+
+Driver dumps were unavailable and DMA synchronization remains unverified;
+matching reads cannot exclude stale cached data or a systematic capture error.
+No renderer correction follows from these results. Compare the second run only
+with a source-identified frame-1943 reconstruction, not with frame 1960.
 
 ## Next milestone
 
-1. Repeat the observed-stability check without Kodi's pause overlay, retaining
-   the explicit unverified-DMA limitation. The existing bit audit narrows the
+1. Compare the overlay-free frame-1943 capture with its own source reconstruction,
+   retaining the explicit GUI-plane and unverified-DMA limitations. The existing bit audit narrows the
    stored row pattern but does not establish its cause. Then isolate earlier
    colour preparation and reconstruction/enlargement order.
    The tested final vertical interpolation alternatives do not resolve it.
