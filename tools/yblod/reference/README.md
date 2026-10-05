@@ -119,6 +119,9 @@ full-frame adapter check; it does not select fractional enhancement handling or
 establish real-time playback. [NATIVE_METADATA_PROBE.md](NATIVE_METADATA_PROBE.md)
 records synthetic tests of the existing TV-led serializer, with reproducible
 public output replay clearly separated from fresh C execution.
+[LIBDOVI_INGESTION_AUDIT.md](LIBDOVI_INGESTION_AUDIT.md) reviews dovi_tool's
+C-compatible metadata library as an independent ingestion check, including its
+frame-history and ABI limits. The existing extraction workflow is unchanged.
 [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
 [NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
 conservative arithmetic-width gates, not a working GPU playback engine.
