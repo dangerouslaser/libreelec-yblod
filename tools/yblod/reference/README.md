@@ -92,6 +92,12 @@ domain policy. Its tests cover independent high-precision answers and a bridge
 from the new composer through separately expanded synthetic component planes.
 No chroma filter, display adaptation or production colour policy is selected.
 
+[COLOUR_FRAME.md](COLOUR_FRAME.md) documents the row-bounded diagnostic output
+runner and an end-to-end synthetic CLI workflow. Configuration is explicitly
+hash-bound to the composer result; source colour instructions remain
+caller-declared, not yet verified against a real extracted RPU. Output bytes
+are unembedded diagnostics, not playable Dolby Vision HDMI.
+
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
 `test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,

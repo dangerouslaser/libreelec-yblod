@@ -1,0 +1,159 @@
+{
+  "schema": "yblod.colour-frame-result.v1",
+  "status": "complete",
+  "scope": "diagnostic coordinates and unembedded bytes; not playable Dolby Vision HDMI",
+  "width": 512,
+  "height": 256,
+  "identity": {
+    "frame_id": "synthetic-stream-512x256",
+    "pts": 0,
+    "time_base": [
+      1,
+      24
+    ]
+  },
+  "composer_report_sha256": "d60be22ef1bac21e0e716dcfe09077472e3fb90c53308c5db9796a416c207dcd",
+  "configuration_sha256": "4c8e0476667d5314c3cc8a70ad1075646f038e1b1d754cea6f49390109dfeb96",
+  "configuration": {
+    "schema": "yblod.colour-frame-config.v1",
+    "composer_report_sha256": "d60be22ef1bac21e0e716dcfe09077472e3fb90c53308c5db9796a416c207dcd",
+    "source_dm": {
+      "compressed": false,
+      "signal_eotf": 65535,
+      "signal_eotf_param0": 0,
+      "signal_eotf_param1": 0,
+      "signal_eotf_param2": 0,
+      "signal_bit_depth": 12,
+      "signal_color_space": 0,
+      "signal_chroma_format": 0,
+      "signal_full_range_flag": 1,
+      "ycc_to_rgb_coef0": 8192,
+      "rgb_to_lms_coef0": 16384,
+      "ycc_to_rgb_coef1": 0,
+      "rgb_to_lms_coef1": 0,
+      "ycc_to_rgb_coef2": 0,
+      "rgb_to_lms_coef2": 0,
+      "ycc_to_rgb_coef3": 0,
+      "rgb_to_lms_coef3": 0,
+      "ycc_to_rgb_coef4": 8192,
+      "rgb_to_lms_coef4": 16384,
+      "ycc_to_rgb_coef5": 0,
+      "rgb_to_lms_coef5": 0,
+      "ycc_to_rgb_coef6": 0,
+      "rgb_to_lms_coef6": 0,
+      "ycc_to_rgb_coef7": 0,
+      "rgb_to_lms_coef7": 0,
+      "ycc_to_rgb_coef8": 8192,
+      "rgb_to_lms_coef8": 16384,
+      "ycc_to_rgb_offset0": 0,
+      "ycc_to_rgb_offset1": 0,
+      "ycc_to_rgb_offset2": 0
+    },
+    "target_ycc": [
+      [
+        1.000244140625,
+        0.0975341796875,
+        0.2052001953125
+      ],
+      [
+        1.000244140625,
+        -0.1138916015625,
+        0.1331787109375
+      ],
+      [
+        1.000244140625,
+        0.0325927734375,
+        -0.6768798828125
+      ]
+    ],
+    "target_lms": [
+      [
+        1.04248046875,
+        -0.021240234375,
+        -0.021240234375
+      ],
+      [
+        -0.021240234375,
+        1.04248046875,
+        -0.021240234375
+      ],
+      [
+        -0.021240234375,
+        -0.021240234375,
+        1.04248046875
+      ]
+    ],
+    "target_offset": [
+      0,
+      0.5,
+      0.5
+    ],
+    "code_scale": 4096,
+    "pq_policy": "extend-positive-negative-to-zero",
+    "chroma_expansion": "bilinear-left-diagnostic",
+    "active_rectangle": [
+      0,
+      0,
+      512,
+      256
+    ],
+    "outside_codes": [
+      0,
+      2048,
+      2048
+    ],
+    "scope": "synthetic identity source instructions; not real RPU provenance",
+    "synthetic_target": "project-transport-diagnostic",
+    "generator_sha256": "36b686feb6aef645bffe5d2007255cabf661006a67440e879d3afbec486cc9ab"
+  },
+  "source_dm_association": "caller-declared, not verified against an extracted RPU",
+  "implementation_sha256": "a80cf46e16531b21f27496b6e0b16c8d343280d1667d5ddc1b1885b5b30e4933",
+  "helper_sha256": {
+    "colour_stage.py": "405ac904ae8711587ad20d4f77658a54838804035b7d6eaef4cb484e70ed7217",
+    "reference.py": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73"
+  },
+  "processing": "one output row, two cached input rows per plane; metadata capped separately",
+  "chroma_expansion": "caller-selected bilinear-left diagnostic, global row coordinates and edge replication",
+  "transport_sampling": "second/third target components co-sited at even x; diagnostic byte packing only",
+  "quantization": "floor(target*4096+0.5), bound 0..4095; active-area replacement afterwards",
+  "input_change_check": "file metadata before/after; not an immutable snapshot guarantee",
+  "statistics_scope": "all converted pixels before active-area replacement",
+  "statistics": {
+    "source_nonlinear": {
+      "minimum": 0.1240234375,
+      "maximum": 0.999755859375,
+      "below_zero": 0,
+      "above_one": 0
+    },
+    "common_linear_lms": {
+      "minimum": 5.810512492589616e-05,
+      "maximum": 0.9976702628300353,
+      "below_zero": 0,
+      "above_one": 0
+    },
+    "target_linear": {
+      "minimum": 6.977240724572637e-05,
+      "maximum": 0.9896574534574543,
+      "below_zero": 0,
+      "above_one": 0
+    },
+    "transport_before_quantization": {
+      "minimum": -1.45497291735681,
+      "maximum": 2.3430932440706367,
+      "below_zero": 54912,
+      "above_one": 41408
+    }
+  },
+  "stages": {
+    "transport_ipt444.u16le": {
+      "file": "transport_ipt444.u16le",
+      "sha256": "6c7b5241ba76ff2ed4ebb3367b9410c8e37836937ba3d7eda6e0edf4ca361d7a",
+      "bytes": 786432
+    },
+    "unembedded_tunnel.rgb8": {
+      "file": "unembedded_tunnel.rgb8",
+      "sha256": "3ee5bb738c9ee8318223a6c152788a45b9c857a311b1548dcb0c645898ae8f02",
+      "bytes": 393216
+    }
+  }
+}
