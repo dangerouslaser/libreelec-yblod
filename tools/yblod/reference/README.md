@@ -119,6 +119,9 @@ full-frame adapter check; it does not select fractional enhancement handling or
 establish real-time playback. [NATIVE_METADATA_PROBE.md](NATIVE_METADATA_PROBE.md)
 records synthetic tests of the existing TV-led serializer, with reproducible
 public output replay clearly separated from fresh C execution.
+[NATIVE_METADATA_FRAGMENT_PROBE.md](NATIVE_METADATA_FRAGMENT_PROBE.md) extends
+that check to multi-packet messages, exact 119/120-byte boundaries and oversized
+message rejection, using synthetic outputs from the actual LibreELEC SDK/VM.
 [LIBDOVI_INGESTION_AUDIT.md](LIBDOVI_INGESTION_AUDIT.md) reviews dovi_tool's
 C-compatible metadata library as an independent ingestion check, including its
 frame-history and ABI limits. The existing extraction workflow is unchanged.
@@ -153,7 +156,7 @@ GPU sampling check: sampled/intermediate values matched its declared float
 model, with separately recorded final-correction differences. It is not a
 Kodi import or licensed fractional-input rule.
 
-Latest complete published-candidate Ollie check: **804 reference tests plus 8 accuracy tests**, no
+Latest complete published-candidate Ollie check: **812 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 
