@@ -30,8 +30,9 @@ path actually ran when requested; GPU client IDs remained stable.
 GPU percentages are per-process render-engine occupied time, with duplicate
 file descriptors deduplicated. CPU percentages are relative to one core.
 These are normal-speed playback measurements, not uncapped rendering benchmarks
-or a claim that playback is 11% faster. GPU clocks were not locked. Sampled
-active clocks were predominantly idle/1300 MHz, with some 1100 MHz readings.
+or a claim that playback is 11% faster. GPU clocks were not locked. Most clock
+samples caught the GPU idle; active samples included 100, 1100, 1250 and
+1300 MHz. These sparse readings do not establish identical active clocks.
 No statistical significance or general improvement across titles is established
 by a single pair per title. CPU differences are small and inconsistent.
 
