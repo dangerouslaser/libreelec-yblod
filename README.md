@@ -9,6 +9,8 @@ This project is not Dolby-certified. Hardware comparisons do not establish
 Dolby compliance, endorsement, or a grant of patent or technology licenses.
 
 The `experiment/dv-reconstruction` branch also contains a separate
+standalone [native C engine foundation](engine/README.md), independently
+buildable without Kodi, LibreELEC or Python, and an
 [offline reconstruction reference](tools/yblod/reference/README.md). It is not
 yet a replacement for the playback engine described below. Its tests use
 documented arithmetic and explicitly labelled experiments, with no fitted

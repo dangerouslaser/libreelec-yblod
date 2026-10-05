@@ -1,5 +1,11 @@
 # Python-free native core build
 
+The authoritative native sources now live in the top-level
+[`engine/`](../../../engine/README.md) directory. That directory is independently
+buildable; the historical paths below remain compatibility entry points and
+links, not duplicate sources. Prefer `cmake -S engine` for new builds and
+`engine/tests/consumer` for the installed C++ consumer.
+
 The standalone CMake target builds a static library from `native_composer.c`,
 `native_colour.c` and `native_y416.c`. It does not link Python, Kodi, libplacebo,
 a decoder or a GPU API. Diagnostic precision probes and timing harnesses are

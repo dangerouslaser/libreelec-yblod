@@ -1,5 +1,12 @@
 # Offline reconstruction reference
 
+For the independently buildable C implementation, start with the top-level
+[native engine directory](../../../engine/README.md). This directory remains
+the Python oracle, experiment harness and checkpoint documentation. Historical
+native filenames here are compatibility links to the authoritative engine
+sources, not separate copies; experimental helpers remain outside its default
+library.
+
 This is an independent, deliberately slow Python implementation of the
 **prepared-input composition stage**, not a complete Dolby Vision renderer or a
 certified reference. It does not depend on Kodi, libplacebo, CroqueMr's shaders,

@@ -1,5 +1,10 @@
 # Native pipeline direction
 
+The canonical C sources are isolated in top-level
+[`engine/`](../../../engine/README.md), with a standalone native build. The
+reference directory retains test tooling and compatibility links; this move
+does not promote experimental diagnostics into the default playback library.
+
 C is the intended playback implementation. Python is the readable reference,
 fixture generator and test harness, not a required per-pixel playback engine.
 Implementation language and execution device are separate decisions: a C host
