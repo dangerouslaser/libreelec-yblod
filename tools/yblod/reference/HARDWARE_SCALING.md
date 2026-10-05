@@ -285,7 +285,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **467 reference tests**, including vector/scoring, runner failure gates,
+- **480 reference tests**, including vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
@@ -337,3 +337,34 @@ Impulse signed/absolute masses, lobes, support and centroids are response
 statistics, **not geometry corrections or certified filter targets**. Neither
 scorer re-reads image pixels; source report hashes identify their aggregate input.
 See `INTEL_Y416_EDGE_RESULTS.md` for the actual observations and scope.
+
+## Full-size raw Y416 safety and affine-band probes
+
+`hardware_y416_large.py` defaults to1920x1080 P010→3840x2160 Y416, retaining
+production-source DEFAULT/BT2020/REDUCED/LEFT→unspecified requests and explicit
+unadvertised allocation diagnostics. Input generation, native identity checking
+and raw-word statistics are row-streamed; there are no full-frame Python integer
+planes. Exact native transport gates precede all conversions.
+
+Run `--neutral-only` first: six jobs with one exact copy/native gate, repeated
+native conversion and repeated enlargement. The default seven-case corpus runs
+42 jobs, adding isolated Y/Cb/Cr horizontal/vertical ascending96-sample affine
+bands with bounded plateaus.32-output-sample margins leave an interior in all
+component grids. The Python runner records optional own-scope cgroup memory
+peak/events, in addition to its own RSS; neither is a universal GPU allocation
+upper bound. Keep the whole runner scoped to512MiB/no-job-swap and serialize GPU
+jobs. Store raw files under `/storage`, not the VM's RAM-backed `/tmp`.
+
+`y416_large_geometry.py` compares saved full-raster centre-line bands against
+predeclared coordinate hypotheses with exact raw/64 fractions. It uses each
+component's native grid: chroma expands2x at native image size and4x at enlarged
+image size. It does not fit phases, revalidate raw image hashes or qualify a
+Dolby backend. Source and aggregate hashes remain reproducible.
+
+```sh
+systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  python3 hardware_y416_large.py ./vaapi_scaler_probe NEW-NEUTRAL --neutral-only
+systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  python3 hardware_y416_large.py ./vaapi_scaler_probe NEW-LARGE
+python3 y416_large_geometry.py NEW-LARGE/y416-large-report.json NEW-GEOMETRY.json
+```
