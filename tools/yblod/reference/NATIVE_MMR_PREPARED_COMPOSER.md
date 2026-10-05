@@ -33,6 +33,12 @@ were not paired directly in this run, so the historical difference is not a
 controlled old-versus-new speed claim. The component profiling run was
 instrumented and must not be used as that baseline either.
 
+A subsequent [direct alternating-cohort comparison](NATIVE_MMR_DIRECT_COMPARISON.md)
+now confirms the improvement on this fixture: the candidate won all three pairs,
+with pooled medians of 262.873 ms for the previous optimized backend and
+242.030 ms for this candidate. The candidate remains experimental and does not
+change Kodi playback or the default standalone build.
+
 The retained pre-exit cgroup peak was 57,368,576 bytes under a 512 MiB/no-swap
 limit. There were zero high/max/OOM/OOM-kill events and zero swap. Input,
 executable, wrapper and runtime library hashes matched before/after the run.

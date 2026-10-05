@@ -1,0 +1,664 @@
+{
+  "schema": "yblod.native-mmr-direct-comparison.v1",
+  "status": "complete",
+  "date": "2026-10-05",
+  "aggregate_only": true,
+  "source_commit": "a104f4318b156f00b6fef3f302dbc8a654f3bbc5",
+  "source_sha256": {
+    "native_scaled_frame_mmr_benchmark.c": "508d191cd094a62277653fbb7d954b9eeb59c15b953738b82a065d87361040ef",
+    "native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+    "native_mmr_prepared_composer.c": "21872597c1794c5c546f2e8c5baca0ea5af0e7b583ee3cbb2ba580ef6ced4977",
+    "native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+    "native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+    "native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+    "native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505"
+  },
+  "binary_sha256": {
+    "baseline": "29290007d98a58b83cde339f2027a800fa02c43511014585ea1a312e618b0714",
+    "candidate": "134063c95f2cd5cc1867debca18df58268424e88950cf3efb1b2b5f40b21b1fa"
+  },
+  "protocol": {
+    "unit": "paired benchmark process cohorts, not alternating individual optimized frames",
+    "orders": [
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ]
+    ],
+    "timed_backend_samples_per_cohort": 3,
+    "cohorts_per_backend": 3,
+    "one_warmup_per_backend_per_cohort": true,
+    "same_hash_verified_private_inputs": true,
+    "same_sdk_and_flags": true,
+    "preparation_and_teardown_included": true,
+    "cpu_quota": "controller unavailable"
+  },
+  "summary": {
+    "baseline_pooled_median_wall_ns": 262873310,
+    "candidate_pooled_median_wall_ns": 242030456,
+    "reduction_fraction": 0.0792885896251696,
+    "all_three_pair_medians_favour_candidate": true
+  },
+  "pairs": [
+    {
+      "pair": 1,
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline_median_wall_ns": 261099016,
+      "candidate_median_wall_ns": 245263399,
+      "reduction_fraction": 0.060649853234222784
+    },
+    {
+      "pair": 2,
+      "order": [
+        "candidate",
+        "baseline"
+      ],
+      "baseline_median_wall_ns": 267953661,
+      "candidate_median_wall_ns": 241903323,
+      "reduction_fraction": 0.09721956364686501
+    },
+    {
+      "pair": 3,
+      "order": [
+        "baseline",
+        "candidate"
+      ],
+      "baseline_median_wall_ns": 262873310,
+      "candidate_median_wall_ns": 239011859,
+      "reduction_fraction": 0.09077167628771443
+    }
+  ],
+  "runs": [
+    {
+      "index": 1,
+      "backend": "baseline",
+      "benchmark": {
+        "schema": "yblod.native-mmr-paired-benchmark.v1",
+        "status": "complete",
+        "all_four_stages_full_frame_byte_exact": true,
+        "verification_scope": "untimed-full-frame-before-timing",
+        "verified_dispatches": 191,
+        "verified_stage_values": 49766400,
+        "plan_bytes": 36848,
+        "frame_bytes": 9384,
+        "warmups_per_backend": 1,
+        "paired_repeats": 3,
+        "orders": [
+          "reference,mmr",
+          "mmr,reference",
+          "reference,mmr"
+        ],
+        "preparation_and_teardown_included": true,
+        "timed_last_chunk_crosschecks": 8,
+        "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "reference": {
+          "wall_ns": [
+            601967880,
+            598810542,
+            596324422
+          ],
+          "cpu_ns": [
+            597081046,
+            596801417,
+            596295289
+          ],
+          "preparation_wall_ns": [
+            3371,
+            3048,
+            3079
+          ],
+          "preparation_cpu_ns": [
+            3254,
+            2889,
+            2727
+          ]
+        },
+        "mmr": {
+          "wall_ns": [
+            269720888,
+            261099016,
+            257210157
+          ],
+          "cpu_ns": [
+            267412092,
+            258923821,
+            257190054
+          ],
+          "preparation_wall_ns": [
+            1102680,
+            719808,
+            713650
+          ],
+          "preparation_cpu_ns": [
+            1102993,
+            688138,
+            713655
+          ]
+        },
+        "component_routes": [
+          1,
+          0,
+          0
+        ],
+        "mmr_segment_counts_by_64_128_bits": [
+          2,
+          0
+        ]
+      },
+      "resources": {
+        "memory_max_bytes": 536870912,
+        "swap_max_bytes": 0,
+        "pre_exit_peak_bytes": 57745408,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "swap_current_bytes": 0,
+        "kodi_before": "active",
+        "kodi_after": "active"
+      }
+    },
+    {
+      "index": 2,
+      "backend": "candidate",
+      "benchmark": {
+        "schema": "yblod.native-mmr-paired-benchmark.v1",
+        "status": "complete",
+        "all_four_stages_full_frame_byte_exact": true,
+        "verification_scope": "untimed-full-frame-before-timing",
+        "verified_dispatches": 191,
+        "verified_stage_values": 49766400,
+        "plan_bytes": 46064,
+        "frame_bytes": 9384,
+        "warmups_per_backend": 1,
+        "paired_repeats": 3,
+        "orders": [
+          "reference,mmr",
+          "mmr,reference",
+          "reference,mmr"
+        ],
+        "preparation_and_teardown_included": true,
+        "timed_last_chunk_crosschecks": 8,
+        "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "reference": {
+          "wall_ns": [
+            593857193,
+            598226238,
+            598438964
+          ],
+          "cpu_ns": [
+            589525080,
+            598167566,
+            598413298
+          ],
+          "preparation_wall_ns": [
+            3060,
+            4777,
+            3591
+          ],
+          "preparation_cpu_ns": [
+            2936,
+            4485,
+            3344
+          ]
+        },
+        "mmr": {
+          "wall_ns": [
+            243451122,
+            245263399,
+            247815637
+          ],
+          "cpu_ns": [
+            240920910,
+            243207701,
+            247777179
+          ],
+          "preparation_wall_ns": [
+            790478,
+            935443,
+            703600
+          ],
+          "preparation_cpu_ns": [
+            761948,
+            937978,
+            703543
+          ]
+        },
+        "component_routes": [
+          1,
+          0,
+          0
+        ],
+        "mmr_segment_counts_by_64_128_bits": [
+          2,
+          0
+        ]
+      },
+      "resources": {
+        "memory_max_bytes": 536870912,
+        "swap_max_bytes": 0,
+        "pre_exit_peak_bytes": 57733120,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "swap_current_bytes": 0,
+        "kodi_before": "active",
+        "kodi_after": "active"
+      }
+    },
+    {
+      "index": 3,
+      "backend": "candidate",
+      "benchmark": {
+        "schema": "yblod.native-mmr-paired-benchmark.v1",
+        "status": "complete",
+        "all_four_stages_full_frame_byte_exact": true,
+        "verification_scope": "untimed-full-frame-before-timing",
+        "verified_dispatches": 191,
+        "verified_stage_values": 49766400,
+        "plan_bytes": 46064,
+        "frame_bytes": 9384,
+        "warmups_per_backend": 1,
+        "paired_repeats": 3,
+        "orders": [
+          "reference,mmr",
+          "mmr,reference",
+          "reference,mmr"
+        ],
+        "preparation_and_teardown_included": true,
+        "timed_last_chunk_crosschecks": 8,
+        "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "reference": {
+          "wall_ns": [
+            586270855,
+            587737125,
+            596918737
+          ],
+          "cpu_ns": [
+            586216032,
+            587376050,
+            596679427
+          ],
+          "preparation_wall_ns": [
+            3545,
+            3426,
+            3049
+          ],
+          "preparation_cpu_ns": [
+            3466,
+            3341,
+            2829
+          ]
+        },
+        "mmr": {
+          "wall_ns": [
+            245132525,
+            241903323,
+            241858319
+          ],
+          "cpu_ns": [
+            245119845,
+            241729831,
+            241818461
+          ],
+          "preparation_wall_ns": [
+            737497,
+            671282,
+            717663
+          ],
+          "preparation_cpu_ns": [
+            737487,
+            671308,
+            717820
+          ]
+        },
+        "component_routes": [
+          1,
+          0,
+          0
+        ],
+        "mmr_segment_counts_by_64_128_bits": [
+          2,
+          0
+        ]
+      },
+      "resources": {
+        "memory_max_bytes": 536870912,
+        "swap_max_bytes": 0,
+        "pre_exit_peak_bytes": 57483264,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "swap_current_bytes": 0,
+        "kodi_before": "active",
+        "kodi_after": "active"
+      }
+    },
+    {
+      "index": 4,
+      "backend": "baseline",
+      "benchmark": {
+        "schema": "yblod.native-mmr-paired-benchmark.v1",
+        "status": "complete",
+        "all_four_stages_full_frame_byte_exact": true,
+        "verification_scope": "untimed-full-frame-before-timing",
+        "verified_dispatches": 191,
+        "verified_stage_values": 49766400,
+        "plan_bytes": 36848,
+        "frame_bytes": 9384,
+        "warmups_per_backend": 1,
+        "paired_repeats": 3,
+        "orders": [
+          "reference,mmr",
+          "mmr,reference",
+          "reference,mmr"
+        ],
+        "preparation_and_teardown_included": true,
+        "timed_last_chunk_crosschecks": 8,
+        "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "reference": {
+          "wall_ns": [
+            592009345,
+            630025808,
+            591128296
+          ],
+          "cpu_ns": [
+            591985130,
+            629965033,
+            591090589
+          ],
+          "preparation_wall_ns": [
+            3784,
+            7367,
+            3455
+          ],
+          "preparation_cpu_ns": [
+            3673,
+            7118,
+            3274
+          ]
+        },
+        "mmr": {
+          "wall_ns": [
+            267953661,
+            281432069,
+            259608025
+          ],
+          "cpu_ns": [
+            267911603,
+            281364558,
+            259593608
+          ],
+          "preparation_wall_ns": [
+            722347,
+            719122,
+            640895
+          ],
+          "preparation_cpu_ns": [
+            722068,
+            719072,
+            640047
+          ]
+        },
+        "component_routes": [
+          1,
+          0,
+          0
+        ],
+        "mmr_segment_counts_by_64_128_bits": [
+          2,
+          0
+        ]
+      },
+      "resources": {
+        "memory_max_bytes": 536870912,
+        "swap_max_bytes": 0,
+        "pre_exit_peak_bytes": 57466880,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "swap_current_bytes": 0,
+        "kodi_before": "active",
+        "kodi_after": "active"
+      }
+    },
+    {
+      "index": 5,
+      "backend": "baseline",
+      "benchmark": {
+        "schema": "yblod.native-mmr-paired-benchmark.v1",
+        "status": "complete",
+        "all_four_stages_full_frame_byte_exact": true,
+        "verification_scope": "untimed-full-frame-before-timing",
+        "verified_dispatches": 191,
+        "verified_stage_values": 49766400,
+        "plan_bytes": 36848,
+        "frame_bytes": 9384,
+        "warmups_per_backend": 1,
+        "paired_repeats": 3,
+        "orders": [
+          "reference,mmr",
+          "mmr,reference",
+          "reference,mmr"
+        ],
+        "preparation_and_teardown_included": true,
+        "timed_last_chunk_crosschecks": 8,
+        "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "reference": {
+          "wall_ns": [
+            592243340,
+            613153544,
+            588765733
+          ],
+          "cpu_ns": [
+            592160778,
+            612693693,
+            588681786
+          ],
+          "preparation_wall_ns": [
+            3679,
+            3317,
+            2895
+          ],
+          "preparation_cpu_ns": [
+            3514,
+            3128,
+            2740
+          ]
+        },
+        "mmr": {
+          "wall_ns": [
+            259621187,
+            262873310,
+            264749181
+          ],
+          "cpu_ns": [
+            259608439,
+            262863224,
+            264710397
+          ],
+          "preparation_wall_ns": [
+            710634,
+            665837,
+            732599
+          ],
+          "preparation_cpu_ns": [
+            710290,
+            665800,
+            732536
+          ]
+        },
+        "component_routes": [
+          1,
+          0,
+          0
+        ],
+        "mmr_segment_counts_by_64_128_bits": [
+          2,
+          0
+        ]
+      },
+      "resources": {
+        "memory_max_bytes": 536870912,
+        "swap_max_bytes": 0,
+        "pre_exit_peak_bytes": 57368576,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "swap_current_bytes": 0,
+        "kodi_before": "active",
+        "kodi_after": "active"
+      }
+    },
+    {
+      "index": 6,
+      "backend": "candidate",
+      "benchmark": {
+        "schema": "yblod.native-mmr-paired-benchmark.v1",
+        "status": "complete",
+        "all_four_stages_full_frame_byte_exact": true,
+        "verification_scope": "untimed-full-frame-before-timing",
+        "verified_dispatches": 191,
+        "verified_stage_values": 49766400,
+        "plan_bytes": 46064,
+        "frame_bytes": 9384,
+        "warmups_per_backend": 1,
+        "paired_repeats": 3,
+        "orders": [
+          "reference,mmr",
+          "mmr,reference",
+          "reference,mmr"
+        ],
+        "preparation_and_teardown_included": true,
+        "timed_last_chunk_crosschecks": 8,
+        "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "reference": {
+          "wall_ns": [
+            599887379,
+            590801305,
+            588395086
+          ],
+          "cpu_ns": [
+            599863961,
+            590775497,
+            588358155
+          ],
+          "preparation_wall_ns": [
+            3300,
+            3638,
+            3865
+          ],
+          "preparation_cpu_ns": [
+            3202,
+            3509,
+            3666
+          ]
+        },
+        "mmr": {
+          "wall_ns": [
+            236859133,
+            242030456,
+            239011859
+          ],
+          "cpu_ns": [
+            236828814,
+            242011272,
+            239001398
+          ],
+          "preparation_wall_ns": [
+            749620,
+            670817,
+            712142
+          ],
+          "preparation_cpu_ns": [
+            749983,
+            670739,
+            712087
+          ]
+        },
+        "component_routes": [
+          1,
+          0,
+          0
+        ],
+        "mmr_segment_counts_by_64_128_bits": [
+          2,
+          0
+        ]
+      },
+      "resources": {
+        "memory_max_bytes": 536870912,
+        "swap_max_bytes": 0,
+        "pre_exit_peak_bytes": 57348096,
+        "high": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0,
+        "swap_current_bytes": 0,
+        "kodi_before": "active",
+        "kodi_after": "active"
+      }
+    }
+  ],
+  "limitations": [
+    "Six runs on one prepared 4K whole-code frame, not a broad media cohort.",
+    "Each backend is in a separate process; internal diagnostic still alternates it against unchanged reference.",
+    "Full-frame four-stage byte equivalence before timings; timed checks cover final chunk only.",
+    "Measured CPU diagnostic excludes loading, hardware scaling, decoding, colour conversion and display.",
+    "No statistical significance, playback FPS, independent Dolby conformance or SK4 matching claim.",
+    "No production path/default build changed; private data and input hashes excluded."
+  ]
+}
