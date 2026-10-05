@@ -122,6 +122,15 @@ execution checks: the latest 31 supported polynomial/MMR/NLQ/composition cases
 matched every tested C stage exactly. One oversized case was explicitly rejected. This is
 not a Kodi backend, playback benchmark or improved SK4 colour match.
 
+[NATIVE_GPU_FRAME_PROBE.md](NATIVE_GPU_FRAME_PROBE.md) records 49,152 exact
+real prepared-frame sampled stage comparisons, not full-frame GPU correctness.
+[EL_OPERATION_ORDER.md](EL_OPERATION_ORDER.md) and
+[ANNEX_B_RESAMPLER_VECTORS.md](ANNEX_B_RESAMPLER_VECTORS.md) separate the public
+reference operation order from its informative example filter.
+[EL_SHADER_SAMPLING_AUDIT.md](EL_SHADER_SAMPLING_AUDIT.md) traces the inspected
+playback source's conditional half-pixel sampling and normalization; it is not
+confirmation of a loaded Kodi build or licensed-player behaviour.
+
 Latest complete Ollie check: **740 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
