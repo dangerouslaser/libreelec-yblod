@@ -285,7 +285,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **654 reference tests**, including native C arithmetic/adapter/frame checks,
+- **685 reference tests**, including native C arithmetic/adapter/frame checks,
   vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
@@ -301,6 +301,11 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
   contract acceptance, specific SFC routing,
   playback performance and AMD measurements remain pending. No SK4-match
   improvement or production acceptance is claimed.
+- Small one-code near-neutral patterns now supply measured fractional words;
+  see [INTEL_Y416_NEUTRAL_RESULTS.md](INTEL_Y416_NEUTRAL_RESULTS.md). The small
+  engine counters do not identify a hardware route, and no rounding policy is
+  selected. [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) establishes separate desktop
+  GL integer-compute capability only, not shader correctness or Kodi integration.
 
 Compiled guard coverage can be enabled after building:
 

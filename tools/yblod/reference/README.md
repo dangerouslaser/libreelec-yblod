@@ -108,7 +108,16 @@ documented in [NATIVE_COMPOSER.md](NATIVE_COMPOSER.md) and
 equivalence and bounded offline resource measurements. These rewrites do not
 yet reduce the substantial saved SK4 colour differences or replace Kodi.
 
-Latest complete Ollie check: **654 reference tests plus 8 accuracy tests**, no
+[NATIVE_BUILD.md](NATIVE_BUILD.md) documents the Python-free C library and
+LibreELEC build/run checks. [NATIVE_KERNEL_RESULTS.md](NATIVE_KERNEL_RESULTS.md)
+records direct C kernel measurements, not playback FPS.
+[NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
+[NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
+conservative arithmetic-width gates, not a working GPU playback engine.
+[INTEL_Y416_NEUTRAL_RESULTS.md](INTEL_Y416_NEUTRAL_RESULTS.md) records measured
+fractional near-neutral values without choosing a reconstruction policy.
+
+Latest complete Ollie check: **685 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 

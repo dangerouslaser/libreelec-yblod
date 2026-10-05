@@ -1,0 +1,1938 @@
+{
+  "binary_sha256": "d0a92ccf07b002eff11f8f812a0c77f33c06d1d1aa891feb538b55d408538b0b",
+  "build": {
+    "compiler": "LibreELEC SDK x86_64-libreelec-linux-gnu-gcc-16.2.0",
+    "container_image": "libreelec-dv-build",
+    "container_memory_plus_swap_bytes": 536870912,
+    "container_network": "none",
+    "cpu_limit": 1,
+    "flags": [
+      "-std=c11",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wconversion",
+      "-Wshadow",
+      "-lEGL"
+    ],
+    "memory_max_bytes": 536870912
+  },
+  "capabilities": {
+    "compute_dispatch_tested": false,
+    "contexts": {
+      "desktop": {
+        "api": "desktop-opengl",
+        "arb_gpu_shader_int64_advertised": true,
+        "cleanup": {
+          "destroy_egl_error": 12288,
+          "destroyed": true,
+          "unbind_egl_error": 12288,
+          "unbound": true
+        },
+        "compute_ssbo_core_version_advertised": true,
+        "extension_count": 235,
+        "extension_count_gl_error": 0,
+        "extensions": [
+          {
+            "gl_error": 0,
+            "name": "GL_3DFX_texture_compression_FXT1"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_conservative_depth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_depth_clamp_separate"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_draw_buffers_blend"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_gpu_shader_int64"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_multi_draw_indirect"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_performance_monitor"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_pinned_memory"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_query_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_seamless_cubemap_per_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_shader_stencil_export"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_shader_trinary_minmax"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_texture_texture4"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_vertex_shader_layer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_vertex_shader_viewport_index"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ANGLE_texture_compression_dxt3"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ANGLE_texture_compression_dxt5"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_ES2_compatibility"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_ES3_1_compatibility"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_ES3_2_compatibility"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_ES3_compatibility"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_arrays_of_arrays"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_base_instance"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_blend_func_extended"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_buffer_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_clear_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_clear_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_clip_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_compressed_texture_pixel_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_compute_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_compute_variable_group_size"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_conditional_render_inverted"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_conservative_depth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_copy_buffer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_copy_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_cull_distance"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_debug_output"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_depth_buffer_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_depth_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_derivative_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_direct_state_access"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_draw_buffers"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_draw_buffers_blend"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_draw_elements_base_vertex"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_draw_indirect"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_draw_instanced"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_enhanced_layouts"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_explicit_attrib_location"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_explicit_uniform_location"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_fragment_coord_conventions"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_fragment_layer_viewport"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_fragment_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_fragment_shader_interlock"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_framebuffer_no_attachments"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_framebuffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_framebuffer_sRGB"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_get_program_binary"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_get_texture_sub_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_gl_spirv"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_gpu_shader5"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_gpu_shader_fp64"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_gpu_shader_int64"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_half_float_pixel"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_half_float_vertex"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_indirect_parameters"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_instanced_arrays"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_internalformat_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_internalformat_query2"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_invalidate_subdata"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_map_buffer_alignment"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_map_buffer_range"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_multi_bind"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_multi_draw_indirect"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_occlusion_query2"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_parallel_shader_compile"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_pipeline_statistics_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_pixel_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_point_sprite"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_polygon_offset_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_post_depth_coverage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_program_interface_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_provoking_vertex"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_query_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_robust_buffer_access_behavior"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_robustness"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_sample_shading"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_sampler_objects"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_seamless_cube_map"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_seamless_cubemap_per_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_separate_shader_objects"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_atomic_counter_ops"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_atomic_counters"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_ballot"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_bit_encoding"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_clock"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_draw_parameters"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_group_vote"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_image_load_store"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_image_size"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_objects"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_precision"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_stencil_export"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_storage_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_subroutine"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_texture_image_samples"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_texture_lod"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shader_viewport_layer_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shading_language_420pack"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shading_language_include"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_shading_language_packing"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_spirv_extensions"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_stencil_texturing"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_sync"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_tessellation_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_barrier"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_border_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_buffer_object_rgb32"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_buffer_range"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_compression_bptc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_compression_rgtc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_cube_map_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_filter_anisotropic"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_filter_minmax"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_gather"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_mirror_clamp_to_edge"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_multisample"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_non_power_of_two"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_query_levels"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_query_lod"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_rectangle"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_rg"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_rgb10_a2ui"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_stencil8"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_storage_multisample"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_swizzle"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_texture_view"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_timer_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_transform_feedback2"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_transform_feedback3"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_transform_feedback_instanced"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_transform_feedback_overflow_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_uniform_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_array_bgra"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_array_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_attrib_64bit"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_attrib_binding"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_type_10f_11f_11f_rev"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_vertex_type_2_10_10_10_rev"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ARB_viewport_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ATI_blend_equation_separate"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ATI_texture_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_EGL_image_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_EGL_image_storage_compression"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_EGL_sync"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_abgr"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_blend_equation_separate"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_debug_label"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_demote_to_helper_invocation"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_depth_bounds_test"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_draw_buffers2"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_draw_instanced"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_framebuffer_blit"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_framebuffer_multisample"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_framebuffer_multisample_blit_scaled"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_framebuffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_framebuffer_sRGB"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_memory_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_memory_object_fd"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_packed_depth_stencil"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_packed_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_pixel_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_polygon_offset_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_provoking_vertex"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_semaphore"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_semaphore_fd"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_clock"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_framebuffer_fetch"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_framebuffer_fetch_non_coherent"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_integer_mix"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_samples_identical"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_dxt1"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_rgtc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_s3tc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_filter_anisotropic"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_integer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_sRGB"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_sRGB_R8"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_sRGB_decode"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_shadow_lod"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_shared_exponent"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_snorm"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_swizzle"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_timer_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_transform_feedback"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_vertex_array_bgra"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_vertex_attrib_64bit"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_IBM_multimode_draw_arrays"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_blackhole_render"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_conservative_rasterization"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_performance_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_shader_atomic_float_minmax"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_shader_integer_functions2"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_blend_equation_advanced"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_blend_equation_advanced_coherent"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_context_flush_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_debug"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_no_error"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_parallel_shader_compile"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_robust_buffer_access_behavior"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_robustness"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_shader_subgroup"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_texture_compression_astc_ldr"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_texture_compression_astc_sliced_3d"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_framebuffer_flip_y"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_pack_invert"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_shader_integer_functions"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_texture_const_bandwidth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_texture_signed_rgba"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_alpha_to_coverage_dither_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_compute_shader_derivatives"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_conditional_render"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_copy_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_depth_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_fragment_shader_interlock"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_packed_depth_stencil"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_texture_barrier"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_EGL_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_S3_s3tc"
+          }
+        ],
+        "initial_gl_error": 0,
+        "limits": {
+          "max_compute_shader_storage_blocks": {
+            "gl_error": 0,
+            "value": 16
+          },
+          "max_compute_shared_memory_size": {
+            "gl_error": 0,
+            "value": 65536
+          },
+          "max_compute_work_group_count": [
+            {
+              "gl_error": 0,
+              "value": 2147483646
+            },
+            {
+              "gl_error": 0,
+              "value": 2147483646
+            },
+            {
+              "gl_error": 0,
+              "value": 2147483646
+            }
+          ],
+          "max_compute_work_group_invocations": {
+            "gl_error": 0,
+            "value": 1024
+          },
+          "max_compute_work_group_size": [
+            {
+              "gl_error": 0,
+              "value": 1024
+            },
+            {
+              "gl_error": 0,
+              "value": 1024
+            },
+            {
+              "gl_error": 0,
+              "value": 1024
+            }
+          ],
+          "max_shader_storage_block_size": {
+            "gl_error": 0,
+            "value": 2147483392
+          },
+          "max_shader_storage_buffer_bindings": {
+            "gl_error": 0,
+            "value": 80
+          }
+        },
+        "queries_valid": true,
+        "renderer": {
+          "gl_error": 0,
+          "value": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)"
+        },
+        "requested_version": [
+          4,
+          3
+        ],
+        "shading_language_version": {
+          "gl_error": 0,
+          "value": "4.60"
+        },
+        "software_renderer_detected": false,
+        "status": "available",
+        "vendor": {
+          "gl_error": 0,
+          "value": "Intel"
+        },
+        "version": {
+          "gl_error": 0,
+          "value": "4.6 (Core Profile) Mesa 26.2.4"
+        },
+        "version_numbers": [
+          4,
+          6
+        ],
+        "version_query_errors": [
+          0,
+          0
+        ]
+      },
+      "gles": {
+        "api": "opengl-es",
+        "arb_gpu_shader_int64_advertised": false,
+        "cleanup": {
+          "destroy_egl_error": 12288,
+          "destroyed": true,
+          "unbind_egl_error": 12288,
+          "unbound": true
+        },
+        "compute_ssbo_core_version_advertised": true,
+        "extension_count": 168,
+        "extension_count_gl_error": 0,
+        "extensions": [
+          {
+            "gl_error": 0,
+            "name": "GL_AMD_performance_monitor"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ANDROID_extension_pack_es31a"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ANGLE_pack_reverse_row_order"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ANGLE_texture_compression_dxt3"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_ANGLE_texture_compression_dxt5"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_APPLE_sync"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_APPLE_texture_max_level"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_EGL_image_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_EGL_image_storage_compression"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_base_instance"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_blend_func_extended"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_blend_minmax"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_buffer_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_clear_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_clip_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_clip_cull_distance"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_color_buffer_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_color_buffer_half_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_compressed_ETC1_RGB8_sub_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_conservative_depth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_copy_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_debug_label"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_demote_to_helper_invocation"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_depth_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_discard_framebuffer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_disjoint_timer_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_draw_buffers"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_draw_buffers_indexed"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_draw_elements_base_vertex"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_draw_instanced"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_float_blend"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_frag_depth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_geometry_point_size"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_geometry_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_gpu_shader5"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_instanced_arrays"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_map_buffer_range"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_memory_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_memory_object_fd"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_multi_draw_arrays"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_multi_draw_indirect"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_occlusion_query_boolean"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_polygon_offset_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_primitive_bounding_box"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_protected_textures"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_read_format_bgra"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_render_snorm"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_robustness"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_sRGB"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_sRGB_write_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_semaphore"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_semaphore_fd"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_separate_shader_objects"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_clock"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_framebuffer_fetch"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_framebuffer_fetch_non_coherent"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_group_vote"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_implicit_conversions"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_integer_mix"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_io_blocks"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shader_samples_identical"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_shadow_samplers"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_tessellation_point_size"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_tessellation_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_border_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_buffer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_bptc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_dxt1"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_rgtc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_s3tc"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_compression_s3tc_srgb"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_cube_map_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_filter_anisotropic"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_format_BGRA8888"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_mirror_clamp_to_edge"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_norm16"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_query_lod"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_rg"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_sRGB_R8"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_sRGB_decode"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_shadow_lod"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_storage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_storage_compression"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_type_2_10_10_10_REV"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_texture_view"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_EXT_unpack_subimage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_blackhole_render"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_conservative_rasterization"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_INTEL_performance_query"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_blend_equation_advanced"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_blend_equation_advanced_coherent"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_context_flush_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_debug"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_no_error"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_parallel_shader_compile"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_robust_buffer_access_behavior"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_robustness"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_shader_subgroup"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_texture_compression_astc_ldr"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_KHR_texture_compression_astc_sliced_3d"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_bgra"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_framebuffer_flip_y"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_sampler_objects"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_shader_integer_functions"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_MESA_texture_const_bandwidth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_alpha_to_coverage_dither_control"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_compute_shader_derivatives"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_conditional_render"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_draw_buffers"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_fbo_color_attachments"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_fragment_shader_interlock"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_generate_mipmap_sRGB"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_image_formats"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_pack_subimage"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_pixel_buffer_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_read_buffer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_read_depth"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_read_depth_stencil"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_read_stencil"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_shader_noperspective_interpolation"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_NV_texture_barrier"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_EGL_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_EGL_image_external"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_EGL_image_external_essl3"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_EGL_sync"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_compressed_ETC1_RGB8_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_copy_image"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_depth24"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_depth_texture"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_depth_texture_cube_map"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_draw_buffers_indexed"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_draw_elements_base_vertex"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_element_index_uint"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_fbo_render_mipmap"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_geometry_point_size"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_geometry_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_get_program_binary"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_gpu_shader5"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_mapbuffer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_packed_depth_stencil"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_primitive_bounding_box"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_required_internalformat"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_rgb8_rgba8"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_sample_shading"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_sample_variables"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_shader_image_atomic"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_shader_io_blocks"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_shader_multisample_interpolation"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_standard_derivatives"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_stencil8"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_surfaceless_context"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_tessellation_point_size"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_tessellation_shader"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_3D"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_border_clamp"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_buffer"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_cube_map_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_float_linear"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_half_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_half_float_linear"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_npot"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_stencil8"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_storage_multisample_2d_array"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_texture_view"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_vertex_array_object"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_vertex_half_float"
+          },
+          {
+            "gl_error": 0,
+            "name": "GL_OES_viewport_array"
+          }
+        ],
+        "initial_gl_error": 0,
+        "limits": {
+          "max_compute_shader_storage_blocks": {
+            "gl_error": 0,
+            "value": 16
+          },
+          "max_compute_shared_memory_size": {
+            "gl_error": 0,
+            "value": 65536
+          },
+          "max_compute_work_group_count": [
+            {
+              "gl_error": 0,
+              "value": 2147483646
+            },
+            {
+              "gl_error": 0,
+              "value": 2147483646
+            },
+            {
+              "gl_error": 0,
+              "value": 2147483646
+            }
+          ],
+          "max_compute_work_group_invocations": {
+            "gl_error": 0,
+            "value": 1024
+          },
+          "max_compute_work_group_size": [
+            {
+              "gl_error": 0,
+              "value": 1024
+            },
+            {
+              "gl_error": 0,
+              "value": 1024
+            },
+            {
+              "gl_error": 0,
+              "value": 1024
+            }
+          ],
+          "max_shader_storage_block_size": {
+            "gl_error": 0,
+            "value": 2147483392
+          },
+          "max_shader_storage_buffer_bindings": {
+            "gl_error": 0,
+            "value": 80
+          }
+        },
+        "queries_valid": true,
+        "renderer": {
+          "gl_error": 0,
+          "value": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)"
+        },
+        "requested_version": [
+          3,
+          1
+        ],
+        "shading_language_version": {
+          "gl_error": 0,
+          "value": "OpenGL ES GLSL ES 3.20"
+        },
+        "software_renderer_detected": false,
+        "status": "available",
+        "vendor": {
+          "gl_error": 0,
+          "value": "Intel"
+        },
+        "version": {
+          "gl_error": 0,
+          "value": "OpenGL ES 3.2 Mesa 26.2.4"
+        },
+        "version_numbers": [
+          3,
+          2
+        ],
+        "version_query_errors": [
+          0,
+          0
+        ]
+      }
+    },
+    "device_binding_verified": true,
+    "device_extensions": "EGL_EXT_device_drm EGL_EXT_device_drm_render_node EGL_EXT_device_query_name EGL_EXT_device_persistent_id",
+    "device_render_node": "/dev/dri/renderD128",
+    "device_render_node_egl_error": 12288,
+    "egl_client_extensions": "EGL_EXT_platform_base EGL_EXT_device_base EGL_EXT_device_enumeration EGL_EXT_device_query EGL_KHR_client_get_all_proc_addresses EGL_EXT_client_extensions EGL_KHR_debug EGL_KHR_platform_x11 EGL_EXT_platform_x11 EGL_EXT_platform_device EGL_MESA_platform_surfaceless EGL_EXT_explicit_device EGL_KHR_platform_gbm EGL_MESA_platform_gbm",
+    "egl_client_extensions_error": 12288,
+    "egl_display_extensions": "EGL_ANDROID_blob_cache EGL_ANDROID_native_fence_sync EGL_EXT_config_select_group EGL_EXT_create_context_robustness EGL_EXT_image_dma_buf_import EGL_EXT_image_dma_buf_import_modifiers EGL_EXT_protected_content EGL_EXT_query_reset_notification_strategy EGL_EXT_surface_compression EGL_IMG_context_priority EGL_KHR_cl_event2 EGL_KHR_config_attribs EGL_KHR_context_flush_control EGL_KHR_create_context EGL_KHR_create_context_no_error EGL_KHR_fence_sync EGL_KHR_get_all_proc_addresses EGL_KHR_gl_colorspace EGL_KHR_gl_renderbuffer_image EGL_KHR_gl_texture_2D_image EGL_KHR_gl_texture_3D_image EGL_KHR_gl_texture_cubemap_image EGL_KHR_image_base EGL_KHR_no_config_context EGL_KHR_partial_update EGL_KHR_reusable_sync EGL_KHR_surfaceless_context EGL_EXT_pixel_format_float EGL_KHR_wait_sync EGL_MESA_configless_context EGL_MESA_gl_interop EGL_MESA_image_dma_buf_export EGL_MESA_query_driver EGL_MESA_x11_native_visual_id ",
+    "egl_display_extensions_error": 12288,
+    "egl_terminated": true,
+    "egl_thread_released": true,
+    "egl_vendor": "Mesa Project",
+    "egl_vendor_error": 12288,
+    "egl_version_numbers": [
+      1,
+      5
+    ],
+    "enumerated_devices": [
+      {
+        "extensions": "EGL_EXT_device_drm EGL_EXT_device_drm_render_node EGL_EXT_device_query_name EGL_EXT_device_persistent_id",
+        "extensions_egl_error": 12288,
+        "matches_requested_character_device": true,
+        "render_node": "/dev/dri/renderD128",
+        "render_node_egl_error": 12288
+      }
+    ],
+    "requested_render_node": "/dev/dri/renderD128",
+    "schema": "yblod.native-gpu-caps.v1",
+    "shader_execution_tested": false,
+    "status": "complete",
+    "terminate_egl_error": 12288
+  },
+  "child_maximum_rss_kib": 66912,
+  "elapsed_seconds": 0.18860778799717082,
+  "installed_library_snapshot_not_loaded_module_proof": {
+    "/lib64/ld-linux-x86-64.so.2": {
+      "resolved": "/usr/lib/ld-linux-x86-64.so.2",
+      "sha256": "3bd22d737cff5359c57bd420318561e34a9cffb9738a65feb5d0b56ded9f0126"
+    },
+    "/usr/lib/libEGL.so.1": {
+      "resolved": "/usr/lib/libEGL.so.1.1.0",
+      "sha256": "e96c0e60601984ea832a6b8184ce1f299e0f60023c4a4c52c03bf4fe7ee319a0"
+    },
+    "/usr/lib/libEGL_mesa.so.0": {
+      "resolved": "/usr/lib/libEGL_mesa.so.0.0.0",
+      "sha256": "a6e80958ace576414e239775d6871aff1b3e53ba68a85c5eab08a081d765f192"
+    },
+    "/usr/lib/libGLdispatch.so.0": {
+      "resolved": "/usr/lib/libGLdispatch.so.0.0.0",
+      "sha256": "cd8c7e4d03802fe9661dd7d35d55b24e796cb1f679ae3fafbdc192ffd3c2d91a"
+    },
+    "/usr/lib/libc.so.6": {
+      "resolved": "/usr/lib/libc.so.6",
+      "sha256": "d16d617f8f3d8b18bd933ab259d50c8e829650c1d0da4d5c1b1815acd9d5f5e8"
+    }
+  },
+  "limitations": [
+    "Capability queries only; no shader compilation or execution, no compute dispatch, no performance measurement.",
+    "Advertised int64 does not imply native-speed int64 or any128-bit type.",
+    "Complete discovery may report unavailable individual contexts; inspect per-context status and query errors.",
+    "No KMS, framebuffer creation, swap, Kodi or output-mode calls."
+  ],
+  "limits_after": {
+    "memory.events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory.max": 536870912,
+    "memory.peak": 42569728,
+    "memory.swap.current": 0,
+    "memory.swap.max": 0
+  },
+  "limits_before": {
+    "memory.events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory.max": 536870912,
+    "memory.peak": 7598080,
+    "memory.swap.current": 0,
+    "memory.swap.max": 0
+  },
+  "returncode": 0,
+  "runtime": {
+    "platform": "Linux-7.2.8-x86_64-with-glibc2.44",
+    "selected_environment": {
+      "GALLIUM_DRIVER": null,
+      "LIBGL_ALWAYS_SOFTWARE": null,
+      "MESA_LOADER_DRIVER_OVERRIDE": null,
+      "__EGL_VENDOR_LIBRARY_FILENAMES": null
+    }
+  },
+  "schema": "yblod.native-gpu-capability-run.v1",
+  "source_sha256": "1fe894943f81fb893e8086f2923964d4c008a48c0133fbe428fd8fd745da8ad7",
+  "status": "complete",
+  "stderr": "",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stdout_sha256": "151e094dafe6977a82e6d4104a5da476ae0263ba648a6e61d49d15974c5a6c15"
+}

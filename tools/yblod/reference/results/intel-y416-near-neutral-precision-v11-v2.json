@@ -1,0 +1,177 @@
+{
+  "schema": "yblod.hardware-y416-neutral-precision.v1",
+  "status": "complete",
+  "observation_report_sha256": "6962488707e13d6e8c0eab9c6792491a902c7471f22f7d05855870cefffbf733",
+  "source_sha256": {
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_precision_probe.c": "265ccb7ab7ea234570bd6f6dbcaa8a94a223a5bf08913daccdee85af9d0521d8",
+    "native_precision_probe.h": "069c56bdf9fa389bdd20c9e538a25bae5ae7a83d77466d257d88b1acfb70c2a6",
+    "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e",
+    "hardware_y416_neutral_precision.py": "dd3e7b486f829d1ec63f9548f0a0461605130e4dd1db054c495765ca193b8f55"
+  },
+  "native_library_sha256": "c3f5bedd79106c5d9b7f5f5410865069121f5fabf11be9fab3a4311234f08c73",
+  "observations": [
+    {
+      "stage": "scaled",
+      "case": "Y-x-step-plus",
+      "component": "Y",
+      "raw_word": 32752,
+      "count": 128
+    },
+    {
+      "stage": "scaled",
+      "case": "Y-x-step-plus",
+      "component": "Y",
+      "raw_word": 32800,
+      "count": 128
+    },
+    {
+      "stage": "scaled",
+      "case": "Cb-y-step-minus",
+      "component": "Cb",
+      "raw_word": 32736,
+      "count": 128
+    },
+    {
+      "stage": "scaled",
+      "case": "Cr-x-stripe-plus",
+      "component": "Cr",
+      "raw_word": 32784,
+      "count": 256
+    },
+    {
+      "stage": "scaled",
+      "case": "Cr-x-stripe-plus",
+      "component": "Cr",
+      "raw_word": 32800,
+      "count": 256
+    }
+  ],
+  "alternatives": [
+    {
+      "raw_word": 32736,
+      "policies": {
+        "floor": {
+          "native_code": 511,
+          "integer_residual": -8
+        },
+        "nearest_half_up": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_ties_even": {
+          "native_code": 512,
+          "integer_residual": 0
+        }
+      },
+      "hypothetical_literal": {
+        "numerator": 0,
+        "denominator": 1,
+        "floored_residual": 0,
+        "opposite_sign_to_raw_delta": false
+      }
+    },
+    {
+      "raw_word": 32752,
+      "policies": {
+        "floor": {
+          "native_code": 511,
+          "integer_residual": -8
+        },
+        "nearest_half_up": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_ties_even": {
+          "native_code": 512,
+          "integer_residual": 0
+        }
+      },
+      "hypothetical_literal": {
+        "numerator": 4,
+        "denominator": 1,
+        "floored_residual": 4,
+        "opposite_sign_to_raw_delta": true
+      }
+    },
+    {
+      "raw_word": 32768,
+      "policies": {
+        "floor": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_half_up": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_ties_even": {
+          "native_code": 512,
+          "integer_residual": 0
+        }
+      },
+      "hypothetical_literal": {
+        "numerator": 0,
+        "denominator": 1,
+        "floored_residual": 0,
+        "opposite_sign_to_raw_delta": false
+      }
+    },
+    {
+      "raw_word": 32784,
+      "policies": {
+        "floor": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_half_up": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_ties_even": {
+          "native_code": 512,
+          "integer_residual": 0
+        }
+      },
+      "hypothetical_literal": {
+        "numerator": -4,
+        "denominator": 1,
+        "floored_residual": -4,
+        "opposite_sign_to_raw_delta": true
+      }
+    },
+    {
+      "raw_word": 32800,
+      "policies": {
+        "floor": {
+          "native_code": 512,
+          "integer_residual": 0
+        },
+        "nearest_half_up": {
+          "native_code": 513,
+          "integer_residual": 8
+        },
+        "nearest_ties_even": {
+          "native_code": 512,
+          "integer_residual": 0
+        }
+      },
+      "hypothetical_literal": {
+        "numerator": 0,
+        "denominator": 1,
+        "floored_residual": 0,
+        "opposite_sign_to_raw_delta": false
+      }
+    }
+  ],
+  "fixture": {
+    "bit_depth": 10,
+    "denominator": 23,
+    "offset": 512,
+    "slope": 2048,
+    "threshold": 0,
+    "maximum": 1048576
+  },
+  "interpretation": "Artificial arithmetic fixture, not movie metadata or licensed behaviour. Literal extension is hypothetical, without shader noise guard. No policy selected; no production change."
+}
