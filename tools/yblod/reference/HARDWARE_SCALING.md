@@ -295,8 +295,8 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
   input/output siting matrix are complete.
 - Full-size slope controls and per-client engine-class accounting are complete.
 - Full-size signed-ramp/base/quality and per-job pipeline-hint controls are complete.
-- Small constant Y416/reduced-range conversion diagnostics are complete; full-size
-  Y416 scaling, edge/impulse characterization, specific SFC routing,
+- Small constant, gradient and edge Y416 diagnostics and full-size neutral/ascending
+  affine-band diagnostics are complete. Full-size descending/edge/impulse tests, specific SFC routing,
   playback performance and AMD measurements remain pending. No SK4-match
   improvement or production acceptance is claimed.
 
@@ -368,3 +368,9 @@ systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
   python3 hardware_y416_large.py ./vaapi_scaler_probe NEW-LARGE
 python3 y416_large_geometry.py NEW-LARGE/y416-large-report.json NEW-GEOMETRY.json
 ```
+
+The completed six-job neutral and42-job affine-band runs are documented in
+`INTEL_Y416_LARGE_RESULTS.md`. All full-size Y416 jobs recorded video-enhance
+activity with no positive render intervals. Memory remained bounded with zero
+OOM events/kills or swap; the larger scope did reach its512MiB cap. No steady-
+state playback or SK4 matching claim is made.
