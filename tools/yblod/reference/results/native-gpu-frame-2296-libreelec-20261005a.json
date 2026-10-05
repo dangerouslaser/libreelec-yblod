@@ -1,0 +1,109 @@
+{
+  "schema": "yblod.native-gpu-frame-summary.v1",
+  "status": "complete",
+  "scope": "Deterministic prepared whole-code sample check; no full-frame GPU, fractional EL, colour, playback or Dolby conformance claim.",
+  "source_association": "saved extracted-RPU hashes/normalization/frame binding; no fresh CRC parse or film rehash",
+  "sampling": "endpoint-inclusive row-major min(64,width) by min(64,height) per component",
+  "source_sha256": {
+    "native_gpu_probe.c": "e51107f2d3c30bb96045f8388442a6f0d35eda56426227a387894023e15468e2",
+    "native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+    "native_gpu_probe.py": "2d3b87df9ee9d80b4b11603a61ba8cef5e23021619c141099d8f6574f7f2aaf4",
+    "native_gpu_probe_fixture.c": "f28bbfe1e2d239fec196e9695b4e845efe9402d6e97ec4021079af3f48b490b3",
+    "native_gpu_probe_fixture.h": "3a7903adca60641d0cee559e329435a7474b9b8d059be8fb9fb9780d32baf6d8",
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+    "native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+    "native_gpu_vectors.py": "16b706c811ff7141eda5b5e13a7e9184fa40cbd24928e30eb50eb9ccc8fa65a8",
+    "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687",
+    "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+    "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e",
+    "composition_stage.py": "b724d8b6bd0baaca345da8e12525c1583ce72ae987b910cde168cb759d44680a",
+    "hardware_y416_neutral_precision.py": "dd3e7b486f829d1ec63f9548f0a0461605130e4dd1db054c495765ca193b8f55",
+    "native_gpu_run.py": "e47eeb831259c3dbb7927ea5da7e8b4a0fb351a66bade75758da4b18804f7209",
+    "native_gpu_frame_probe.py": "91a01493a49dab78b037bba5cd974b847a009589e37a9d67aed77cedba350b22",
+    "colour_metadata.py": "f770827e565dca81930ed50e85b6b54ba00311521961a074e85451a67f706e10",
+    "import_rpu.py": "543cbb73b5f8dc1f6a9c60420f6391a62940cb2dbc5b1ee639f5ca2c80c7a2c8",
+    "extract_frame.py": "814a414221ba212b2317ad6ee080ff9cdf5fb0e3a39730381c458f92db400dda",
+    "reference.py": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73",
+    "colour_stage.py": "405ac904ae8711587ad20d4f77658a54838804035b7d6eaef4cb484e70ed7217"
+  },
+  "input_sha256": {
+    "bl_Y": "3c7b00320dae9ec1b1f789fc2118c001aa600d3dabba91a9e35839ca9cd1655d",
+    "bl_Cb": "6d94fba44177b9ced363a0b17ebac889fe63099d8726b8c5bfda1cf58e27acab",
+    "bl_Cr": "8a4a2e7aa00daea4fcd0bc77b5d44c28c152b75c2df2142334c404b9f3af1517",
+    "el_Y": "011212370b28fa1e4c7c39c051dd8c0bb41d7728bcdc31cacfd37aebedb4430d",
+    "el_Cb": "041817c893890a35a8d63ccc24d6d54e08d491d75ed592cbb8c316464c0c23a5",
+    "el_Cr": "2ba27dd0f352d0aeee083583ae31a34dd075e742d69a6d96c014b82a7d721802",
+    "guide": "8f1d63f1155791272db5f4e1b8e1ea037081c9110f542f485f7951a35b9e8d55",
+    "mapped_Y": "51f0a4793cb17d0413fa4dcba284de7ce24f86a91fa83897e4b00a8ee108ee4b",
+    "residual_Y": "141347013d13d490a64fb9aca8302c6beb074cc569202c2e12f6171cfa5dc79c",
+    "sum_Y": "3cecaebf7f8be6d1b458405678fa893a798eeef172aea660ddd192122eb4dab3",
+    "reconstructed_Y": "6d8dab3b788612803cf0be9205ebfcaa58ce71d91ca195a86e1c240400da61b6",
+    "mapped_Cb": "23ea5102f32e9bc0a5ed1735fe3a55887a531b9dcb07bddb2d792bde445d6195",
+    "residual_Cb": "853cf9c3e83f6eeacef80d78e49d38e194cc87b768beb06bbe04d348c245b348",
+    "sum_Cb": "dbcb3f5170604691f6372561e2148facb46c0d7f035710beff4034d60b353293",
+    "reconstructed_Cb": "51f468a65a098529b336f6488ca0df553496de2729a7768acf6b37970d106dea",
+    "mapped_Cr": "90d9d8cd21d4a0ea97f75980f4a290bf97da60d2a9ff5c48aa2e752fc771c55c",
+    "residual_Cr": "832d0ced6df8e84e986969a69fe7cff27b5ed62f5e58ed3dbf5a30113378e738",
+    "sum_Cr": "b8a1e3be270697566a5902267500eb85bb1239bb2f046e7fa6ed3a5a7af64eaa",
+    "reconstructed_Cr": "42f06412c36e783b72a59b6ff73329aac4ac5413c5691354dc852d192cad3cb8",
+    "manifest": "35fc36711293df66ffb0a1b288ea7d57bb93e54c514b37f8d43181badd7a8b1b",
+    "baseline_report": "6714b3dc02acd9903c559451c36e5e64d058e6da8d9330adeabc3d9d68279b94",
+    "extraction": "9b2550269e70c2eabfb9c0299310771da342beeb095535428d9f8e2035b64e8b",
+    "rpu_binary": "31a7e3b587a90e97f056a25ba9aa3effca4494427bca76528ea73864e287a5a2",
+    "rpu_json": "fced44178d4005c84718c0a241fcd1387d112f858aeab742fc78e6d5dcf79d39"
+  },
+  "cases": [
+    {
+      "component": "Y",
+      "samples": 4096,
+      "fixture_sha256": "ec4b7f685175657faf7131215cf2c516c2923bd71812fde5e53a2dfc7ec10368",
+      "cpu_baseline_gate": true,
+      "gpu_exact": true,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "component": "Cb",
+      "samples": 4096,
+      "fixture_sha256": "3fe963063a34c0723aab15475c9634ce34ac89ae2515e8813e5d3517e13f9719",
+      "cpu_baseline_gate": true,
+      "gpu_exact": true,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "component": "Cr",
+      "samples": 4096,
+      "fixture_sha256": "325d558c257ceacf68560be6f2ef8911ac97fb24c4497fc217e965d8c011ff5a",
+      "cpu_baseline_gate": true,
+      "gpu_exact": true,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "binary_sha256": "3b620fa0112736879bbadd5709876408566deb83b4bf4d11f960f629f0f81019",
+  "shader_sha256": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+  "all_cpu_gates_complete": true,
+  "gpu_attempted": true,
+  "resources": {
+    "charged_peak_bytes": 51187712,
+    "swap_bytes": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "limit_events": 0
+  }
+}

@@ -39,6 +39,8 @@ an accepted fix. An artificial maximum1025 produces +8/−9 after clipping then
 flooring at ±2 native codes. Artificial coefficients are arithmetic fixtures,
 not assertions that a complete encoded stream is conforming.
 
-Existing saved scaler profiles have no nonzero driven-axis samples within
-±32 raw words of neutral, so they do not settle this sub-half-code question.
+The original saved scaler profiles had no nonzero driven-axis samples within
+±32 raw words of neutral. Subsequent [near-neutral cohorts](INTEL_Y416_NEUTRAL_RESULTS.md)
+now provide measured quarter- and half-code examples, but do not establish
+which fractional reconstruction policy is correct.
 The diagnostic can be studied without capturing or publishing film frames.

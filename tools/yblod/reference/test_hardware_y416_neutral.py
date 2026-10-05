@@ -7,6 +7,7 @@ import unittest
 from unittest import mock
 
 import hardware_y416_neutral as neutral
+import file_cache_release
 import test_hardware_y416_large as legacy
 
 
@@ -70,8 +71,66 @@ class NeutralY416Tests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"300MiB"):
             neutral.run(self.binary,self.root/"too-large",1920,1080)
         self.assertFalse((self.root/"too-large").exists());self.assertEqual(self.calls,[])
-        for kwargs in (dict(repeats=True),dict(cases="neutral"),dict(native_y416=1)):
+        for kwargs in (dict(repeats=True),dict(cases="neutral"),dict(native_y416=1),dict(release_cache=1)):
             with self.assertRaises(ValueError):neutral.run(self.binary,self.root/"invalid",**kwargs)
+
+    def advice(self,path,sha,size):
+        self.assertEqual(Path(path).stat().st_size,size)
+        self.assertEqual(neutral.large.checker.large.file_hash(path),sha)
+        return {"file_data_fsync_completed":True,"dontneed_advice_submitted":True,"eviction_verified":False}
+
+    def test_optin_first_repeat_analysis_and_advice_before_second_same_results(self):
+        baseline=self.run_fake("baseline");self.calls=[];events=[]
+        original_fake=self.fake;original_analyse=neutral.large.analyse
+        def fake(argv,**kwargs):events.append("job:"+Path(argv[3]).name);return original_fake(argv,**kwargs)
+        def analyse(path,*args):events.append("analyse:"+Path(path).name);return original_analyse(path,*args)
+        def advice(path,*args):events.append("advice:"+Path(path).name);return self.advice(path,*args)
+        with mock.patch.object(neutral.subprocess,"run",side_effect=fake),mock.patch.object(neutral.large,"analyse",side_effect=analyse),mock.patch.object(file_cache_release,"release_verified_file",side_effect=advice),mock.patch.object(neutral,"memory_snapshot",return_value={"available":True,"memory.stat":{"file":123}}),mock.patch.object(neutral.sys,"stderr",io.StringIO()):
+            report=neutral.run(self.binary,self.root/"cache",release_cache=True)
+        self.assertEqual(report["status"],"complete");self.assertEqual(report["results"],baseline["results"])
+        self.assertEqual(len(self.calls),24);self.assertTrue(all(v[3].endswith(".p010") for v in self.calls[:8]))
+        self.assertEqual(len(report["cache_advice_events"]),52)
+        self.assertIn("file_cache_release.py",report["helper_sha256"])
+        for entry in report["invocations"]:
+            self.assertIn("memory.stat",entry["cache_memory_snapshots"]["before_subprocess"])
+        first="default-y416-neutral-1x-0.y416";second="default-y416-neutral-1x-1.y416"
+        self.assertLess(events.index("analyse:"+first),events.index("advice:"+first))
+        self.assertLess(events.index("advice:"+first),events.index("job:"+second))
+        self.assertTrue(all((self.root/"cache"/e["file"]).is_file() for e in report["cache_advice_events"]))
+
+    def test_default_does_not_import_or_call_cache_helper(self):
+        with mock.patch.object(file_cache_release,"release_verified_file",side_effect=AssertionError("default cache call")):
+            report=self.run_fake()
+        self.assertEqual(report["status"],"complete")
+        self.assertNotIn("file_cache_release.py",report["helper_sha256"])
+        self.assertNotIn("cache_advice_events",report)
+
+    def test_advice_failure_retains_files_stops_before_next_repeat(self):
+        def fail_y416(path,*args):
+            if Path(path).suffix==".y416":raise OSError("required advice failure")
+            return self.advice(path,*args)
+        with mock.patch.object(file_cache_release,"release_verified_file",side_effect=fail_y416):
+            report=self.run_fake(release_cache=True)
+        self.assertEqual(report["status"],"failed");self.assertEqual(len(self.calls),9)
+        self.assertTrue(report["all_sameformat_p010_gates_complete"])
+        self.assertIn("error",report["cache_advice_events"][-1])
+        self.assertTrue((self.root/"run"/report["invocations"][-1]["output_file"]).is_file())
+
+    def test_invalid_output_never_advised_and_no_fallback(self):
+        self.fault="last-native"
+        with mock.patch.object(file_cache_release,"release_verified_file",side_effect=self.advice):
+            report=self.run_fake(release_cache=True)
+        self.assertEqual(report["status"],"failed");self.assertEqual(len(self.calls),8)
+        self.assertEqual(len(report["cache_advice_events"]),14)
+        self.assertTrue(all(v[3].endswith(".p010") for v in self.calls))
+
+    def test_unstable_repeat_not_advised(self):
+        self.fault="unstable"
+        with mock.patch.object(file_cache_release,"release_verified_file",side_effect=self.advice):
+            report=self.run_fake(release_cache=True)
+        self.assertEqual(report["status"],"failed");self.assertEqual(len(self.calls),10)
+        failed=report["invocations"][-1]["output_file"]
+        self.assertFalse(any(e["file"]==failed for e in report["cache_advice_events"]))
 
 
 if __name__=="__main__":unittest.main()

@@ -15,7 +15,7 @@ first output; outputs are hashed during invocation collection, rehashed for
 repeat comparison, and reread for raw statistics and near-neutral counts.
 Bounded Python row arrays therefore do not bound retained kernel file cache.
 
-## Proposed opt-in strategy—not integrated into GPU runners
+## Opt-in strategy—defaults unchanged
 
 Keep all evidence files and the existing cap. Process the first output through
 its hash, required metadata validation, profiles and statistics before admitting
@@ -36,9 +36,11 @@ errors are explicit failures, not silent fallback. Verification reads are
 bounded by the declared byte count plus one, rejecting a growing writer rather
 than chasing an indefinitely expanding file. Seven mocked tests cover ordering,
 strict validation, changed/growing files, failures and evidence preservation.
-No executed GPU runner source was changed. The helper has now been exercised
-only in the separately approved 8 MiB CPU-only experiment below, not on the
-retained large-cohort evidence.
+Original executed GPU runner versions remain preserved. The neutral runner
+now offers explicit `release_cache=True` / `--release-cache`; the default
+behavior is unchanged. After the CPU-only check, separately approved fresh
+small and production-size opt-in cohorts were measured as described below.
+Old retained evidence was not modified or deleted.
 
 The Linux advice is nonbinding; it does not prove eviction or establish a
 memory bound. Dirty pages should be synced first, and partial-page requests
@@ -83,3 +85,41 @@ were zero, and every max/OOM event was zero. Actual cgroup peak was 18,714,624
 bytes (17.85 MiB); process peak RSS was 20,688 KiB. These distinct metrics need
 not agree. The CPU-only probe took 0.058 seconds, not a GPU or playback timing.
 No further run or GPU-runner integration follows automatically from this result.
+
+## Separately approved GPU equivalence checkpoints
+
+The [small opt-in cohort](results/intel-y416-near-neutral-small-cache-release-v11.json)
+completed 24 sequential jobs and 52 successful required advice events. All four
+input records, all 24 output hashes and every result—including raw profiles,
+word sets, low-bit and near-neutral counts, and repeat hashes—were exactly equal
+to the retained small baseline. Its kernel cgroup peak was 44,646,400 bytes
+(42.58 MiB); no claim of a controlled small-run memory improvement is made.
+
+Only after that equivalence check, the separately approved
+[production-size opt-in cohort](results/intel-y416-near-neutral-large-cache-release-v11.json)
+completed eight sequential jobs and 18 successful required advice events.
+Both input records, all eight output hashes and every result were exactly equal
+to the retained production baseline. All four P010 identity gates completed
+before any Y416 scaling. No change to fractional handling, metadata, phase,
+image quality or playback policy was introduced.
+
+The opt-in production run recorded a kernel cgroup peak of **271,278,080 bytes
+(258.71 MiB)**, versus 505,266,176 bytes (481.86 MiB) in the prior baseline run.
+These are two actual offline observations, not a controlled benchmark or a
+guaranteed bound. The memory cap remained 536,870,912 bytes, job swap maximum
+was zero, and swap/max/OOM events remained zero. Process peak RSS was 28,136
+KiB. Runner duration was 11.453 seconds, versus 10.854 seconds previously;
+this includes evidence handling and must not be presented as playback timing.
+
+For each of the four 4K Y416 output advice events, sampled `memory.stat.file`
+charge fell by exactly **66,355,200 bytes**, the packed output size. At those
+post-job snapshots, anonymous charge was approximately 13–15 MiB and shmem was
+zero. Child/GPU transient memory still contributes to the job's peak and is
+not explained by those post-job samples. Advice remains nonbinding and is not
+a physical-page residency test.
+
+Every file remains recoverable: inputs, raw outputs, logs and the exact executed
+runner/helper sources were copied to Ollie's ignored archive and hash-verified;
+the VM originals remain. Neither cohort changed Kodi, display settings, the
+TV/SK4, global caches, or the memory limit. The helper is pinned and opt-in;
+an advice failure stops the runner without fallback or deletion.

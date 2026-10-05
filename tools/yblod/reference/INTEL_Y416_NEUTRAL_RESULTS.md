@@ -86,7 +86,41 @@ under the unchanged 512 MiB limit. Job swap and all max/OOM events were zero.
 The cgroup includes child processes and charged file cache, not just Python
 working memory. This peak is close to the limit: future large experiments
 need a reduced output/cache-retention strategy, not a higher memory cap.
-No files were deleted and no additional large cohort was started.
+No files were deleted. The following subsection records the subsequent,
+separately approved opt-in checkpoints.
+
+### Separately approved opt-in cache checkpoints
+
+The runner now offers `release_cache=True` / `--release-cache`; it is not the
+default. It validates and analyses the first repeat before generating the
+second, then requests per-file cache release after required verification.
+Helper failures stop the run; evidence is never deleted.
+
+First, the [small opt-in checkpoint](results/intel-y416-near-neutral-small-cache-release-v11.json)
+completed 24 jobs and 52 successful advice events. All four input records,
+24 output hashes and every result—including complete raw profiles, word sets,
+near-neutral counts and repeat hashes—matched the original small cohort exactly.
+Only then was the [production opt-in checkpoint](results/intel-y416-near-neutral-large-cache-release-v11.json)
+approved: eight jobs, 18 successful advice events, both input records, eight
+output hashes and every result exactly matching the original production cohort.
+The same P010 identity gates still preceded every Y416 stage.
+
+The production opt-in kernel cgroup peak was **271,278,080 bytes (258.71 MiB)**,
+versus the prior **481.86 MiB**, under the unchanged 512 MiB/no-job-swap cap.
+This is a pair of measured offline observations, not a controlled benchmark
+or guaranteed future bound. Swap/max/OOM events were zero. For each of the four
+4K output advice events, sampled file charge decreased by 66,355,200 bytes,
+the packed output size. Per-job memory statistics remain in the report; advice
+is nonbinding and does not prove per-page eviction.
+
+The small archive's 76 evidence files plus both executed sources, and the
+production archive's 26 evidence files plus both sources, were hash-verified
+on Ollie; VM copies remain. Runner SHA-256 was
+`ea47acd67f5e8edd1d3231e4c8a9de0875fd2dc583bf03d393160b8d1fded320`;
+cache helper SHA-256 was
+`35707b380ccaa4db43ca0d5d791aa84ec82af7db19698fbf5fd53a82932435d0`.
+No image accuracy, phase, metadata or fractional policy changed. See the
+[cache handling evidence and constraints](FILE_CACHE_RELEASE_PLAN.md).
 
 ## What the alternatives show—and do not show
 

@@ -70,9 +70,22 @@ def near_neutral(path,width,height):
             for index,component in enumerate(("Cb","Y","Cr"))}
 
 
-def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD128",*,cases=CASES,native_y416=True):
+def memory_snapshot():
+    value=large.cgroup_snapshot()
+    if value.get("available"):
+        try:
+            scope=Path(value["scope"])
+            value["memory.stat"]={key:int(number) for key,number in (line.split() for line in (scope/"memory.stat").read_text().splitlines())}
+            for name in ("memory.max","memory.swap.max"):
+                number=(scope/name).read_text().strip();value[name]=number if number=="max" else int(number)
+        except (OSError,ValueError) as error:value["memory.stat_unavailable"]=str(error)
+    return value
+
+
+def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD128",*,cases=CASES,native_y416=True,release_cache=False):
     large.checker.large.dimensions(width,height)
     if type(repeats) is not int or repeats!=2 or type(native_y416) is not bool:raise ValueError("exactly2 repeats and explicit native boolean required")
+    if type(release_cache) is not bool:raise ValueError("explicit release_cache boolean required")
     if type(cases) not in (tuple,list) or not 2<=len(cases)<=4 or cases[0]!="neutral" or len(set(cases))!=len(cases):raise ValueError("2..4 unique cases, neutral first required")
     for case in cases:case_spec(case,width,height)
     raw_budget=len(cases)*width*height*(9+repeats*8*(4+int(native_y416)))
@@ -80,12 +93,31 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
     executable=Path(binary).resolve();binary_pin=large.checker.large.file_hash(executable)
     root=Path(destination).resolve();root.mkdir(exist_ok=False);started=time.monotonic()
     modules=(large,large.checker,large.checker.large,large.checker.vectors,large.checker.transport,large.checker.siting)
+    if release_cache:
+        import file_cache_release as cache_helper
+        modules+=(cache_helper,)
     report={"schema":"yblod.hardware-y416-neutral.v1","status":"failed","input_size":[width,height],"output_size":[2*width,2*height],
             "repeats":repeats,"case_count":len(cases),"native_y416_requested":native_y416,"planned_raw_bytes":raw_budget,
             "binary_sha256":binary_pin,"source_sha256":large.checker.large.file_hash(__file__),
             "helper_sha256":{Path(m.__file__).name:large.checker.large.file_hash(m.__file__) for m in modules},
             "inputs":{},"invocations":[],"results":{},"hardware_engine_verified":False,
             "interpretation":"one-code synthetic offscreen diagnostics, no fitted phase or truncation/NLQ/Dolby/display policy"}
+    if release_cache:report.update(release_cache_requested=True,cache_advice_events=[])
+    def advise(path,pin,size,role,stage="validated_job"):
+        event={"file":path.name,"role":role,"stage":stage,"job_index":len(report["invocations"])-1,
+               "before_advice":memory_snapshot()};report["cache_advice_events"].append(event)
+        try:
+            event["advice"]=cache_helper.release_verified_file(path,pin,size)
+            if event["advice"].get("dontneed_advice_submitted") is not True or event["advice"].get("file_data_fsync_completed") is not True:
+                raise ValueError("required cache advice not completed")
+        except Exception as error:
+            event["error"]={"type":type(error).__name__,"message":str(error)}
+            event["after_advice_failure"]=memory_snapshot();raise
+        event["immediately_after_advice"]=memory_snapshot()
+    def advise_job(case,path,pin,size):
+        advise(path,pin,size,"validated_output")
+        record=report["inputs"][case]
+        advise(root/record["file"],record["sha256"],record["bytes"],"closed_consumed_input")
     def call(case,scale,fmt,repeat=0,copy=False):
         stem=f"{'copy' if copy else 'default'}-{fmt}-{case}-{scale}x-{repeat}";out=root/f"{stem}.{fmt}"
         argv=[str(executable),str(device),str(root/report["inputs"][case]["file"]),str(out),str(width),str(height),str(width*scale),str(height*scale),"copy" if copy else "default"]
@@ -94,6 +126,7 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
                      "--range","full" if fmt=="p010" else "reduced","--pipeline","default"]
             if fmt=="y416":argv += ["--surface-contract","allocation-diagnostic"]
         entry={"argv":argv,"case":case,"format":fmt,"size":[width*scale,height*scale],"output_file":out.name};report["invocations"].append(entry)
+        if release_cache:entry["cache_memory_snapshots"]={"before_subprocess":memory_snapshot()}
         try:
             result=subprocess.run(argv,capture_output=True,timeout=60,check=False)
             stdout,stderr=result.stdout,result.stderr;entry["exit_status"]=result.returncode
@@ -104,6 +137,7 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
         if out.exists():entry["output_sha256"]=large.checker.large.file_hash(out)
         if entry["exit_status"]!=0:raise ValueError("probe failure; no fallback")
         entry["invocation"]=large.validate_invocation(stdout,width,height,width*scale,height*scale,fmt,copy)
+        if release_cache:entry["cache_memory_snapshots"]["after_invocation_hash"]=memory_snapshot()
         return out
     try:
         if shutil.disk_usage(root).free<raw_budget+64*1024*1024:raise ValueError("insufficient disk reserve")
@@ -113,16 +147,33 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
                 path=call(case,1,"p010",copy=copy);identity=large.p010_identity(path,report["inputs"][case],width,height)
                 report["invocations"][-1]["identity"]=identity
                 if not identity["exact"]:raise ValueError("P010 identity gate failed")
+                if release_cache:advise_job(case,path,report["invocations"][-1]["output_sha256"],width*height*3)
         report["all_sameformat_p010_gates_complete"]=True
         for stage,scale in ((("native",1),("scaled",2)) if native_y416 else (("scaled",2),)):
             values=report["results"].setdefault(stage,{})
             for case in cases:
                 print(f"near-neutral {stage}/{case}",file=sys.stderr,flush=True)
-                outputs=[call(case,scale,"y416",repeat=n) for n in range(repeats)]
-                pins=[large.checker.large.file_hash(p) for p in outputs]
-                if len(set(pins))!=1:raise ValueError("unstable repeated Y416 words")
-                value=large.analyse(outputs[0],width*scale,height*scale)
-                value.update(repeat_sha256=pins,repeat_stable=True,near_neutral=near_neutral(outputs[0],width*scale,height*scale))
+                if release_cache:
+                    first=call(case,scale,"y416",repeat=0)
+                    pins=[report["invocations"][-1]["output_sha256"]]
+                    value=large.analyse(first,width*scale,height*scale)
+                    if value["sha256"]!=pins[0]:raise ValueError("Y416 changed during first-repeat analysis")
+                    value["near_neutral"]=near_neutral(first,width*scale,height*scale)
+                    if case=="neutral" and any(value["raw_le16_word_positions"][str(i)]["raw_word_values"]!=[32768] for i in range(3)):
+                        raise ValueError("neutral colour preservation failed; alpha is not gated")
+                    advise_job(case,first,pins[0],width*height*scale*scale*8)
+                    second=call(case,scale,"y416",repeat=1)
+                    pins.append(report["invocations"][-1]["output_sha256"])
+                    if pins[1]!=pins[0]:raise ValueError("unstable repeated Y416 words")
+                    if second.stat().st_size!=width*height*scale*scale*8:raise ValueError("repeated Y416 byte size invalid")
+                    advise_job(case,second,pins[1],width*height*scale*scale*8)
+                    value.update(repeat_sha256=pins,repeat_stable=True)
+                else:
+                    outputs=[call(case,scale,"y416",repeat=n) for n in range(repeats)]
+                    pins=[large.checker.large.file_hash(p) for p in outputs]
+                    if len(set(pins))!=1:raise ValueError("unstable repeated Y416 words")
+                    value=large.analyse(outputs[0],width*scale,height*scale)
+                    value.update(repeat_sha256=pins,repeat_stable=True,near_neutral=near_neutral(outputs[0],width*scale,height*scale))
                 if case=="neutral" and any(value["raw_le16_word_positions"][str(i)]["raw_word_values"]!=[32768] for i in range(3)):
                     raise ValueError("neutral colour preservation failed; alpha is not gated")
                 values[case]=value
@@ -131,6 +182,7 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
             path=root/record["file"]
             if path.stat().st_size!=record["bytes"] or large.checker.large.file_hash(path)!=record["sha256"]:
                 raise ValueError("synthetic input changed after generation")
+            if release_cache:advise(path,record["sha256"],record["bytes"],"input","final_input_verification")
         if large.checker.large.file_hash(__file__)!=report["source_sha256"] or any(large.checker.large.file_hash(m.__file__)!=report["helper_sha256"][Path(m.__file__).name] for m in modules):
             raise ValueError("runner/helper source changed")
         report["status"]="complete"
@@ -145,5 +197,6 @@ if __name__=="__main__":
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument("binary");parser.add_argument("destination")
     parser.add_argument("--width",type=int,default=64);parser.add_argument("--height",type=int,default=64)
     parser.add_argument("--cases",nargs="+",default=CASES);parser.add_argument("--omit-native-y416",action="store_true")
-    args=parser.parse_args();value=run(args.binary,args.destination,args.width,args.height,cases=args.cases,native_y416=not args.omit_native_y416)
+    parser.add_argument("--release-cache",action="store_true",help="opt-in verified per-file cache advice; no deletion/eviction guarantee")
+    args=parser.parse_args();value=run(args.binary,args.destination,args.width,args.height,cases=args.cases,native_y416=not args.omit_native_y416,release_cache=args.release_cache)
     print(json.dumps({"status":value["status"],"invocations":len(value["invocations"])}));raise SystemExit(value["status"]!="complete")
