@@ -1,0 +1,1977 @@
+{
+  "schema": "yblod.forward-sampling-experiment.v1",
+  "status": "complete",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1960",
+    "pts": 81748,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "source_provenance": {
+    "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-direct",
+    "output_report_sha256": "055e681faae0ae687772fee5c2f46f01bc327e8bea1e9523a99594f2d69ce413",
+    "comparison_report_sha256": "e8501fd6ad997840441bdce79a7f40bb8ad202f294f37af2bdf69a8d1ceecf43",
+    "compared_tunnel_sha256": "96d12416c5afd16e0ee58e4de629bdb447239d37b646a01155b77b7b6039087f"
+  },
+  "composer_report_sha256": "c0c999728160ca9f3e4f69131b1516703b253ad94e806889cbae116f61abe1d6",
+  "rpu_sha256": "ac2a665b24f5370988cf7c1e71ec61fb9ccd3680bb33b70bb594bd078f06520c",
+  "capture_sha256": "dffabbc1e19d4b6cbdee5bfee7fb9a25a9f461946e0721c842a1c084c560fba3",
+  "identity_basis": "supplied visible-counter/source association; not driver PTS",
+  "source_dm": {
+    "compressed": false,
+    "affected_dm_metadata_id": 0,
+    "current_dm_metadata_id": 0,
+    "scene_refresh_flag": 0,
+    "ycc_to_rgb_coef0": 9574,
+    "ycc_to_rgb_coef1": 0,
+    "ycc_to_rgb_coef2": 13802,
+    "ycc_to_rgb_coef3": 9574,
+    "ycc_to_rgb_coef4": -1540,
+    "ycc_to_rgb_coef5": -5348,
+    "ycc_to_rgb_coef6": 9574,
+    "ycc_to_rgb_coef7": 17610,
+    "ycc_to_rgb_coef8": 0,
+    "ycc_to_rgb_offset0": 16777216,
+    "ycc_to_rgb_offset1": 134217728,
+    "ycc_to_rgb_offset2": 134217728,
+    "rgb_to_lms_coef0": 7222,
+    "rgb_to_lms_coef1": 8771,
+    "rgb_to_lms_coef2": 390,
+    "rgb_to_lms_coef3": 2654,
+    "rgb_to_lms_coef4": 12430,
+    "rgb_to_lms_coef5": 1300,
+    "rgb_to_lms_coef6": 0,
+    "rgb_to_lms_coef7": 422,
+    "rgb_to_lms_coef8": 15962,
+    "signal_eotf": 65535,
+    "signal_eotf_param0": 0,
+    "signal_eotf_param1": 0,
+    "signal_eotf_param2": 0,
+    "signal_bit_depth": 12,
+    "signal_color_space": 0,
+    "signal_chroma_format": 0,
+    "signal_full_range_flag": 1,
+    "source_min_pq": 62,
+    "source_max_pq": 3696,
+    "source_diagonal": 42,
+    "cmv29_metadata": {
+      "num_ext_blocks": 5,
+      "ext_metadata_blocks": [
+        {
+          "Level1": {
+            "min_pq": 69,
+            "max_pq": 2965,
+            "avg_pq": 1580
+          }
+        },
+        {
+          "Level2": {
+            "target_max_pq": 2081,
+            "trim_slope": 2097,
+            "trim_offset": 2048,
+            "trim_power": 2072,
+            "trim_chroma_weight": 1835,
+            "trim_saturation_gain": 2370,
+            "ms_weight": 512
+          }
+        },
+        {
+          "Level4": {
+            "anchor_pq": 1515,
+            "anchor_power": 1001
+          }
+        },
+        {
+          "Level5": {
+            "active_area_left_offset": 0,
+            "active_area_right_offset": 0,
+            "active_area_top_offset": 275,
+            "active_area_bottom_offset": 276
+          }
+        },
+        {
+          "Level6": {
+            "max_display_mastering_luminance": 4000,
+            "min_display_mastering_luminance": 50,
+            "max_content_light_level": 3991,
+            "max_frame_average_light_level": 2363
+          }
+        }
+      ]
+    }
+  },
+  "width": 3840,
+  "height": 2160,
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "metadata": {
+    "packets": 2,
+    "copies_per_packet": 3,
+    "all_crc_valid": true,
+    "copies_identical": true,
+    "packet_hex": [
+      "400000008800002002031f06912002fc5b04432002010bea5700000000080000000800000042b8fea4fea4fea442b8fea4fea4fea442b8ffff00000000000000000c020101003e0e70002a05000000060100450b95062c0000000e020821083108000818072b09420200000000040405bf03db000000080500000000152a9d99",
+      "c000000000000000000008060fa000320f97093b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000058a9c804"
+    ]
+  },
+  "processing_strip_rows": 32,
+  "baseline": {
+    "variant": "linear-left",
+    "byte_identical": true,
+    "verified_bytes": 24883200,
+    "tunnel_sha256": "96d12416c5afd16e0ee58e4de629bdb447239d37b646a01155b77b7b6039087f"
+  },
+  "held_fixed": {
+    "policy": "direct",
+    "horizontal_expansion": "baseline bilinear left-co-sited",
+    "target_ycc": [
+      [
+        1.000244140625,
+        0.0975341796875,
+        0.2052001953125
+      ],
+      [
+        1.000244140625,
+        -0.1138916015625,
+        0.1331787109375
+      ],
+      [
+        1.000244140625,
+        0.0325927734375,
+        -0.6768798828125
+      ]
+    ],
+    "target_lms": [
+      [
+        1.04248046875,
+        -0.021240234375,
+        -0.021240234375
+      ],
+      [
+        -0.021240234375,
+        1.04248046875,
+        -0.021240234375
+      ],
+      [
+        -0.021240234375,
+        -0.021240234375,
+        1.04248046875
+      ]
+    ],
+    "target_offset": [
+      0.0,
+      0.5,
+      0.5
+    ],
+    "quantization": "floor(value*4096+0.5), bound 0..4095; no fitted offsets",
+    "transport_sampling": "P/T co-sited at even x; top-down RGB8"
+  },
+  "group_definitions": {
+    "gradient": "Four-neighbour maximum from the same captured channel; P/T use their half-width grids. One-row strip halos; active-area boundaries replicated.",
+    "rows": "Absolute frame-row parity, not active-area-relative parity.",
+    "chroma": "Both P and T are co-sited at even x; T is stored in the neighbouring packed pixel.",
+    "direction": "versus_capture: candidate minus SK4; minus_baseline: candidate minus unchanged linear-left."
+  },
+  "variants": {
+    "linear-left": {
+      "configuration": {
+        "schema": "yblod.chroma-geometry-experiment.v1",
+        "variant": "linear-left",
+        "input_contract": "prepared planar 4:2:0 left-sited chroma",
+        "output": "float64 planar full-resolution chroma strip",
+        "source_centers_in_luma_coordinates": {
+          "x": "2*i",
+          "y": "2*j+0.5"
+        },
+        "source_center_offsets_luma_samples": [
+          0.0,
+          0.5
+        ],
+        "source_sample_spacing_luma_samples": [
+          2,
+          2
+        ],
+        "horizontal": {
+          "name": "linear",
+          "coordinate": "output_x/2",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "unchanged_from_output_frame_expand_left": true
+        },
+        "vertical": {
+          "name": "linear",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "coordinate": "(global_output_y-0.5)/2"
+        },
+        "boundary": "replicate edge samples; do not reset coordinates at strip boundaries",
+        "arithmetic": "float64; no intermediate rounding or clipping",
+        "invalid_geometry_control": false,
+        "production_choice": false,
+        "accuracy_status": "isolated diagnostic; no claim of proprietary Dolby filter equivalence",
+        "geometry_basis": "existing prepare_frame left-sited contract and output_frame.expand_left coordinates",
+        "working_chunk_rows": 32
+      },
+      "comparisons": {
+        "versus_capture": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 2154357,
+              "zero": 213129,
+              "positive": 3811074,
+              "maximum_absolute_codes": 123,
+              "mean_signed_codes": 5.755876126476072,
+              "mean_absolute_codes": 13.218079617257095,
+              "rmse_codes": 19.403026485931413
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 1161418,
+              "zero": 96506,
+              "positive": 1829436,
+              "maximum_absolute_codes": 123,
+              "mean_signed_codes": 5.196451660966003,
+              "mean_absolute_codes": 13.298632164697347,
+              "rmse_codes": 19.39035690911631
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 992939,
+              "zero": 116623,
+              "positive": 1981638,
+              "maximum_absolute_codes": 123,
+              "mean_signed_codes": 6.3146056547619045,
+              "mean_absolute_codes": 13.137627135093167,
+              "rmse_codes": 19.4156720720883
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 1146742,
+              "zero": 119470,
+              "positive": 1937693,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 5.408849825447383,
+              "mean_absolute_codes": 12.050149114908214,
+              "rmse_codes": 17.96356803907224
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 995422,
+              "zero": 92559,
+              "positive": 1845934,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 6.086326972662807,
+              "mean_absolute_codes": 14.394823980926509,
+              "rmse_codes": 20.7232360017176
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 12193,
+              "zero": 1100,
+              "positive": 27447,
+              "maximum_absolute_codes": 123,
+              "mean_signed_codes": 9.249361806578301,
+              "mean_absolute_codes": 20.323392243495338,
+              "rmse_codes": 28.132811902605354
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 250856,
+              "zero": 88768,
+              "positive": 2749656,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 18.153392699917134,
+              "mean_absolute_codes": 18.66709233219391,
+              "rmse_codes": 25.946782308374438
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 65579,
+              "zero": 35016,
+              "positive": 1443085,
+              "maximum_absolute_codes": 95,
+              "mean_signed_codes": 18.952332737354894,
+              "mean_absolute_codes": 19.15802044465174,
+              "rmse_codes": 26.0933685648033
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 185277,
+              "zero": 53752,
+              "positive": 1306571,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 17.355445134575568,
+              "mean_absolute_codes": 18.17677406832298,
+              "rmse_codes": 25.799546846695275
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 55670,
+              "zero": 39822,
+              "positive": 745772,
+              "maximum_absolute_codes": 92,
+              "mean_signed_codes": 13.299474362388025,
+              "mean_absolute_codes": 13.562923172749576,
+              "rmse_codes": 21.11629386946049
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 169894,
+              "zero": 46931,
+              "positive": 1910278,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 20.244845689183833,
+              "mean_absolute_codes": 20.74239094204653,
+              "rmse_codes": 27.715840864818027
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 25292,
+              "zero": 2015,
+              "positive": 93606,
+              "maximum_absolute_codes": 90,
+              "mean_signed_codes": 15.132136329426944,
+              "mean_absolute_codes": 17.67116852613036,
+              "rmse_codes": 24.184887204925797
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 781188,
+              "zero": 134116,
+              "positive": 2173976,
+              "maximum_absolute_codes": 84,
+              "mean_signed_codes": 6.51710592759478,
+              "mean_absolute_codes": 9.314628975036255,
+              "rmse_codes": 13.44354533846449
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 60584,
+              "zero": 39450,
+              "positive": 1443646,
+              "maximum_absolute_codes": 84,
+              "mean_signed_codes": 10.928404850746269,
+              "mean_absolute_codes": 11.142271714344941,
+              "rmse_codes": 15.163173896314298
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 720604,
+              "zero": 94666,
+              "positive": 730330,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 2.1112868788819874,
+              "mean_absolute_codes": 7.489256599378882,
+              "rmse_codes": 11.471577448473017
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 80482,
+              "zero": 51474,
+              "positive": 616061,
+              "maximum_absolute_codes": 68,
+              "mean_signed_codes": 7.534447746508435,
+              "mean_absolute_codes": 8.025359049326418,
+              "rmse_codes": 13.252712325328133
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 403358,
+              "zero": 71005,
+              "positive": 1168436,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 7.291539622315329,
+              "mean_absolute_codes": 9.657579533466967,
+              "rmse_codes": 14.234063887577774
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 297348,
+              "zero": 11637,
+              "positive": 389479,
+              "maximum_absolute_codes": 84,
+              "mean_signed_codes": 3.6061071150410045,
+              "mean_absolute_codes": 9.888741581527466,
+              "rmse_codes": 11.607046957776921
+            }
+          }
+        },
+        "minus_baseline": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 0,
+              "zero": 6178560,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 0,
+              "zero": 3087360,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 0,
+              "zero": 3091200,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 0,
+              "zero": 3203905,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 0,
+              "zero": 2933915,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 0,
+              "zero": 40740,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 0,
+              "zero": 3089280,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 0,
+              "zero": 1543680,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 0,
+              "zero": 1545600,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 0,
+              "zero": 841264,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 0,
+              "zero": 2127103,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 0,
+              "zero": 120913,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 0,
+              "zero": 3089280,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 0,
+              "zero": 1543680,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 0,
+              "zero": 1545600,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 0,
+              "zero": 748017,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 0,
+              "zero": 1642799,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 0,
+              "zero": 698464,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            }
+          }
+        }
+      }
+    },
+    "cubic-left": {
+      "configuration": {
+        "schema": "yblod.chroma-geometry-experiment.v1",
+        "variant": "cubic-left",
+        "input_contract": "prepared planar 4:2:0 left-sited chroma",
+        "output": "float64 planar full-resolution chroma strip",
+        "source_centers_in_luma_coordinates": {
+          "x": "2*i",
+          "y": "2*j+0.5"
+        },
+        "source_center_offsets_luma_samples": [
+          0.0,
+          0.5
+        ],
+        "source_sample_spacing_luma_samples": [
+          2,
+          2
+        ],
+        "horizontal": {
+          "name": "linear",
+          "coordinate": "output_x/2",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "unchanged_from_output_frame_expand_left": true
+        },
+        "vertical": {
+          "name": "Keys cubic",
+          "a": -0.5,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": "K(t-offset), t=coordinate-floor(coordinate)",
+          "kernel_d_abs_0_to_1": "1.5*d^3 - 2.5*d^2 + 1",
+          "kernel_d_abs_1_to_2": "-0.5*d^3 + 2.5*d^2 - 4*d + 2",
+          "kernel_d_abs_ge_2": "0",
+          "coordinate": "(global_output_y-0.5)/2"
+        },
+        "boundary": "replicate edge samples; do not reset coordinates at strip boundaries",
+        "arithmetic": "float64; no intermediate rounding or clipping",
+        "invalid_geometry_control": false,
+        "production_choice": false,
+        "accuracy_status": "isolated diagnostic; no claim of proprietary Dolby filter equivalence",
+        "geometry_basis": "existing prepare_frame left-sited contract and output_frame.expand_left coordinates",
+        "working_chunk_rows": 32
+      },
+      "comparisons": {
+        "versus_capture": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 2154374,
+              "zero": 213223,
+              "positive": 3810963,
+              "maximum_absolute_codes": 124,
+              "mean_signed_codes": 5.756616266573441,
+              "mean_absolute_codes": 13.218821699554589,
+              "rmse_codes": 19.404014880582338
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 1161424,
+              "zero": 96580,
+              "positive": 1829356,
+              "maximum_absolute_codes": 120,
+              "mean_signed_codes": 5.197032092143449,
+              "mean_absolute_codes": 13.299609051098674,
+              "rmse_codes": 19.391345892294698
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 992950,
+              "zero": 116643,
+              "positive": 1981607,
+              "maximum_absolute_codes": 124,
+              "mean_signed_codes": 6.315505305383023,
+              "mean_absolute_codes": 13.138134704968945,
+              "rmse_codes": 19.41665988012926
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 1146890,
+              "zero": 119551,
+              "positive": 1937464,
+              "maximum_absolute_codes": 117,
+              "mean_signed_codes": 5.408154736173513,
+              "mean_absolute_codes": 12.050972173020112,
+              "rmse_codes": 17.966106390555613
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 995274,
+              "zero": 92612,
+              "positive": 1846029,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 6.088580616684532,
+              "mean_absolute_codes": 14.395620868361899,
+              "rmse_codes": 20.723076133239836
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 12210,
+              "zero": 1060,
+              "positive": 27470,
+              "maximum_absolute_codes": 124,
+              "mean_signed_codes": 9.253976435935199,
+              "mean_absolute_codes": 20.313819342169857,
+              "rmse_codes": 28.11720114966847
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 251365,
+              "zero": 88861,
+              "positive": 2749054,
+              "maximum_absolute_codes": 97,
+              "mean_signed_codes": 18.153607313030868,
+              "mean_absolute_codes": 18.66921030142946,
+              "rmse_codes": 25.952113461766086
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 65867,
+              "zero": 35037,
+              "positive": 1442776,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 18.95255687707297,
+              "mean_absolute_codes": 19.159983286691542,
+              "rmse_codes": 26.09874325989781
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 185498,
+              "zero": 53824,
+              "positive": 1306278,
+              "maximum_absolute_codes": 97,
+              "mean_signed_codes": 17.355650232919256,
+              "mean_absolute_codes": 18.17904697204969,
+              "rmse_codes": 25.804834188979086
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 55820,
+              "zero": 39940,
+              "positive": 745504,
+              "maximum_absolute_codes": 92,
+              "mean_signed_codes": 13.300601238136899,
+              "mean_absolute_codes": 13.565065187622436,
+              "rmse_codes": 21.124550973800385
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 170175,
+              "zero": 46991,
+              "positive": 1909937,
+              "maximum_absolute_codes": 97,
+              "mean_signed_codes": 20.24519405031162,
+              "mean_absolute_codes": 20.744001113251215,
+              "rmse_codes": 27.72141588847823
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 25370,
+              "zero": 1930,
+              "positive": 93613,
+              "maximum_absolute_codes": 89,
+              "mean_signed_codes": 15.123650889482521,
+              "mean_absolute_codes": 17.682052384772522,
+              "rmse_codes": 24.168452205838907
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 781530,
+              "zero": 133969,
+              "positive": 2173781,
+              "maximum_absolute_codes": 95,
+              "mean_signed_codes": 6.517636795628755,
+              "mean_absolute_codes": 9.317761743836751,
+              "rmse_codes": 13.447759036620274
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 60909,
+              "zero": 39454,
+              "positive": 1443317,
+              "maximum_absolute_codes": 95,
+              "mean_signed_codes": 10.928876451077944,
+              "mean_absolute_codes": 11.144672470978442,
+              "rmse_codes": 15.166951853764528
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 720621,
+              "zero": 94515,
+              "positive": 730464,
+              "maximum_absolute_codes": 80,
+              "mean_signed_codes": 2.1118769409937888,
+              "mean_absolute_codes": 7.4931204710144925,
+              "rmse_codes": 11.47645975437499
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 80618,
+              "zero": 51456,
+              "positive": 615943,
+              "maximum_absolute_codes": 69,
+              "mean_signed_codes": 7.534838111968043,
+              "mean_absolute_codes": 8.027193232239375,
+              "rmse_codes": 13.25789870904282
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 403702,
+              "zero": 70862,
+              "positive": 1168235,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 7.291717976453602,
+              "mean_absolute_codes": 9.663899844107526,
+              "rmse_codes": 14.240792133150324
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 297210,
+              "zero": 11651,
+              "positive": 389603,
+              "maximum_absolute_codes": 95,
+              "mean_signed_codes": 3.607617572272873,
+              "mean_absolute_codes": 9.885767913593256,
+              "rmse_codes": 11.602881159648653
+            }
+          }
+        },
+        "minus_baseline": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 339405,
+              "zero": 5495520,
+              "positive": 343635,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": 0.0007401400973689662,
+              "mean_absolute_codes": 0.11098265615288999,
+              "rmse_codes": 0.3352950902489612
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 169788,
+              "zero": 2746139,
+              "positive": 171433,
+              "maximum_absolute_codes": 7,
+              "mean_signed_codes": 0.0005804311774461028,
+              "mean_absolute_codes": 0.11096276430348259,
+              "rmse_codes": 0.3352430911159272
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 169617,
+              "zero": 2749381,
+              "positive": 172202,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": 0.0008996506211180124,
+              "mean_absolute_codes": 0.11100252329192546,
+              "rmse_codes": 0.33534701673879663
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 164631,
+              "zero": 2876906,
+              "positive": 162368,
+              "maximum_absolute_codes": 4,
+              "mean_signed_codes": -0.00069508927387048,
+              "mean_absolute_codes": 0.10208199057088146,
+              "rmse_codes": 0.3195750055937075
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 171264,
+              "zero": 2585126,
+              "positive": 177525,
+              "maximum_absolute_codes": 6,
+              "mean_signed_codes": 0.0022536440217252375,
+              "mean_absolute_codes": 0.11907229759553362,
+              "rmse_codes": 0.3458982408231776
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 3510,
+              "zero": 33488,
+              "positive": 3742,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": 0.004614629356897398,
+              "mean_absolute_codes": 0.22837506136475208,
+              "rmse_codes": 0.6339286146431841
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 330319,
+              "zero": 2426578,
+              "positive": 332383,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": 0.00021461311373523927,
+              "mean_absolute_codes": 0.2211644784545266,
+              "rmse_codes": 0.4973759999562752
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 164867,
+              "zero": 1212798,
+              "positive": 166015,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": 0.00022413971807628524,
+              "mean_absolute_codes": 0.22104322139303484,
+              "rmse_codes": 0.49723791399866585
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 165452,
+              "zero": 1213780,
+              "positive": 166368,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": 0.0002050983436853002,
+              "mean_absolute_codes": 0.22128558488612837,
+              "rmse_codes": 0.4975138761238904
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 52350,
+              "zero": 735629,
+              "positive": 53285,
+              "maximum_absolute_codes": 6,
+              "mean_signed_codes": 0.0011268757488731242,
+              "mean_absolute_codes": 0.12644306662355692,
+              "rmse_codes": 0.3581696975551037
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 259645,
+              "zero": 1607147,
+              "positive": 260311,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": 0.0003483611277874179,
+              "mean_absolute_codes": 0.2495342256580899,
+              "rmse_codes": 0.5104236305656467
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 18324,
+              "zero": 83802,
+              "positive": 18787,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": -0.00848543994442285,
+              "mean_absolute_codes": 0.3811170014804033,
+              "rmse_codes": 0.9190701734401425
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 165654,
+              "zero": 2756930,
+              "positive": 166696,
+              "maximum_absolute_codes": 31,
+              "mean_signed_codes": 0.0005308680339755541,
+              "mean_absolute_codes": 0.11197625336648022,
+              "rmse_codes": 0.38617423754615565
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 82714,
+              "zero": 1377880,
+              "positive": 83086,
+              "maximum_absolute_codes": 30,
+              "mean_signed_codes": 0.0004716003316749585,
+              "mean_absolute_codes": 0.11187940505804311,
+              "rmse_codes": 0.3860636461632834
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 82940,
+              "zero": 1379050,
+              "positive": 83610,
+              "maximum_absolute_codes": 31,
+              "mean_signed_codes": 0.0005900621118012422,
+              "mean_absolute_codes": 0.11207298136645963,
+              "rmse_codes": 0.3862846599456375
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 32485,
+              "zero": 682758,
+              "positive": 32774,
+              "maximum_absolute_codes": 5,
+              "mean_signed_codes": 0.0003903654596085383,
+              "mean_absolute_codes": 0.08732689230324979,
+              "rmse_codes": 0.295845819252324
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 108493,
+              "zero": 1425232,
+              "positive": 109074,
+              "maximum_absolute_codes": 10,
+              "mean_signed_codes": 0.00017835413827254582,
+              "mean_absolute_codes": 0.13329750018109338,
+              "rmse_codes": 0.3696640798456485
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 24676,
+              "zero": 648940,
+              "positive": 24848,
+              "maximum_absolute_codes": 31,
+              "mean_signed_codes": 0.0015104572318687863,
+              "mean_absolute_codes": 0.088226451184313,
+              "rmse_codes": 0.4944267781129023
+            }
+          }
+        }
+      }
+    },
+    "linear-top-control": {
+      "configuration": {
+        "schema": "yblod.chroma-geometry-experiment.v1",
+        "variant": "linear-top-control",
+        "input_contract": "prepared planar 4:2:0 left-sited chroma",
+        "output": "float64 planar full-resolution chroma strip",
+        "source_centers_in_luma_coordinates": {
+          "x": "2*i",
+          "y": "2*j+0"
+        },
+        "source_center_offsets_luma_samples": [
+          0.0,
+          0.0
+        ],
+        "source_sample_spacing_luma_samples": [
+          2,
+          2
+        ],
+        "horizontal": {
+          "name": "linear",
+          "coordinate": "output_x/2",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "unchanged_from_output_frame_expand_left": true
+        },
+        "vertical": {
+          "name": "linear",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "coordinate": "(global_output_y-0)/2"
+        },
+        "boundary": "replicate edge samples; do not reset coordinates at strip boundaries",
+        "arithmetic": "float64; no intermediate rounding or clipping",
+        "invalid_geometry_control": true,
+        "production_choice": false,
+        "accuracy_status": "isolated diagnostic; no claim of proprietary Dolby filter equivalence",
+        "geometry_basis": "existing prepare_frame left-sited contract and output_frame.expand_left coordinates",
+        "working_chunk_rows": 32
+      },
+      "comparisons": {
+        "versus_capture": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 2140815,
+              "zero": 216944,
+              "positive": 3820801,
+              "maximum_absolute_codes": 137,
+              "mean_signed_codes": 5.809828827429045,
+              "mean_absolute_codes": 13.212903977625855,
+              "rmse_codes": 19.418610167130264
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 1155287,
+              "zero": 98128,
+              "positive": 1833945,
+              "maximum_absolute_codes": 128,
+              "mean_signed_codes": 5.250919231965174,
+              "mean_absolute_codes": 13.28108804933665,
+              "rmse_codes": 19.387096441895228
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 985528,
+              "zero": 118816,
+              "positive": 1986856,
+              "maximum_absolute_codes": 137,
+              "mean_signed_codes": 6.368044125258799,
+              "mean_absolute_codes": 13.144804606625259,
+              "rmse_codes": 19.450033780248173
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 1138661,
+              "zero": 121929,
+              "positive": 1943315,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 5.459510815707707,
+              "mean_absolute_codes": 12.032655774749875,
+              "rmse_codes": 17.967560632090024
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 990031,
+              "zero": 93943,
+              "positive": 1849941,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 6.144782653894199,
+              "mean_absolute_codes": 14.400972079968234,
+              "rmse_codes": 20.74772411188807
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 12123,
+              "zero": 1072,
+              "positive": 27545,
+              "maximum_absolute_codes": 137,
+              "mean_signed_codes": 9.23789887088856,
+              "mean_absolute_codes": 20.47142857142857,
+              "rmse_codes": 28.262853805884905
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 249264,
+              "zero": 88678,
+              "positive": 2751338,
+              "maximum_absolute_codes": 115,
+              "mean_signed_codes": 18.369158185726125,
+              "mean_absolute_codes": 18.883640524652993,
+              "rmse_codes": 26.228028399567254
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 65226,
+              "zero": 34819,
+              "positive": 1443635,
+              "maximum_absolute_codes": 113,
+              "mean_signed_codes": 19.169093983208956,
+              "mean_absolute_codes": 19.380666329809287,
+              "rmse_codes": 26.362375879613637
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 184038,
+              "zero": 53859,
+              "positive": 1307703,
+              "maximum_absolute_codes": 115,
+              "mean_signed_codes": 17.57021609730849,
+              "mean_absolute_codes": 18.387232142857144,
+              "rmse_codes": 26.093157385008826
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 55193,
+              "zero": 40077,
+              "positive": 745994,
+              "maximum_absolute_codes": 91,
+              "mean_signed_codes": 13.338293330036707,
+              "mean_absolute_codes": 13.596652180528348,
+              "rmse_codes": 21.179010728666
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 169020,
+              "zero": 46725,
+              "positive": 1911358,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 20.49558060893149,
+              "mean_absolute_codes": 20.987139315773614,
+              "rmse_codes": 28.012166766963585
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 25051,
+              "zero": 1876,
+              "positive": 93986,
+              "maximum_absolute_codes": 115,
+              "mean_signed_codes": 15.963841770529223,
+              "mean_absolute_codes": 18.663601101618518,
+              "rmse_codes": 25.51192796488743
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 777435,
+              "zero": 132213,
+              "positive": 2179632,
+              "maximum_absolute_codes": 155,
+              "mean_signed_codes": 6.610890887197017,
+              "mean_absolute_codes": 9.424167767246738,
+              "rmse_codes": 13.624918189771172
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 60379,
+              "zero": 38618,
+              "positive": 1444683,
+              "maximum_absolute_codes": 155,
+              "mean_signed_codes": 11.022849295190714,
+              "mean_absolute_codes": 11.25135649875622,
+              "rmse_codes": 15.336746929670026
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 717056,
+              "zero": 93595,
+              "positive": 734949,
+              "maximum_absolute_codes": 150,
+              "mean_signed_codes": 2.204413172877847,
+              "mean_absolute_codes": 7.599248835403727,
+              "rmse_codes": 11.667157829427447
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 78049,
+              "zero": 50364,
+              "positive": 619604,
+              "maximum_absolute_codes": 69,
+              "mean_signed_codes": 7.684699679285364,
+              "mean_absolute_codes": 8.157416208455155,
+              "rmse_codes": 13.446670073651498
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 401411,
+              "zero": 70317,
+              "positive": 1171071,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 7.420038604844537,
+              "mean_absolute_codes": 9.78228742530279,
+              "rmse_codes": 14.416972770903769
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 297975,
+              "zero": 11532,
+              "positive": 388957,
+              "maximum_absolute_codes": 155,
+              "mean_signed_codes": 3.5577710519081873,
+              "mean_absolute_codes": 9.938486450268016,
+              "rmse_codes": 11.771416394365499
+            }
+          }
+        },
+        "minus_baseline": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 662384,
+              "zero": 4379610,
+              "positive": 1136566,
+              "maximum_absolute_codes": 25,
+              "mean_signed_codes": 0.05395270095297286,
+              "mean_absolute_codes": 0.3484553035011394,
+              "rmse_codes": 0.6988491790486494
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 330686,
+              "zero": 2188288,
+              "positive": 568386,
+              "maximum_absolute_codes": 25,
+              "mean_signed_codes": 0.054467570999170815,
+              "mean_absolute_codes": 0.3484358804933665,
+              "rmse_codes": 0.6988118006532034
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 331698,
+              "zero": 2191322,
+              "positive": 568180,
+              "maximum_absolute_codes": 23,
+              "mean_signed_codes": 0.05343847049689441,
+              "mean_absolute_codes": 0.3484747023809524,
+              "rmse_codes": 0.6988865090159289
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 277296,
+              "zero": 2425386,
+              "positive": 501223,
+              "maximum_absolute_codes": 7,
+              "mean_signed_codes": 0.05066099026032295,
+              "mean_absolute_codes": 0.2721850366974052,
+              "rmse_codes": 0.580148871937559
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 377995,
+              "zero": 1927600,
+              "positive": 628320,
+              "maximum_absolute_codes": 12,
+              "mean_signed_codes": 0.058455681231392186,
+              "mean_absolute_codes": 0.4255303919847712,
+              "rmse_codes": 0.779717250001748
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 7093,
+              "zero": 26624,
+              "positive": 7023,
+              "maximum_absolute_codes": 25,
+              "mean_signed_codes": -0.011462935689739813,
+              "mean_absolute_codes": 0.7959499263622974,
+              "rmse_codes": 1.953691921894292
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 465530,
+              "zero": 1934236,
+              "positive": 689514,
+              "maximum_absolute_codes": 57,
+              "mean_signed_codes": 0.2157654858089911,
+              "mean_absolute_codes": 0.6351602962502589,
+              "rmse_codes": 1.2621270553116832
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 231940,
+              "zero": 966907,
+              "positive": 344833,
+              "maximum_absolute_codes": 57,
+              "mean_signed_codes": 0.216761245854063,
+              "mean_absolute_codes": 0.6350448279436153,
+              "rmse_codes": 1.2620034161226112
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 233590,
+              "zero": 967329,
+              "positive": 344681,
+              "maximum_absolute_codes": 56,
+              "mean_signed_codes": 0.21477096273291926,
+              "mean_absolute_codes": 0.6352756211180124,
+              "rmse_codes": 1.2622505288236279
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 91814,
+              "zero": 649079,
+              "positive": 100371,
+              "maximum_absolute_codes": 11,
+              "mean_signed_codes": 0.038818967648681035,
+              "mean_absolute_codes": 0.2829302097795698,
+              "rmse_codes": 0.6512724423298933
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 362425,
+              "zero": 1222328,
+              "positive": 542350,
+              "maximum_absolute_codes": 20,
+              "mean_signed_codes": 0.25073491974765677,
+              "mean_absolute_codes": 0.7335841282721147,
+              "rmse_codes": 1.282628052395398
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 11291,
+              "zero": 62829,
+              "positive": 46793,
+              "maximum_absolute_codes": 57,
+              "mean_signed_codes": 0.8317054411022802,
+              "mean_absolute_codes": 1.3543622273866334,
+              "rmse_codes": 2.9677080706904335
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 247607,
+              "zero": 2346748,
+              "positive": 494925,
+              "maximum_absolute_codes": 77,
+              "mean_signed_codes": 0.09378495960223741,
+              "mean_absolute_codes": 0.30779404909881913,
+              "rmse_codes": 0.9005097191583977
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 123560,
+              "zero": 1172338,
+              "positive": 247782,
+              "maximum_absolute_codes": 77,
+              "mean_signed_codes": 0.09444444444444444,
+              "mean_absolute_codes": 0.30808716832504146,
+              "rmse_codes": 0.9004753616094511
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 124047,
+              "zero": 1174410,
+              "positive": 247143,
+              "maximum_absolute_codes": 73,
+              "mean_signed_codes": 0.09312629399585921,
+              "mean_absolute_codes": 0.30750129399585924,
+              "rmse_codes": 0.9005440327187918
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 31446,
+              "zero": 593805,
+              "positive": 122766,
+              "maximum_absolute_codes": 9,
+              "mean_signed_codes": 0.15025193277692886,
+              "mean_absolute_codes": 0.239204456583206,
+              "rmse_codes": 0.5554539442942528
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 149574,
+              "zero": 1170730,
+              "positive": 322495,
+              "maximum_absolute_codes": 27,
+              "mean_signed_codes": 0.12849898252920777,
+              "mean_absolute_codes": 0.35811076096345323,
+              "rmse_codes": 0.721058980274911
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 66587,
+              "zero": 582213,
+              "positive": 49664,
+              "maximum_absolute_codes": 77,
+              "mean_signed_codes": -0.04833606313281715,
+              "mean_absolute_codes": 0.2629040294131122,
+              "rmse_codes": 1.4259614552426136
+            }
+          }
+        }
+      }
+    },
+    "linear-bottom-control": {
+      "configuration": {
+        "schema": "yblod.chroma-geometry-experiment.v1",
+        "variant": "linear-bottom-control",
+        "input_contract": "prepared planar 4:2:0 left-sited chroma",
+        "output": "float64 planar full-resolution chroma strip",
+        "source_centers_in_luma_coordinates": {
+          "x": "2*i",
+          "y": "2*j+1"
+        },
+        "source_center_offsets_luma_samples": [
+          0.0,
+          1.0
+        ],
+        "source_sample_spacing_luma_samples": [
+          2,
+          2
+        ],
+        "horizontal": {
+          "name": "linear",
+          "coordinate": "output_x/2",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "unchanged_from_output_frame_expand_left": true
+        },
+        "vertical": {
+          "name": "linear",
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            "1-t",
+            "t"
+          ],
+          "coordinate": "(global_output_y-1)/2"
+        },
+        "boundary": "replicate edge samples; do not reset coordinates at strip boundaries",
+        "arithmetic": "float64; no intermediate rounding or clipping",
+        "invalid_geometry_control": true,
+        "production_choice": false,
+        "accuracy_status": "isolated diagnostic; no claim of proprietary Dolby filter equivalence",
+        "geometry_basis": "existing prepare_frame left-sited contract and output_frame.expand_left coordinates",
+        "working_chunk_rows": 32
+      },
+      "comparisons": {
+        "versus_capture": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 2169762,
+              "zero": 209663,
+              "positive": 3799135,
+              "maximum_absolute_codes": 119,
+              "mean_signed_codes": 5.7027532305262065,
+              "mean_absolute_codes": 13.235036480992335,
+              "rmse_codes": 19.407306499961216
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 1168227,
+              "zero": 95376,
+              "positive": 1823757,
+              "maximum_absolute_codes": 119,
+              "mean_signed_codes": 5.142770198486733,
+              "mean_absolute_codes": 13.327242368884743,
+              "rmse_codes": 19.413514828702443
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 1001535,
+              "zero": 114287,
+              "positive": 1975378,
+              "maximum_absolute_codes": 119,
+              "mean_signed_codes": 6.262040631469979,
+              "mean_absolute_codes": 13.14294513457557,
+              "rmse_codes": 19.40110390047267
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 1155153,
+              "zero": 117044,
+              "positive": 1931708,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 5.358703207492107,
+              "mean_absolute_codes": 12.075770036876873,
+              "rmse_codes": 17.973038743619227
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 1002352,
+              "zero": 91501,
+              "positive": 1840062,
+              "maximum_absolute_codes": 116,
+              "mean_signed_codes": 6.028827011007476,
+              "mean_absolute_codes": 14.402906014659592,
+              "rmse_codes": 20.722612688605686
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 12257,
+              "zero": 1118,
+              "positive": 27365,
+              "maximum_absolute_codes": 119,
+              "mean_signed_codes": 9.27739322533137,
+              "mean_absolute_codes": 20.29810996563574,
+              "rmse_codes": 28.137904228881656
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 256295,
+              "zero": 89531,
+              "positive": 2743454,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 17.93790948052621,
+              "mean_absolute_codes": 18.46714671379739,
+              "rmse_codes": 25.720504991289346
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 67896,
+              "zero": 35528,
+              "positive": 1440256,
+              "maximum_absolute_codes": 95,
+              "mean_signed_codes": 18.73615062707297,
+              "mean_absolute_codes": 18.952001062396352,
+              "rmse_codes": 25.87953288211188
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 188399,
+              "zero": 54003,
+              "positive": 1303198,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 17.1406599378882,
+              "mean_absolute_codes": 17.98289466873706,
+              "rmse_codes": 25.56068710762836
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 56515,
+              "zero": 39784,
+              "positive": 744965,
+              "maximum_absolute_codes": 92,
+              "mean_signed_codes": 13.261304418113696,
+              "mean_absolute_codes": 13.53294090796706,
+              "rmse_codes": 21.070754034298307
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 173754,
+              "zero": 47644,
+              "positive": 1905705,
+              "maximum_absolute_codes": 96,
+              "mean_signed_codes": 19.99463354618935,
+              "mean_absolute_codes": 20.509869526769506,
+              "rmse_codes": 27.47220479006744
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 26026,
+              "zero": 2103,
+              "positive": 92784,
+              "maximum_absolute_codes": 91,
+              "mean_signed_codes": 14.293930346612854,
+              "mean_absolute_codes": 16.86176010850777,
+              "rmse_codes": 23.1540571032753
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 787001,
+              "zero": 135408,
+              "positive": 2166871,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 6.423497060803812,
+              "mean_absolute_codes": 9.228029508493888,
+              "rmse_codes": 13.313648632644146
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 62818,
+              "zero": 40051,
+              "positive": 1440811,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 10.834385364842454,
+              "mean_absolute_codes": 11.052284152155888,
+              "rmse_codes": 15.03566151091782
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 724183,
+              "zero": 95357,
+              "positive": 726060,
+              "maximum_absolute_codes": 70,
+              "mean_signed_codes": 2.0180881211180126,
+              "mean_absolute_codes": 7.406041019668737,
+              "rmse_codes": 11.335607883205054
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 83606,
+              "zero": 52351,
+              "positive": 612060,
+              "maximum_absolute_codes": 68,
+              "mean_signed_codes": 7.384157044559148,
+              "mean_absolute_codes": 7.899813774285879,
+              "rmse_codes": 13.073277614798727
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 406895,
+              "zero": 71241,
+              "positive": 1164663,
+              "maximum_absolute_codes": 83,
+              "mean_signed_codes": 7.163033943896971,
+              "mean_absolute_codes": 9.555199997078157,
+              "rmse_codes": 14.078257294920153
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 296500,
+              "zero": 11816,
+              "positive": 390148,
+              "maximum_absolute_codes": 77,
+              "mean_signed_codes": 3.655279298575159,
+              "mean_absolute_codes": 9.880965948137627,
+              "rmse_codes": 11.609695505152676
+            }
+          }
+        },
+        "minus_baseline": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 1135581,
+              "zero": 4379323,
+              "positive": 663656,
+              "maximum_absolute_codes": 26,
+              "mean_signed_codes": -0.05312289594986534,
+              "mean_absolute_codes": 0.34876913067122434,
+              "rmse_codes": 0.6994942209659052
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 568681,
+              "zero": 2187092,
+              "positive": 331587,
+              "maximum_absolute_codes": 23,
+              "mean_signed_codes": -0.05368146247927032,
+              "mean_absolute_codes": 0.3492589137645108,
+              "rmse_codes": 0.7000452521798163
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 566900,
+              "zero": 2192231,
+              "positive": 332069,
+              "maximum_absolute_codes": 26,
+              "mean_signed_codes": -0.052565023291925465,
+              "mean_absolute_codes": 0.3482799560041408,
+              "rmse_codes": 0.6989434406515406
+            },
+            "smooth_le_4": {
+              "samples": 3203905,
+              "negative": 500816,
+              "zero": 2424939,
+              "positive": 278150,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.05014661795527645,
+              "mean_absolute_codes": 0.2724778044292824,
+              "rmse_codes": 0.5807371438428269
+            },
+            "intermediate_5_16": {
+              "samples": 2933915,
+              "negative": 627762,
+              "zero": 1927717,
+              "positive": 378436,
+              "maximum_absolute_codes": 12,
+              "mean_signed_codes": -0.05749996165533085,
+              "mean_absolute_codes": 0.42589100229556753,
+              "rmse_codes": 0.7806360030861889
+            },
+            "edge_gt_16": {
+              "samples": 40740,
+              "negative": 7003,
+              "zero": 26667,
+              "positive": 7070,
+              "maximum_absolute_codes": 26,
+              "mean_signed_codes": 0.02803141875306824,
+              "mean_absolute_codes": 0.7945508100147275,
+              "rmse_codes": 1.9485276341611986
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 689002,
+              "zero": 1934181,
+              "positive": 466097,
+              "maximum_absolute_codes": 59,
+              "mean_signed_codes": -0.21548321939092605,
+              "mean_absolute_codes": 0.6356995804847732,
+              "rmse_codes": 1.26339236595535
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 344613,
+              "zero": 966401,
+              "positive": 232666,
+              "maximum_absolute_codes": 54,
+              "mean_signed_codes": -0.21618211028192372,
+              "mean_absolute_codes": 0.6359452736318408,
+              "rmse_codes": 1.2634383365832536
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 344389,
+              "zero": 967780,
+              "positive": 233431,
+              "maximum_absolute_codes": 59,
+              "mean_signed_codes": -0.2147851966873706,
+              "mean_absolute_codes": 0.6354541925465839,
+              "rmse_codes": 1.263346450764154
+            },
+            "smooth_le_4": {
+              "samples": 841264,
+              "negative": 100005,
+              "zero": 649221,
+              "positive": 92038,
+              "maximum_absolute_codes": 10,
+              "mean_signed_codes": -0.038169944274330056,
+              "mean_absolute_codes": 0.2830562106544438,
+              "rmse_codes": 0.6519729335926694
+            },
+            "intermediate_5_16": {
+              "samples": 2127103,
+              "negative": 542296,
+              "zero": 1222043,
+              "positive": 362764,
+              "maximum_absolute_codes": 19,
+              "mean_signed_codes": -0.2502121429944859,
+              "mean_absolute_codes": 0.7342554638867982,
+              "rmse_codes": 1.2833532123092048
+            },
+            "edge_gt_16": {
+              "samples": 120913,
+              "negative": 46701,
+              "zero": 62917,
+              "positive": 11295,
+              "maximum_absolute_codes": 59,
+              "mean_signed_codes": -0.8382059828140894,
+              "mean_absolute_codes": 1.3554539214145709,
+              "rmse_codes": 2.9748698659121358
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 494445,
+              "zero": 2347488,
+              "positive": 247347,
+              "maximum_absolute_codes": 75,
+              "mean_signed_codes": -0.09360886679096747,
+              "mean_absolute_codes": 0.3075661642842345,
+              "rmse_codes": 0.9009930673176484
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 247424,
+              "zero": 1172616,
+              "positive": 123640,
+              "maximum_absolute_codes": 75,
+              "mean_signed_codes": -0.09401948590381426,
+              "mean_absolute_codes": 0.3079640858208955,
+              "rmse_codes": 0.901405066841408
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 247021,
+              "zero": 1174872,
+              "positive": 123707,
+              "maximum_absolute_codes": 74,
+              "mean_signed_codes": -0.09319875776397515,
+              "mean_absolute_codes": 0.3071687370600414,
+              "rmse_codes": 0.9005813914633721
+            },
+            "smooth_le_4": {
+              "samples": 748017,
+              "negative": 122547,
+              "zero": 594264,
+              "positive": 31206,
+              "maximum_absolute_codes": 10,
+              "mean_signed_codes": -0.15029070194928726,
+              "mean_absolute_codes": 0.2388287966717334,
+              "rmse_codes": 0.5556163797204967
+            },
+            "intermediate_5_16": {
+              "samples": 1642799,
+              "negative": 322573,
+              "zero": 1170757,
+              "positive": 149469,
+              "maximum_absolute_codes": 26,
+              "mean_signed_codes": -0.12850567841835794,
+              "mean_absolute_codes": 0.3581077173774759,
+              "rmse_codes": 0.7211910853007518
+            },
+            "edge_gt_16": {
+              "samples": 698464,
+              "negative": 49325,
+              "zero": 582467,
+              "positive": 66672,
+              "maximum_absolute_codes": 75,
+              "mean_signed_codes": 0.049172183534154944,
+              "mean_absolute_codes": 0.26230557337242866,
+              "rmse_codes": 1.4270865329122409
+            }
+          }
+        }
+      }
+    }
+  },
+  "implementation": {
+    "experiment": {
+      "filename": "sampling_experiment.py",
+      "sha256": "1220b9d59a92b0932022c5527cfe7833712e42c448e4377d35118b59ca9234fe",
+      "source": "#!/usr/bin/env python3\n\"\"\"Forward-only final chroma expansion experiment; no image fitting or tuning.\n\nThe linear-left candidate must reproduce every byte of an existing direct\ntunnel. Other variants change only vertical source-chroma expansion. Reports\ncontain fixed-mask output errors and causal variant-minus-baseline changes;\nno images or float stages are saved. Processing uses 32-row strips.\n\"\"\"\nimport argparse\nfrom contextlib import ExitStack\nimport json\nfrom pathlib import Path\nimport sys\n\nimport numpy as np\n\nimport chroma_geometry\nimport output_frame\nfrom compare_output import decode_ce, unpack_rgb, matrices\nfrom diagnose_frame import accumulate, finish, gradient, new_total, packet_copies, read_strip\nfrom extract_frame import digest, save_json\nfrom inverse_stage import checked_map\nfrom output_frame import TARGET_YCC, TARGET_LMS, TARGET_OFFSET, convert, pack, provenance\nfrom summarize_cases import checked\n\nSTRIP_ROWS = 32\nGROUPS = (\"all\", \"even_row\", \"odd_row\", \"smooth_le_4\", \"intermediate_5_16\", \"edge_gt_16\")\nCHANNELS = (\"I\", \"P\", \"T\")\nBASELINE = \"linear-left\"\n\n\ndef active_rectangle(dm, width, height):\n    blocks = [b[\"Level5\"] for b in dm[\"cmv29_metadata\"][\"ext_metadata_blocks\"] if \"Level5\" in b]\n    if len(blocks) != 1:\n        raise ValueError(\"exactly one source active-area block required\")\n    left, right, top, bottom = [blocks[0][f\"active_area_{side}_offset\"] for side in (\"left\", \"right\", \"top\", \"bottom\")]\n    return [left, top, width-right, height-bottom]\n\n\ndef produce(planes, dm, variant, start, stop, rectangle):\n    l, t, r, b = rectangle\n    expected = np.stack([planes[0][start:stop],\n                         chroma_geometry.expand(planes[1], start=start, stop=stop, variant=variant),\n                         chroma_geometry.expand(planes[2], start=start, stop=stop, variant=variant)], axis=-1)\n    # Cubic interpolation can overshoot nominal source codes. Do not silently\n    # add a new clamp: the existing direct converter receives those values.\n    codes = convert(expected, dm, \"direct\", lambda *_: None)\n    rows = np.arange(start, stop)\n    codes[(rows < t) | (rows >= b)] = [0, 2048, 2048]\n    codes[:, :l] = codes[:, r:] = [0, 2048, 2048]\n    return pack(codes)\n\n\ndef source_text(module):\n    path = Path(module.__file__).resolve()\n    return {\"filename\": path.name, \"sha256\": digest(path), \"source\": path.read_text()}\n\n\ndef produce_checked(planes, dm, variant, start, stop, rectangle):\n    try:\n        return produce(planes, dm, variant, start, stop, rectangle)\n    except (ValueError, np.linalg.LinAlgError) as error:\n        raise ValueError(f\"variant {variant}, rows [{start}, {stop}): {error}\") from error\n\n\ndef experiment(baseline_output, result, extraction, capture):\n    baseline_output, result, extraction, capture = [Path(p).resolve() for p in (baseline_output, result, extraction, capture)]\n    info, old_comparison, hashes = checked(baseline_output, \"direct\")\n    if info[\"chroma_expansion\"] != \"bilinear-left-edge-replicated-float64\":\n        raise ValueError(\"saved baseline does not declare the supported linear-left expansion\")\n    for key, expected in ((\"target_ycc\", TARGET_YCC), (\"target_lms\", TARGET_LMS), (\"target_offset\", TARGET_OFFSET)):\n        if not np.array_equal(info[key], expected):\n            raise ValueError(\"baseline colour coordinates differ\")\n    report, dm, identity = provenance(result, extraction)\n    if (identity != info[\"identity\"] or dm != info[\"source_dm\"] or digest(result / \"report.json\") != info[\"composer_report_sha256\"]\n            or digest(extraction / \"rpu.json\") != info[\"rpu_sha256\"]):\n        raise ValueError(\"source-frame provenance mismatch\")\n    w, h = info[\"width\"], info[\"height\"]\n    if (report[\"input_manifest\"][\"width\"], report[\"input_manifest\"][\"height\"]) != (w, h):\n        raise ValueError(\"baseline/composer dimensions differ\")\n    rectangle = active_rectangle(dm, w, h)\n    if rectangle != info[\"active_rectangle\"]:\n        raise ValueError(\"source/baseline active rectangles differ\")\n    l, t, r, b = rectangle\n    if w * 3 % 8 or t*w + l < 6144:\n        raise ValueError(\"unsupported capture alignment or active metadata overlap\")\n    if capture.stat().st_size != w*h*3 or digest(capture) != old_comparison[\"capture_sha256\"]:\n        raise ValueError(\"capture integrity mismatch\")\n    planes = [checked_map(result, report[\"stages\"][\"reconstructed_\" + name],\n                          (h, w) if name == \"Y\" else (h//2, w//2), \"<u2\") for name in (\"Y\", \"Cb\", \"Cr\")]\n    # Read-only maps keep resident input storage modest; range checks themselves\n    # are striped and do not allocate a full-frame boolean temporary.\n    for plane in planes:\n        for start in range(0, plane.shape[0], STRIP_ROWS):\n            if np.any(plane[start:start+STRIP_ROWS] > 4095):\n                raise ValueError(\"reconstructed source exceeds 12-bit storage range\")\n    variants = tuple(chroma_geometry.VARIANTS)\n    if BASELINE not in variants or len(variants) != len(set(variants)):\n        raise ValueError(\"invalid experiment variant list\")\n    scores = {variant: {comparison: {channel: {group: new_total() for group in GROUPS} for channel in CHANNELS}\n                        for comparison in (\"versus_capture\", \"minus_baseline\")} for variant in variants}\n    configurations = {variant: chroma_geometry.configuration(variant) for variant in variants}\n    baseline_bytes = 0\n    tunnel = baseline_output / info[\"stages\"][\"unembedded_tunnel\"][\"file\"]\n    with ExitStack() as stack:\n        baseline_stream, captured_stream = [stack.enter_context(path.open(\"rb\")) for path in (tunnel, capture)]\n        initial = decode_ce(read_strip(captured_stream, 0, (6144+w-1)//w, w, \"u1\"))\n        metadata = packet_copies(*initial)\n        if any(not np.array_equal(a, c) for a, c in zip(matrices(*initial), (TARGET_YCC, TARGET_OFFSET, TARGET_LMS))):\n            raise ValueError(\"capture colour coordinates differ\")\n        for start in range(0, h, STRIP_ROWS):\n            stop = min(h, start + STRIP_ROWS)\n            baseline = produce_checked(planes, dm, BASELINE, start, stop, rectangle)\n            saved = read_strip(baseline_stream, start, stop, w, \"u1\")\n            if not np.array_equal(baseline, saved):\n                raise ValueError(f\"baseline byte mismatch in rows [{start}, {stop}); refusing experiment\")\n            baseline_bytes += int(saved.nbytes)\n            active_start, active_stop = max(start, t), min(stop, b)\n            if active_start >= active_stop:\n                continue\n            active = slice(active_start-start, active_stop-start)\n            halo_start, halo_stop = max(t, active_start-1), min(b, active_stop+1)\n            halo_local = slice(active_start-halo_start, active_stop-halo_start)\n            reference = decode_ce(read_strip(captured_stream, halo_start, halo_stop, w, \"u1\"))\n            baseline_codes = unpack_rgb(*np.moveaxis(baseline[active], -1, 0))\n            row_indices = np.arange(active_start, active_stop)[:, None]\n            channels = {}\n            for name, plane, x_slice in ((\"I\", 0, slice(l, r)), (\"P\", 1, slice(l, r, 2)), (\"T\", 1, slice(l+1, r, 2))):\n                reference_halo = reference[plane][:, x_slice]\n                reference_codes = reference_halo[halo_local].astype(np.int64)\n                edge = gradient(reference_halo)[halo_local]\n                masks = {\"all\": np.ones(reference_codes.shape, bool),\n                         \"even_row\": np.broadcast_to(row_indices % 2 == 0, reference_codes.shape),\n                         \"odd_row\": np.broadcast_to(row_indices % 2 == 1, reference_codes.shape),\n                         \"smooth_le_4\": edge <= 4, \"intermediate_5_16\": (edge > 4) & (edge <= 16),\n                         \"edge_gt_16\": edge > 16}\n                channels[name] = (plane, x_slice, reference_codes, baseline_codes[plane][:, x_slice].astype(np.int64), masks)\n            for variant in variants:\n                candidate = baseline if variant == BASELINE else produce_checked(planes, dm, variant, start, stop, rectangle)\n                current = unpack_rgb(*np.moveaxis(candidate[active], -1, 0))\n                for name, (plane, x_slice, ref, base, masks) in channels.items():\n                    values = current[plane][:, x_slice].astype(np.int64)\n                    for comparison, delta in ((\"versus_capture\", values-ref), (\"minus_baseline\", values-base)):\n                        for group, mask in masks.items():\n                            accumulate(scores[variant][comparison][name][group], delta[mask])\n    if baseline_bytes != w*h*3:\n        raise ValueError(\"incomplete baseline byte verification\")\n    finished = {variant: {comparison: {channel: {group: finish(value) for group, value in groups.items()}\n                                                    for channel, groups in channels.items()}\n                          for comparison, channels in comparisons.items()} for variant, comparisons in scores.items()}\n    for variant in variants:\n        for channel, divisor in ((\"I\", 1), (\"P\", 2), (\"T\", 2)):\n            expected_count = (r-l)*(b-t)//divisor\n            for comparison in (\"versus_capture\", \"minus_baseline\"):\n                groups = finished[variant][comparison][channel]\n                if (groups[\"all\"][\"samples\"] != expected_count or\n                    sum(groups[key][\"samples\"] for key in (\"even_row\", \"odd_row\")) != expected_count or\n                    sum(groups[key][\"samples\"] for key in (\"smooth_le_4\", \"intermediate_5_16\", \"edge_gt_16\")) != expected_count):\n                    raise ValueError(\"comparison masks do not partition the active sample grid\")\n    return {\"schema\": \"yblod.forward-sampling-experiment.v1\", \"status\": \"complete\", \"identity\": identity,\n            \"source_provenance\": hashes, \"composer_report_sha256\": info[\"composer_report_sha256\"],\n            \"rpu_sha256\": info[\"rpu_sha256\"], \"capture_sha256\": old_comparison[\"capture_sha256\"],\n            \"identity_basis\": old_comparison[\"identity_basis\"], \"source_dm\": dm, \"width\": w, \"height\": h,\n            \"active_rectangle\": rectangle, \"metadata\": metadata, \"processing_strip_rows\": STRIP_ROWS,\n            \"baseline\": {\"variant\": BASELINE, \"byte_identical\": True, \"verified_bytes\": baseline_bytes,\n                         \"tunnel_sha256\": info[\"stages\"][\"unembedded_tunnel\"][\"sha256\"]},\n            \"held_fixed\": {\"policy\": \"direct\", \"horizontal_expansion\": \"baseline bilinear left-co-sited\",\n                           \"target_ycc\": TARGET_YCC.tolist(), \"target_lms\": TARGET_LMS.tolist(),\n                           \"target_offset\": TARGET_OFFSET.tolist(), \"quantization\": info[\"quantization\"],\n                           \"transport_sampling\": info[\"transport_sampling\"]},\n            \"group_definitions\": {\"gradient\": \"Four-neighbour maximum from the same captured channel; P/T use their half-width grids. One-row strip halos; active-area boundaries replicated.\",\n                                  \"rows\": \"Absolute frame-row parity, not active-area-relative parity.\",\n                                  \"chroma\": \"Both P and T are co-sited at even x; T is stored in the neighbouring packed pixel.\",\n                                  \"direction\": \"versus_capture: candidate minus SK4; minus_baseline: candidate minus unchanged linear-left.\"},\n            \"variants\": {variant: {\"configuration\": configurations[variant], \"comparisons\": finished[variant]} for variant in variants},\n            \"implementation\": {\"experiment\": {\"filename\": Path(__file__).name, \"sha256\": digest(Path(__file__)), \"source\": Path(__file__).read_text()},\n                               \"geometry\": source_text(chroma_geometry), \"colour_conversion_and_packing\": source_text(output_frame)},\n            \"runtime\": {\"numpy_version\": np.__version__, \"python_version\": sys.version.split()[0]},\n            \"helper_implementations\": {name: {\"filename\": Path(sys.modules[name].__file__).name,\n                                               \"sha256\": digest(Path(sys.modules[name].__file__))}\n                                       for name in (\"diagnose_frame\", \"compare_output\", \"dvtunnel\", \"dvlms\", \"inverse_stage\",\n                                                    \"summarize_cases\", \"extract_frame\", \"import_rpu\", \"inspect_composition\", \"reference\")},\n            \"caveats\": [\"Smaller hardware differences are not proof of accuracy, conformance, or the correct production filter.\",\n                        \"Phase-control variants deliberately use wrong geometry; they are diagnostic negative controls, not candidates for deployment.\",\n                        \"Cubic overshoots are passed to the unchanged direct colour policy, without an extra source clamp.\",\n                        \"All variants use fixed capture-derived masks; no sample exclusions, spatial alignment, fitted offsets or fitted filter coefficients.\",\n                        \"Only final vertical source-chroma expansion varies; BL/EL preparation, MMR guide, reconstruction and enhancement scaling remain unchanged.\",\n                        \"No image artifacts are written. Capture frame identity is the supplied visible-counter association, not an independently verified driver timestamp.\"]}\n\n\ndef main(argv=None):\n    parser = argparse.ArgumentParser(description=__doc__)\n    for name in (\"baseline_output\", \"result\", \"extraction\", \"capture\"):\n        parser.add_argument(name, type=Path)\n    parser.add_argument(\"--report\", type=Path, required=True)\n    args = parser.parse_args(argv)\n    try:\n        report = experiment(args.baseline_output, args.result, args.extraction, args.capture)\n        save_json(args.report, report)\n    except (OSError, KeyError, TypeError, ValueError, np.linalg.LinAlgError) as error:\n        parser.exit(1, f\"sampling experiment: {error}\\n\")\n    print(json.dumps({\"report\": str(args.report), \"identity\": report[\"identity\"], \"baseline_byte_identical\": True}))\n\n\nif __name__ == \"__main__\":\n    main()\n"
+    },
+    "geometry": {
+      "filename": "chroma_geometry.py",
+      "sha256": "3e39e2d3b5f40a162ac3428dd791f0f5eaa0e035b9af91a4126dd49ca33b4d54",
+      "source": "#!/usr/bin/env python3\n\"\"\"Isolated 4:2:0 chroma-expansion experiments, not a playback implementation.\n\nThe existing prepared-left contract places chroma centers at (2*x, 2*y + .5)\nin luma-sample coordinates. Preserve that geometry while changing ONLY the\nvertical interpolation kernel. Horizontal interpolation always stays bilinear.\nThe top/bottom variants intentionally violate that contract as negative controls.\n\nNo RPU processing, colour conversion, code limiting, or rounding is performed.\nRequires NumPy. Existing preparation and output modules are not modified.\n\"\"\"\nimport numpy as np\n\n\nVARIANTS = (\"linear-left\", \"cubic-left\", \"linear-top-control\", \"linear-bottom-control\")\nWORK_ROWS = 32\n\n\ndef configuration(variant=\"linear-left\"):\n    \"\"\"Return fresh JSON-safe experimental policy metadata, not mutable globals.\"\"\"\n    if variant not in VARIANTS:\n        raise ValueError(\"unknown chroma geometry variant\")\n    cubic = variant == \"cubic-left\"\n    center = {\"linear-top-control\": 0.0, \"linear-bottom-control\": 1.0}.get(variant, 0.5)\n    vertical = ({\"name\": \"Keys cubic\", \"a\": -0.5, \"offsets\": [-1, 0, 1, 2],\n                 \"weights\": \"K(t-offset), t=coordinate-floor(coordinate)\",\n                 \"kernel_d_abs_0_to_1\": \"1.5*d^3 - 2.5*d^2 + 1\",\n                 \"kernel_d_abs_1_to_2\": \"-0.5*d^3 + 2.5*d^2 - 4*d + 2\",\n                 \"kernel_d_abs_ge_2\": \"0\"}\n                if cubic else {\"name\": \"linear\", \"offsets\": [0, 1], \"weights\": [\"1-t\", \"t\"]})\n    return {\"schema\": \"yblod.chroma-geometry-experiment.v1\", \"variant\": variant,\n            \"input_contract\": \"prepared planar 4:2:0 left-sited chroma\",\n            \"output\": \"float64 planar full-resolution chroma strip\",\n            \"source_centers_in_luma_coordinates\": {\"x\": \"2*i\", \"y\": f\"2*j+{center:g}\"},\n            \"source_center_offsets_luma_samples\": [0.0, center],\n            \"source_sample_spacing_luma_samples\": [2, 2],\n            \"horizontal\": {\"name\": \"linear\", \"coordinate\": \"output_x/2\",\n                           \"offsets\": [0, 1], \"weights\": [\"1-t\", \"t\"],\n                           \"unchanged_from_output_frame_expand_left\": True},\n            \"vertical\": dict(vertical, coordinate=f\"(global_output_y-{center:g})/2\"),\n            \"boundary\": \"replicate edge samples; do not reset coordinates at strip boundaries\",\n            \"arithmetic\": \"float64; no intermediate rounding or clipping\",\n            \"invalid_geometry_control\": center != 0.5,\n            \"production_choice\": False,\n            \"accuracy_status\": \"isolated diagnostic; no claim of proprietary Dolby filter equivalence\",\n            \"geometry_basis\": \"existing prepare_frame left-sited contract and output_frame.expand_left coordinates\",\n            \"working_chunk_rows\": WORK_ROWS}\n\n\ndef _cubic_weights(fraction):\n    \"\"\"Keys a=-.5 sampled at the four neighbors of floor(coordinate).\"\"\"\n    weights = []\n    for offset in (-1, 0, 1, 2):\n        d = np.abs(fraction - offset)\n        near = 1.5 * d**3 - 2.5 * d**2 + 1\n        far = -0.5 * d**3 + 2.5 * d**2 - 4 * d + 2\n        weights.append(np.where(d <= 1, near, np.where(d < 2, far, 0.0)))\n    return weights\n\n\ndef _samples(a, indices):\n    # Index first, then convert only the requested small set of rows. Casting\n    # the entire source plane to float64 would defeat bounded-strip processing.\n    result = a[indices].astype(np.float64, copy=False)\n    if not np.all(np.isfinite(result)):\n        raise ValueError(\"sampled chroma values must be finite\")\n    return result\n\n\ndef expand(a, start=0, stop=None, variant=\"linear-left\"):\n    \"\"\"Return output rows [start, stop), evaluated in global luma coordinates.\n\n    Output width/height are twice input width/height. Empty valid row intervals\n    return an empty strip. Input must be a nonempty real numeric NumPy plane;\n    only sampled input rows are checked for finite values. Internal temporaries\n    are bounded to WORK_ROWS; the requested result itself must fit in memory.\n    Callers processing 4K frames should request small strips, not the full output.\n    \"\"\"\n    policy = configuration(variant)\n    if not isinstance(a, np.ndarray) or a.ndim != 2 or 0 in a.shape or a.dtype.kind not in \"uif\":\n        raise ValueError(\"expected a nonempty two-dimensional real numeric NumPy plane\")\n    h, w = a.shape\n    stop = h * 2 if stop is None else stop\n    for value in (start, stop):\n        if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)):\n            raise ValueError(\"strip bounds must be integers\")\n    if not 0 <= start <= stop <= 2 * h:\n        raise ValueError(\"strip bounds lie outside the expanded plane\")\n    result = np.empty((stop - start, 2 * w), dtype=np.float64)\n    center = policy[\"source_center_offsets_luma_samples\"][1]\n    x = np.arange(w * 2, dtype=np.float64) / 2\n    ix = np.floor(x).astype(np.intp)\n    fx = x - ix\n    left, right = np.clip(ix, 0, w - 1), np.clip(ix + 1, 0, w - 1)\n    for first in range(start, stop, WORK_ROWS):\n        last = min(first + WORK_ROWS, stop)\n        y = (np.arange(first, last, dtype=np.float64) - center) / 2\n        iy = np.floor(y).astype(np.intp)\n        fy = y - iy\n        with np.errstate(over=\"raise\", invalid=\"raise\"):\n            try:\n                if variant == \"cubic-left\":\n                    rows = np.zeros((last - first, w), dtype=np.float64)\n                    for delta, weight in zip((-1, 0, 1, 2), _cubic_weights(fy)):\n                        samples = _samples(a, np.clip(iy + delta, 0, h - 1))\n                        samples *= weight[:, None]\n                        rows += samples\n                else:\n                    # Keep the existing expand_left operation order, including\n                    # separate products before addition, for baseline identity.\n                    rows = (_samples(a, np.clip(iy, 0, h - 1)) * (1 - fy[:, None])\n                            + _samples(a, np.clip(iy + 1, 0, h - 1)) * fy[:, None])\n                result[first - start:last - start] = (rows[:, left] * (1 - fx)\n                                                      + rows[:, right] * fx)\n            except FloatingPointError as error:\n                raise ValueError(\"chroma interpolation produced a non-finite value\") from error\n    return result\n"
+    },
+    "colour_conversion_and_packing": {
+      "filename": "output_frame.py",
+      "sha256": "3ee0d14c297cb1a3aea7669d91d4d96b839bc27ab11dbdd7bc54be9415546f32",
+      "source": "#!/usr/bin/env python3\n\"\"\"Offline colour-coordinate conversion and unembedded RGB8 tunnel packing.\n\nNot a playable HDMI frame: dynamic metadata serialization/embedding is separate.\nNo fitted colour offsets, tone mapping, or proprietary renderer is used.\n\"\"\"\nimport argparse\nimport json\nfrom pathlib import Path\n\nimport numpy as np\n\nfrom extract_frame import digest, save_json\nfrom import_rpu import normalize\nfrom inspect_composition import checked_report, load\n\n# Exact integers signalled by the existing TV-led transport, also observed in\n# the SK4 capture. Inverting these avoids an intermediate display-RGB roundtrip.\nTARGET_YCC = np.array([[8194, 799, 1681], [8194, -933, 1091],\n                       [8194, 267, -5545]], dtype=float) / 8192\nTARGET_LMS = np.array([[17080, -348, -348], [-348, 17080, -348],\n                       [-348, -348, 17080]], dtype=float) / 16384\nTARGET_OFFSET = np.array([0., .5, .5])\n# Diagnostic only: existing renderer's HPE LMS -> BT.2020 display RGB matrix.\nHPE_TO_RGB = np.array([[3.06441879, -2.16597676, .10155818],\n                       [-.65612108, 1.78554118, -.12943749],\n                       [.01736321, -.04725154, 1.03004253]])\nM1, M2 = 2610 / 16384, 2523 / 32\nC1, C2, C3 = 3424 / 4096, 2413 / 128, 2392 / 128\nPOLICIES = (\"direct\", \"rgb-bound-diagnostic\", \"rgb-lower-bound-diagnostic\",\n            \"rgb-upper-bound-diagnostic\", \"source-pq-bound-diagnostic\")\n\n\ndef measured(a):\n    if not np.isfinite(a).all():\n        raise ValueError(\"non-finite colour values\")\n    return {\"minimum\": float(a.min()), \"maximum\": float(a.max()),\n            \"below_zero\": int(np.count_nonzero(a < 0)),\n            \"above_one\": int(np.count_nonzero(a > 1))}\n\n\ndef pq_decode(a):\n    # Explicit domain policy: negative inputs become zero, positive values above\n    # one remain extended. Reject the mathematical pole rather than emit NaNs.\n    measured(a)\n    p = np.maximum(a, 0) ** (1 / M2)\n    denominator = C2 - C3 * p\n    if np.any(denominator <= 0):\n        raise ValueError(\"PQ decode outside finite extended domain\")\n    return (np.maximum(p - C1, 0) / denominator) ** (1 / M1)\n\n\ndef pq_encode(a):\n    measured(a)\n    p = np.maximum(a, 0) ** M1\n    return ((C1 + C2 * p) / (1 + C3 * p)) ** M2\n\n\ndef matrix(m, a):\n    return np.einsum(\"ij,hwj->hwi\", m, a)\n\n\ndef expand_left(a, start=0, stop=None):\n    \"\"\"Illustrative bilinear 420-left -> 444, edge replication, float64.\n\n    Chroma centers are (2*x, 2*y + .5) in luma coordinates. No intermediate\n    rounding. This is an explicit experiment, not a normative Dolby filter.\n    \"\"\"\n    h, w = a.shape\n    x = np.arange(w * 2) / 2\n    stop = h * 2 if stop is None else stop\n    y = (np.arange(start, stop) - .5) / 2\n    ix, iy = np.floor(x).astype(int), np.floor(y).astype(int)\n    fx, fy = x - ix, y - iy\n    rows = (a[np.clip(iy, 0, h - 1)].astype(float) * (1 - fy[:, None])\n            + a[np.clip(iy + 1, 0, h - 1)] * fy[:, None])\n    return (rows[:, np.clip(ix, 0, w - 1)] * (1 - fx)\n            + rows[:, np.clip(ix + 1, 0, w - 1)] * fx)\n\n\ndef source_matrices(dm):\n    for key, value in ((\"compressed\", False), (\"signal_eotf\", 65535),\n                       (\"signal_eotf_param0\", 0), (\"signal_eotf_param1\", 0),\n                       (\"signal_eotf_param2\", 0), (\"signal_bit_depth\", 12),\n                       (\"signal_color_space\", 0), (\"signal_chroma_format\", 0),\n                       (\"signal_full_range_flag\", 1)):\n        if dm[key] != value:\n            raise ValueError(f\"unsupported source {key}\")\n    ycc = np.array([dm[f\"ycc_to_rgb_coef{i}\"] for i in range(9)]).reshape(3, 3) / 8192\n    offset = np.array([dm[f\"ycc_to_rgb_offset{i}\"] for i in range(3)]) / 2**28\n    lms = np.array([dm[f\"rgb_to_lms_coef{i}\"] for i in range(9)]).reshape(3, 3) / 16384\n    return ycc, offset, lms\n\n\ndef convert(ycc, dm, policy, save):\n    if policy not in POLICIES:\n        raise ValueError(\"unknown colour policy\")\n    sm, so, sl = source_matrices(dm)\n    nonlinear = matrix(sm, ycc / 4096 - so)\n    save(\"source_nonlinear\", nonlinear)\n    decode_input = np.clip(nonlinear, 0, 1) if policy == \"source-pq-bound-diagnostic\" else nonlinear\n    common = matrix(sl, pq_decode(decode_input))\n    save(\"common_linear_lms\", common)\n    if policy.startswith(\"rgb-\"):\n        rgb = matrix(HPE_TO_RGB, common)\n        save(\"diagnostic_rgb_before_bound\", rgb)\n        low = None if policy == \"rgb-upper-bound-diagnostic\" else 0\n        high = None if policy == \"rgb-lower-bound-diagnostic\" else 1\n        common = matrix(np.linalg.inv(HPE_TO_RGB), np.clip(rgb, low, high))\n    target_linear = matrix(np.linalg.inv(TARGET_LMS), common)\n    save(\"target_linear\", target_linear)\n    target = matrix(np.linalg.inv(TARGET_YCC), pq_encode(target_linear)) + TARGET_OFFSET\n    save(\"transport_before_quantization\", target)\n    return np.clip(np.floor(target * 4096 + .5), 0, 4095).astype(np.uint16)\n\n\ndef pack(codes):\n    \"\"\"Co-sited 422 P/T from even pixels; top-down interleaved RGB8.\"\"\"\n    if (codes.ndim != 3 or codes.shape[2] != 3 or codes.shape[1] % 2\n            or not np.issubdtype(codes.dtype, np.integer)\n            or np.any(codes < 0) or np.any(codes > 4095)):\n        raise ValueError(\"even-width 12-bit integer IPT required\")\n    intensity = codes[..., 0]\n    chroma = np.empty_like(intensity)\n    chroma[:, ::2] = codes[:, ::2, 1]\n    chroma[:, 1::2] = codes[:, ::2, 2]\n    return np.stack([chroma >> 4, intensity >> 4,\n                     (intensity & 15) | ((chroma & 15) << 4)], axis=-1).astype(np.uint8)\n\n\ndef provenance(result, extraction):\n    report = checked_report(result)\n    manifest = report[\"input_manifest\"]\n    ex = json.loads((extraction / \"extraction.json\").read_text())\n    if (ex[\"schema\"] != \"yblod.extracted-frame.v1\" or ex[\"status\"] != \"complete\"\n            or digest(extraction / \"extraction.json\") != manifest[\"preparation_details\"][\"source_extraction_sha256\"]\n            or digest(extraction / \"rpu.json\") != ex[\"rpu_json_sha256\"]):\n        raise ValueError(\"source/RPU provenance mismatch\")\n    rpu = json.loads((extraction / \"rpu.json\").read_text())\n    identity = {\"frame_id\": f\"{ex['source_sha256']}:{ex['source_packet_index_zero_based']}\",\n                \"pts\": ex[\"pts\"], \"time_base\": ex[\"time_base\"]}\n    if normalize(rpu, identity) != manifest[\"metadata\"]:\n        raise ValueError(\"composition metadata differs from supplied RPU\")\n    if (manifest[\"chroma_location\"] != \"left\" or manifest[\"format\"] != \"yuv420p-u16le-lsb\"\n            or manifest[\"transfer\"] != \"pq\" or manifest[\"metadata\"][\"output_bit_depth\"] != 12):\n        raise ValueError(\"12-bit PQ 420-left composer output required\")\n    return report, rpu[\"vdr_dm_data\"], identity\n\n\ndef render(result, extraction, output, policy):\n    result, extraction, output = map(lambda p: Path(p).resolve(), (result, extraction, output))\n    report, dm, identity = provenance(result, extraction)\n    source_matrices(dm)\n    manifest = report[\"input_manifest\"]\n    h, w = manifest[\"height\"], manifest[\"width\"]\n    planes = []\n    for name in (\"Y\", \"Cb\", \"Cr\"):\n        shape = (h, w) if name == \"Y\" else (h // 2, w // 2)\n        record = report[\"stages\"][f\"reconstructed_{name}\"]\n        path = (result / record[\"file\"]).resolve()\n        if (not path.is_relative_to(result) or path.stat().st_size != int(np.prod(shape)) * 2\n                or digest(path) != record[\"sha256\"]):\n            raise ValueError(\"reconstruction plane integrity failed\")\n        a = np.memmap(path, mode=\"r\", dtype=\"<u2\", shape=shape)\n        if np.any(a > 4095):\n            raise ValueError(\"out-of-range reconstructed input\")\n        planes.append(a)\n    # L5 defines final active picture; do not infer borders from pixel brightness.\n    areas = [b[\"Level5\"] for b in dm[\"cmv29_metadata\"][\"ext_metadata_blocks\"] if \"Level5\" in b]\n    if len(areas) != 1:\n        raise ValueError(\"exactly one L5 active area required\")\n    margins = [areas[0][f\"active_area_{side}_offset\"] for side in (\"left\", \"right\", \"top\", \"bottom\")]\n    l, r, t, b = margins\n    if min(margins) < 0 or l + r >= w or t + b >= h or l % 2 or r % 2:\n        raise ValueError(\"invalid/unsupported active area\")\n    output.mkdir(parents=True, exist_ok=False)\n    stages, streams = {}, {}\n\n    def save(name, array, dtype=\"<f4\"):\n        stats = measured(array)\n        if name not in stages:\n            path = output / (name + (\".f32le\" if dtype == \"<f4\" else \".\" + dtype))\n            streams[name] = path.open(\"xb\")\n            stages[name] = {\"file\": path.name, \"shape\": [h, w, 3], \"statistics\": stats}\n        else:\n            total = stages[name][\"statistics\"]\n            total[\"minimum\"] = min(total[\"minimum\"], stats[\"minimum\"])\n            total[\"maximum\"] = max(total[\"maximum\"], stats[\"maximum\"])\n            for key in (\"below_zero\", \"above_one\"):\n                total[key] += stats[key]\n        array.astype(dtype if dtype == \"<f4\" else {\"u16le\": \"<u2\", \"rgb8\": \"u1\"}[dtype]).tofile(streams[name])\n\n    # Bounded working set, no full-frame float intermediates. Source planes are\n    # read-only maps; stages stream to disk. Global coordinates preserve seams.\n    try:\n        for start in range(0, h, 64):\n            stop = min(h, start + 64)\n            ycc = np.stack([planes[0][start:stop], expand_left(planes[1], start, stop),\n                            expand_left(planes[2], start, stop)], axis=-1)\n            codes = convert(ycc, dm, policy, save)\n            outside = (np.arange(start, stop) < t) | (np.arange(start, stop) >= h-b)\n            codes[outside] = [0, 2048, 2048]\n            codes[:, :l] = codes[:, w-r:] = [0, 2048, 2048]\n            save(\"transport_ipt444\", codes, \"u16le\")\n            save(\"unembedded_tunnel\", pack(codes), \"rgb8\")\n    finally:\n        for stream in streams.values():\n            stream.close()\n    for record in stages.values():\n        record[\"sha256\"] = digest(output / record[\"file\"])\n    info = {\"schema\": \"yblod.output-reference.v1\", \"status\": \"complete\",\n            \"scope\": \"offline diagnostic; no embedded dynamic metadata; not playable HDMI\",\n            \"identity\": identity, \"width\": w, \"height\": h, \"active_rectangle\": [l, t, w-r, h-b],\n            \"policy\": policy, \"chroma_expansion\": \"bilinear-left-edge-replicated-float64\",\n            \"pq_domain\": \"negative to zero; above one extended; reject decode pole\",\n            \"quantization\": \"floor(value*4096+0.5), bound 0..4095; no fitted offsets\",\n            \"transport_sampling\": \"P/T co-sited at even x; top-down RGB8\",\n            \"target_ycc\": TARGET_YCC.tolist(), \"target_lms\": TARGET_LMS.tolist(),\n            \"target_offset\": TARGET_OFFSET.tolist(), \"source_dm\": dm,\n            \"composer_report_sha256\": digest(result / \"report.json\"),\n            \"rpu_sha256\": digest(extraction / \"rpu.json\"),\n            \"implementation_sha256\": digest(Path(__file__)), \"numpy_version\": np.__version__,\n            \"stage_storage\": \"float32 diagnostics; computation float64; integers exact\",\n            \"processing_strip_rows\": 64,\n            \"stages\": stages}\n    save_json(output / \"output.json\", info)\n    return info\n\n\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser(description=__doc__)\n    parser.add_argument(\"result\", type=Path)\n    parser.add_argument(\"extraction\", type=Path)\n    parser.add_argument(\"output\", type=Path)\n    parser.add_argument(\"--policy\", required=True, choices=POLICIES)\n    args = parser.parse_args()\n    try:\n        info = render(args.result, args.extraction, args.output, args.policy)\n    except (OSError, ValueError, KeyError) as error:\n        parser.exit(1, f\"output: {error}\\n\")\n    print(json.dumps({\"output\": str(args.output), \"policy\": info[\"policy\"]}))\n"
+    }
+  },
+  "runtime": {
+    "numpy_version": "1.26.4",
+    "python_version": "3.12.3"
+  },
+  "helper_implementations": {
+    "diagnose_frame": {
+      "filename": "diagnose_frame.py",
+      "sha256": "97fcc2d8c810397fec8802eca65bb2f424b519d01e8977d8ecea53eaa019deb3"
+    },
+    "compare_output": {
+      "filename": "compare_output.py",
+      "sha256": "dc1c4328a8f8624cafd33d235bbe06d227d377d1fac21febc115359d68078deb"
+    },
+    "dvtunnel": {
+      "filename": "dvtunnel.py",
+      "sha256": "092e975326f801657514900192d0f861226e7c2c5768d20032357855e2d4ce7f"
+    },
+    "dvlms": {
+      "filename": "dvlms.py",
+      "sha256": "387cc9f16fa408c9bcc32f52f2e849b048393262626829f20f36119d575c5647"
+    },
+    "inverse_stage": {
+      "filename": "inverse_stage.py",
+      "sha256": "cd1fb33703de254c3414a340f706283372dd652b48f5c1ccbeac7a0edd240171"
+    },
+    "summarize_cases": {
+      "filename": "summarize_cases.py",
+      "sha256": "c92bc24d06cd709c1c33b88d1ef4ebf452ebfe9b26ea7052bcf29883f961460f"
+    },
+    "extract_frame": {
+      "filename": "extract_frame.py",
+      "sha256": "814a414221ba212b2317ad6ee080ff9cdf5fb0e3a39730381c458f92db400dda"
+    },
+    "import_rpu": {
+      "filename": "import_rpu.py",
+      "sha256": "543cbb73b5f8dc1f6a9c60420f6391a62940cb2dbc5b1ee639f5ca2c80c7a2c8"
+    },
+    "inspect_composition": {
+      "filename": "inspect_composition.py",
+      "sha256": "3e9331fbfd91eb89c463a538697e5d9f5b07a2405f725c57c5bb0237ad5733a8"
+    },
+    "reference": {
+      "filename": "reference.py",
+      "sha256": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73"
+    }
+  },
+  "caveats": [
+    "Smaller hardware differences are not proof of accuracy, conformance, or the correct production filter.",
+    "Phase-control variants deliberately use wrong geometry; they are diagnostic negative controls, not candidates for deployment.",
+    "Cubic overshoots are passed to the unchanged direct colour policy, without an extra source clamp.",
+    "All variants use fixed capture-derived masks; no sample exclusions, spatial alignment, fitted offsets or fitted filter coefficients.",
+    "Only final vertical source-chroma expansion varies; BL/EL preparation, MMR guide, reconstruction and enhancement scaling remain unchanged.",
+    "No image artifacts are written. Capture frame identity is the supplied visible-counter association, not an independently verified driver timestamp."
+  ]
+}

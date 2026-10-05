@@ -570,8 +570,8 @@ measurements, not evidence of playback performance.
 
 ## Independent checks and movie extraction checkpoint — 2026-10-04
 
-The full suite now passes **166 reference tests plus 8 existing accuracy-tool
-tests** on Ollie. This includes the independent arithmetic vectors above and new
+At this checkpoint, the suite passed **166 reference tests plus 8 existing
+accuracy-tool tests** on Ollie. This includes the independent arithmetic vectors above and new
 diagnostic/extraction safeguards reviewed by separate agents. Tests passing does
 not mean the hardware discrepancy is solved.
 
@@ -623,9 +623,31 @@ checksum and timestamp appropriately. This remains an offline reference, not a
 replacement real-time player. Intel Quick Sync and supported AMD media scaling
 remain explicit production requirements.
 
+## Final colour sampling isolated — 2026-10-04
+
+[The sampling investigation](SAMPLING.md) now has independently calculated
+constant/ramp/impulse tests and a strip-based comparison harness. It reproduces
+all four saved direct outputs byte-for-byte, then changes only final vertical
+colour interpolation. The experiment reports correctly positioned linear/cubic
+filters separately from deliberately wrong-position controls.
+
+Current coverage is **220 reference tests plus 8 existing accuracy-tool tests**,
+all passing on Ollie. All 16 frame/variant comparisons completed under the
+512 MiB cap, with peak process RSS 96,216 KiB and no swap or OOM failures.
+
+The tested alternatives do not explain frame 1960's main discrepancy. Its
+smooth-area differences and alternating-row pattern remain. The same row
+pattern is present in the other saved captures, so common capture/packing
+assumptions also need verification. No filter, colour offset or deployed
+playback setting was changed. See the linked report for per-frame numbers,
+limits, independent tests and memory-capped reproduction commands.
+
 ## Next milestone
 
-1. Compare earlier-PQ and later-RGB bounds on additional matched SK4 material
+1. Verify the common alternating-row pattern against capture/packing precision,
+   then isolate earlier colour preparation and reconstruction/enlargement order.
+   The tested final vertical interpolation alternatives do not resolve it.
+   Compare earlier-PQ and later-RGB bounds on additional matched SK4 material
    with different source matrices, including ordinary movie scenes. Reordered
    movie extraction is now supported within the restrictions above; source-frame
    verification does not establish the identity of a separate hardware capture.
