@@ -16,11 +16,22 @@ import y416_edge_metrics as edges
 WORDS = {"Y": "1", "Cb": "0", "Cr": "2"}
 
 
+def same(actual, expected):
+    return json.dumps(actual, sort_keys=True) == json.dumps(expected, sort_keys=True)
+
+
 def profile(sample, component, axis, size):
     key = "center_row_raw_words" if axis == "x" else "center_column_raw_words"
     values = sample["raw_le16_word_positions"][WORDS[component]][key]
+    repeats = sample.get("repeat_sha256")
     if (sample.get("repeat_stable") is not True or sample.get("size") != size
             or any(type(v) is not int for v in sample["size"])
+            or not same(sample.get("bytes"), size[0] * size[1] * 8)
+            or not same(sample.get("profile_sampling"), {"center_row_y": size[1] // 2, "center_column_x": size[0] // 2})
+            or not same(sample.get("UYVA_word_indices_hypothesis"), {"Cb": 0, "Y": 1, "Cr": 2, "alpha": 3})
+            or not isinstance(repeats, list) or not 2 <= len(repeats) <= 4
+            or not edges._hash(sample.get("sha256"))
+            or any(v != sample["sha256"] for v in repeats)
             or not isinstance(values, list) or len(values) != size[0 if axis == "x" else 1]
             or any(type(v) is not int or not 0 <= v <= 65535 for v in values)):
         raise ValueError("stable raw full-raster profile required")
@@ -100,6 +111,9 @@ def analyse_report(report, ascending=None):
     corpus = report.get("corpus")
     if corpus not in ("descending", "edges", "stripes"):
         raise ValueError("unknown detail corpus")
+    if (not same(report.get("input_size"), [1920, 1080])
+            or not same(report.get("output_size"), [3840, 2160])):
+        raise ValueError("full-size source/output declarations required")
     if ascending is not None and (ascending.get("schema") != "yblod.hardware-y416-large.v1"
             or ascending.get("status") != "complete"
             or ascending.get("binary_sha256") != report.get("binary_sha256")):
@@ -121,24 +135,43 @@ def analyse_report(report, ascending=None):
                     spec = report["inputs"][case]["case_spec"]
                     if spec.get("component") != component or spec.get("axis") != axis:
                         raise ValueError("isolated component/axis declaration differs")
+                    if (not same(spec.get("native_component_sizes"), geometry.COMPONENT_SIZES)
+                            or not same(spec.get("input_size"), geometry.INPUT)
+                            or not same(spec.get("baseline_code"), 512)):
+                        raise ValueError("canonical source grids and baseline required")
                     raw = profile(cases[case], component, axis, size)
                     extent = geometry.COMPONENT_SIZES[component][0 if axis == "x" else 1]
                     if corpus == "descending":
                         required = {"kind": "descending", "signed_slope": -8,
                                     "native_band_length": 96, "band_start_native": extent // 2 - 48,
                                     "band_stop_native_exclusive": extent // 2 + 48,
-                                    "band_first_code": 888, "band_last_code": 128, "source_center_code": 504}
+                                    "band_first_code": 888, "band_last_code": 128, "source_center_code": 504,
+                                    "source_center_native_index": extent // 2, "phase": None,
+                                    "source_index_offset": None, "increment_code": 0, "change_native_index": None}
                         if any(type(spec.get(k)) is not type(v) or spec[k] != v for k, v in required.items()):
                             raise ValueError("canonical mirrored source band required")
                         scored[case] = {"geometry_hypotheses": descending_score(raw, component, axis)}
                         if ascending is not None:
+                            asc_spec = ascending["inputs"][f"{component}-{axis}-ascending"]["case_spec"]
+                            asc_required = {"component": component, "axis": axis, "signed_slope": 8,
+                                            "baseline_code": 512, "native_band_length": 96,
+                                            "band_start_native": extent // 2 - 48,
+                                            "band_stop_native_exclusive": extent // 2 + 48,
+                                            "source_center_native_index": extent // 2,
+                                            "band_first_code": 128, "band_last_code": 888,
+                                            "native_component_sizes": geometry.COMPONENT_SIZES, "input_size": geometry.INPUT}
+                            if not same(asc_spec, asc_required):
+                                raise ValueError("canonical matching ascending fixture required")
                             asc = profile(ascending["results"][stage][f"{component}-{axis}-ascending"], component, axis, size)
                             scored[case]["mirror_balance"] = mirror_score(asc, raw)
                     else:
                         kind = "step" if corpus == "edges" else "stripe"
                         phase = None if kind == "step" else int(suffix[-1])
                         required = {"kind": kind, "baseline_code": 512, "increment_code": 64,
-                                    "change_native_index": extent // 2 + (phase or 0), "phase": phase}
+                                    "change_native_index": extent // 2 + (phase or 0), "phase": phase,
+                                    "source_index_offset": phase, "signed_slope": 0,
+                                    "native_band_length": None, "band_start_native": None,
+                                    "band_stop_native_exclusive": None, "source_center_native_index": extent // 2}
                         if any(type(spec.get(k)) is not type(v) or spec[k] != v for k, v in required.items()):
                             raise ValueError("canonical bounded stimulus required")
                         base = profile(cases["neutral"], component, axis, size)

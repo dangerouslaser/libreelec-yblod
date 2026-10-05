@@ -36,7 +36,7 @@ def case_spec(case,width=1920,height=1080):
           "native_band_length":length,"band_start_native":start,"band_stop_native_exclusive":start+length if length else None,
           "source_center_native_index":extent//2 if component else None,
           "band_first_code":512+8*(length-1-length//2) if length else None,"band_last_code":512-8*(length//2) if length else None,
-          "source_center_code":504 if kind=="descending" else (512 if component else None),
+          "source_center_code":(512+8*(length-1-length//2)-8*(extent//2-start)) if kind=="descending" else (512 if component else None),
           "native_component_sizes":{"Y":[width,height],"Cb":[width//2,height//2],"Cr":[width//2,height//2]},"input_size":[width,height]}
     if kind=="stripe":
         spec["placement_interpretation"]="integer native component sample placement, not a fractional resampler phase"

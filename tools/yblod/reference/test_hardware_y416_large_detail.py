@@ -21,6 +21,19 @@ class LargeDetailFixtureTests(unittest.TestCase):
                 x,y=(m,0) if spec["axis"]=="x" else (0,m)
                 self.assertEqual(detail.source_code(spec,spec["component"],x,y)+detail.large.source_code(ascending,spec["component"],x,y),1016)
             m=spec["source_center_native_index"];self.assertEqual(detail.source_code(spec,spec["component"],m if spec["axis"]=="x" else 0,m if spec["axis"]=="y" else 0),504)
+            self.assertEqual(spec["source_center_code"],504)
+
+    def test_odd_small_chroma_fixture_reports_actual_center_without_changing_fullsize(self):
+        for axis in ("x","y"):
+            spec=detail.case_spec(f"Cb-{axis}-descending",70,70)
+            self.assertEqual(spec["native_band_length"],35)
+            self.assertEqual(spec["source_center_code"],512)
+            center=spec["source_center_native_index"]
+            self.assertEqual(detail.source_code(spec,"Cb",center if axis=="x" else 0,center if axis=="y" else 0),512)
+        for case in detail.CORPORA["descending"][1:]:
+            spec=detail.case_spec(case,1920,1080)
+            self.assertEqual(spec["source_center_code"],504)
+            self.assertEqual((spec["native_band_length"],spec["band_first_code"],spec["band_last_code"]),(96,888,128))
 
     def test_steps_and_source_integer_stripe_placements(self):
         self.assertEqual([len(c) for c in detail.CORPORA.values()],[7,7,13])
