@@ -6,12 +6,14 @@ Y416 or an emulation of the finite-float playback shader. Raw words retain all
 bits through Fraction(word, 64). No picture, colour conversion or fitted offset.
 """
 import argparse
+from collections import Counter
 from fractions import Fraction
 import hashlib
 import json
 from pathlib import Path
 
 import reference
+import y416_large_geometry as geometry
 
 PARAMETERS = {"offset": 512, "slope": 2048, "threshold": 0, "maximum": 1048576}
 SPEC = reference.SPEC
@@ -112,7 +114,120 @@ def score_pair(raw_word, expected_sample, *, mapped=32768, parameters=PARAMETERS
     }
 
 
-def report():
+def _histogram(values):
+    counts = Counter(values)
+    return [{"value": rational(value), "count": counts[value]} for value in sorted(counts)]
+
+
+def _sha(value):
+    if type(value) is not str or len(value) != 64 or any(c not in "0123456789abcdef" for c in value):
+        raise ValueError("strict lowercase SHA256 declaration required")
+    return value
+
+
+def analyse_measured(value):
+    """Use real saved synthetic-scaler words, not real-movie pixels.
+
+    Canonical geometry validation is shared with the independently pinned scorer.
+    Only centre-line affine interiors of the scaled six ascending cases enter
+    NLQ. The expected samples belong to the declared pixel-centre hypothesis.
+    """
+    validated = geometry.analyse_report(value)
+    repeats = value.get("repeats")
+    if type(repeats) is not int or not 2 <= repeats <= 4:
+        raise ValueError("declared repeat count must be 2..4")
+    _sha(value.get("binary_sha256"))
+    _sha(value.get("source_sha256"))
+    cases = {}
+    for component in ("Y", "Cb", "Cr"):
+        for axis in ("x", "y"):
+            case = f"{component}-{axis}-ascending"
+            source = value["inputs"][case]
+            _sha(source.get("sha256"))
+            sample = value["results"]["scaled"][case]
+            _sha(sample.get("sha256"))
+            hashes = sample.get("repeat_sha256")
+            if (type(hashes) is not list or len(hashes) != repeats
+                    or any(_sha(digest) != sample["sha256"] for digest in hashes)):
+                raise ValueError("all repeat hashes must match declared sample hash")
+            if type(sample.get("bytes")) is not int or sample["bytes"] != 3840 * 2160 * 8:
+                raise ValueError("scaled Y416 byte declaration mismatch")
+            if json.dumps(sample.get("UYVA_word_indices_hypothesis"), sort_keys=True) != json.dumps(
+                    {"Cb": 0, "Y": 1, "Cr": 2, "alpha": 3}, sort_keys=True):
+                raise ValueError("canonical UYVA word hypothesis required")
+            raw = sample["raw_le16_word_positions"][geometry.WORDS[component]][
+                "center_row_raw_words" if axis == "x" else "center_column_raw_words"]
+            first, stop = validated["results"]["scaled"][case]["pixel-centre"]["output_index_slice_start_stop"]
+            start = source["case_spec"]["band_start_native"]
+            sample_errors, residual_errors, final_errors = [], [], []
+            distances = {side: [] for side in ("actual", "expected")}
+            near = {side: 0 for side in distances}
+            zeros = {side: 0 for side in distances}
+            clipped = {side: 0 for side in distances}
+            actual_fractional = expected_fractional = crossings = neutral_transitions = 0
+            examples, near_examples = [], []
+            for index in range(first, stop):
+                position = geometry.coordinate(index, len(raw), component, axis, "pixel-centre")
+                expected = 128 + 8 * (position - start)
+                pair = score_pair(raw[index], expected, mapped=32768)
+                actual = Fraction(raw[index], 64)
+                actual_fractional += actual.denominator != 1
+                expected_fractional += expected.denominator != 1
+                sample_errors.append(actual - expected)
+                residual_errors.append(Fraction(*pair["extension_residual_error_16bit_units"]))
+                final_errors.append(pair["synthetic_reconstructed_12bit_actual"] - pair["synthetic_reconstructed_12bit_expected"])
+                relations = pair["neutral_relation"]
+                crossings += relations["actual"] * relations["expected"] < 0
+                neutral_transitions += relations["actual"] != relations["expected"] and 0 in relations.values()
+                for side, native in (("actual", actual), ("expected", expected)):
+                    distance = native - PARAMETERS["offset"]
+                    distances[side].append(distance)
+                    near[side] += abs(distance) <= Fraction(1, 2)
+                    zeros[side] += distance == 0
+                    residual = Fraction(*pair[f"{side}_extension_residual"])
+                    unbounded = (32768 + residual + 8) // 16
+                    clipped[side] += unbounded != pair[f"synthetic_reconstructed_12bit_{side}"]
+                example = dict(output_index=index, **pair)
+                if len(examples) < 3:
+                    examples.append(example)
+                if ((abs(actual - 512) <= Fraction(1, 2) or abs(expected - 512) <= Fraction(1, 2)
+                     or relations["actual"] != relations["expected"]) and len(near_examples) < 6):
+                    near_examples.append(example)
+            count = stop - first
+            cases[case] = {
+                "samples": count, "component": component, "axis": axis,
+                "output_index_slice_start_stop": [first, stop], "margin_output_samples": 32,
+                "input_sha256_declared": source["sha256"], "raw_output_sha256_declared": sample["sha256"],
+                "sample_error_native_codes_histogram": _histogram(sample_errors),
+                "extension_residual_error_16bit_histogram": _histogram(residual_errors),
+                "mean_signed_extension_residual_error": rational(sum(residual_errors) / count),
+                "mean_absolute_extension_residual_error": rational(sum(map(abs, residual_errors)) / count),
+                "maximum_absolute_extension_residual_error": rational(max(map(abs, residual_errors))),
+                "actual_fractional_input_count": actual_fractional, "expected_fractional_input_count": expected_fractional,
+                "neutral_distance_native_codes": {
+                    side: {"minimum_signed": rational(min(values)), "maximum_signed": rational(max(values)),
+                           "minimum_absolute": rational(min(map(abs, values))),
+                           "within_half_code_inclusive_count": near[side], "exact_neutral_count": zeros[side]}
+                    for side, values in distances.items()},
+                "opposite_nonzero_sign_count": crossings, "neutral_to_nonzero_transition_count": neutral_transitions,
+                "synthetic_mapped_code": 32768, "synthetic_output_bit_depth": 12,
+                "synthetic_composition_clipped_counts": clipped,
+                "synthetic_reconstructed_12bit_difference_histogram": _histogram(final_errors),
+                "first_examples": examples, "near_neutral_or_crossing_examples": near_examples,
+            }
+    return {
+        "geometry_helper_sha256": hashlib.sha256(Path(geometry.__file__).read_bytes()).hexdigest(),
+        "input_generator_sha256_declared": value["source_sha256"],
+        "binary_sha256_declared": value["binary_sha256"], "declared_repeats": repeats,
+        "expected_geometry": "pixel-centre hypothesis; not established Dolby geometry",
+        "sample_basis": "actual saved synthetic-scaler raw words versus exact ideal affine-band samples at matching output indices",
+        "interpretation": "measured input pairs plus hypothetical fractional NLQ continuation; not movie/RGB, shader or licensed-device prediction",
+        "validation_scope": "canonical source declarations/profiles and hash syntax/repeat agreement checked; report bytes hashed by caller, images/binary not re-read",
+        "total_samples": sum(case["samples"] for case in cases.values()), "cases": cases,
+    }
+
+
+def report(measured=None):
     cases = []
     # These are synthetic placements of error magnitudes observed against the
     # declared pixel-centre model, NOT replay of measured pixel pairs.
@@ -148,7 +263,7 @@ def report():
             "signed_reconstructed_code_errors": sorted({row["signed_reconstructed_code_error"] for row in rows}),
             "interior_mapped32768_signed_errors": sorted({row["signed_reconstructed_code_error"] for row in rows if row["mapped_code"] == 32768}),
         }
-    return {
+    value = {
         "schema": "yblod.nlq-scaling-sensitivity.v1", "status": "complete",
         "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "integer_reference_sha256": hashlib.sha256(Path(reference.__file__).read_bytes()).hexdigest(),
@@ -161,20 +276,26 @@ def report():
         "integer_contract": "integer-input final-floor results match reference.inverse_el; neither model is a finite-float shader emulator",
         "error_magnitude_basis": "Y +/-1/2 and Cb/Cr +/-1/4 native codes observed in full-size ascending affine bands against the declared pixel-centre hypothesis",
         "error_magnitude_source": "results/intel-y416-large-geometry-v11.json",
-        "limitations": ["synthetic anchors, not actual measured pixel pairs or real-frame predictions",
+        "limitations": ["the default cases use synthetic anchors; optional measured_pairs use actual synthetic-scaler observations, never real-frame predictions",
                         "fractional near-neutral sign reversal/discontinuity is model behavior, not an established Dolby rule",
                         "no shader normalization/noise guard, texture interpolation, RGB, IPT, clipping-frequency or SK4 prediction",
                         "no 10-bit truncation, fitted shift, parameter tuning or production changes"],
         "cases": cases,
         "synthetic_composition_summary": composition_summary,
     }
+    if measured is not None:
+        data = Path(measured).read_bytes()
+        value["measured_pairs"] = analyse_measured(json.loads(data))
+        value["measured_pairs"]["input_report_sha256"] = hashlib.sha256(data).hexdigest()
+    return value
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--measured-report", type=Path)
     args = parser.parse_args()
-    value = report()
+    value = report(args.measured_report)
     with args.output.open("x") as handle:
         json.dump(value, handle, indent=2, sort_keys=True)
         handle.write("\n")

@@ -285,7 +285,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **480 reference tests**, including vector/scoring, runner failure gates,
+- **507 reference tests**, including vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
@@ -295,8 +295,9 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
   input/output siting matrix are complete.
 - Full-size slope controls and per-client engine-class accounting are complete.
 - Full-size signed-ramp/base/quality and per-job pipeline-hint controls are complete.
-- Small constant, gradient and edge Y416 diagnostics and full-size neutral/ascending
-  affine-band diagnostics are complete. Full-size descending/edge/impulse tests, specific SFC routing,
+- Small constant, gradient and edge Y416 diagnostics and full-size neutral/ascending,
+  descending/edge/stripe-placement diagnostics are complete. Fractional composer
+  contract acceptance, specific SFC routing,
   playback performance and AMD measurements remain pending. No SK4-match
   improvement or production acceptance is claimed.
 
@@ -374,3 +375,16 @@ The completed six-job neutral and42-job affine-band runs are documented in
 activity with no positive render intervals. Memory remained bounded with zero
 OOM events/kills or swap; the larger scope did reach its512MiB cap. No steady-
 state playback or SK4 matching claim is made.
+
+`hardware_y416_large_detail.py` provides separate descending/edges/stripes
+cohorts with retained-file disk preflight. Stripe0/1 labels are integer source
+placements, not new fractional resampling phases. `y416_large_detail_metrics.py`
+scores canonical saved profiles, correct mirror sum1016, explicitly cropped
+edge thresholds, full-profile stripe statistics and declared integer translation.
+See `INTEL_Y416_DETAIL_RESULTS.md` for the completed162-job checkpoint, hashes,
+engine/memory counters and remaining disk-space limit.
+
+`nlq_scaling_sensitivity.py` connects measured full-size EL pairs to a clearly
+labelled hypothetical fractional continuation of our integer composer. It does
+not change `reference.py`, identify licensed fractional behavior, emulate shader
+noise guards, or predict real-frame colour. See `NLQ_SCALING_SENSITIVITY.md`.

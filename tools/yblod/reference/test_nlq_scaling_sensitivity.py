@@ -1,4 +1,6 @@
 from fractions import Fraction as F
+import copy
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -8,6 +10,7 @@ import unittest
 
 import nlq_scaling_sensitivity as n
 import reference
+import y416_large_geometry as geometry
 
 
 class SensitivityTests(unittest.TestCase):
@@ -98,6 +101,103 @@ class SensitivityTests(unittest.TestCase):
             self.assertEqual(json.loads(original)["schema"], value["schema"])
             self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
             self.assertEqual(output.read_bytes(), original)
+
+    def measured_fixture(self):
+        value = {"schema": "yblod.hardware-y416-large.v1", "status": "complete",
+                 "all_sameformat_p010_gates_complete": True, "repeats": 2,
+                 "binary_sha256": "a" * 64, "source_sha256": "b" * 64,
+                 "inputs": {}, "results": {"native": {}, "scaled": {}}}
+        for component in ("Y", "Cb", "Cr"):
+            for axis in ("x", "y"):
+                case = f"{component}-{axis}-ascending"
+                extent = geometry.COMPONENT_SIZES[component][0 if axis == "x" else 1]
+                start = extent // 2 - 48
+                value["inputs"][case] = {"sha256": "c" * 64, "case_spec": {
+                    "component": component, "axis": axis, "signed_slope": 8,
+                    "baseline_code": 512, "native_band_length": 96,
+                    "band_start_native": start, "band_stop_native_exclusive": start + 96,
+                    "source_center_native_index": start + 48, "band_first_code": 128,
+                    "band_last_code": 888, "native_component_sizes": geometry.COMPONENT_SIZES,
+                    "input_size": geometry.INPUT}}
+                for label, size in (("native", [1920, 1080]), ("scaled", [3840, 2160])):
+                    length = size[0 if axis == "x" else 1]
+                    raw = []
+                    for index in range(length):
+                        # Independently construct the centre convention, not by
+                        # calling the production geometry coordinate helper.
+                        position = (F(index) + F(1, 2)) / (2 if label == "scaled" else 1) - F(1, 2)
+                        if component != "Y":
+                            position = (position - (F(1, 2) if axis == "y" else 0)) / 2
+                        expected = 128 + 8 * (min(start + 95, max(start, position)) - start)
+                        raw.append(int((expected + F(1, 4)) * 64))
+                    value["results"][label][case] = {
+                        "size": size, "bytes": size[0] * size[1] * 8,
+                        "repeat_stable": True, "sha256": "d" * 64, "repeat_sha256": ["d" * 64] * 2,
+                        "profile_sampling": {"center_row_y": size[1] // 2, "center_column_x": size[0] // 2},
+                        "UYVA_word_indices_hypothesis": {"Cb": 0, "Y": 1, "Cr": 2, "alpha": 3},
+                        "raw_le16_word_positions": {geometry.WORDS[component]: {
+                            "center_row_raw_words" if axis == "x" else "center_column_raw_words": raw}}}
+        return value
+
+    def test_measured_pairs_exact_and_bounded(self):
+        result = n.analyse_measured(self.measured_fixture())
+        self.assertEqual(result["total_samples"], 1536)
+        for case, row in result["cases"].items():
+            count = 128 if case.startswith("Y-") else 320
+            self.assertEqual(row["samples"], count)
+            self.assertEqual(row["sample_error_native_codes_histogram"], [{"value": [1, 4], "count": count}])
+            self.assertEqual(row["extension_residual_error_16bit_histogram"], [{"value": [4, 1], "count": count}])
+            self.assertEqual(row["synthetic_composition_clipped_counts"], {"actual": 0, "expected": 0})
+            self.assertEqual(row["opposite_nonzero_sign_count"], 0)
+            self.assertLessEqual(len(row["first_examples"]), 3)
+            self.assertLessEqual(len(row["near_neutral_or_crossing_examples"]), 6)
+
+    def test_measured_crossing_keeps_raw_fraction(self):
+        value = self.measured_fixture()
+        sample = value["results"]["scaled"]["Cb-x-ascending"]
+        raw = sample["raw_le16_word_positions"]["0"]["center_row_raw_words"]
+        # Source centre is480. At output1920, expected511, while this
+        # explicitly perturbed fixture reads512.25: a sign crossing.
+        raw[1920] = 32784
+        row = n.analyse_measured(value)["cases"]["Cb-x-ascending"]
+        self.assertEqual(row["opposite_nonzero_sign_count"], 1)
+        self.assertEqual(row["neutral_distance_native_codes"]["actual"]["within_half_code_inclusive_count"], 1)
+        pair = row["near_neutral_or_crossing_examples"][0]
+        self.assertEqual(pair["expected_native_codes"], [511, 1])
+        self.assertEqual(pair["sample_native_codes"], [2049, 4])
+        self.assertEqual(pair["extension_residual_error_16bit_units"], [4, 1])
+
+    def test_measured_invalid_declarations(self):
+        original = self.measured_fixture()
+        for mutation in ("gate", "repeat", "repeat_hash", "mapping", "mapping_false", "raw", "source", "profile"):
+            value = copy.deepcopy(original)
+            sample = value["results"]["scaled"]["Y-x-ascending"]
+            if mutation == "gate": value["all_sameformat_p010_gates_complete"] = False
+            elif mutation == "repeat": value["repeats"] = 3
+            elif mutation == "repeat_hash": sample["repeat_sha256"][0] = "e" * 64
+            elif mutation == "mapping": sample["UYVA_word_indices_hypothesis"]["Y"] = True
+            elif mutation == "mapping_false": sample["UYVA_word_indices_hypothesis"]["Cb"] = False
+            elif mutation == "raw": sample["raw_le16_word_positions"]["1"]["center_row_raw_words"][1920] = 65535
+            elif mutation == "source": value["inputs"]["Y-x-ascending"]["case_spec"]["signed_slope"] = 8.0
+            else: sample["profile_sampling"]["center_row_y"] = 1080.0
+            with self.assertRaises(ValueError, msg=mutation): n.analyse_measured(value)
+
+    def test_measured_cli_pins_input_and_fails_before_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "measured.json"
+            output = Path(directory) / "sensitivity.json"
+            payload = json.dumps(self.measured_fixture()).encode()
+            source.write_bytes(payload)
+            done = subprocess.run([sys.executable, n.__file__, str(output), "--measured-report", str(source)], capture_output=True)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            measured = json.loads(output.read_bytes())["measured_pairs"]
+            self.assertEqual(measured["input_report_sha256"], hashlib.sha256(payload).hexdigest())
+            self.assertEqual(measured["geometry_helper_sha256"], hashlib.sha256(Path(geometry.__file__).read_bytes()).hexdigest())
+            source.write_text('{"status":"failed"}')
+            absent = Path(directory) / "must-not-exist.json"
+            failed = subprocess.run([sys.executable, n.__file__, str(absent), "--measured-report", str(source)], capture_output=True)
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertFalse(absent.exists())
 
 
 if __name__ == "__main__":
