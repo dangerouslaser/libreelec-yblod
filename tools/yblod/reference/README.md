@@ -170,6 +170,10 @@ fractional policy or performance result is implied by the lookup implementation.
 an exact full-frame gate and paired LibreELEC CPU measurements with preparation
 and teardown included: about one-third less time for the measured whole-code
 workload, not playback FPS, independent arithmetic conformance or SK4 accuracy.
+[NATIVE_MMR_COMPOSER.md](NATIVE_MMR_COMPOSER.md) adds separately tested prepared
+colour reconstruction with metadata-proved arithmetic widths and an exact
+wide fallback. Its paired VM checkpoint reduced median diagnostic frame time
+from 605 to 259 ms with all four stages byte-exact; Kodi playback is unchanged.
 [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
 [NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
 conservative arithmetic-width gates, not a working GPU playback engine.
