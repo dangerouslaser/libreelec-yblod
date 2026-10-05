@@ -10,6 +10,11 @@ No device permissions, Kodi configuration, display mode, or playback pipeline
 have been changed. Normal SSH from the workstation works; the earlier explicit
 Petunia-key selection incorrectly excluded the working authentication route.
 
+[NATIVE_SCALED_SURFACE.md](NATIVE_SCALED_SURFACE.md) provides the separate
+experimental C handoff for already synchronized CPU-readable P010 allocations.
+It preserves raw words or accepts exact whole-code chunks; it does not scale,
+wait for hardware or choose fractional reconstruction. AMD hardware is untested.
+
 ## Build
 
 `vaapi_scaler_probe.c` is a one-shot C program using libva/libva-drm. On a Linux
@@ -285,7 +290,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **849 reference tests**, including native C arithmetic/adapter/frame checks,
+- **862 reference tests**, including native C arithmetic/adapter/frame checks,
   vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
