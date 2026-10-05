@@ -120,9 +120,13 @@ class StageWriter:
                 "maximum": self.high, "sha256": self.digest.hexdigest()}
 
 
-def run(manifest_path, output, *, chunk_samples=4096):
+def run(manifest_path, output, *, chunk_samples=4096, backend="python", native_library=None):
     if type(chunk_samples) is not int or not 1 <= chunk_samples <= 65536:
         raise ValueError("chunk_samples must be integer in1..65536")
+    if backend not in ("python", "native"):
+        raise ValueError("backend must be python or native")
+    if (backend == "native") != (native_library is not None):
+        raise ValueError("native backend requires an explicit library; Python backend does not accept one")
     manifest_path, output = Path(manifest_path), Path(output)
     with manifest_path.open("rb") as handle:
         raw_manifest = handle.read((8 << 20) + 1)
@@ -144,6 +148,11 @@ def run(manifest_path, output, *, chunk_samples=4096):
     needs_guide = any(segment["method"] == "mmr" for curve in metadata["mappings"] for segment in curve["segments"])
     if needs_guide and not manifest.get("mmr_luma"):
         raise ValueError("MMR requires an explicitly prepared luma guide")
+    native = None
+    if backend == "native":
+        from native_stage import NativeStage
+        native = NativeStage(native_library, map_config, nlq_configs,
+                             metadata["output_bit_depth"], disabled=not enabled)
     count_y = manifest["width"] * manifest["height"]
     counts = (count_y, count_y // 4, count_y // 4)
     report = {
@@ -158,7 +167,11 @@ def run(manifest_path, output, *, chunk_samples=4096):
         "input_validation_scope": "only consumed planes: disabled EL and unused guide are not opened or hashed",
         "input_change_check": "descriptor and resolved-path size/inode/mtime/ctime before/after; not an immutable or adversarial snapshot guarantee",
         "chunk_samples": chunk_samples, "input_sha256": {}, "stages": {},
+        "backend": backend,
     }
+    if native is not None:
+        report["native_provenance"] = native.provenance
+        report["validation_basis"] = "reference.validate supplies global manifest/identity validation; arithmetic uses native C chunks"
     with ExitStack() as resources:
         readers = []
         def reader(filename, count, depth):
@@ -186,16 +199,23 @@ def run(manifest_path, output, *, chunk_samples=4096):
                 enhancement = ({component: el[component].read(size) for component in components} if enabled else None)
                 luma = guide.read(size) if components == (1, 2) and guide is not None else None
                 for component in components:
-                    stages = {name: [] for name, _ in STAGES}
-                    for index in range(size):
-                        samples = ((base[0][index], 0, 0) if component == 0 else
-                                   (luma[index] if luma is not None else 0, base[1][index], base[2][index]))
-                        mapped = mapping.map_sample(component, samples, map_config)
-                        residual = nlq.correction(enhancement[component][index], nlq_configs[component]) if enabled else 0
-                        stages["mapped"].append(mapped)
-                        stages["residual"].append(residual)
-                        stages["sum"].append(mapped + residual)
-                        stages["reconstructed"].append(composition.compose_residual(mapped, residual, metadata["output_bit_depth"]))
+                    if native is not None:
+                        stages = native.process_planes(
+                            component, base[0] if component == 0 else luma,
+                            None if component == 0 else base[1],
+                            None if component == 0 else base[2],
+                            enhancement[component] if enabled else None)
+                    else:
+                        stages = {name: [] for name, _ in STAGES}
+                        for index in range(size):
+                            samples = ((base[0][index], 0, 0) if component == 0 else
+                                       (luma[index] if luma is not None else 0, base[1][index], base[2][index]))
+                            mapped = mapping.map_sample(component, samples, map_config)
+                            residual = nlq.correction(enhancement[component][index], nlq_configs[component]) if enabled else 0
+                            stages["mapped"].append(mapped)
+                            stages["residual"].append(residual)
+                            stages["sum"].append(mapped + residual)
+                            stages["reconstructed"].append(composition.compose_residual(mapped, residual, metadata["output_bit_depth"]))
                     for name, _ in STAGES:
                         writers[f"{name}_{CHANNELS[component]}"].write(stages[name])
         for source in readers:
@@ -230,9 +250,12 @@ def main():
     parser.add_argument("manifest", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--chunk-samples", type=int, default=4096)
+    parser.add_argument("--backend", choices=("python", "native"), default="python")
+    parser.add_argument("--native-library", type=Path)
     args = parser.parse_args()
     try:
-        run(args.manifest, args.output, chunk_samples=args.chunk_samples)
+        run(args.manifest, args.output, chunk_samples=args.chunk_samples,
+            backend=args.backend, native_library=args.native_library)
     except (OSError, ValueError, TypeError, KeyError) as error:
         parser.exit(1, f"streaming composer: {error}\n")
 

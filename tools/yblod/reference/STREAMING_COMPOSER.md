@@ -24,6 +24,30 @@ enhancement reconstruction or final composition functions. Reusing validation
 is explicit: this is independent arithmetic, not an independent RPU parser or
 fully independent input-validation implementation.
 
+## Native C backend
+
+C is the intended playback implementation; Python remains the reference and
+offline test harness. Build a source-pinned library into a fresh directory:
+
+```sh
+python3 tools/yblod/reference/native_stage.py target/native-composer-build
+python3 tools/yblod/reference/streaming_composer.py \
+  target/stream-demo-input/frame.json target/stream-demo-native \
+  --backend native \
+  --native-library target/native-composer-build/libnative_composer.so
+```
+
+The native backend makes one C call per component chunk, not one Python-to-C
+call per pixel. It uses the same prepared whole-code input contract and writes
+the same twelve diagnostic stages. The report records the backend, compiler
+build record and source/header/library hashes. A stale or unrecorded library
+is rejected. The default remains Python for reference reproducibility.
+
+This adapter is an offline verification tool, not a Python requirement for
+future playback. Kodi integration can call the C API directly. Hardware
+enhancement-layer scaling remains separate; fractional hardware output must
+not be silently converted to this whole-code input contract.
+
 ## Memory, output and failure behavior
 
 Input and output are processed in bounded chunks, not whole-plane arrays.

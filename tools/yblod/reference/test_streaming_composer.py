@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import struct
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -48,6 +49,42 @@ class StreamingComposerTests(unittest.TestCase):
         for size in (True, 0, -1, 65537, 1.0):
             with self.assertRaises(ValueError): stream.run(self.manifest_path, self.output, chunk_samples=size)
             self.no_completion()
+
+    def test_explicit_backend_configuration(self):
+        for settings in ({"backend": "other"}, {"backend": "native"},
+                         {"native_library": "unused.so"}):
+            with self.assertRaises(ValueError):
+                stream.run(self.manifest_path, self.output, **settings)
+            self.assertFalse(self.output.exists())
+
+    def test_native_chunk_dispatch_matches_stage_contract(self):
+        python_result = stream.run(self.manifest_path, self.root / "python", chunk_samples=3)
+        calls = []
+        class Adapter:
+            def __init__(adapter, library, mapping, corrections, depth, *, disabled):
+                adapter.mapping, adapter.corrections, adapter.depth = mapping, corrections, depth
+                adapter.provenance = {"test_adapter": True}
+                self.assertEqual(library, "test.so")
+                self.assertFalse(disabled)
+            def process_planes(adapter, component, y, cb, cr, el):
+                calls.append((component, len(el)))
+                count = len(el)
+                planes = [plane if plane is not None else [0] * count for plane in (y, cb, cr)]
+                mapped = [stream.mapping.map_sample(component, values, adapter.mapping)
+                          for values in zip(*planes)]
+                residual = [stream.nlq.correction(value, adapter.corrections[component]) for value in el]
+                return {"mapped": mapped, "residual": residual,
+                        "sum": [a + b for a, b in zip(mapped, residual)],
+                        "reconstructed": [stream.composition.compose_residual(a, b, adapter.depth)
+                                          for a, b in zip(mapped, residual)]}
+        module = mock.Mock(NativeStage=Adapter)
+        with mock.patch.dict(sys.modules, {"native_stage": module}):
+            result = stream.run(self.manifest_path, self.output, chunk_samples=3,
+                                backend="native", native_library="test.so")
+        self.assertEqual(result["backend"], "native")
+        self.assertEqual(result["native_provenance"], {"test_adapter": True})
+        self.assertEqual(calls, [(0, 3), (0, 3), (0, 2), (1, 2), (2, 2)])
+        self.assertEqual(result["stages"], python_result["stages"])
 
     def test_missing_short_extra_and_native_depth_rejected(self):
         plane = self.bundle / "bl_Y.u16le"
