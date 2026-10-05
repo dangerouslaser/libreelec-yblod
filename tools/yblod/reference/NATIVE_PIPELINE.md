@@ -29,6 +29,11 @@ integer C timing from the diagnostic Python/file-output overhead.
   not a Kodi backend. The polynomial/MMR/NLQ/composition corpus matched the C
   reference exactly on Petunia. See [NATIVE_GPU_PROBE.md](NATIVE_GPU_PROBE.md);
   The fractional hardware frontend remains outside that test.
+- `native_gpu_frame_probe.py` selects a bounded real prepared-frame grid and
+  verifies all CPU gates before the same native GPU arithmetic. Frame 2296
+  matched all 49,152 sampled stage values exactly; see
+  [NATIVE_GPU_FRAME_PROBE.md](NATIVE_GPU_FRAME_PROBE.md). This is not a full-frame
+  correctness or playback-throughput result.
 
 ## Hardware boundary: preserve information first
 
@@ -50,6 +55,10 @@ dimensions, byte order, component order, grid and value significance. It must
 not implicitly shift away fractional bits, clip ringing, or convert 4:4:4 to
 4:2:0. Buffer lifetime and completion synchronization stay explicit in a later
 hardware adapter; a CPU diagnostic buffer does not prove DMA/GPU ownership.
+
+The public reference architecture places coded-layer resampling before inverse
+quantization. Its resampling is nonnormative, so this does not choose a filter,
+phase or fractional-input rule. See [EL_OPERATION_ORDER.md](EL_OPERATION_ORDER.md).
 
 Possible precision experiments include a strict whole-code gate, separately
 named rounding models, and an explicitly fractional arithmetic extension.
