@@ -157,6 +157,10 @@ scaling, AMD support, fractional reconstruction or playback performance.
 now records repeated Intel P010 scaling and complete C consumption, not an
 accuracy comparison or the production Y416 route. The diagnostic packer is
 documented in [NATIVE_P010_FIXTURE.md](NATIVE_P010_FIXTURE.md).
+[NATIVE_CACHED_COMPOSER.md](NATIVE_CACHED_COMPOSER.md) describes an experimental
+exact whole-code lookup backend with owned per-frame metadata and tracked
+completion. MMR components retain unchanged reference batch processing; no
+fractional policy or performance result is implied by the lookup implementation.
 [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
 [NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
 conservative arithmetic-width gates, not a working GPU playback engine.
