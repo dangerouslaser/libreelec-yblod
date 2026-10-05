@@ -2,6 +2,8 @@
 
 The first synthetic hardware measurement is complete on the LibreELEC VM.
 See [INTEL_SCALING_RESULTS.md](INTEL_SCALING_RESULTS.md) for results and limits.
+The [full-size follow-up](INTEL_LARGE_SCALING_RESULTS.md) measures different
+engine-class routing and colour-position responses at1920x1080→3840x2160.
 No device permissions, Kodi configuration, display mode, or playback pipeline
 have been changed. Normal SSH from the workstation works; the earlier explicit
 Petunia-key selection incorrectly excluded the working authentication route.
@@ -207,7 +209,8 @@ around unsupported same-format processing.
   bad input sizes and low bits **before any GPU open**. They are not GPU tests.
 - The64x64→128x128 Intel run, ascending/descending affine controls and independent
   input/output siting matrix are complete.
-- Production-size comparison, actual engine routing,
+- Full-size slope controls and per-client engine-class accounting are complete.
+- Full-size mode/filter characterization, specific SFC routing,
   playback performance and AMD measurements remain pending. No SK4-match
   improvement or production acceptance is claimed.
 

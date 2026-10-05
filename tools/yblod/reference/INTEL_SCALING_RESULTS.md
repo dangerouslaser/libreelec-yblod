@@ -1,5 +1,9 @@
 # First Intel EL-scaling measurements
 
+Follow-up: [production-size controls](INTEL_LARGE_SCALING_RESULTS.md) show
+different engine-class routing and siting responses. Do not extrapolate the
+small-surface conclusions below to1920x1080→3840x2160 processing.
+
 Measured on2026-10-05 using private GPU surfaces in the LibreELEC VM on Petunia.
 No Kodi/display/HDMI settings changed; Kodi remained active. The SK4/TV were not
 used. These are native-code synthetic tests, not rendered movie comparisons.
@@ -121,8 +125,9 @@ Reported self/child peak RSS is32,816 KiB, swap deltas0. It runs under a512MiB
 hard cap with job swap disabled. This is not playback latency or throughput;
 RSS is a process high-water mark, not total GPU/cgroup allocation.
 
-Next distinguish output phase quantization/filter behaviour using additional
-slope controls and production-size surfaces. The completed siting matrix does
+Production-size slope controls are now measured in the linked follow-up.
+Next distinguish output phase quantization/filter behaviour with full-size
+mirrored horizontal and mode controls. The completed siting matrix does
 not explain every filter coefficient or establish correct physical registration.
 Matching one response by changing the declared output grid is **not** a
 deployable fix.
