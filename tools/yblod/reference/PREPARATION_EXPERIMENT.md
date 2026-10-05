@@ -63,3 +63,23 @@ overshoot/bounds, independent columns and FIR chunk boundaries.
 
 The complete reference suite currently passes **309 tests**. The four real-frame
 runs are the next checkpoint; no numerical filter result is asserted here yet.
+
+The [experiment runner](preparation_experiment.py) is implemented, and all **13
+focused harness tests** pass on Ollie. It runs heavy stages in separate sequential
+processes, retains failed-run evidence without a success report, and checks
+baseline byte identity plus exact layer-isolation invariants. Its inputs are the
+saved source extraction, prepared/composed/output baseline bundles, capture and
+visually verified identity, followed by a new private output directory:
+
+```sh
+systemd-run --user --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  env OPENBLAS_NUM_THREADS=1 python3 tools/yblod/reference/preparation_experiment.py \
+  /path/to/extraction /path/to/baseline-prepared /path/to/baseline-composed \
+  /path/to/baseline-output /path/to/capture.rgb /path/to/identity.json \
+  /path/to/NEW-private-run --expected-visible-frame 1943
+```
+
+The whole process tree inherits the external hard cap. Do not launch parallel
+heavy runs. Keep raw stage bundles private; only `experiment.json` contains the
+aggregate results for publication. The identity must describe the actual visible
+frame, not a frame guessed from a seek response or driver timestamp.
