@@ -1,0 +1,208 @@
+{
+  "schema": "yblod.native-scaled-frame-profile-checkpoint.v1",
+  "status": "complete",
+  "synthetic_only": false,
+  "aggregate_only": true,
+  "privacy": {
+    "film_pixels_published": false,
+    "film_metadata_published": false,
+    "private_input_hashes_published": false,
+    "private_paths_published": false
+  },
+  "execution": {
+    "target": "LibreELEC x86_64 VM",
+    "cpu_only": true,
+    "gpu_work": false,
+    "kodi_settings_changed": false,
+    "kodi_active_before": true,
+    "kodi_active_after": true,
+    "private_input_manifest_verified_unchanged": true,
+    "source_header_inventory_verified_unchanged": true,
+    "scope_guard_wrapper_completed": true
+  },
+  "build": {
+    "compiler": "x86_64-libreelec-linux-gnu-gcc-16.2.0 (GCC) 16.2.0",
+    "flags": [
+      "-std=c11",
+      "-O2",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wconversion",
+      "-Wshadow",
+      "-fno-fast-math",
+      "-ffp-contract=off"
+    ],
+    "lto": false,
+    "container_memory_max_bytes": 536870912,
+    "container_memory_plus_swap_bytes": 536870912,
+    "container_cpu_limit": 1,
+    "dynamic_needed": [
+      "libc.so.6"
+    ],
+    "binary_sha256": "3503a52984500ccbf8eb1b963f3b8286a416c0798fbbb8f33eaf6360fdab75cf",
+    "runtime_libc_sha256": "d16d617f8f3d8b18bd933ab259d50c8e829650c1d0da4d5c1b1815acd9d5f5e8",
+    "runtime_loader_sha256": "3bd22d737cff5359c57bd420318561e34a9cffb9738a65feb5d0b56ded9f0126"
+  },
+  "source_sha256": {
+    "native_scaled_frame_profile.c": "924dcb057801bf2fb49b7d9a70e929640c2157b171fef108e2cf1255a6692204",
+    "native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+    "native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+    "native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505"
+  },
+  "resources": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "memory_swap_current_before_bytes": 0,
+    "memory_swap_current_after_bytes": 0,
+    "in_script_memory_peak_before_bytes": 3018752,
+    "in_script_memory_peak_after_bytes": 56848384,
+    "peak_scope": "retained in-script cgroup snapshot, not final lifetime peak or process RSS",
+    "memory_events_before": {
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0
+    },
+    "memory_events_after": {
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0
+    },
+    "cpu_quota_controller_available_in_child_scope": false
+  },
+  "measurement": {
+    "schema": "yblod.native-scaled-frame-profile.v1",
+    "status": "complete",
+    "diagnostic_only": true,
+    "baseline_modified": false,
+    "warmup": 1,
+    "repeats": 3,
+    "clock_wall": "CLOCK_MONOTONIC",
+    "clock_cpu": "CLOCK_PROCESS_CPUTIME_ID",
+    "counts": [
+      8294400,
+      2073600,
+      2073600
+    ],
+    "chunk_calls_per_run": [
+      127,
+      32,
+      32
+    ],
+    "all_frame_completions_verified": true,
+    "stage_sum_equals_end_to_end_claim": false,
+    "nanoseconds": [
+      651622655,
+      592168530,
+      600457509
+    ],
+    "process_cpu_nanoseconds": [
+      646078521,
+      591270858,
+      600283422
+    ],
+    "initialization_wall_ns": [
+      3403,
+      5838,
+      3103
+    ],
+    "initialization_cpu_ns": [
+      3424,
+      5851,
+      3116
+    ],
+    "completion_wall_ns": [
+      694,
+      3243,
+      621
+    ],
+    "completion_cpu_ns": [
+      690,
+      3239,
+      595
+    ],
+    "extraction_wall_ns_by_run_component": [
+      [
+        47381236,
+        12839403,
+        12280821
+      ],
+      [
+        44048333,
+        11009390,
+        10922852
+      ],
+      [
+        43405005,
+        11228400,
+        11365215
+      ]
+    ],
+    "extraction_cpu_ns_by_run_component": [
+      [
+        46900970,
+        12720532,
+        12249350
+      ],
+      [
+        43918600,
+        11013191,
+        10918631
+      ],
+      [
+        43412605,
+        11234041,
+        11371261
+      ]
+    ],
+    "reconstruction_wall_ns_by_run_component": [
+      [
+        242554237,
+        169232654,
+        166042638
+      ],
+      [
+        223986905,
+        152069123,
+        149659819
+      ],
+      [
+        222522221,
+        154552260,
+        156992787
+      ]
+    ],
+    "reconstruction_cpu_ns_by_run_component": [
+      [
+        240735563,
+        167992391,
+        164817139
+      ],
+      [
+        223372365,
+        152090324,
+        149686309
+      ],
+      [
+        222554738,
+        154565989,
+        156909054
+      ]
+    ]
+  },
+  "limits": [
+    "Instrumented offline CPU timings; not playback FPS or GPU scaler time.",
+    "Per-call stage sums are not asserted equal to the independent end-to-end benchmark.",
+    "Fullrun includes initialization and completion; reset, loading and preflight excluded.",
+    "Whole-code path only; no fractional EL policy selected.",
+    "No second-backend accuracy claim from this profiler."
+  ]
+}

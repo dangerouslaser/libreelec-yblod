@@ -7,6 +7,11 @@ native filenames here are compatibility links to the authoritative engine
 sources, not separate copies; experimental helpers remain outside its default
 library.
 
+[Instrumented scaled-frame CPU profiling](NATIVE_SCALED_FRAME_PROFILE.md)
+separates coherent-surface extraction from Y/Cb/Cr reconstruction, with a
+published aggregate checkpoint and unchanged end-to-end baseline. These are
+offline diagnostic timings, not playback FPS or a selected fractional policy.
+
 This is an independent, deliberately slow Python implementation of the
 **prepared-input composition stage**, not a complete Dolby Vision renderer or a
 certified reference. It does not depend on Kodi, libplacebo, CroqueMr's shaders,
