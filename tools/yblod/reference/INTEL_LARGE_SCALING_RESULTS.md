@@ -1,5 +1,9 @@
 # Production-size Intel scaling controls
 
+Follow-up: [signed-ramp/mode/route results](INTEL_MODE_ROUTE_RESULTS.md)
+measure whole-frame base-offset preservation, actual default-versus-fast/HQ
+route differences, and the separate pipeline hint. No mode is accepted as a fix.
+
 Measured2026-10-05 on the same LibreELEC VM/Intel8086:9a49/iHD26.3.5
 environment as [the small-pattern tests](INTEL_SCALING_RESULTS.md).
 No Kodi, display, device-permission or playback settings changed. The SK4 and
@@ -131,10 +135,9 @@ path. We now have a bounded full-size harness and per-client engine evidence;
 we do not yet have a hardware result accepted as a replacement for the CPU
 baseline or a demonstrated closer SK4 match.
 
-Next repeat mirrored horizontal ramps, integer base-offset controls and the
-strongest vertical controls at full size under default/fast/HQ requests.
-Record engine classes for each request
-instead of assuming a quality label means the same backend. Then use edges/
+Mirrored horizontal, integer base-offset, quality-mode and separate pipeline-
+hint controls are now measured in the linked follow-up. Next establish native
+interpretation of the production Y416/reduced-range conversion, then use edges/
 impulses to distinguish coefficient and boundary behaviour before integrating
 a declared hardware scaler contract into reconstruction. Keep range, precision,
 physical registration and transfer costs explicit; no picture-fitted correction.
