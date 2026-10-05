@@ -142,7 +142,24 @@ def save_plane(directory, name, values):
             "sha256": hasher.hexdigest()}
 
 
-def prepare(extraction_dir, output, phase_filter):
+def prepare(extraction_dir, output, phase_filter, *, bl_phase_filter=None, el_phase_filter=None):
+    """Prepare layers with an explicit shared default and optional per-layer overrides.
+
+    Overrides affect only native chroma top-left-to-left conversion. They do not
+    change EL enlargement, BL luma, MMR luma, rounding, bounds or coordinates.
+    """
+    selections = {"phase_filter": phase_filter, "bl_phase_filter": bl_phase_filter,
+                  "el_phase_filter": el_phase_filter}
+    for name, value in selections.items():
+        if value is None and name != "phase_filter":
+            continue
+        if not isinstance(value, str) or value not in ("linear", "cubic128"):
+            raise ValueError(f"{name}: select linear or cubic128 explicitly")
+    phase_filters = {"bl": phase_filter if bl_phase_filter is None else bl_phase_filter,
+                     "el": phase_filter if el_phase_filter is None else el_phase_filter}
+    shared_filter = phase_filters["bl"] if phase_filters["bl"] == phase_filters["el"] else None
+    policy = (f"top-left-to-left-{shared_filter}-then-ccm-annex-b" if shared_filter else
+              f"top-left-to-left-bl-{phase_filters['bl']}-el-{phase_filters['el']}-then-ccm-annex-b")
     extraction_dir, output = Path(extraction_dir).resolve(), Path(output).resolve()
     extraction = json.loads((extraction_dir / "extraction.json").read_text())
     composition = json.loads((extraction_dir / "composition.json").read_text())
@@ -174,8 +191,6 @@ def prepare(extraction_dir, output, phase_filter):
         raise ValueError("this experiment requires exactly 2x native BL/EL dimensions")
     if any(info["stream"]["color_transfer"] != "smpte2084" for info in (bl_info, el_info)):
         raise ValueError("only PQ inputs supported")
-    if phase_filter not in ("linear", "cubic128"):
-        raise ValueError("select linear or cubic128 phase conversion explicitly")
     inputs, input_hashes = {}, {}
     for layer, info in (("bl", bl_info), ("el", el_info)):
         if info["chroma_location"] not in ("left", "topleft"):
@@ -200,7 +215,7 @@ def prepare(extraction_dir, output, phase_filter):
             values = inputs[layer][channel]
             if channel != "Y":
                 values, operation = chroma_to_left(values, info["chroma_location"],
-                                                    metadata[f"{layer}_bit_depth"], phase_filter)
+                                                    metadata[f"{layer}_bit_depth"], phase_filters[layer])
                 operations[f"{layer}_{channel}_phase"] = operation
                 stages[f"{layer}_{channel}_phase"] = save_plane(output, f"{layer}_{channel}_phase.u16le", values)
             if layer == "el":
@@ -219,9 +234,9 @@ def prepare(extraction_dir, output, phase_filter):
     guide, operation = mmr_luma_left(inputs["bl"]["Y"])
     operations["mmr_luma"] = operation
     stages["mmr_luma"] = save_plane(output, "mmr_luma.u16le", guide)
-    details = {"policy": f"top-left-to-left-{phase_filter}-then-ccm-annex-b",
+    details = {"policy": policy,
                "execution_role": "offline CPU reference only; not a production scaler requirement",
-               "phase_filter": phase_filter, "native_chroma_locations": {"bl": bl_info["chroma_location"], "el": el_info["chroma_location"]},
+               "phase_filter": shared_filter, "native_chroma_locations": {"bl": bl_info["chroma_location"], "el": el_info["chroma_location"]},
                "output_chroma_location": "left", "specification_pdf_sha256": SPEC_SHA256,
                "source_extraction_sha256": extraction_hash, "source_composition_sha256": composition_hash,
                "source_verification_sha256": digest(extraction_dir / "verification/verification.json"),
@@ -229,6 +244,11 @@ def prepare(extraction_dir, output, phase_filter):
                "numpy_version": np.__version__, "operations": operations, "stages": stages,
                "geometry_assumption": "annex B: EL luma output uses co-sited horizontal and quarter-phase vertical filters; converted left-sited chroma uses its separate vertical filter",
                "accuracy_status": "experimental preparation policy; not validated against hardware"}
+    # Preserve legacy default-manifest semantics. Explicit overrides add their
+    # effective per-layer selections, including when both resolve to one filter.
+    if bl_phase_filter is not None or el_phase_filter is not None:
+        details.update(phase_filter_default=phase_filter, phase_filters=phase_filters,
+                       phase_filter_overrides={"bl": bl_phase_filter, "el": el_phase_filter})
     scaler_contract = {"schema": "yblod.el-scaling-job.v1", "identity": identity,
                        "backend": "cpu-ccm-annex-b-reference", "role": "comparison baseline, not mandatory playback backend",
                        "input": {"width": el_info["width"], "height": el_info["height"],
@@ -240,16 +260,17 @@ def prepare(extraction_dir, output, phase_filter):
                                   "planes": {c: stages[f"el_{c}"] for c in CHANNELS}},
                        "geometry": details["geometry_assumption"],
                        "source_native_chroma_location": el_info["chroma_location"],
-                       "preparation_before_scaling": phase_filter,
+                       "preparation_before_scaling": phase_filters["el"],
                        "does_not_apply_rpu_or_combine_layers": True,
                        "hardware_evaluation": "Compare actual Intel Quick Sync / supported AMD output, phase, precision and total transfer cost; do not assume identical filters or format support."}
     save_json(output / "el-scaling-job.json", scaler_contract)
     details["el_scaling_job_sha256"] = digest(output / "el-scaling-job.json")
+    filter_description = shared_filter if shared_filter else f"BL {phase_filters['bl']}; EL {phase_filters['el']}"
     manifest = {"schema": SCHEMA, "width": width, "height": height, "format": "yuv420p-u16le-lsb",
                 "transfer": "pq", "chroma_location": "left", "metadata": metadata,
                 "bl": dict(identity, planes=prepared["bl"]), "el": dict(identity, planes=prepared["el"]),
                 "mmr_luma": "mmr_luma.u16le", "preparation_details": details,
-                "preparation": f"Actual top-left to left chroma conversion ({phase_filter}) at each native layer resolution; EL upscaled 2x using literal informative annex B; BL luma unchanged; MMR luma from clause 5.4.2.3.3. See preparation_details for assumptions and hashes."}
+                "preparation": f"Actual top-left to left chroma conversion ({filter_description}) at each native layer resolution; EL upscaled 2x using literal informative annex B; BL luma unchanged; MMR luma from clause 5.4.2.3.3. See preparation_details for assumptions and hashes."}
     validate(manifest)
     # Only the presence of this final manifest denotes a completed preparation.
     save_json(output / "frame.json", manifest)
@@ -261,9 +282,14 @@ if __name__ == "__main__":
     parser.add_argument("extraction", type=Path)
     parser.add_argument("output", type=Path, help="new prepared bundle directory")
     parser.add_argument("--phase-filter", choices=("linear", "cubic128"), required=True)
+    parser.add_argument("--bl-phase-filter", choices=("linear", "cubic128"),
+                        help="override only native BL chroma phase conversion")
+    parser.add_argument("--el-phase-filter", choices=("linear", "cubic128"),
+                        help="override only native EL chroma phase conversion before scaling")
     args = parser.parse_args()
     try:
-        prepare(args.extraction, args.output, args.phase_filter)
+        prepare(args.extraction, args.output, args.phase_filter,
+                bl_phase_filter=args.bl_phase_filter, el_phase_filter=args.el_phase_filter)
     except (OSError, ValueError, KeyError, TypeError) as error:
         parser.exit(1, f"preparation: {error}\n")
     print(args.output / "frame.json")

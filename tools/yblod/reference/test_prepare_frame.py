@@ -214,6 +214,104 @@ class PreparationTest(unittest.TestCase):
             "layers": {c: {"single_and_four_thread_decodes_identical": True} for c in ("bl", "el")}}
         save_json(self.source / "verification/verification.json", self.verification)
 
+    def nonconstant_source(self, *, bl_location="topleft", el_location="topleft"):
+        """Interior and boundary variation without provoking annex-B overflow."""
+        for layer, shape, location in (("bl", (16, 20), bl_location),
+                                       ("el", (8, 10), el_location)):
+            info = self.extraction["layers"][layer]
+            info.update(height=shape[0], width=shape[1], chroma_location=location)
+            for index, channel in enumerate(("Y", "Cb", "Cr")):
+                h, w = shape if channel == "Y" else (shape[0] // 2, shape[1] // 2)
+                y, x = np.indices((h, w))
+                values = (420 + ((y*y*31 + x*17 + index*29) % 161)).astype("<u2")
+                record = info["planes"][channel]
+                (self.source / record["file"]).write_bytes(values.tobytes())
+                record["sha256"] = digest(self.source / record["file"])
+        (self.source / "extraction.json").write_text(json.dumps(self.extraction))
+        self.composition["source_extraction_sha256"] = digest(self.source / "extraction.json")
+        (self.source / "composition.json").write_text(json.dumps(self.composition))
+        self.verification.update(extraction_sha256=digest(self.source / "extraction.json"),
+                                 composition_sha256=digest(self.source / "composition.json"))
+        (self.source / "verification/verification.json").write_text(json.dumps(self.verification))
+
+    def raw_files(self, directory):
+        return {path.name: path.read_bytes() for path in directory.glob("*.u16le")}
+
+    def test_default_and_explicit_same_filters_match_frozen_baseline_bytes(self):
+        self.nonconstant_source()
+        for method in ("linear", "cubic128"):
+            default, explicit, frozen = [self.root / f"{method}-{name}" for name in ("default", "explicit", "frozen")]
+            baseline = prepare(self.source, default, method)
+            selected = prepare(self.source, explicit, method, bl_phase_filter=method, el_phase_filter=method)
+            with patch("prepare_frame.fir", side_effect=original_full_frame_fir):
+                prepare(self.source, frozen, method)
+            self.assertEqual(self.raw_files(default), self.raw_files(explicit))
+            self.assertEqual(self.raw_files(default), self.raw_files(frozen))
+            self.assertNotIn("phase_filters", baseline["preparation_details"])
+            self.assertEqual(selected["preparation_details"]["phase_filters"], {"bl": method, "el": method})
+            self.assertEqual(baseline["preparation_details"]["stages"], selected["preparation_details"]["stages"])
+            self.assertEqual((default / "el-scaling-job.json").read_bytes(),
+                             (explicit / "el-scaling-job.json").read_bytes())
+
+    def test_mixed_filters_change_only_selected_native_chroma_layer(self):
+        self.nonconstant_source()
+        base_path = self.root / "baseline"
+        prepare(self.source, base_path, "linear")
+        baseline = self.raw_files(base_path)
+        for layer in ("bl", "el"):
+            path = self.root / f"{layer}-only"
+            result = prepare(self.source, path, "linear", **{f"{layer}_phase_filter": "cubic128"})
+            selected = self.raw_files(path)
+            changed = {name for name in baseline if baseline[name] != selected[name]}
+            self.assertTrue(changed)
+            self.assertTrue(all(name.startswith((f"{layer}_Cb", f"{layer}_Cr")) for name in changed))
+            details = result["preparation_details"]
+            effective = {"bl": "linear", "el": "linear", layer: "cubic128"}
+            self.assertEqual(details["phase_filters"], effective)
+            self.assertIsNone(details["phase_filter"])
+            self.assertEqual(details["phase_filter_default"], "linear")
+            self.assertIn(f"bl-{effective['bl']}-el-{effective['el']}", details["policy"])
+            for current in ("bl", "el"):
+                for channel in ("Cb", "Cr"):
+                    operation = details["operations"][f"{current}_{channel}_phase"]
+                    self.assertEqual(operation["method"], effective[current])
+                    offsets, weights, shift = ((0, 1), (3, 1), 2) if effective[current] == "linear" else ((-1, 0, 1, 2), (-9, 111, 29, -3), 7)
+                    info = self.extraction["layers"][current]
+                    native = np.frombuffer((self.source / info["planes"][channel]["file"]).read_bytes(), dtype="<u2").reshape(info["height"] // 2, info["width"] // 2)
+                    expected = scalar_fir(native, 0, offsets, weights, shift, 1023).astype("<u2").tobytes()
+                    self.assertEqual(selected[f"{current}_{channel}_phase.u16le"], expected)
+            job = json.loads((path / "el-scaling-job.json").read_text())
+            self.assertEqual(job["preparation_before_scaling"], effective["el"])
+            if layer == "bl":
+                self.assertEqual((path / "el-scaling-job.json").read_bytes(),
+                                 (base_path / "el-scaling-job.json").read_bytes())
+
+    def test_shared_default_overridden_both_and_left_identity_provenance(self):
+        self.nonconstant_source(bl_location="left", el_location="left")
+        baseline = prepare(self.source, self.root / "identity-base", "linear")
+        selected = prepare(self.source, self.root / "identity-mixed", "cubic128", bl_phase_filter="linear")
+        self.assertEqual(self.raw_files(self.root / "identity-base"), self.raw_files(self.root / "identity-mixed"))
+        self.assertEqual(selected["preparation_details"]["phase_filters"], {"bl": "linear", "el": "cubic128"})
+        for layer in ("bl", "el"):
+            for channel in ("Cb", "Cr"):
+                self.assertEqual(selected["preparation_details"]["operations"][f"{layer}_{channel}_phase"]["operation"], "identity")
+        self.assertEqual(baseline["preparation_details"]["stages"], selected["preparation_details"]["stages"])
+
+    def test_invalid_filters_rejected_before_source_or_output_access(self):
+        missing = self.root / "missing-extraction"
+        invalid = ("nearest", "", False, 1, [], {})
+        for value in invalid:
+            for key in ("bl_phase_filter", "el_phase_filter"):
+                with self.subTest(key=key, value=value):
+                    with self.assertRaisesRegex(ValueError, key):
+                        prepare(missing, self.root / "never-created", "linear", **{key: value})
+            with self.assertRaisesRegex(ValueError, "phase_filter"):
+                prepare(missing, self.root / "never-created", value)
+        with self.assertRaisesRegex(ValueError, "phase_filter"):
+            prepare(missing, self.root / "never-created", None,
+                    bl_phase_filter="linear", el_phase_filter="linear")
+        self.assertFalse((self.root / "never-created").exists())
+
     def test_prepares_aligned_bundle_and_hardware_checkpoint(self):
         manifest = prepare(self.source, self.root / "prepared", "linear")
         self.assertEqual(manifest["chroma_location"], "left")
