@@ -1,5 +1,5 @@
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
-index 338bbf8..9372cda 100644
+index 338bbf8..11c2299 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 @@ -21,10 +21,17 @@ extern "C"
@@ -29,7 +29,7 @@ index 338bbf8..9372cda 100644
    pl_opengl_params params{};
    params.get_proc_addr = reinterpret_cast<pl_voidfunc_t (*)(const char*)>(eglGetProcAddress);
    params.egl_display = eglGetCurrentDisplay();
-@@ -164,6 +173,95 @@ void CDVBridgeGLES::Reset()
+@@ -164,6 +173,96 @@ void CDVBridgeGLES::Reset()
    m_vppLogged = false;
  }
  
@@ -112,7 +112,8 @@ index 338bbf8..9372cda 100644
 +        "\"pts\":%.17g,\"el_pts\":%.17g,\"qsv_mode\":%d,"
 +        "\"ipt_offset\":[%.9g,%.9g,%.9g],\"margins_lrtb\":[%u,%u,%u,%u],"
 +        "\"metadata_packets\":%u,\"same_decoded_input\":true}\n",
-+        pts, elPts, DVBRIDGE::playbackQsvMode.load(), offset[0], offset[1], offset[2],
++        pts, elPts, DVBRIDGE::playbackQsvMode.load(), static_cast<double>(offset[0]),
++        static_cast<double>(offset[1]), static_cast<double>(offset[2]),
 +        margins[0], margins[1], margins[2], margins[3], packets);
 +    return size > 0 && static_cast<size_t>(size) < sizeof(info) && write("pair.json", info, size);
 +  }();
@@ -125,7 +126,7 @@ index 338bbf8..9372cda 100644
  bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
                            const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked)
  {
-@@ -196,6 +294,11 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+@@ -196,6 +295,11 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
    if (!m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
        geometry.width == 3840 && geometry.height == 2160)
    {
