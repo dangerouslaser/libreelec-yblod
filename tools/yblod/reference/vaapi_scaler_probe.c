@@ -110,7 +110,7 @@ static void json_string(const char *text)
     putchar('"');
 }
 
-static VAImage image_create(unsigned width, unsigned height)
+static VAImage image_create(unsigned width, unsigned height, unsigned fourcc)
 {
     int maximum = vaMaxNumImageFormats(display), count = 0, found = 0;
     if (maximum <= 0 || maximum > 4096) fail("invalid image format capacity");
@@ -120,24 +120,26 @@ static VAImage image_create(unsigned width, unsigned height)
     if (count < 0 || count > maximum) fail("invalid image format count");
     VAImageFormat selected = {0};
     for (int i = 0; i < count && i < maximum; ++i)
-        if (formats[i].fourcc == VA_FOURCC_P010) { selected = formats[i]; found = 1; break; }
+        if (formats[i].fourcc == fourcc) { selected = formats[i]; found = 1; break; }
     free(formats);
-    if (!found) fail("P010 image format unavailable; no substitute conversion");
-    if (selected.byte_order != VA_LSB_FIRST) fail("P010 image format is not little endian");
-    VAImage image;
+    if (!found) fail("requested image format unavailable; no substitute conversion");
+    if (selected.byte_order != VA_LSB_FIRST) fail("requested image format is not little endian");
+    unsigned planes = fourcc == VA_FOURCC_P010 ? 2 : 1;
+    unsigned row_bytes = width * (fourcc == VA_FOURCC_P010 ? 2 : 8);
+    VAImage image = {0};
     VA_CHECK(vaCreateImage(display, &selected, (int)width, (int)height, &image));
-    if (image.format.fourcc != VA_FOURCC_P010 || image.format.byte_order != VA_LSB_FIRST || image.num_planes != 2
+    if (image.format.fourcc != fourcc || image.format.byte_order != VA_LSB_FIRST || image.num_planes != planes
             || image.width != width || image.height != height)
         fail("unexpected image format or size");
     if (image.data_size > 128u * 1024u * 1024u) fail("image storage exceeds probe memory bound");
     uint64_t ends[2];
-    for (unsigned p = 0; p < 2; ++p) {
+    for (unsigned p = 0; p < planes; ++p) {
         unsigned rows = p ? height / 2 : height;
-        ends[p] = (uint64_t)image.offsets[p] + (uint64_t)(rows - 1) * image.pitches[p] + width * 2;
-        if (image.pitches[p] < width * 2 || ends[p] > image.data_size)
+        ends[p] = (uint64_t)image.offsets[p] + (uint64_t)(rows - 1) * image.pitches[p] + row_bytes;
+        if (image.pitches[p] < row_bytes || ends[p] > image.data_size)
             fail("image stride/offset exceeds mapped storage");
     }
-    if ((uint64_t)image.offsets[0] < ends[1] && (uint64_t)image.offsets[1] < ends[0])
+    if (planes == 2 && (uint64_t)image.offsets[0] < ends[1] && (uint64_t)image.offsets[1] < ends[0])
         fail("active Y/UV image storage spans overlap");
     fprintf(stderr, "image %ux%u size=%u pitches=%u,%u offsets=%u,%u\n",
             width, height, image.data_size, image.pitches[0], image.pitches[1],
@@ -147,7 +149,7 @@ static VAImage image_create(unsigned width, unsigned height)
 
 static void upload(const unsigned char *packed, unsigned width, unsigned height)
 {
-    VAImage image = image_create(width, height);
+    VAImage image = image_create(width, height, VA_FOURCC_P010);
     unsigned char *mapped;
     VA_CHECK(vaMapBuffer(display, image.buf, (void **)&mapped));
     if (!mapped) fail("null upload mapping");
@@ -166,38 +168,40 @@ static void upload(const unsigned char *packed, unsigned width, unsigned height)
     VA_CHECK(vaDestroyImage(display, image.image_id));
 }
 
-static unsigned char *download(VASurfaceID surface, unsigned width, unsigned height)
+static unsigned char *download(VASurfaceID surface, unsigned width, unsigned height, unsigned fourcc)
 {
     VA_CHECK(vaSyncSurface(display, surface));
-    VAImage image = image_create(width, height);
+    VAImage image = image_create(width, height, fourcc);
     VA_CHECK(vaGetImage(display, surface, 0, 0, width, height, image.image_id));
     unsigned char *mapped;
     VA_CHECK(vaMapBuffer(display, image.buf, (void **)&mapped));
     if (!mapped) fail("null download mapping");
-    size_t size = (size_t)width * height * 3, cursor = 0;
+    unsigned planes = fourcc == VA_FOURCC_P010 ? 2 : 1;
+    unsigned row_bytes = width * (fourcc == VA_FOURCC_P010 ? 2 : 8);
+    size_t size = (size_t)width * height * (fourcc == VA_FOURCC_P010 ? 3 : 8), cursor = 0;
     unsigned char *packed = malloc(size);
     if (!packed) fail("download allocation");
-    for (unsigned p = 0; p < 2; ++p)
+    for (unsigned p = 0; p < planes; ++p)
         for (unsigned y = 0; y < (p ? height / 2 : height); ++y) {
-            memcpy(packed + cursor, mapped + image.offsets[p] + (size_t)y * image.pitches[p], width * 2);
-            cursor += width * 2;
+            memcpy(packed + cursor, mapped + image.offsets[p] + (size_t)y * image.pitches[p], row_bytes);
+            cursor += row_bytes;
         }
     VA_CHECK(vaUnmapBuffer(display, image.buf));
     VA_CHECK(vaDestroyImage(display, image.image_id));
     /* Preserve failures in raw output for diagnosis; do not drop precision. */
-    for (size_t i = 0; i < size; i += 2)
+    for (size_t i = 0; fourcc == VA_FOURCC_P010 && i < size; i += 2)
         if (packed[i] & 63) { fprintf(stderr, "warning: downloaded P010 low bits are nonzero\n"); break; }
     return packed;
 }
 
-static void surface_create(unsigned width, unsigned height, unsigned index)
+static void surface_create(unsigned width, unsigned height, unsigned index, unsigned fourcc, unsigned rt_format)
 {
     VASurfaceAttrib attribute = {0};
     attribute.type = VASurfaceAttribPixelFormat;
     attribute.flags = VA_SURFACE_ATTRIB_SETTABLE;
     attribute.value.type = VAGenericValueTypeInteger;
-    attribute.value.value.i = VA_FOURCC_P010;
-    VA_CHECK(vaCreateSurfaces(display, VA_RT_FORMAT_YUV420_10, width, height,
+    attribute.value.value.i = fourcc;
+    VA_CHECK(vaCreateSurfaces(display, rt_format, width, height,
                              &surfaces[index], 1, &attribute, 1));
 }
 
@@ -205,14 +209,32 @@ int main(int argc, char **argv)
 {
     EngineSample before_vpp = {0}, after_vpp = {0};
     if (argc < 9 || (argc - 9) % 2) {
-        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left] [--pipeline default|fast]\n", argv[0]);
+        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left|unspecified] [--pipeline default|fast] [--output-format p010|y416] [--range full|reduced]\n", argv[0]);
         return EXIT_FAILURE;
     }
     unsigned input_chroma = VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
     unsigned output_chroma = input_chroma;
     unsigned pipeline_flags = 0, pipeline_caps_flags = 0;
-    int seen_input = 0, seen_output = 0, seen_pipeline = 0;
+    unsigned output_fourcc = VA_FOURCC_P010, output_rt = VA_RT_FORMAT_YUV420_10;
+    unsigned colour_range = VA_SOURCE_RANGE_FULL;
+    int seen_input = 0, seen_output = 0, seen_pipeline = 0, seen_format = 0, seen_range = 0;
     for (int i = 9; i < argc; i += 2) {
+        if (!strcmp(argv[i], "--output-format")) {
+            if (seen_format++) fail("duplicate output format option");
+            if (!strcmp(argv[i + 1], "p010")) {
+                output_fourcc = VA_FOURCC_P010; output_rt = VA_RT_FORMAT_YUV420_10;
+            } else if (!strcmp(argv[i + 1], "y416")) {
+                output_fourcc = VA_FOURCC_Y416; output_rt = VA_RT_FORMAT_YUV444_12;
+            } else fail("unknown output format request");
+            continue;
+        }
+        if (!strcmp(argv[i], "--range")) {
+            if (seen_range++) fail("duplicate range option");
+            if (!strcmp(argv[i + 1], "full")) colour_range = VA_SOURCE_RANGE_FULL;
+            else if (!strcmp(argv[i + 1], "reduced")) colour_range = VA_SOURCE_RANGE_REDUCED;
+            else fail("unknown range request");
+            continue;
+        }
         if (!strcmp(argv[i], "--pipeline")) {
             if (seen_pipeline++) fail("duplicate pipeline option");
             if (!strcmp(argv[i + 1], "default")) pipeline_flags = 0;
@@ -230,11 +252,15 @@ int main(int argc, char **argv)
             *value = VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
         else if (!strcmp(argv[i + 1], "top-left"))
             *value = VA_CHROMA_SITING_VERTICAL_TOP | VA_CHROMA_SITING_HORIZONTAL_LEFT;
+        else if (value == &output_chroma && !strcmp(argv[i + 1], "unspecified"))
+            *value = 0;
         else fail("unknown chroma location");
     }
     unsigned iw = dimension(argv[4]), ih = dimension(argv[5]);
     unsigned ow = dimension(argv[6]), oh = dimension(argv[7]);
     int copy = !strcmp(argv[8], "copy");
+    if (copy && output_fourcc != VA_FOURCC_P010) fail("copy test requires P010 output");
+    if (copy && seen_range) fail("copy test does not accept range declarations");
     if (copy && seen_pipeline) fail("copy test does not accept pipeline declarations");
     if (copy && (seen_input || seen_output)) fail("copy test does not accept chroma declarations");
     unsigned flags = 0;
@@ -262,7 +288,7 @@ int main(int argc, char **argv)
     int major, minor;
     VA_CHECK(vaInitialize(display, &major, &minor));
     initialized = 1;
-    surface_create(iw, ih, 0);
+    surface_create(iw, ih, 0, VA_FOURCC_P010, VA_RT_FORMAT_YUV420_10);
     upload(input, iw, ih);
     free(input);
     if (!copy) {
@@ -281,7 +307,7 @@ int main(int argc, char **argv)
         if (!attributes) fail("surface capability allocation");
         VA_CHECK(vaQuerySurfaceAttributes(display, config, attributes, &count));
         if (count > capacity) fail("surface capability count exceeds allocation");
-        int surface_p010 = 0;
+        int surface_p010 = 0, surface_output = 0;
         for (unsigned i = 0; i < count; ++i)
             if (attributes[i].type == VASurfaceAttribPixelFormat
                     && attributes[i].value.type == VAGenericValueTypeInteger) {
@@ -289,10 +315,13 @@ int main(int argc, char **argv)
                         attributes[i].value.value.i, attributes[i].flags);
                 surface_p010 |= attributes[i].value.value.i == VA_FOURCC_P010
                     && (attributes[i].flags & VA_SURFACE_ATTRIB_SETTABLE);
+                surface_output |= (unsigned)attributes[i].value.value.i == output_fourcc
+                    && (attributes[i].flags & VA_SURFACE_ATTRIB_SETTABLE);
             }
         free(attributes);
         if (!surface_p010) fail("P010 not advertised for VideoProc surfaces");
-        surface_create(ow, oh, 1);
+        if (!surface_output) fail("requested output not advertised for VideoProc surfaces");
+        surface_create(ow, oh, 1, output_fourcc, output_rt);
         VA_CHECK(vaCreateContext(display, config, (int)ow, (int)oh, VA_PROGRESSIVE,
                                 &surfaces[1], 1, &context));
         VAProcColorStandardType input_standards_storage[64] = {0}, output_standards_storage[64] = {0};
@@ -318,14 +347,14 @@ int main(int argc, char **argv)
                 || (caps.num_input_color_standards && !caps.input_color_standards)
                 || (caps.num_output_color_standards && !caps.output_color_standards))
             fail("pipeline capability list has count without data");
-        int input_p010 = 0, output_p010 = 0;
+        int input_p010 = 0, output_available = 0;
         for (unsigned i = 0; i < caps.num_input_pixel_formats; ++i) {
             fprintf(stderr, "input format fourcc=0x%08x\n", caps.input_pixel_format[i]);
             input_p010 |= caps.input_pixel_format[i] == VA_FOURCC_P010;
         }
         for (unsigned i = 0; i < caps.num_output_pixel_formats; ++i) {
             fprintf(stderr, "output format fourcc=0x%08x\n", caps.output_pixel_format[i]);
-            output_p010 |= caps.output_pixel_format[i] == VA_FOURCC_P010;
+            output_available |= caps.output_pixel_format[i] == output_fourcc;
         }
         int input_bt2020 = 0, output_bt2020 = 0;
         for (unsigned i = 0; i < caps.num_input_color_standards; ++i) {
@@ -339,8 +368,8 @@ int main(int argc, char **argv)
         if (!input_bt2020 || !output_bt2020)
             fail("matching BT2020 input/output convention not advertised");
         if ((caps.num_input_pixel_formats && !input_p010)
-                || (caps.num_output_pixel_formats && !output_p010))
-            fail("queried pipeline format list lacks P010");
+                || (caps.num_output_pixel_formats && !output_available))
+            fail("queried pipeline format list lacks requested format");
         fprintf(stderr, "caps filter_flags=%u input=%ux%u..%ux%u output=%ux%u..%ux%u\n",
                 caps.filter_flags, caps.min_input_width, caps.min_input_height,
                 caps.max_input_width, caps.max_input_height, caps.min_output_width,
@@ -369,8 +398,7 @@ int main(int argc, char **argv)
          * This is a native-code transport convention, not RPU interpretation. */
         parameters.surface_color_standard = VAProcColorStandardBT2020;
         parameters.output_color_standard = VAProcColorStandardBT2020;
-        parameters.input_color_properties.color_range = VA_SOURCE_RANGE_FULL;
-        parameters.output_color_properties.color_range = VA_SOURCE_RANGE_FULL;
+        parameters.input_color_properties.color_range = colour_range;
         parameters.input_color_properties.chroma_sample_location = input_chroma;
         parameters.output_color_properties = parameters.input_color_properties;
         parameters.output_color_properties.chroma_sample_location = output_chroma;
@@ -383,18 +411,21 @@ int main(int argc, char **argv)
         VA_CHECK(vaSyncSurface(display, surfaces[1]));
         after_vpp = engine_sample();
     }
-    unsigned char *output = download(surfaces[copy ? 0 : 1], ow, oh);
+    unsigned char *output = download(surfaces[copy ? 0 : 1], ow, oh, output_fourcc);
     EngineSample after_download = engine_sample();
     int out_fd = open(argv[3], O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (out_fd < 0) fail("output must be a new writable path");
     FILE *out = fdopen(out_fd, "wb");
     if (!out) { close(out_fd); fail("output stream"); }
-    size_t output_size = (size_t)ow * oh * 3;
+    size_t output_size = (size_t)ow * oh * (output_fourcc == VA_FOURCC_P010 ? 3 : 8);
     if (fwrite(output, 1, output_size, out) != output_size || fflush(out) || fclose(out))
         fail("write output");
     free(output);
     printf("{\"schema\":\"yblod.vaapi-scaler-invocation.v1\",\"status\":\"complete\",\"vendor\":");
     json_string(vaQueryVendorString(display) ? vaQueryVendorString(display) : "unknown");
+    printf(",\"input_fourcc\":%u,\"output_fourcc\":%u,\"input_rt_format\":%u,"
+           "\"output_rt_format\":%u,\"output_packed_bytes\":%zu",
+           VA_FOURCC_P010, output_fourcc, VA_RT_FORMAT_YUV420_10, output_rt, output_size);
     printf(",\"va_version\":[%d,%d],\"input_size\":[%u,%u],\"output_size\":[%u,%u],"
            "\"filter_flags\":%u,\"input_chroma_siting\":",
            major, minor, iw, ih, ow, oh, flags);
@@ -402,7 +433,7 @@ int main(int argc, char **argv)
     else printf("%u,\"output_chroma_siting\":%u,", input_chroma, output_chroma);
     if (copy) printf("\"colour_standard\":null,\"colour_range\":null,");
     else printf("\"colour_standard\":%d,\"colour_range\":%u,",
-                VAProcColorStandardBT2020, VA_SOURCE_RANGE_FULL);
+                VAProcColorStandardBT2020, colour_range);
     if (copy) printf("\"pipeline_flags\":null,\"pipeline_caps_flags\":null,");
     else printf("\"pipeline_flags\":%u,\"pipeline_caps_flags\":%u,", pipeline_flags, pipeline_caps_flags);
     printf("\"vpp_submitted\":%s,\"hardware_engine_verified\":false,", copy ? "false" : "true");

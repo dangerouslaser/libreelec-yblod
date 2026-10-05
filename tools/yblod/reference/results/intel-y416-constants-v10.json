@@ -1,0 +1,3438 @@
+{
+  "all_sameformat_p010_gates_complete": true,
+  "binary": "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+  "binary_sha256": "95f1a9051991eb148a4d2a7be2ca8db1316c2c5fda6f6f722ff748b94b8cfe18",
+  "device": "/dev/dri/renderD128",
+  "error": {
+    "message": "formatprobe failed/timedout; nofallback",
+    "type": "ValueError"
+  },
+  "format_fourcc": {
+    "p010": 808530000,
+    "y416": 909194329
+  },
+  "format_rt": {
+    "p010": 256,
+    "y416": 16384
+  },
+  "hardware_engine_verified": false,
+  "helper_sha256": {
+    "hardware_chroma_siting_check.py": "b2c77dba7be4425e64827776b80e39da401a73f3abfe37dc1f445669bf69bb6e",
+    "hardware_scaling_large.py": "3a0952ce7c8f79c605d2d2e400ab2ee7f89e09c53aa4d70fa8810db7f7bdd1c8",
+    "hardware_scaling_vectors.py": "66d0c30c869c9b0520a110a67a49339e83e6a29180c34ff110b50ad4269ae7bf",
+    "scaling_probe.py": "5a43fcce0d74ae9d0377237089b065307d1553da453fe97f54b4f731fc29fca7"
+  },
+  "inputs": {
+    "channel-tags": {
+      "file": "channel-tags-input.p010",
+      "native_codes": {
+        "Cb": 384,
+        "Cr": 640,
+        "Y": 512
+      },
+      "sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4"
+    },
+    "code-0": {
+      "file": "code-0-input.p010",
+      "native_codes": {
+        "Cb": 0,
+        "Cr": 0,
+        "Y": 0
+      },
+      "sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a"
+    },
+    "code-1": {
+      "file": "code-1-input.p010",
+      "native_codes": {
+        "Cb": 1,
+        "Cr": 1,
+        "Y": 1
+      },
+      "sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6"
+    },
+    "code-1022": {
+      "file": "code-1022-input.p010",
+      "native_codes": {
+        "Cb": 1022,
+        "Cr": 1022,
+        "Y": 1022
+      },
+      "sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29"
+    },
+    "code-1023": {
+      "file": "code-1023-input.p010",
+      "native_codes": {
+        "Cb": 1023,
+        "Cr": 1023,
+        "Y": 1023
+      },
+      "sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2"
+    },
+    "code-512": {
+      "file": "code-512-input.p010",
+      "native_codes": {
+        "Cb": 512,
+        "Cr": 512,
+        "Y": 512
+      },
+      "sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483"
+    },
+    "code-63": {
+      "file": "code-63-input.p010",
+      "native_codes": {
+        "Cb": 63,
+        "Cr": 63,
+        "Y": 63
+      },
+      "sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50"
+    },
+    "code-64": {
+      "file": "code-64-input.p010",
+      "native_codes": {
+        "Cb": 64,
+        "Cr": 64,
+        "Y": 64
+      },
+      "sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f"
+    },
+    "code-65": {
+      "file": "code-65-input.p010",
+      "native_codes": {
+        "Cb": 65,
+        "Cr": 65,
+        "Y": 65
+      },
+      "sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13"
+    },
+    "code-939": {
+      "file": "code-939-input.p010",
+      "native_codes": {
+        "Cb": 939,
+        "Cr": 939,
+        "Y": 939
+      },
+      "sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc"
+    },
+    "code-940": {
+      "file": "code-940-input.p010",
+      "native_codes": {
+        "Cb": 940,
+        "Cr": 940,
+        "Y": 940
+      },
+      "sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b"
+    },
+    "code-941": {
+      "file": "code-941-input.p010",
+      "native_codes": {
+        "Cb": 941,
+        "Cr": 941,
+        "Y": 941
+      },
+      "sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186"
+    }
+  },
+  "interpretation": "same-sizeP010420->Y416444 conversion observations, NOTbyteidentity; no rawbitmasking, codefit or prescribedrangeclamp",
+  "invocations": [
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-0-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-0-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-0",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 870,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-0-0.p010",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-0-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-0-0.stdout.log",
+        "sha256": "7307084439b5cd9bccb2c8d1f7c4fc89ba5d8b249a8b2f51c54abeb887cad518"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-1-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-1-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-1",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 871,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-1-0.p010",
+      "output_sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-1-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-1-0.stdout.log",
+        "sha256": "cf02eafb24f4d5a1e8c9bf61d17c5bd8e8ad84d6dbc1137da3af29f2e5ba31cc"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-63-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-63-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-63",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 872,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-63-0.p010",
+      "output_sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-63-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-63-0.stdout.log",
+        "sha256": "9b26eb4b2f28f2a15e8ca7d5bac6baf6febfe5f4b2e372fdb2cd87092fbb5fd1"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-64-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-64-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-64",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 873,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-64-0.p010",
+      "output_sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-64-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-64-0.stdout.log",
+        "sha256": "0efa0606980fceaba8a16ae264003a23dd18b7f10a24387c3c6eca3bb69122b7"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-65-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-65-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-65",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 874,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-65-0.p010",
+      "output_sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-65-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-65-0.stdout.log",
+        "sha256": "1944ebde8845000b1cd485436e91266da509b1ad0f686637bc5bf308e14f3320"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-512-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-512-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-512",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 875,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-512-0.p010",
+      "output_sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-512-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-512-0.stdout.log",
+        "sha256": "b335592926b77ae762c638277bd92c147105819d60778891f647f58154bca997"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-939-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-939-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-939",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 876,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-939-0.p010",
+      "output_sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-939-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-939-0.stdout.log",
+        "sha256": "fbf3e42c5dc1aa00eba2761d10d79f8a2cb89d3b99e7cb7300eb0230f6ceb5d3"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-940-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-940-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-940",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 877,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-940-0.p010",
+      "output_sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-940-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-940-0.stdout.log",
+        "sha256": "d3cb8b92ab682241fb733b791ded755d3eb24d59ea0e22033ba964a93d159c99"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-941-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-941-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-941",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 878,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-941-0.p010",
+      "output_sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-941-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-941-0.stdout.log",
+        "sha256": "c5d59d89df00d4a9d14f9a936a86dc7390fb1213c288930772440947dc4e4c5f"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-1022-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-1022-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-1022",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 879,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-1022-0.p010",
+      "output_sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-1022-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-1022-0.stdout.log",
+        "sha256": "b5cef6943fdf57c1e6a712a2c4c1094a042b58061932f890ed0c1ff6b61278b1"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-1023-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-code-1023-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "code-1023",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 880,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-code-1023-0.p010",
+      "output_sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-code-1023-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-code-1023-0.stdout.log",
+        "sha256": "112bbfb8c5b8acda01806e070d5b0f79b787587c42e3885c728adb20b67f0fbd"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/channel-tags-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/copy-p010-full-channel-tags-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "copy"
+      ],
+      "case": "channel-tags",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4"
+      },
+      "invocation": {
+        "colour_range": null,
+        "colour_standard": null,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 881,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "before_vpp": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "download_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": null,
+            "copy": null,
+            "pci_device": null,
+            "render": null,
+            "video": null,
+            "video-enhance": null
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": null,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": null,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": null,
+        "pipeline_flags": null,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": false
+      },
+      "output_file": "copy-p010-full-channel-tags-0.p010",
+      "output_sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4",
+      "range": "full",
+      "stderr": {
+        "file": "copy-p010-full-channel-tags-0.stderr.log",
+        "sha256": "9f03a23da654fa2c4777525ff8e8810a5830856a78c510b3998ccdec965c6d1a"
+      },
+      "stdout": {
+        "file": "copy-p010-full-channel-tags-0.stdout.log",
+        "sha256": "db717d2302d919fbd64b5ecfbb6088eaefd64b9ef3f4a30c85132f6f6da367ac"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-0-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-0-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-0",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 882,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 882,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 882,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 882,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 882,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-0-0.p010",
+      "output_sha256": "f3cc103136423a57975750907ebc1d367e2985ac6338976d4d5a439f50323f4a",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-0-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-0-0.stdout.log",
+        "sha256": "73286f68bd91e5e253deea7a0c391eae7b05bf2201beca8b58ca3d09c9af6752"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-1-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-1-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-1",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 883,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 883,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 883,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 883,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 883,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-1-0.p010",
+      "output_sha256": "a392d33a7e3f141e73cecbd91d3b0d9ee1375296a973097bff5c38e442fe94c6",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-1-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-1-0.stdout.log",
+        "sha256": "6e1be8449a859b1e93bc62d31dc39cb5c90261dcb908414f4a7e74f35a60b9dd"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-63-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-63-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-63",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 884,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 884,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 884,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 884,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 884,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-63-0.p010",
+      "output_sha256": "c8f2dfcaf0466866f807563d5cb6b2370ef4cf97554cbdc391fcf4985d3c3b50",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-63-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-63-0.stdout.log",
+        "sha256": "a1b8a45776b2b86739a73c5977ca23e0e22774fffb3f90c003f4c7793d0411f9"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-64-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-64-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-64",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 885,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 885,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 885,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 885,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 885,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-64-0.p010",
+      "output_sha256": "3195858287f2efe5f12d354f4ae3685860ced7e5879cd2a5599c4ee8f104e71f",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-64-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-64-0.stdout.log",
+        "sha256": "688add1d20dcc706dc42d2baf0ab8a552e28e2bb6140465d7db63f41ff983902"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-65-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-65-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-65",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 886,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 886,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 886,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 886,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 886,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-65-0.p010",
+      "output_sha256": "5084a65657970a80f36cae272c7bb2338356c960d3832c772ff36b1f6dd83c13",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-65-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-65-0.stdout.log",
+        "sha256": "6fd10ca068f8e3b25eac793bcf74391ce9c08c0ddd5d884871f84cd561f3b036"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-512-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-512-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-512",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 887,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 8476
+          },
+          "after_vpp_sync": {
+            "client_id": 887,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 8476
+          },
+          "before_vpp": {
+            "client_id": 887,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 887,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 887,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 8476
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-512-0.p010",
+      "output_sha256": "c37eaac68a343dc527d1c2ba8e6b87dcd15296630d0fe25f2f1fb816481cf483",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-512-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-512-0.stdout.log",
+        "sha256": "ba743c063d7b42de431dfcdf02bc79890e06c0d5527bbb4d878576c4ac9a5873"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-939-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-939-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-939",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 888,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 888,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 888,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 888,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 888,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-939-0.p010",
+      "output_sha256": "ccfdd34e780feb746aa54e8fa1699a0eb8dc1edf3659b86bd8bbcab9589abfdc",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-939-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-939-0.stdout.log",
+        "sha256": "fca656186fce6a5bd8adf6dde65b7bb0a6455b12ad5d70fedfcd11adf020301b"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-940-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-940-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-940",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 889,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 8424
+          },
+          "after_vpp_sync": {
+            "client_id": 889,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 8424
+          },
+          "before_vpp": {
+            "client_id": 889,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 889,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 889,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 8424
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-940-0.p010",
+      "output_sha256": "cf1072350f61a77300caa23dd65ddf3caf991942b84b47a4f74cffca2604f69b",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-940-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-940-0.stdout.log",
+        "sha256": "5b814eaee8d1bcc5a4638e21be56b37e00d946236c994e6985daf8399904b806"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-941-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-941-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-941",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 890,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 890,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 890,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 890,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 890,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-941-0.p010",
+      "output_sha256": "bb039d1e2ac981c343fd3dbe1720b0c0e1f4783b240611179e77194a57c38186",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-941-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-941-0.stdout.log",
+        "sha256": "5f2c9e07c6631f92010302547fc9b807a4b1f7e795cfef9ae28259590716f39e"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-1022-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-1022-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-1022",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 891,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 891,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 891,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 891,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 891,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-1022-0.p010",
+      "output_sha256": "90268673f06ac766d84d823e3264b8cda47c5e70ab4c84046ee184924ad30c29",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-1022-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-1022-0.stdout.log",
+        "sha256": "f9190e7ea1004edf1e521977c64d8919a2ec467406c6d438b8f599dc3bb9b9da"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-1023-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-code-1023-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-1023",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 892,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 892,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 892,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 892,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 892,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-code-1023-0.p010",
+      "output_sha256": "4d2a97b68497c036a1e6c894346f304c9547de4621ed1f5855727b8c7ace35e2",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-code-1023-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-code-1023-0.stdout.log",
+        "sha256": "8e49d89271519e42838c3ba4ae1b7e4e8cf44928242d41950145aa6fba99daaa"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/channel-tags-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-p010-full-channel-tags-0.p010",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "left",
+        "--output-format",
+        "p010",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "channel-tags",
+      "exit_status": 0,
+      "format": "p010",
+      "identity": {
+        "channels": {
+          "Cb": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Cr": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 1024
+          },
+          "Y": {
+            "different": 0,
+            "maximum_absolute_error": 0,
+            "mean_absolute_error": 0.0,
+            "mean_signed_error": 0.0,
+            "samples": 4096
+          }
+        },
+        "exact": true,
+        "input_sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4",
+        "interpretation": "strict native-code transport check, not scaler or Dolby accuracy",
+        "output_sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4"
+      },
+      "invocation": {
+        "colour_range": 2,
+        "colour_standard": 12,
+        "drm_client_engine_accounting": {
+          "after_download": {
+            "client_id": 893,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "after_vpp_sync": {
+            "client_id": 893,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "before_vpp": {
+            "client_id": 893,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "download_interval_delta": {
+            "client_id": 893,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          },
+          "unit": "ns",
+          "vpp_interval_delta": {
+            "client_id": 893,
+            "copy": 0,
+            "pci_device": "0000:00:02.0",
+            "render": 0,
+            "video": 0,
+            "video-enhance": 0
+          }
+        },
+        "filter_flags": 0,
+        "hardware_engine_verified": false,
+        "input_chroma_siting": 6,
+        "input_fourcc": 808530000,
+        "input_rt_format": 256,
+        "input_size": [
+          64,
+          64
+        ],
+        "output_chroma_siting": 6,
+        "output_fourcc": 808530000,
+        "output_packed_bytes": 12288,
+        "output_rt_format": 256,
+        "output_size": [
+          64,
+          64
+        ],
+        "pipeline_caps_flags": 2,
+        "pipeline_flags": 0,
+        "schema": "yblod.vaapi-scaler-invocation.v1",
+        "status": "complete",
+        "va_version": [
+          1,
+          24
+        ],
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "vpp_submitted": true
+      },
+      "output_file": "default-p010-full-channel-tags-0.p010",
+      "output_sha256": "814565de4e291f271d46e1f50e9e9d5dcdce9482914893d57ecf877a6e982ef4",
+      "range": "full",
+      "stderr": {
+        "file": "default-p010-full-channel-tags-0.stderr.log",
+        "sha256": "31f8f33e1602ec0b83622a5620332c042a99c09d6c79360861633f853ba8db4b"
+      },
+      "stdout": {
+        "file": "default-p010-full-channel-tags-0.stdout.log",
+        "sha256": "a686b77eb205ea87e7687b931540732714e3ddf68a5d2b861bea5f1971be90c1"
+      }
+    },
+    {
+      "argv": [
+        "/storage/yblod-scaler-probe-20261005-v1/vaapi_scaler_probe-v10",
+        "/dev/dri/renderD128",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/code-0-input.p010",
+        "/storage/yblod-scaler-probe-20261005-v1/y416-constant-run-v10/default-y416-full-code-0-0.y416",
+        "64",
+        "64",
+        "64",
+        "64",
+        "default",
+        "--input-chroma",
+        "left",
+        "--output-chroma",
+        "unspecified",
+        "--output-format",
+        "y416",
+        "--range",
+        "full",
+        "--pipeline",
+        "default"
+      ],
+      "case": "code-0",
+      "exit_status": 1,
+      "format": "y416",
+      "output_file": "default-y416-full-code-0-0.y416",
+      "range": "full",
+      "stderr": {
+        "file": "default-y416-full-code-0-0.stderr.log",
+        "sha256": "22bd6761d1fbd13d71c78dca004f707d39da63fe87a8aaf792a64250e2283642"
+      },
+      "stdout": {
+        "file": "default-y416-full-code-0-0.stdout.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "kernel": [
+    "Linux",
+    "LibreELEC",
+    "7.2.8",
+    "#1 SMP PREEMPT Sun Oct  4 21:36:11 UTC 2026",
+    "x86_64"
+  ],
+  "repeats": 2,
+  "resources": {
+    "elapsed_seconds": 0.2581162979986402,
+    "interpretation": "PythonprocesslifetimeRSS; testelapsednotplayback",
+    "rss_native_unit": "KiB",
+    "self_peak_rss_native": 24192
+  },
+  "results": {
+    "full": {}
+  },
+  "schema": "yblod.hardware-y416-constant-check.v1",
+  "size": [
+    64,
+    64
+  ],
+  "source_sha256": "37400de9a3725faedcf26f7f503fa1fd67ecf50f54bd46d5168e5b50aa3e3606",
+  "status": "failed"
+}

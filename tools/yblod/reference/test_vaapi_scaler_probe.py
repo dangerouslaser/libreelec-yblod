@@ -79,6 +79,31 @@ class CompiledProbeGuards(unittest.TestCase):
             with self.subTest(value=value):
                 self.reject("copy test does not accept pipeline declarations", extra=("--pipeline", value))
 
+    def test_format_options_fail_closed(self):
+        for extra, expected in (
+            (("--output-format",), "usage:"),
+            (("--output-format", "y412"), "unknown output format request"),
+            (("--output-format", "y416", "--output-format", "p010"), "duplicate output format option"),
+        ):
+            with self.subTest(extra=extra): self.reject(expected, mode="default", extra=extra)
+
+    def test_range_options_fail_closed(self):
+        for extra, expected in (
+            (("--range",), "usage:"),
+            (("--range", "auto"), "unknown range request"),
+            (("--range", "full", "--range", "reduced"), "duplicate range option"),
+        ):
+            with self.subTest(extra=extra): self.reject(expected, mode="default", extra=extra)
+
+    def test_copy_cannot_convert_or_declare_range(self):
+        self.reject("copy test requires P010 output", extra=("--output-format", "y416"))
+        for value in ("full", "reduced"):
+            with self.subTest(value=value):
+                self.reject("copy test does not accept range declarations", extra=("--range", value))
+
+    def test_input_siting_cannot_be_unspecified(self):
+        self.reject("unknown chroma location", mode="default", extra=("--input-chroma", "unspecified"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -252,11 +252,36 @@ values and report the divergence; it is not evidence of a licensed Dolby clamp
 and is not an accepted composer input. Do not introduce RGB conversion to work
 around unsupported same-format processing.
 
+## Production-format constant observation
+
+The probe additionally accepts `--output-format p010|y416` and `--range
+full|reduced` (both input and output). Defaults remain P010/full. Output chroma
+also accepts `unspecified`; input does not. Copy cannot convert or declare a
+range. Requested formats must be advertised; no substitute conversion is used.
+
+`hardware_y416_check.py` first runs24 exact P010 copy/native constant gates,
+then requests48 repeated same-size P010420→Y416444 conversions with full and
+reduced range. This is conversion observation, **not conversion identity or
+spatial-phase acceptance**. It preserves every raw little-endian16-bit word,
+reports raw word positions and channel-order/scale hypotheses, alpha separately,
+and lower4/6-bit histograms. No bit masking, fitted correction or clamp is used.
+
+```sh
+python3 hardware_y416_check.py ./vaapi_scaler_probe NEW-DIRECTORY \
+  --width 64 --height 64 --repeats 2
+```
+
+The source playback bridge requests Y416/YUV444_12, matching BT2020/reduced range,
+input LEFT and output unspecified. Its downstream normalized sampling preserves
+fractional native-code precision; the12-bit allocation request alone does not
+prove the actual raw storage precision. See `INTEL_Y416_RESULTS.md` for the
+initial capability-gated result. No loaded-playback-binary equivalence is claimed.
+
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **411 reference tests**, including vector/scoring, runner failure gates,
-  affine/siting/large/mode/route controls,12 host-only DRM parser fixtures and10 compiled CLI guards,
+- **423 reference tests**, including vector/scoring, runner failure gates,
+  affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and14 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
 - Compiled guards test invalid arguments, copy-resize requests, unknown modes,
@@ -276,5 +301,5 @@ YBLOD_VAAPI_PROBE_BINARY=/absolute/path/vaapi_scaler_probe \
   python3 -m unittest discover -s tools/yblod/reference -p 'test_*.py'
 ```
 
-Without that environment variable, the ten compiled tests explicitly skip;
+Without that environment variable, the fourteen compiled tests explicitly skip;
 the synthetic Python tests remain runnable from the public source.
