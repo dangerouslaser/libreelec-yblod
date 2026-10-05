@@ -1,0 +1,30 @@
+{
+  "schema": "yblod-native-precision-probe-validation-v1",
+  "status": "passed",
+  "scope": "synthetic arithmetic diagnostic, not production policy or Dolby conformance",
+  "selected_policy": null,
+  "compiler": "Apple clang version 17.0.0 (clang-1700.6.4.2)",
+  "command": "python3 -m unittest test_native_precision_probe",
+  "tests": 4,
+  "ubsan_tests": 4,
+  "ubsan": "undefined; recovery disabled",
+  "configuration_count": 75,
+  "coefficient_denominators": [15, 23, 32],
+  "raw_word_domain": [0, 65472],
+  "native_code_denominator": 64,
+  "integer_anchor_visits": 76800,
+  "dense_q6_word_visits": 65473,
+  "neutral_boundary_visits_including_duplicates": 1200,
+  "main_literal_oracle_comparisons": 143473,
+  "main_quantized_integer_oracle_comparisons": 430419,
+  "source_sha256": {
+    "native_precision_probe.c": "265ccb7ab7ea234570bd6f6dbcaa8a94a223a5bf08913daccdee85af9d0521d8",
+    "native_precision_probe.h": "069c56bdf9fa389bdd20c9e538a25bae5ae7a83d77466d257d88b1acfb70c2a6",
+    "test_native_precision_probe.py": "ea26c8c7ca67fc6c11303f49496eabafc7fe17d0ef6f00589769b8e90a28da56",
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "nlq_scaling_sensitivity.py": "800ad12712ee97b7e133220af088343e54e5fccd441355a970af1a3cbebe0b97",
+    "reference.py": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73"
+  },
+  "interpretation": "Static validation record from the named tests, not a hardware measurement. Main comparison counts exclude separate literal known answers and invalid-input tests. No film data, shader finite-float emulation, selected precision policy or playback performance claim."
+}
