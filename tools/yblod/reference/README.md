@@ -130,8 +130,11 @@ reference operation order from its informative example filter.
 [EL_SHADER_SAMPLING_AUDIT.md](EL_SHADER_SAMPLING_AUDIT.md) traces the inspected
 playback source's conditional half-pixel sampling and normalization; it is not
 confirmation of a loaded Kodi build or licensed-player behaviour.
+[SAMPLING_CONTRACT.md](SAMPLING_CONTRACT.md) defines a standalone exact C
+sampling diagnostic that preserves fractional words and keeps coordinate,
+filter and normalization declarations separate; it selects no playback policy.
 
-Latest complete Ollie check: **740 reference tests plus 8 accuracy tests**, no
+Latest complete Ollie check: **755 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 
