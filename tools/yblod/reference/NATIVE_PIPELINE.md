@@ -6,6 +6,11 @@ Implementation language and execution device are separate decisions: a C host
 can still dispatch hardware scaling and GPU processing. A CPU C rewrite alone
 does not establish real-time 4K performance.
 
+`NATIVE_BUILD.md` describes the Python-free static library, installed package
+and native smoke tests. Its LibreELEC-target binary has been built on Ollie and
+run on the Petunia VM without changing Kodi. `NATIVE_KERNEL_RESULTS.md` isolates
+integer C timing from the diagnostic Python/file-output overhead.
+
 ## Current components
 
 - `native_composer.c`: standalone integer base mapping, enhancement correction

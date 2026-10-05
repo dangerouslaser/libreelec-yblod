@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(YblodNativeConsumerSmoke LANGUAGES CXX)
+find_package(YblodNative 0.1 CONFIG REQUIRED)
+add_executable(native_consumer_smoke consumer.cpp)
+target_link_libraries(native_consumer_smoke PRIVATE Yblod::yblod_native)
+enable_testing()
+add_test(NAME native_consumer_smoke COMMAND native_consumer_smoke)

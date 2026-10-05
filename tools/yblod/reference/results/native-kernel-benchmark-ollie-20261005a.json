@@ -1,0 +1,465 @@
+{
+  "build_record": {
+    "command": [
+      "cc",
+      "-std=c11",
+      "-O2",
+      "-fPIC",
+      "-shared",
+      "-fno-lto",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-Wconversion",
+      "-Wshadow",
+      "/home/bryan/Projects/libreelec-yblod-reconstruction/tools/yblod/reference/native_kernel_bench.c",
+      "/home/bryan/Projects/libreelec-yblod-reconstruction/tools/yblod/reference/native_composer.c",
+      "-o",
+      "/home/bryan/Projects/libreelec-yblod-reconstruction/target/native-kernel-build-20261005a/libnative_kernel_bench.so"
+    ],
+    "compiler_version": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+    "library": "libnative_kernel_bench.so",
+    "library_sha256": "82b062f32cf385a9c69631d0a283c97c065c027b923ca30602ba00a3b9ab177f",
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.39",
+    "schema": "yblod.native-kernel-build.v1",
+    "source_sha256": {
+      "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+      "composition_stage.py": "b724d8b6bd0baaca345da8e12525c1583ce72ae987b910cde168cb759d44680a",
+      "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+      "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+      "native_kernel_bench.c": "548f63297f21a31fd174736a2ffdeaa821b9606ec3a2988e35c7014cfff57e1d",
+      "native_kernel_bench.py": "268e16fe9ae274df53ba0657ef92af060a49902cbcbefdca481c688f854a36ba",
+      "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687",
+      "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e"
+    },
+    "status": "complete"
+  },
+  "build_record_sha256": "68bcf9c64c95009a65d6c0f4fdf81e132c0e4bcdb4e4e70ec28bff58c6b2cc29",
+  "cases": {
+    "disabled": {
+      "component": 1,
+      "count": 16384,
+      "denominator": 23,
+      "enabled_residual": false,
+      "expected_stage_sha256": {
+        "mapped": "d9902a3fae40feb52a3004e73ef6d7ae9efc1c955e8c0996cde718cb3773d2ef",
+        "reconstructed": "05e222876e993987fe288ef277ab0c35bb961bae50012aaa7eeeeed9e67bbc19",
+        "residual": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+        "sum": "9a6c4d6b22be34efba60184bef54546bd6118ea4b176562d53af3c76cf74a06c"
+      },
+      "fixture_scope": "Explicit deterministic synthetic Y-guide/Cb/Cr/EL; same buffers reused.",
+      "input_depth": 10,
+      "input_plane_sha256": {
+        "Cb": "884fa879a323988962827fd217f01a9fb1660e201925ce0db872763c7f933a86",
+        "Cr": "8529fddbdc57e32288589fcac14a2752310299d6542935dcadbb93f0f50e68ff",
+        "EL": "8c4cfb55a8e342cbc15d0718623754051be1d9ce7b85e6ee23a1170a1af4b055",
+        "guide_Y": "33a6fd1a576664700f819ab3570abd765aa69b5c1452ab317cfc6f640c5ba775"
+      },
+      "iterations": 128,
+      "output_depth": 12,
+      "rate_summary": {
+        "maximum": 106.91163443092238,
+        "median": 106.07621415584374,
+        "minimum": 99.80711543172204
+      },
+      "repeats": [
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3209337641151430437,
+          "cpu_seconds": 0.019704865,
+          "million_component_samples_per_second": 106.07621415584374,
+          "processed_samples": 2097152,
+          "repeat": 0,
+          "wall_seconds": 0.019770238
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3209337641151430437,
+          "cpu_seconds": 0.020800164,
+          "million_component_samples_per_second": 99.80711543172204,
+          "processed_samples": 2097152,
+          "repeat": 1,
+          "wall_seconds": 0.021012049
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3209337641151430437,
+          "cpu_seconds": 0.020207094,
+          "million_component_samples_per_second": 103.71286920613727,
+          "processed_samples": 2097152,
+          "repeat": 2,
+          "wall_seconds": 0.02022075
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3209337641151430437,
+          "cpu_seconds": 0.019607089,
+          "million_component_samples_per_second": 106.91163443092238,
+          "processed_samples": 2097152,
+          "repeat": 3,
+          "wall_seconds": 0.019615751
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3209337641151430437,
+          "cpu_seconds": 0.019682172,
+          "million_component_samples_per_second": 106.37502915336991,
+          "processed_samples": 2097152,
+          "repeat": 4,
+          "wall_seconds": 0.019714702
+        }
+      ]
+    },
+    "mmr1": {
+      "component": 1,
+      "count": 16384,
+      "denominator": 23,
+      "enabled_residual": true,
+      "expected_stage_sha256": {
+        "mapped": "b8bdef734a2db6f0b3e6c4f7ee1167dc74f48725fe223f44f46ffae0a527f29d",
+        "reconstructed": "ed3b3977acefcae68bea5f75b57251d12b64e1f04d464436dedd0d93eb53598a",
+        "residual": "66b4387cef887f40c04fef2954fd7bfd963dc79ea848990e00ff9c98e3e6ab81",
+        "sum": "6c3c26a33d401d661cc58265c81d802af0cb123439a9d7d333edb19439d142b0"
+      },
+      "fixture_scope": "Explicit deterministic synthetic Y-guide/Cb/Cr/EL; same buffers reused.",
+      "input_depth": 10,
+      "input_plane_sha256": {
+        "Cb": "884fa879a323988962827fd217f01a9fb1660e201925ce0db872763c7f933a86",
+        "Cr": "8529fddbdc57e32288589fcac14a2752310299d6542935dcadbb93f0f50e68ff",
+        "EL": "8c4cfb55a8e342cbc15d0718623754051be1d9ce7b85e6ee23a1170a1af4b055",
+        "guide_Y": "33a6fd1a576664700f819ab3570abd765aa69b5c1452ab317cfc6f640c5ba775"
+      },
+      "iterations": 128,
+      "output_depth": 12,
+      "rate_summary": {
+        "maximum": 35.09348984464333,
+        "median": 34.94718350199224,
+        "minimum": 33.89363132785768
+      },
+      "repeats": [
+        {
+          "all_four_stages_exact": true,
+          "checksum": 7458367902354330149,
+          "cpu_seconds": 0.059703661,
+          "million_component_samples_per_second": 35.09348984464333,
+          "processed_samples": 2097152,
+          "repeat": 0,
+          "wall_seconds": 0.059759004
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 7458367902354330149,
+          "cpu_seconds": 0.059935711,
+          "million_component_samples_per_second": 34.94718350199224,
+          "processed_samples": 2097152,
+          "repeat": 1,
+          "wall_seconds": 0.060009185
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 7458367902354330149,
+          "cpu_seconds": 0.060027324,
+          "million_component_samples_per_second": 34.91543452030769,
+          "processed_samples": 2097152,
+          "repeat": 2,
+          "wall_seconds": 0.060063752
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 7458367902354330149,
+          "cpu_seconds": 0.059835619,
+          "million_component_samples_per_second": 35.03757595372863,
+          "processed_samples": 2097152,
+          "repeat": 3,
+          "wall_seconds": 0.059854369
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 7458367902354330149,
+          "cpu_seconds": 0.061817085,
+          "million_component_samples_per_second": 33.89363132785768,
+          "processed_samples": 2097152,
+          "repeat": 4,
+          "wall_seconds": 0.061874515
+        }
+      ]
+    },
+    "mmr2": {
+      "component": 1,
+      "count": 16384,
+      "denominator": 23,
+      "enabled_residual": true,
+      "expected_stage_sha256": {
+        "mapped": "76cb79ddd5586f309a94af39beb87edb37381ba27b1e95c03867fc5feda9bff3",
+        "reconstructed": "9f620b9fea0dceba0555c1f2b0ed6c223cc7f524a3c3c44c0ecdb2f1916b8b99",
+        "residual": "66b4387cef887f40c04fef2954fd7bfd963dc79ea848990e00ff9c98e3e6ab81",
+        "sum": "a0a45b9062358877d7ad97c38e7a887b259e99528be740958bc16ac528d5e65a"
+      },
+      "fixture_scope": "Explicit deterministic synthetic Y-guide/Cb/Cr/EL; same buffers reused.",
+      "input_depth": 10,
+      "input_plane_sha256": {
+        "Cb": "884fa879a323988962827fd217f01a9fb1660e201925ce0db872763c7f933a86",
+        "Cr": "8529fddbdc57e32288589fcac14a2752310299d6542935dcadbb93f0f50e68ff",
+        "EL": "8c4cfb55a8e342cbc15d0718623754051be1d9ce7b85e6ee23a1170a1af4b055",
+        "guide_Y": "33a6fd1a576664700f819ab3570abd765aa69b5c1452ab317cfc6f640c5ba775"
+      },
+      "iterations": 128,
+      "output_depth": 12,
+      "rate_summary": {
+        "maximum": 30.740978766676598,
+        "median": 30.167303622462313,
+        "minimum": 28.536182263456006
+      },
+      "repeats": [
+        {
+          "all_four_stages_exact": true,
+          "checksum": 457006965556589125,
+          "cpu_seconds": 0.071474697,
+          "million_component_samples_per_second": 29.250737321097528,
+          "processed_samples": 2097152,
+          "repeat": 0,
+          "wall_seconds": 0.071695697
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 457006965556589125,
+          "cpu_seconds": 0.069423714,
+          "million_component_samples_per_second": 30.167303622462313,
+          "processed_samples": 2097152,
+          "repeat": 1,
+          "wall_seconds": 0.069517383
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 457006965556589125,
+          "cpu_seconds": 0.07327365600000002,
+          "million_component_samples_per_second": 28.536182263456006,
+          "processed_samples": 2097152,
+          "repeat": 2,
+          "wall_seconds": 0.07349098
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 457006965556589125,
+          "cpu_seconds": 0.069224475,
+          "million_component_samples_per_second": 30.271181839277073,
+          "processed_samples": 2097152,
+          "repeat": 3,
+          "wall_seconds": 0.069278828
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 457006965556589125,
+          "cpu_seconds": 0.068134186,
+          "million_component_samples_per_second": 30.740978766676598,
+          "processed_samples": 2097152,
+          "repeat": 4,
+          "wall_seconds": 0.068220079
+        }
+      ]
+    },
+    "mmr3": {
+      "component": 1,
+      "count": 16384,
+      "denominator": 23,
+      "enabled_residual": true,
+      "expected_stage_sha256": {
+        "mapped": "b9e2bdf56166badf3ee7ad210d7a8465ca57d6d06f3888e8b23560ee5c3e0634",
+        "reconstructed": "6f6e15b0a9a02fd8e25b7e81bff233c96ca301b5763b35ee700d65b03f2a3c3d",
+        "residual": "66b4387cef887f40c04fef2954fd7bfd963dc79ea848990e00ff9c98e3e6ab81",
+        "sum": "5b096349fac3bfdc502efcc576cf24a735a4554302e21d5a1cd773a352b3ab2b"
+      },
+      "fixture_scope": "Explicit deterministic synthetic Y-guide/Cb/Cr/EL; same buffers reused.",
+      "input_depth": 10,
+      "input_plane_sha256": {
+        "Cb": "884fa879a323988962827fd217f01a9fb1660e201925ce0db872763c7f933a86",
+        "Cr": "8529fddbdc57e32288589fcac14a2752310299d6542935dcadbb93f0f50e68ff",
+        "EL": "8c4cfb55a8e342cbc15d0718623754051be1d9ce7b85e6ee23a1170a1af4b055",
+        "guide_Y": "33a6fd1a576664700f819ab3570abd765aa69b5c1452ab317cfc6f640c5ba775"
+      },
+      "iterations": 128,
+      "output_depth": 12,
+      "rate_summary": {
+        "maximum": 27.655459628118127,
+        "median": 26.892847719867877,
+        "minimum": 25.148016588861356
+      },
+      "repeats": [
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3636433788353609381,
+          "cpu_seconds": 0.078285404,
+          "million_component_samples_per_second": 26.769087276663612,
+          "processed_samples": 2097152,
+          "repeat": 0,
+          "wall_seconds": 0.078342305
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3636433788353609381,
+          "cpu_seconds": 0.083262256,
+          "million_component_samples_per_second": 25.148016588861356,
+          "processed_samples": 2097152,
+          "repeat": 1,
+          "wall_seconds": 0.08339234200000001
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3636433788353609381,
+          "cpu_seconds": 0.077750478,
+          "million_component_samples_per_second": 26.97229762535843,
+          "processed_samples": 2097152,
+          "repeat": 2,
+          "wall_seconds": 0.077752071
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3636433788353609381,
+          "cpu_seconds": 0.077959323,
+          "million_component_samples_per_second": 26.892847719867877,
+          "processed_samples": 2097152,
+          "repeat": 3,
+          "wall_seconds": 0.077981775
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 3636433788353609381,
+          "cpu_seconds": 0.075797953,
+          "million_component_samples_per_second": 27.655459628118127,
+          "processed_samples": 2097152,
+          "repeat": 4,
+          "wall_seconds": 0.075831392
+        }
+      ]
+    },
+    "polynomial": {
+      "component": 1,
+      "count": 16384,
+      "denominator": 23,
+      "enabled_residual": true,
+      "expected_stage_sha256": {
+        "mapped": "d9902a3fae40feb52a3004e73ef6d7ae9efc1c955e8c0996cde718cb3773d2ef",
+        "reconstructed": "5494ff4e7b8e8fcba6788143d14665d4eb945ce933a06990a183431e148be729",
+        "residual": "66b4387cef887f40c04fef2954fd7bfd963dc79ea848990e00ff9c98e3e6ab81",
+        "sum": "887ab429f79e8b5728d224fa867c71cb3f112f7060712ed6e8f3bae525f02a5e"
+      },
+      "fixture_scope": "Explicit deterministic synthetic Y-guide/Cb/Cr/EL; same buffers reused.",
+      "input_depth": 10,
+      "input_plane_sha256": {
+        "Cb": "884fa879a323988962827fd217f01a9fb1660e201925ce0db872763c7f933a86",
+        "Cr": "8529fddbdc57e32288589fcac14a2752310299d6542935dcadbb93f0f50e68ff",
+        "EL": "8c4cfb55a8e342cbc15d0718623754051be1d9ce7b85e6ee23a1170a1af4b055",
+        "guide_Y": "33a6fd1a576664700f819ab3570abd765aa69b5c1452ab317cfc6f640c5ba775"
+      },
+      "iterations": 128,
+      "output_depth": 12,
+      "rate_summary": {
+        "maximum": 77.12466546796826,
+        "median": 76.74662118853199,
+        "minimum": 67.59447351283194
+      },
+      "repeats": [
+        {
+          "all_four_stages_exact": true,
+          "checksum": 16905122708642312421,
+          "cpu_seconds": 0.030951576,
+          "million_component_samples_per_second": 67.59447351283194,
+          "processed_samples": 2097152,
+          "repeat": 0,
+          "wall_seconds": 0.031025495
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 16905122708642312421,
+          "cpu_seconds": 0.027294294,
+          "million_component_samples_per_second": 76.78570578597125,
+          "processed_samples": 2097152,
+          "repeat": 1,
+          "wall_seconds": 0.02731175
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 16905122708642312421,
+          "cpu_seconds": 0.02737016,
+          "million_component_samples_per_second": 76.46680002599027,
+          "processed_samples": 2097152,
+          "repeat": 2,
+          "wall_seconds": 0.027425654
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 16905122708642312421,
+          "cpu_seconds": 0.027173175,
+          "million_component_samples_per_second": 77.12466546796826,
+          "processed_samples": 2097152,
+          "repeat": 3,
+          "wall_seconds": 0.027191716
+        },
+        {
+          "all_four_stages_exact": true,
+          "checksum": 16905122708642312421,
+          "cpu_seconds": 0.027307804,
+          "million_component_samples_per_second": 76.74662118853199,
+          "processed_samples": 2097152,
+          "repeat": 4,
+          "wall_seconds": 0.027325659
+        }
+      ]
+    }
+  },
+  "excluded_from_timing": [
+    "Python fixture generation and metadata encoding",
+    "Python oracle comparisons",
+    "one C warm-up per batch",
+    "final C checksum",
+    "output-file writes",
+    "decoding/scaling/colour/HDMI"
+  ],
+  "limitations": [
+    "Component samples, not complete video pixels or frame rate.",
+    "Fixed CPU synthetic workload; no steady-state playback, GPU throughput, or licensed-conformance claim.",
+    "No LTO; separately compiled composer call executes each iteration. No production defaults changed.",
+    "Build hashes detect ordinary mismatches, not malicious shared-library authentication."
+  ],
+  "limits_after": {
+    "memory.events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory.max": 536870912,
+    "memory.peak": 20103168,
+    "memory.swap.current": 0,
+    "memory.swap.max": 0
+  },
+  "limits_before": {
+    "memory.events": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory.max": 536870912,
+    "memory.peak": 11395072,
+    "memory.swap.current": 0,
+    "memory.swap.max": 0
+  },
+  "process_maximum_rss_kib": 28760,
+  "runtime": {
+    "cpu_model": "Intel(R) Core(TM) i9-14900K",
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.39",
+    "process_affinity_cpu_count": 32,
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]"
+  },
+  "schema": "yblod.native-kernel-benchmark.v1",
+  "status": "complete",
+  "timed_component_samples": 52428800,
+  "timing_scope": "C chunk validation + arithmetic + caller-buffer writes; repeated same cached buffers; one FFI call per timed batch."
+}
