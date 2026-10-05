@@ -95,7 +95,7 @@ def _expand(first, second, fy, x):
     return a * (1 - fx) + b * fx
 
 
-def run(result, configuration, output):
+def run(result, configuration, output, *, extraction=None):
     result, configuration, output = Path(result).resolve(), Path(configuration), Path(output)
     composer, report_hash = _json(result / "report.json")
     settings, settings_hash = _json(configuration)
@@ -103,6 +103,23 @@ def run(result, configuration, output):
         raise ValueError("completed composer report required")
     if settings.get("schema") != "yblod.colour-frame-config.v1" or settings.get("composer_report_sha256") != report_hash:
         raise ValueError("configuration must be bound to this composer report")
+    association = "caller-declared, not verified against an extracted RPU"
+    verified_provenance = None
+    if settings.get("source_association") == "verified-extracted-rpu" or extraction is not None:
+        if extraction is None:
+            raise ValueError("verified configuration requires extraction evidence at execution")
+        import colour_metadata
+        evidence = colour_metadata.load(result, extraction)
+        for field, value in (("source_dm", evidence["source_dm"]),
+                             ("source_identity", evidence["identity"]),
+                             ("source_provenance", evidence["provenance"]),
+                             ("active_rectangle", evidence["active_rectangle"])):
+            if json.dumps(settings.get(field), sort_keys=True, allow_nan=False) != json.dumps(value, sort_keys=True, allow_nan=False):
+                raise ValueError(f"configuration differs from verified extraction: {field}")
+        if settings.get("source_association") != "verified-extracted-rpu":
+            raise ValueError("verified source association must be explicit")
+        association = "verified against supplied extracted RPU and frame identity; not independent source-film authentication"
+        verified_provenance = evidence["provenance"]
     manifest = composer["input_manifest"]
     reference.validate(manifest)
     if (manifest["metadata"]["output_bit_depth"] != 12 or manifest["format"] != "yuv420p-u16le-lsb"
@@ -174,7 +191,8 @@ def run(result, configuration, output):
         "scope": "diagnostic coordinates and unembedded bytes; not playable Dolby Vision HDMI",
         "width": width, "height": height, "identity": {k: manifest["metadata"][k] for k in ("frame_id", "pts", "time_base")},
         "composer_report_sha256": report_hash, "configuration_sha256": settings_hash,
-        "configuration": settings, "source_dm_association": "caller-declared, not verified against an extracted RPU",
+        "configuration": settings, "source_dm_association": association,
+        "source_provenance": verified_provenance,
         "implementation_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "helper_sha256": {Path(m.__file__).name: hashlib.sha256(Path(m.__file__).read_bytes()).hexdigest() for m in (colour_stage, reference)},
         "processing": "one output row, two cached input rows per plane; metadata capped separately",
@@ -200,8 +218,9 @@ if __name__ == "__main__":
     parser.add_argument("result", type=Path)
     parser.add_argument("configuration", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--extraction", type=Path, help="required evidence for a verified extracted-RPU configuration")
     args = parser.parse_args()
     try:
-        run(args.result, args.configuration, args.output)
+        run(args.result, args.configuration, args.output, extraction=args.extraction)
     except (OSError, ValueError, TypeError, KeyError) as error:
         parser.exit(1, f"colour frame: {error}\n")

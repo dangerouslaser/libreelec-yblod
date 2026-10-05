@@ -96,6 +96,30 @@ class ColourFrameTests(unittest.TestCase):
             with self.assertRaises(OSError): frame.run(self.result, self.config_path, self.root / "publication")
         self.assertFalse((self.root / "publication/output.json").exists())
 
+    def test_verified_claim_requires_evidence_and_exact_association(self):
+        self.config["source_association"] = "verified-extracted-rpu"
+        self.save()
+        with self.assertRaisesRegex(ValueError, "requires extraction"):
+            frame.run(self.result, self.config_path, self.output)
+        self.assertFalse(self.output.exists())
+        evidence = dict(source_dm=self.config["source_dm"],
+            identity={"frame_id": "synthetic-proof", "pts": 0, "time_base": [1, 24]},
+            provenance={"test": "explicit mock, helper separately tested"},
+            active_rectangle=self.config["active_rectangle"])
+        self.config["source_identity"] = evidence["identity"]
+        self.config["source_provenance"] = evidence["provenance"]
+        self.save()
+        with mock.patch("colour_metadata.load", return_value=evidence):
+            report = frame.run(self.result, self.config_path, self.output, extraction=self.root / "evidence")
+        self.assertIsNotNone(report["source_provenance"])
+        self.config["source_dm"]["ycc_to_rgb_coef0"] += 1
+        self.save()
+        # Evidence must be independently re-read, not trusted from the config.
+        evidence["source_dm"] = dm_identity()
+        with mock.patch("colour_metadata.load", return_value=evidence):
+            with self.assertRaisesRegex(ValueError, "source_dm"):
+                frame.run(self.result, self.config_path, self.root / "tampered", extraction=self.root / "evidence")
+
     def test_explicit_active_area_and_packing(self):
         self.config["active_rectangle"] = [2, 1, 30, 17]
         self.save()
