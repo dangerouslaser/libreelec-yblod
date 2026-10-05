@@ -688,16 +688,32 @@ retains a T-channel even-minus-odd signed-error gap of **8.892060 codes**, mostl
 in the upper-eight-bit contribution. Thus the row-dependent difference is still
 observed with no visible pause overlay and stable reads. Its processing/capture
 cause remains unresolved; no fitted offsets have been applied. Current coverage
-is **293 reference tests plus 8 accuracy-tool tests**, passing on Ollie.
+at that checkpoint was **293 reference tests plus 8 accuracy-tool tests**.
+
+## Native chroma-preparation checkpoint
+
+The [four-case experiment](PREPARATION_EXPERIMENT.md) changes the native phase
+conversion filter independently for BL and EL. Its regenerated baseline matches
+all saved prepared/composer stages and every packed-output byte. Exact factorial
+checks confirm that each variant leaves its untouched layer's stages identical.
+
+The [completed report](results/preparation-experiment-1943.json) shows that the
+T row gap remains **8.891921–8.892092 codes** across all four policies; these
+tested filter choices do not resolve it. Average errors move slightly in mixed
+directions, so no production filter/default changed. This does not exclude other
+geometry, reconstruction or capture causes. Runtime was 199.34 seconds, with
+289,404 KiB peak process/child RSS and no swapping under the 512 MiB hard cap.
+Current coverage is **322 reference tests plus 8 accuracy-tool tests**, passing
+on Ollie. The TV/SK4 were not used during this offline experiment.
 
 ## Next milestone
 
-1. Isolate earlier source-chroma preparation and enhancement-layer enlargement/
-   reconstruction order on the matched, overlay-free frame-1943 case, retaining
-   the explicit GUI-plane and unverified-DMA limitations. The existing bit audit narrows the
-   stored row pattern but does not establish its cause. Then isolate earlier
-   colour preparation and reconstruction/enlargement order.
-   The tested final vertical interpolation alternatives do not resolve it.
+1. Isolate enhancement-layer enlargement versus signed residual decoding order
+   on the matched, overlay-free frame-1943 case, retaining the explicit GUI-plane
+   and unverified-DMA limitations. Derive a signed, coordinate-preserving scaler
+   and separate ordering effects from working-precision changes before running
+   alternatives. The native-phase and final-vertical filter choices tested so far
+   do not resolve the row pattern; no fitted correction is justified.
    Compare earlier-PQ and later-RGB bounds on additional matched SK4 material
    with different source matrices, including ordinary movie scenes. Reordered
    movie extraction is now supported within the restrictions above; source-frame

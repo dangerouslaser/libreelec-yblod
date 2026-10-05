@@ -1,0 +1,2202 @@
+{
+  "schema": "yblod.preparation-experiment.v1",
+  "status": "complete",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1943",
+    "pts": 81039,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "capture_sha256": "3f5bbdaee217bcc244bdb9a6cef4bd6e5947191143cf02c559f60f11e5f2823a",
+  "identity_file_sha256": "8031513b390c659128e7c1fca8ac1e939a054787d1b53e9afe2836269f9c364b",
+  "supplied_capture_identity": {
+    "source_sha256": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f",
+    "visible_frame_number": 1943,
+    "pts_us": 81039000,
+    "verification": "Grayscale capture preview visibly reads frame01943 and sec81,039, with no Kodi clock/progress/pause overlay. ffprobe show_packets confirms zero-based source packet1943 PTS81039 in the source Matroska time_base1/1000. Not inferred from seek responses or driver PTS.",
+    "overlay_present": false,
+    "gui_plane_disabled": true,
+    "gui_plane_backend": "mesondrmfb (read from fb0/name)",
+    "gui_operation": "Temporarily wrote1 to /sys/class/graphics/fb0/blank; wrote0 in finally after capture; restored GUI before stopping test playback.",
+    "gui_orchestration_sha256": "001805a4627c33518dd39b5b3900776c8bd3b3994094b9fb1584281bde1a6477",
+    "executed_prototype_sha256": "a4c11a8cd2e87774cf7ed7bb17c37026264d7515714d192bd14a4db5a780dc2a",
+    "gui_source_review": "The mesondrmfb backend uses drivers/drm/meson_fbdev.c am_meson_drm_fb_blank, disabling only its plane rather than the whole CRTC. The prototype's generic source-reviewed-enable wording initially referred to osd_fb.c; backend-specific DRM source was verified after collection. No independent register restoration readback is claimed.",
+    "gui_source_url": "https://github.com/CoreELEC/common_drivers/blob/4dbe1c27ae176fde4c1cbef7506618fd7f62b976/drivers/drm/meson_fbdev.c#L596",
+    "scope": "Overlay-free GUI-plane-disabled repeatability diagnostic. Unverified DMA synchronization remains. This is not proof of HDMI wire fidelity or Dolby accuracy, nor a matched frame1960 capture."
+  },
+  "identity_basis": "supplied visible-counter/source association; not driver PTS",
+  "baseline_source": {
+    "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/reference-frame-1943-output-direct-v1",
+    "output_report_sha256": "c862437a7c11d7782fdbe38d3ee5ee3bd3d3abcda489f703141660949f9ae34d",
+    "comparison_report_sha256": "19362412b2225e2d96fcbb681c0d0d5710434369d0de65b294d38b67947724e7",
+    "compared_tunnel_sha256": "d4a5f523f5ef427eff5576faf808b4b3ec33589d6e3d2fffb2b1fbf07c15d773"
+  },
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "baseline_byte_verification": {
+    "prepared_stages_verified_bytes": {
+      "bl_Y": 16588800,
+      "bl_Cb_phase": 4147200,
+      "bl_Cb": 4147200,
+      "bl_Cr_phase": 4147200,
+      "bl_Cr": 4147200,
+      "el_Y_vertical": 8294400,
+      "el_Y": 16588800,
+      "el_Cb_phase": 1036800,
+      "el_Cb_vertical": 2073600,
+      "el_Cb": 4147200,
+      "el_Cr_phase": 1036800,
+      "el_Cr_vertical": 2073600,
+      "el_Cr": 4147200,
+      "mmr_luma": 4147200,
+      "scaler_input_Y": 4147200,
+      "scaler_input_Cb": 1036800,
+      "scaler_input_Cr": 1036800
+    },
+    "composer_stages_verified_bytes": {
+      "mapped_Y": 16588800,
+      "residual_Y": 33177600,
+      "sum_Y": 33177600,
+      "reconstructed_Y": 16588800,
+      "mapped_Cb": 4147200,
+      "residual_Cb": 8294400,
+      "sum_Cb": 8294400,
+      "reconstructed_Cb": 4147200,
+      "mapped_Cr": 4147200,
+      "residual_Cr": 8294400,
+      "sum_Cr": 8294400,
+      "reconstructed_Cr": 4147200
+    },
+    "tunnel_verified_bytes": 24883200
+  },
+  "variants": {
+    "linear-both": {
+      "phase_filters": {
+        "bl": "linear",
+        "el": "linear"
+      },
+      "comparisons": {
+        "I": {
+          "samples": 6178560,
+          "maximum_absolute_codes": 119,
+          "mean_absolute_codes": 9.780931317329605,
+          "rmse_codes": 16.144801680520754,
+          "over_sixteen_codes_percent": 16.740130386368346
+        },
+        "P": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 71,
+          "mean_absolute_codes": 4.971984410607003,
+          "rmse_codes": 6.422220586547515,
+          "over_sixteen_codes_percent": 1.5730849906774393
+        },
+        "T": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 81,
+          "mean_absolute_codes": 5.603209485705407,
+          "rmse_codes": 6.903394923466217,
+          "over_sixteen_codes_percent": 0.8455368241143567
+        }
+      },
+      "factorial_stage_verified_bytes": {
+        "bl_Y": 16588800,
+        "el_Y": 16588800,
+        "el_Y_vertical": 8294400,
+        "scaler_input_Y": 4147200,
+        "mmr_luma": 4147200,
+        "reconstructed_Y": 16588800
+      },
+      "minus_baseline": {
+        "direction": "candidate minus newly regenerated linear-both baseline",
+        "row_parity": "global picture rows",
+        "active_rectangle": [
+          0,
+          275,
+          3840,
+          1884
+        ],
+        "processing_strip_rows": 32,
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 0,
+              "zero": 6178560,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 0,
+              "zero": 3087360,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 0,
+              "zero": 3091200,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 0,
+              "zero": 3089280,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 0,
+              "zero": 1543680,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 0,
+              "zero": 1545600,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 0,
+              "zero": 3089280,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 0,
+              "zero": 1543680,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 0,
+              "zero": 1545600,
+              "positive": 0,
+              "maximum_absolute_codes": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "rmse_codes": 0.0
+            }
+          }
+        }
+      },
+      "even_minus_odd_signed_mean_gaps": {
+        "I": {
+          "mean_delta12_codes": -1.0975010582117877,
+          "mean_weighted_high8_codes": -0.9624466822203686,
+          "mean_low4_codes": -0.1350543759914197
+        },
+        "P": {
+          "mean_delta12_codes": 1.8011941867718857,
+          "mean_weighted_high8_codes": 1.9693922597159133,
+          "mean_low4_codes": -0.16819807294402728
+        },
+        "T": {
+          "mean_delta12_codes": 8.89206034961708,
+          "mean_weighted_high8_codes": 8.61935967162119,
+          "mean_low4_codes": 0.2727006779958901
+        }
+      },
+      "preparation_operations": {
+        "bl_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 143,
+          "unbounded_maximum": 882,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "bl_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 173,
+          "unbounded_maximum": 851,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Y_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 645,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -2,
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              -3,
+              29,
+              111,
+              -9
+            ],
+            "shift": 7
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 500,
+            "unbounded_maximum": 644,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0,
+              1,
+              2
+            ],
+            "weights": [
+              -9,
+              111,
+              29,
+              -3
+            ],
+            "shift": 7
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 499,
+            "unbounded_maximum": 642,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 494,
+          "unbounded_maximum": 527,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cb_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 525,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 525,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 526,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 501,
+          "unbounded_maximum": 523,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cr_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 502,
+            "unbounded_maximum": 522,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 522,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "mmr_luma": {
+          "horizontal": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 112,
+            "unbounded_maximum": 769,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              1,
+              2,
+              1
+            ],
+            "shift": 2
+          },
+          "vertical": "(row[2j] + row[2j+1] + 1) >> 1",
+          "position_in_luma_samples": [
+            "2i",
+            "2j+1/2"
+          ],
+          "evidence": "CCM clause 5.4.2.3.3; visually checked equation"
+        }
+      },
+      "reports": {
+        "linear-both/prepared/frame.json": "74ba08808a6c4d2e2db72d3dfe4f5baf68f7d71ec44bf75b44de47f3546797cc",
+        "linear-both/result/report.json": "d4432dc31a71a55aaf2bc8f8ff9235b1bd968c3244f8732f7dc8b8cb4e200f1f",
+        "linear-both/output/output.json": "936fcc46f14af4bdc4067e1469b27a7a0c9abcc0a52f33740870271dd95158ec",
+        "linear-both/output/sk4.json": "aea53b8987ad1f0912d20496b553c9f09a52abb18b54fa7271398685ff54ef4e",
+        "linear-both/precision.json": "0610449152d260fdfb4660f12b187e2badddb3d402269f6d9b9c13fc5b47fb45",
+        "linear-both/delta.json": "1a0e0424fe333f41a0c11fd8eba00653a1307afabb44a118611ac8e3459164e8"
+      }
+    },
+    "cubic-bl-only": {
+      "phase_filters": {
+        "bl": "cubic128",
+        "el": "linear"
+      },
+      "comparisons": {
+        "I": {
+          "samples": 6178560,
+          "maximum_absolute_codes": 119,
+          "mean_absolute_codes": 9.780161073130309,
+          "rmse_codes": 16.144200721737633,
+          "over_sixteen_codes_percent": 16.736699166148746
+        },
+        "P": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 72,
+          "mean_absolute_codes": 4.968690115496168,
+          "rmse_codes": 6.416404127967274,
+          "over_sixteen_codes_percent": 1.5637948000828672
+        },
+        "T": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 98,
+          "mean_absolute_codes": 5.603786966542366,
+          "rmse_codes": 6.905219124513811,
+          "over_sixteen_codes_percent": 0.8478027242593743
+        }
+      },
+      "factorial_stage_verified_bytes": {
+        "bl_Y": 16588800,
+        "el_Y": 16588800,
+        "el_Y_vertical": 8294400,
+        "scaler_input_Y": 4147200,
+        "mmr_luma": 4147200,
+        "reconstructed_Y": 16588800,
+        "el_Cb_phase": 1036800,
+        "el_Cb_vertical": 2073600,
+        "el_Cb": 4147200,
+        "el_Cr_phase": 1036800,
+        "el_Cr_vertical": 2073600,
+        "el_Cr": 4147200,
+        "scaler_input_Cb": 1036800,
+        "scaler_input_Cr": 1036800,
+        "residual_Y": 33177600,
+        "residual_Cb": 8294400,
+        "residual_Cr": 8294400
+      },
+      "minus_baseline": {
+        "direction": "candidate minus newly regenerated linear-both baseline",
+        "row_parity": "global picture rows",
+        "active_rectangle": [
+          0,
+          275,
+          3840,
+          1884
+        ],
+        "processing_strip_rows": 32,
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 13304,
+              "zero": 6162494,
+              "positive": 2762,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.002547033613010151,
+              "mean_absolute_codes": 0.003867082297493267,
+              "rmse_codes": 0.08651447121160852
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 6643,
+              "zero": 3079284,
+              "positive": 1433,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.0025261064469320068,
+              "mean_absolute_codes": 0.003876774979270315,
+              "rmse_codes": 0.08617098069880427
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 6661,
+              "zero": 3083210,
+              "positive": 1329,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.0025679347826086957,
+              "mean_absolute_codes": 0.0038574016563147,
+              "rmse_codes": 0.08685617916540682
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 7970,
+              "zero": 3080095,
+              "positive": 1215,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": -0.010332828361301016,
+              "mean_absolute_codes": 0.012849919722394862,
+              "rmse_codes": 0.2912022035066327
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 3973,
+              "zero": 1539093,
+              "positive": 614,
+              "maximum_absolute_codes": 22,
+              "mean_signed_codes": -0.010346703980099502,
+              "mean_absolute_codes": 0.012884794776119403,
+              "rmse_codes": 0.2920617437958192
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 3997,
+              "zero": 1541002,
+              "positive": 601,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": -0.010318969979296067,
+              "mean_absolute_codes": 0.012815087991718427,
+              "rmse_codes": 0.29034119109485107
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 6531,
+              "zero": 3080392,
+              "positive": 2357,
+              "maximum_absolute_codes": 36,
+              "mean_signed_codes": -0.001997876527864098,
+              "mean_absolute_codes": 0.010485938471100062,
+              "rmse_codes": 0.2683172033389283
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 3274,
+              "zero": 1539237,
+              "positive": 1169,
+              "maximum_absolute_codes": 35,
+              "mean_signed_codes": -0.001982276119402985,
+              "mean_absolute_codes": 0.010550114013266998,
+              "rmse_codes": 0.26831251271159895
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 3257,
+              "zero": 1541155,
+              "positive": 1188,
+              "maximum_absolute_codes": 36,
+              "mean_signed_codes": -0.002013457556935818,
+              "mean_absolute_codes": 0.01042184265010352,
+              "rmse_codes": 0.26832188805754564
+            }
+          }
+        }
+      },
+      "even_minus_odd_signed_mean_gaps": {
+        "I": {
+          "mean_delta12_codes": -1.0974592298761112,
+          "mean_weighted_high8_codes": -0.9623877635631368,
+          "mean_low4_codes": -0.13507146631297445
+        },
+        "P": {
+          "mean_delta12_codes": 1.8011664527710822,
+          "mean_weighted_high8_codes": 1.9697828533316857,
+          "mean_low4_codes": -0.16861640056060279
+        },
+        "T": {
+          "mean_delta12_codes": 8.892091531054612,
+          "mean_weighted_high8_codes": 8.61978146276897,
+          "mean_low4_codes": 0.2723100682856422
+        }
+      },
+      "preparation_operations": {
+        "bl_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 143,
+          "unbounded_maximum": 882,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "bl_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 173,
+          "unbounded_maximum": 851,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Y_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 645,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -2,
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              -3,
+              29,
+              111,
+              -9
+            ],
+            "shift": 7
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 500,
+            "unbounded_maximum": 644,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0,
+              1,
+              2
+            ],
+            "weights": [
+              -9,
+              111,
+              29,
+              -3
+            ],
+            "shift": 7
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 499,
+            "unbounded_maximum": 642,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 494,
+          "unbounded_maximum": 527,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cb_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 525,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 525,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 526,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 501,
+          "unbounded_maximum": 523,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cr_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 502,
+            "unbounded_maximum": 522,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 522,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "mmr_luma": {
+          "horizontal": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 112,
+            "unbounded_maximum": 769,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              1,
+              2,
+              1
+            ],
+            "shift": 2
+          },
+          "vertical": "(row[2j] + row[2j+1] + 1) >> 1",
+          "position_in_luma_samples": [
+            "2i",
+            "2j+1/2"
+          ],
+          "evidence": "CCM clause 5.4.2.3.3; visually checked equation"
+        }
+      },
+      "reports": {
+        "cubic-bl-only/prepared/frame.json": "8674831c15fe1279b2bae246469463c086730ff3ac1a5ac53e6c0e8900f52000",
+        "cubic-bl-only/result/report.json": "e0bb6a9cf8cf358062caed46c4bab3d4bd98fb920996f55ea4c42d3cf117df88",
+        "cubic-bl-only/output/output.json": "9ab8cd4dd757bdc557118fe62a5a243438e015e4c77450429e39c3f877117e76",
+        "cubic-bl-only/output/sk4.json": "b0d6f6e829ee04387d3aba58bb951b3d494d92a19a54504afda4676385236ac3",
+        "cubic-bl-only/precision.json": "3f813b6c29b5fadb328c6e73f71b89a9939f3ea7eadcaff662326c39514042d1",
+        "cubic-bl-only/delta.json": "daa320dc261122ec8a54d92145895970daa5bf3e9cdb65ae8833c237af52c589"
+      }
+    },
+    "cubic-el-only": {
+      "phase_filters": {
+        "bl": "linear",
+        "el": "cubic128"
+      },
+      "comparisons": {
+        "I": {
+          "samples": 6178560,
+          "maximum_absolute_codes": 119,
+          "mean_absolute_codes": 9.773122539879843,
+          "rmse_codes": 16.139029309086997,
+          "over_sixteen_codes_percent": 16.709071369380567
+        },
+        "P": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 71,
+          "mean_absolute_codes": 4.980742762067536,
+          "rmse_codes": 6.45063180640328,
+          "over_sixteen_codes_percent": 1.649737155583178
+        },
+        "T": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 81,
+          "mean_absolute_codes": 5.617457465817278,
+          "rmse_codes": 6.9224454491888965,
+          "over_sixteen_codes_percent": 0.8782305262067537
+        }
+      },
+      "factorial_stage_verified_bytes": {
+        "bl_Y": 16588800,
+        "el_Y": 16588800,
+        "el_Y_vertical": 8294400,
+        "scaler_input_Y": 4147200,
+        "mmr_luma": 4147200,
+        "reconstructed_Y": 16588800,
+        "bl_Cb_phase": 4147200,
+        "bl_Cb": 4147200,
+        "bl_Cr_phase": 4147200,
+        "bl_Cr": 4147200,
+        "mapped_Y": 16588800,
+        "mapped_Cb": 4147200,
+        "mapped_Cr": 4147200
+      },
+      "minus_baseline": {
+        "direction": "candidate minus newly regenerated linear-both baseline",
+        "row_parity": "global picture rows",
+        "active_rectangle": [
+          0,
+          275,
+          3840,
+          1884
+        ],
+        "processing_strip_rows": 32,
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 329171,
+              "zero": 5691367,
+              "positive": 158022,
+              "maximum_absolute_codes": 5,
+              "mean_signed_codes": -0.03533752201160141,
+              "mean_absolute_codes": 0.08905618784959603,
+              "rmse_codes": 0.3319637773956622
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 164531,
+              "zero": 2843792,
+              "positive": 79037,
+              "maximum_absolute_codes": 4,
+              "mean_signed_codes": -0.035348971289386404,
+              "mean_absolute_codes": 0.08910169206053067,
+              "rmse_codes": 0.33207405556432534
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 164640,
+              "zero": 2847575,
+              "positive": 78985,
+              "maximum_absolute_codes": 5,
+              "mean_signed_codes": -0.035326086956521736,
+              "mean_absolute_codes": 0.08901074016563147,
+              "rmse_codes": 0.33185359964026745
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 175606,
+              "zero": 2776539,
+              "positive": 137135,
+              "maximum_absolute_codes": 9,
+              "mean_signed_codes": -0.014381668220426766,
+              "mean_absolute_codes": 0.1556702532628962,
+              "rmse_codes": 0.5443283118328238
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 87821,
+              "zero": 1387220,
+              "positive": 68639,
+              "maximum_absolute_codes": 9,
+              "mean_signed_codes": -0.01429506115257048,
+              "mean_absolute_codes": 0.15580107276119404,
+              "rmse_codes": 0.5444347802007194
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 87785,
+              "zero": 1389319,
+              "positive": 68496,
+              "maximum_absolute_codes": 9,
+              "mean_signed_codes": -0.014468167701863354,
+              "mean_absolute_codes": 0.15553959627329192,
+              "rmse_codes": 0.5442219549337237
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 77347,
+              "zero": 2865042,
+              "positive": 146891,
+              "maximum_absolute_codes": 5,
+              "mean_signed_codes": 0.03165333022581313,
+              "mean_absolute_codes": 0.08967461673917547,
+              "rmse_codes": 0.35558285995265143
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 38645,
+              "zero": 1431685,
+              "positive": 73350,
+              "maximum_absolute_codes": 5,
+              "mean_signed_codes": 0.03158361836650083,
+              "mean_absolute_codes": 0.08960471082089552,
+              "rmse_codes": 0.35539277812202874
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 38702,
+              "zero": 1433357,
+              "positive": 73541,
+              "maximum_absolute_codes": 5,
+              "mean_signed_codes": 0.03172295548654244,
+              "mean_absolute_codes": 0.08974443581780538,
+              "rmse_codes": 0.3557726042892186
+            }
+          }
+        }
+      },
+      "even_minus_odd_signed_mean_gaps": {
+        "I": {
+          "mean_delta12_codes": -1.0975239425446524,
+          "mean_weighted_high8_codes": -0.962387538240475,
+          "mean_low4_codes": -0.13513640430417787
+        },
+        "P": {
+          "mean_delta12_codes": 1.8013672933211793,
+          "mean_weighted_high8_codes": 1.9688136182441829,
+          "mean_low4_codes": -0.16744632492300404
+        },
+        "T": {
+          "mean_delta12_codes": 8.89192101249704,
+          "mean_weighted_high8_codes": 8.619917403149882,
+          "mean_low4_codes": 0.27200360934715656
+        }
+      },
+      "preparation_operations": {
+        "bl_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 143,
+          "unbounded_maximum": 882,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "bl_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 173,
+          "unbounded_maximum": 851,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            0,
+            1
+          ],
+          "weights": [
+            3,
+            1
+          ],
+          "shift": 2,
+          "operation": "quarter_chroma_row_shift",
+          "method": "linear",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Y_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 645,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -2,
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              -3,
+              29,
+              111,
+              -9
+            ],
+            "shift": 7
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 500,
+            "unbounded_maximum": 644,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0,
+              1,
+              2
+            ],
+            "weights": [
+              -9,
+              111,
+              29,
+              -3
+            ],
+            "shift": 7
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 499,
+            "unbounded_maximum": 642,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 492,
+          "unbounded_maximum": 528,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cb_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 525,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 526,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 527,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 501,
+          "unbounded_maximum": 524,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cr_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "mmr_luma": {
+          "horizontal": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 112,
+            "unbounded_maximum": 769,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              1,
+              2,
+              1
+            ],
+            "shift": 2
+          },
+          "vertical": "(row[2j] + row[2j+1] + 1) >> 1",
+          "position_in_luma_samples": [
+            "2i",
+            "2j+1/2"
+          ],
+          "evidence": "CCM clause 5.4.2.3.3; visually checked equation"
+        }
+      },
+      "reports": {
+        "cubic-el-only/prepared/frame.json": "d4e417ef21b6137413d54c242324ce2212419d8e43c9d26940111340dcff6311",
+        "cubic-el-only/result/report.json": "9956f741016997569a6ebc9cdf93a471bce924e7313366b2a65b109789708b5c",
+        "cubic-el-only/output/output.json": "e63d18bca09216ccd81c395503560fbf83b66bf301fe10482fe564f3d9d7e13b",
+        "cubic-el-only/output/sk4.json": "2e30409490febcec22e445cfa9a11d5ceea86288b0e93459913018d082f34919",
+        "cubic-el-only/precision.json": "e71d7465bd3b037efe333c1fd9704fa8668f9c467d8b7e1429e528a3ccd8100d",
+        "cubic-el-only/delta.json": "df511c794fb16f18940d7e58b39fa91b0e15712938cbae54206607c48d3baf63"
+      }
+    },
+    "cubic-both": {
+      "phase_filters": {
+        "bl": "cubic128",
+        "el": "cubic128"
+      },
+      "comparisons": {
+        "I": {
+          "samples": 6178560,
+          "maximum_absolute_codes": 119,
+          "mean_absolute_codes": 9.772357636730888,
+          "rmse_codes": 16.138423145995922,
+          "over_sixteen_codes_percent": 16.705526854153717
+        },
+        "P": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 70,
+          "mean_absolute_codes": 4.9774034726538225,
+          "rmse_codes": 6.444783253652119,
+          "over_sixteen_codes_percent": 1.640123264967889
+        },
+        "T": {
+          "samples": 3089280,
+          "maximum_absolute_codes": 98,
+          "mean_absolute_codes": 5.618027177853739,
+          "rmse_codes": 6.924261499207366,
+          "over_sixteen_codes_percent": 0.8805611663559146
+        }
+      },
+      "factorial_stage_verified_bytes": {
+        "bl_Y": 16588800,
+        "el_Y": 16588800,
+        "el_Y_vertical": 8294400,
+        "scaler_input_Y": 4147200,
+        "mmr_luma": 4147200,
+        "reconstructed_Y": 16588800,
+        "mapped_Y_equals_cubic-bl-only": 16588800,
+        "mapped_Cb_equals_cubic-bl-only": 4147200,
+        "mapped_Cr_equals_cubic-bl-only": 4147200,
+        "residual_Y_equals_cubic-el-only": 33177600,
+        "residual_Cb_equals_cubic-el-only": 8294400,
+        "residual_Cr_equals_cubic-el-only": 8294400
+      },
+      "minus_baseline": {
+        "direction": "candidate minus newly regenerated linear-both baseline",
+        "row_parity": "global picture rows",
+        "active_rectangle": [
+          0,
+          275,
+          3840,
+          1884
+        ],
+        "processing_strip_rows": 32,
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "negative": 341174,
+              "zero": 5677015,
+              "positive": 160371,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.03789960767557489,
+              "mean_absolute_codes": 0.09278618318831572,
+              "rmse_codes": 0.3435091416569666
+            },
+            "even_row": {
+              "samples": 3087360,
+              "negative": 170532,
+              "zero": 2836557,
+              "positive": 80271,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.037898398631840795,
+              "mean_absolute_codes": 0.09284955431177445,
+              "rmse_codes": 0.343561968021268
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "negative": 170642,
+              "zero": 2840458,
+              "positive": 80100,
+              "maximum_absolute_codes": 8,
+              "mean_signed_codes": -0.037900815217391304,
+              "mean_absolute_codes": 0.09272289078674949,
+              "rmse_codes": 0.3434563728054903
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "negative": 182682,
+              "zero": 2768992,
+              "positive": 137606,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": -0.024710288481458464,
+              "mean_absolute_codes": 0.16764456442925213,
+              "rmse_codes": 0.6166830614173474
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 91359,
+              "zero": 1383436,
+              "positive": 68885,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": -0.024641117330016584,
+              "mean_absolute_codes": 0.16782623341625208,
+              "rmse_codes": 0.6171795131156077
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 91323,
+              "zero": 1385556,
+              "positive": 68721,
+              "maximum_absolute_codes": 24,
+              "mean_signed_codes": -0.02477937370600414,
+              "mean_absolute_codes": 0.16746312111801243,
+              "rmse_codes": 0.6161868271913485
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "negative": 83205,
+              "zero": 2857527,
+              "positive": 148548,
+              "maximum_absolute_codes": 36,
+              "mean_signed_codes": 0.029647684897451832,
+              "mean_absolute_codes": 0.09958501657344106,
+              "rmse_codes": 0.44462133827791106
+            },
+            "even_row": {
+              "samples": 1543680,
+              "negative": 41584,
+              "zero": 1427926,
+              "positive": 74170,
+              "maximum_absolute_codes": 35,
+              "mean_signed_codes": 0.029598751036484246,
+              "mean_absolute_codes": 0.09957698486733002,
+              "rmse_codes": 0.4444419342020735
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "negative": 41621,
+              "zero": 1429601,
+              "positive": 74378,
+              "maximum_absolute_codes": 36,
+              "mean_signed_codes": 0.029696557971014493,
+              "mean_absolute_codes": 0.09959303830227743,
+              "rmse_codes": 0.4448004472661856
+            }
+          }
+        }
+      },
+      "even_minus_odd_signed_mean_gaps": {
+        "I": {
+          "mean_delta12_codes": -1.0974986416262373,
+          "mean_weighted_high8_codes": -0.9624011284158915,
+          "mean_low4_codes": -0.13509751321034577
+        },
+        "P": {
+          "mean_delta12_codes": 1.8013324431478739,
+          "mean_weighted_high8_codes": 1.9695254189713958,
+          "mean_low4_codes": -0.16819297582352216
+        },
+        "T": {
+          "mean_delta12_codes": 8.891962542682549,
+          "mean_weighted_high8_codes": 8.620670585993429,
+          "mean_low4_codes": 0.2712919566891217
+        }
+      },
+      "preparation_operations": {
+        "bl_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 143,
+          "unbounded_maximum": 882,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "bl_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 173,
+          "unbounded_maximum": 851,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Y_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 645,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -2,
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              -3,
+              29,
+              111,
+              -9
+            ],
+            "shift": 7
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 500,
+            "unbounded_maximum": 644,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0,
+              1,
+              2
+            ],
+            "weights": [
+              -9,
+              111,
+              29,
+              -3
+            ],
+            "shift": 7
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 499,
+            "unbounded_maximum": 642,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cb_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 492,
+          "unbounded_maximum": 528,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cb_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 525,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 526,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 495,
+            "unbounded_maximum": 527,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "el_Cr_phase": {
+          "below_zero_before_bound": 0,
+          "above_maximum_before_bound": 0,
+          "unbounded_minimum": 501,
+          "unbounded_maximum": 524,
+          "maximum": 1023,
+          "axis": 0,
+          "offsets": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "weights": [
+            -9,
+            111,
+            29,
+            -3
+          ],
+          "shift": 7,
+          "operation": "quarter_chroma_row_shift",
+          "method": "cubic128",
+          "input_location": "topleft",
+          "output_location": "left",
+          "coordinate": "output[j,x] samples input[j+1/4,x]",
+          "evidence": "explicit experimental phase-conversion filter, not prescribed by CCM"
+        },
+        "el_Cr_upscale": {
+          "vertical_even": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              -1,
+              0
+            ],
+            "weights": [
+              64,
+              192
+            ],
+            "shift": 8
+          },
+          "vertical_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 0,
+            "offsets": [
+              0,
+              1
+            ],
+            "weights": [
+              192,
+              64
+            ],
+            "shift": 8
+          },
+          "horizontal_odd": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 501,
+            "unbounded_maximum": 523,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -3,
+              -2,
+              -1,
+              0,
+              1,
+              2,
+              3,
+              4
+            ],
+            "weights": [
+              22,
+              94,
+              -524,
+              2456,
+              2456,
+              -524,
+              94,
+              22
+            ],
+            "shift": 12
+          },
+          "horizontal_even": "copy input",
+          "evidence": "CCM annex B (informative)"
+        },
+        "mmr_luma": {
+          "horizontal": {
+            "below_zero_before_bound": 0,
+            "above_maximum_before_bound": 0,
+            "unbounded_minimum": 112,
+            "unbounded_maximum": 769,
+            "maximum": 65535,
+            "axis": 1,
+            "offsets": [
+              -1,
+              0,
+              1
+            ],
+            "weights": [
+              1,
+              2,
+              1
+            ],
+            "shift": 2
+          },
+          "vertical": "(row[2j] + row[2j+1] + 1) >> 1",
+          "position_in_luma_samples": [
+            "2i",
+            "2j+1/2"
+          ],
+          "evidence": "CCM clause 5.4.2.3.3; visually checked equation"
+        }
+      },
+      "reports": {
+        "cubic-both/prepared/frame.json": "393ddc9eb06b30cf39417b6a4139abbde228d8a4e69ae315bead666123cd0e0c",
+        "cubic-both/result/report.json": "41d704eddb627d189ed3b90c93010bd21c9a84692557fc5c8b0e811c31e0e578",
+        "cubic-both/output/output.json": "d802ae1017ef941f2f93e9189e26e9ab9cae83ac2b9e51bf1b67dea8cd8dfb33",
+        "cubic-both/output/sk4.json": "225a29b5568ca82e6cc52df46d492bce0c538264d67d0369cd698769967cabc9",
+        "cubic-both/precision.json": "7c75745a0954d1a65a61e213ddd8de457df5a55de261d80deafccd6d8040f1c5",
+        "cubic-both/delta.json": "9f5d686442721e840e1978195cdf0ca958e794ab91ef78ec602fcdeab90344a4"
+      }
+    }
+  },
+  "implementation_sha256": "f44cee82261003f560ddee2c4a38ebefc5be6f2b27e54be1300a04c3c9a6922e",
+  "pinned_stage_implementations": {
+    "preparer_sha256": "1598949151e10b3fbc273eadb80f40f9edbc3d01215d7c90acfe2cfe56f7bab9",
+    "prepare_numpy_version": "1.26.4",
+    "composer_sha256": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73",
+    "comparison_sha256": "dc1c4328a8f8624cafd33d235bbe06d227d377d1fac21febc115359d68078deb",
+    "precision_sha256": "783d9d3b51d8284a5bd173217c80ab3fcff25eece9324c0e4ef86242d9f5a641",
+    "precision_helpers": {
+      "compare_output": {
+        "filename": "compare_output.py",
+        "sha256": "dc1c4328a8f8624cafd33d235bbe06d227d377d1fac21febc115359d68078deb"
+      },
+      "diagnose_frame": {
+        "filename": "diagnose_frame.py",
+        "sha256": "97fcc2d8c810397fec8802eca65bb2f424b519d01e8977d8ecea53eaa019deb3"
+      },
+      "dvtunnel": {
+        "filename": "dvtunnel.py",
+        "sha256": "092e975326f801657514900192d0f861226e7c2c5768d20032357855e2d4ce7f"
+      },
+      "dvlms": {
+        "filename": "dvlms.py",
+        "sha256": "387cc9f16fa408c9bcc32f52f2e849b048393262626829f20f36119d575c5647"
+      },
+      "summarize_cases": {
+        "filename": "summarize_cases.py",
+        "sha256": "c92bc24d06cd709c1c33b88d1ef4ebf452ebfe9b26ea7052bcf29883f961460f"
+      },
+      "extract_frame": {
+        "filename": "extract_frame.py",
+        "sha256": "814a414221ba212b2317ad6ee080ff9cdf5fb0e3a39730381c458f92db400dda"
+      },
+      "output_frame": {
+        "filename": "output_frame.py",
+        "sha256": "3ee0d14c297cb1a3aea7669d91d4d96b839bc27ab11dbdd7bc54be9415546f32"
+      }
+    },
+    "precision_runtime": {
+      "numpy_version": "1.26.4",
+      "python_version": "3.12.3"
+    }
+  },
+  "execution": "sequential child processes; external memory limit required; no hardware jobs",
+  "held_fixed": [
+    "native decoded layers and RPU",
+    "phase conversion before EL scaling",
+    "integer rounding/bounds",
+    "CCM annex B EL scaling",
+    "MMR guide and composer",
+    "final bilinear expansion, direct colour conversion, packing and active-area mask"
+  ],
+  "limitations": [
+    "Tests only native top-left-to-left chroma preparation kernel sensitivity.",
+    "Does not test scaling before versus after inverse mapping/residual reconstruction, or fused processing.",
+    "Does not evaluate Intel/AMD hardware scalers or real-time performance.",
+    "Mapped/residual stage isolation is checked exactly; final transport effects need not add because subsequent conversion and quantization are nonlinear.",
+    "Cubic overshoot uses existing declared phase-stage bounds; no new limiting or fitted adjustments.",
+    "Any unsupported geometry/filter, out-of-depth annex B result, failed stage or baseline mismatch aborts; no skipped variants.",
+    "Matching SK4 transport codes does not establish Dolby compliance or displayed colour accuracy.",
+    "Captured-frame association and DMA synchronization limitations remain those of the supplied capture.",
+    "Generated raw/intermediate pictures stay private; publish only aggregate reports, not stage bundles."
+  ]
+}
