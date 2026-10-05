@@ -1,0 +1,609 @@
+{
+  "schema": "yblod.sk4-case-summary.v1",
+  "status": "complete",
+  "scope": "SK4 transport code comparison, not perceptual accuracy or Dolby compliance",
+  "interpretation": "Negative changes are closer by that metric; positive changes are farther. No production pass threshold.",
+  "assumptions": [
+    "Each capture's visible-counter/source association is supplied, not independently verified here.",
+    "Paired runs use identical reconstruction, RPU, reference capture, rectangle, and colour coordinates.",
+    "The bound is an explicit diagnostic, not proof of the SK4's internal implementation.",
+    "No fitted offsets or pooled frame scores are applied by this summary.",
+    "Output report links and compared tunnel hashes are verified; other diagnostic stages and original captures are not re-read.",
+    "CRC validation is inherited from comparisons and covers the first copy of each of two metadata packets."
+  ],
+  "implementation_sha256": "c92bc24d06cd709c1c33b88d1ef4ebf452ebfe9b26ea7052bcf29883f961460f",
+  "case_count": 4,
+  "cases": [
+    {
+      "identity": {
+        "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:461",
+        "pts": 19228,
+        "time_base": [
+          1,
+          1000
+        ]
+      },
+      "active_rectangle": [
+        0,
+        275,
+        3840,
+        1884
+      ],
+      "capture_sha256": "2345d29e68f54e170f700687575c66f262e63e16175c1e6b0f91c4fdb97998a3",
+      "identity_file_sha256": "d1291f3d731dcb36453fd7a70571d22b514da2a3429bc516a8bf6c45f650facc",
+      "identity_basis": "supplied visible-counter/source association; not driver PTS",
+      "composer_report_sha256": "c5643c08197cf9e2633aef08ab7c757fa86d98f0606cbbd3696b6706b0416916",
+      "rpu_sha256": "c44bd62bac77d2f6257d7e1a1db925c8faccd5d1841b96d5657a0f66ae9833ce",
+      "target_coordinates": {
+        "target_ycc": [
+          [
+            1.000244140625,
+            0.0975341796875,
+            0.2052001953125
+          ],
+          [
+            1.000244140625,
+            -0.1138916015625,
+            0.1331787109375
+          ],
+          [
+            1.000244140625,
+            0.0325927734375,
+            -0.6768798828125
+          ]
+        ],
+        "target_lms": [
+          [
+            1.04248046875,
+            -0.021240234375,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            1.04248046875,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            -0.021240234375,
+            1.04248046875
+          ]
+        ],
+        "target_offset": [
+          0.0,
+          0.5,
+          0.5
+        ]
+      },
+      "sources": {
+        "direct": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-461-direct",
+          "output_report_sha256": "dd787ce2b58b7b55387e03d539d3f3b96ca1c442a2b326502b61303ea296fe84",
+          "comparison_report_sha256": "e3c8fe9b1acf64f3a269553c6bb98e047ac1cea32947a78cf6ebd0420f100b57",
+          "compared_tunnel_sha256": "2f5cac35e24f54def1a79f7f92c4040aee897cf80a85052c187dbb9e9b9d1d34"
+        },
+        "rgb_bound_diagnostic": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-461-rgb-bound-diagnostic",
+          "output_report_sha256": "a98db8a260c5d774de37a841c1c400b46266c151182885ee6e92abd3865df52b",
+          "comparison_report_sha256": "8f3982e00ad90dca6ef95e364beceeb9d8dbe336cca146dc522c803af1d01daa",
+          "compared_tunnel_sha256": "2f5cac35e24f54def1a79f7f92c4040aee897cf80a85052c187dbb9e9b9d1d34"
+        }
+      },
+      "channels": {
+        "I": {
+          "samples": 6178560,
+          "direct": {
+            "mean_absolute_codes": 4.864502408328154,
+            "rmse_codes": 6.268185553417321,
+            "maximum_absolute_codes": 62,
+            "over_sixteen_codes_percent": 1.4568766832401077
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 4.864502408328154,
+            "rmse_codes": 6.268185553417321,
+            "maximum_absolute_codes": 62,
+            "over_sixteen_codes_percent": 1.4568766832401077
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.0,
+            "rmse_codes": 0.0,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.0
+          },
+          "metrics_increased": []
+        },
+        "P": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 5.138191423244251,
+            "rmse_codes": 6.532714264047278,
+            "maximum_absolute_codes": 51,
+            "over_sixteen_codes_percent": 1.5295797078931013
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 5.138191423244251,
+            "rmse_codes": 6.532714264047278,
+            "maximum_absolute_codes": 51,
+            "over_sixteen_codes_percent": 1.5295797078931013
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.0,
+            "rmse_codes": 0.0,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.0
+          },
+          "metrics_increased": []
+        },
+        "T": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 5.500254751916304,
+            "rmse_codes": 6.789063611717644,
+            "maximum_absolute_codes": 47,
+            "over_sixteen_codes_percent": 0.8665125854568054
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 5.500254751916304,
+            "rmse_codes": 6.789063611717644,
+            "maximum_absolute_codes": 47,
+            "over_sixteen_codes_percent": 0.8665125854568054
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.0,
+            "rmse_codes": 0.0,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.0
+          },
+          "metrics_increased": []
+        }
+      }
+    },
+    {
+      "identity": {
+        "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1406",
+        "pts": 58642,
+        "time_base": [
+          1,
+          1000
+        ]
+      },
+      "active_rectangle": [
+        0,
+        275,
+        3840,
+        1884
+      ],
+      "capture_sha256": "6ac51a22b0851b13fc587fae35e94bfd2e5142d7c478887d10c9f03561b7c619",
+      "identity_file_sha256": "b8931873611591b0b8cddb22af4c7f9a9f13da58453418cb48ce022347d52645",
+      "identity_basis": "supplied visible-counter/source association; not driver PTS",
+      "composer_report_sha256": "efe40a1ca6d7f883c1255714e0fed8b71a20992cf39608619507643170517ba4",
+      "rpu_sha256": "31619ce88f887f63bdc2ed02dcd336eeb388d33949624d0d811d7c78227c38f7",
+      "target_coordinates": {
+        "target_ycc": [
+          [
+            1.000244140625,
+            0.0975341796875,
+            0.2052001953125
+          ],
+          [
+            1.000244140625,
+            -0.1138916015625,
+            0.1331787109375
+          ],
+          [
+            1.000244140625,
+            0.0325927734375,
+            -0.6768798828125
+          ]
+        ],
+        "target_lms": [
+          [
+            1.04248046875,
+            -0.021240234375,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            1.04248046875,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            -0.021240234375,
+            1.04248046875
+          ]
+        ],
+        "target_offset": [
+          0.0,
+          0.5,
+          0.5
+        ]
+      },
+      "sources": {
+        "direct": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1406-direct",
+          "output_report_sha256": "53f72fbbcef1a8f1cabcd1c6dbebb70e48e3c8305155db3e2216dc10ec151bb1",
+          "comparison_report_sha256": "f64c6e0185c7a291b7b45ff639745828c7af4d04ac58f9e3d5ddd5cc4bcbaaba",
+          "compared_tunnel_sha256": "6ecf2871326c5a2e20ab452316b5652094fa5e1ce2b2a46d1b9edc33cd756441"
+        },
+        "rgb_bound_diagnostic": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1406-rgb-bound-diagnostic",
+          "output_report_sha256": "63f4e9fcb2f426e046d85f7afddd32197af5b8ad8e3a2c330c46f708b0dc5ab1",
+          "comparison_report_sha256": "4b40207d9b7d898a4fc52e8a42c8e38af8f0c962f4dd14af89af3c278a194192",
+          "compared_tunnel_sha256": "d9f02e44fac3eb138a843faf178395f832a9fd618c7e6731590011d786efea5e"
+        }
+      },
+      "channels": {
+        "I": {
+          "samples": 6178560,
+          "direct": {
+            "mean_absolute_codes": 2.868793375802776,
+            "rmse_codes": 3.61149086928701,
+            "maximum_absolute_codes": 114,
+            "over_sixteen_codes_percent": 0.051970038326082456
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 2.8439765900145018,
+            "rmse_codes": 3.3868247876318103,
+            "maximum_absolute_codes": 28,
+            "over_sixteen_codes_percent": 0.0013433550859747255
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": -0.024816785788274398,
+            "rmse_codes": -0.22466608165519952,
+            "maximum_absolute_codes": -86,
+            "over_sixteen_codes_percent": -0.05062668324010773
+          },
+          "metrics_increased": []
+        },
+        "P": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 4.805967733581935,
+            "rmse_codes": 5.8409878675355005,
+            "maximum_absolute_codes": 54,
+            "over_sixteen_codes_percent": 0.12915630826600372
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 4.80557249585664,
+            "rmse_codes": 5.840886311864064,
+            "maximum_absolute_codes": 54,
+            "over_sixteen_codes_percent": 0.13012740832815414
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": -0.0003952377252947059,
+            "rmse_codes": -0.00010155567143677047,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.0009711000621504262
+          },
+          "metrics_increased": [
+            "over_sixteen_codes_percent"
+          ]
+        },
+        "T": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 5.03473624922312,
+            "rmse_codes": 6.125671409529442,
+            "maximum_absolute_codes": 74,
+            "over_sixteen_codes_percent": 0.0741273047441475
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 5.036273176921483,
+            "rmse_codes": 6.126564024510505,
+            "maximum_absolute_codes": 74,
+            "over_sixteen_codes_percent": 0.0741273047441475
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.0015369276983632219,
+            "rmse_codes": 0.0008926149810628559,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.0
+          },
+          "metrics_increased": [
+            "mean_absolute_codes",
+            "rmse_codes"
+          ]
+        }
+      }
+    },
+    {
+      "identity": {
+        "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1960",
+        "pts": 81748,
+        "time_base": [
+          1,
+          1000
+        ]
+      },
+      "active_rectangle": [
+        0,
+        275,
+        3840,
+        1884
+      ],
+      "capture_sha256": "dffabbc1e19d4b6cbdee5bfee7fb9a25a9f461946e0721c842a1c084c560fba3",
+      "identity_file_sha256": "875e311d321962ee69e412b7bc1eaa768ce203a6144130c0eebaa98383a2b2c5",
+      "identity_basis": "supplied visible-counter/source association; not driver PTS",
+      "composer_report_sha256": "c0c999728160ca9f3e4f69131b1516703b253ad94e806889cbae116f61abe1d6",
+      "rpu_sha256": "ac2a665b24f5370988cf7c1e71ec61fb9ccd3680bb33b70bb594bd078f06520c",
+      "target_coordinates": {
+        "target_ycc": [
+          [
+            1.000244140625,
+            0.0975341796875,
+            0.2052001953125
+          ],
+          [
+            1.000244140625,
+            -0.1138916015625,
+            0.1331787109375
+          ],
+          [
+            1.000244140625,
+            0.0325927734375,
+            -0.6768798828125
+          ]
+        ],
+        "target_lms": [
+          [
+            1.04248046875,
+            -0.021240234375,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            1.04248046875,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            -0.021240234375,
+            1.04248046875
+          ]
+        ],
+        "target_offset": [
+          0.0,
+          0.5,
+          0.5
+        ]
+      },
+      "sources": {
+        "direct": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-direct",
+          "output_report_sha256": "055e681faae0ae687772fee5c2f46f01bc327e8bea1e9523a99594f2d69ce413",
+          "comparison_report_sha256": "e8501fd6ad997840441bdce79a7f40bb8ad202f294f37af2bdf69a8d1ceecf43",
+          "compared_tunnel_sha256": "96d12416c5afd16e0ee58e4de629bdb447239d37b646a01155b77b7b6039087f"
+        },
+        "rgb_bound_diagnostic": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-rgb-bound-diagnostic",
+          "output_report_sha256": "1d69c255210b8574f84609f038a76b235ee85246fffe2c88d1820fe6e6cb2a64",
+          "comparison_report_sha256": "3739f060b10fb248ac94fc69e8696e6182355fa585da4a5a2f895ad55272b33c",
+          "compared_tunnel_sha256": "0b1357308d47ebf93566559b1df2473ebabaf8e5f3a9a3129a9ebc5fb5e56974"
+        }
+      },
+      "channels": {
+        "I": {
+          "samples": 6178560,
+          "direct": {
+            "mean_absolute_codes": 13.218079617257095,
+            "rmse_codes": 19.403026485931413,
+            "maximum_absolute_codes": 123,
+            "over_sixteen_codes_percent": 26.324143489745182
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 13.221916757302672,
+            "rmse_codes": 19.407269734609645,
+            "maximum_absolute_codes": 123,
+            "over_sixteen_codes_percent": 26.341882250880463
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.0038371400455776694,
+            "rmse_codes": 0.0042432486782324474,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.017738761135280612
+          },
+          "metrics_increased": [
+            "mean_absolute_codes",
+            "rmse_codes",
+            "over_sixteen_codes_percent"
+          ]
+        },
+        "P": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 18.66709233219391,
+            "rmse_codes": 25.946782308374438,
+            "maximum_absolute_codes": 96,
+            "over_sixteen_codes_percent": 39.5013077480837
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 18.66951198984877,
+            "rmse_codes": 25.946064412428495,
+            "maximum_absolute_codes": 96,
+            "over_sixteen_codes_percent": 39.501469598094054
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.002419657654858298,
+            "rmse_codes": -0.00071789594594307,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.00016185001035751156
+          },
+          "metrics_increased": [
+            "mean_absolute_codes",
+            "over_sixteen_codes_percent"
+          ]
+        },
+        "T": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 9.314628975036255,
+            "rmse_codes": 13.44354533846449,
+            "maximum_absolute_codes": 84,
+            "over_sixteen_codes_percent": 14.285140874249016
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 9.320300199399213,
+            "rmse_codes": 13.445649511792706,
+            "maximum_absolute_codes": 84,
+            "over_sixteen_codes_percent": 14.285140874249016
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": 0.005671224362957972,
+            "rmse_codes": 0.0021041733282149977,
+            "maximum_absolute_codes": 0,
+            "over_sixteen_codes_percent": 0.0
+          },
+          "metrics_increased": [
+            "mean_absolute_codes",
+            "rmse_codes"
+          ]
+        }
+      }
+    },
+    {
+      "identity": {
+        "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:2296",
+        "pts": 95762,
+        "time_base": [
+          1,
+          1000
+        ]
+      },
+      "active_rectangle": [
+        0,
+        275,
+        3840,
+        1884
+      ],
+      "capture_sha256": "afb200d61bb672eef1bbeb6b6363eff562fa6a878da1137810c5b922164f9dd9",
+      "identity_file_sha256": "e296632da097b54279736b04d2ed31b9271b361b3a1f32bae81c746565078e79",
+      "identity_basis": "supplied visible-counter/source association; not driver PTS",
+      "composer_report_sha256": "40160a26770fc8474ef56c75dfc322c69d4d32df88b9fb8b2472511b142bbf84",
+      "rpu_sha256": "fced44178d4005c84718c0a241fcd1387d112f858aeab742fc78e6d5dcf79d39",
+      "target_coordinates": {
+        "target_ycc": [
+          [
+            1.000244140625,
+            0.0975341796875,
+            0.2052001953125
+          ],
+          [
+            1.000244140625,
+            -0.1138916015625,
+            0.1331787109375
+          ],
+          [
+            1.000244140625,
+            0.0325927734375,
+            -0.6768798828125
+          ]
+        ],
+        "target_lms": [
+          [
+            1.04248046875,
+            -0.021240234375,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            1.04248046875,
+            -0.021240234375
+          ],
+          [
+            -0.021240234375,
+            -0.021240234375,
+            1.04248046875
+          ]
+        ],
+        "target_offset": [
+          0.0,
+          0.5,
+          0.5
+        ]
+      },
+      "sources": {
+        "direct": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-2296-direct",
+          "output_report_sha256": "a1ac44bd4c9e9babd66075f9a51e89de0cc6f9c5609df7f3bfcb9fddaba4b2b7",
+          "comparison_report_sha256": "023e40d8fe62c60900890c911c7db65ec99e2cad8456a809d0b892b6b6097064",
+          "compared_tunnel_sha256": "4959013735674617716117f1f08e4455de95f317f13a5f506961e32e2253fc58"
+        },
+        "rgb_bound_diagnostic": {
+          "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-2296-rgb-bound-diagnostic",
+          "output_report_sha256": "2088a374e01f4d562671f96583e166b4336204dedae12ec84fa73136046d40bb",
+          "comparison_report_sha256": "d5aa85c6e4f41cac3d1c57a7e22e6d9c5a83d71cd9882cf57830b8cda83ebee8",
+          "compared_tunnel_sha256": "e831adb7e0ec9fc6feea351e411fdc2c7327f840ec33c0c934b121967d425a5b"
+        }
+      },
+      "channels": {
+        "I": {
+          "samples": 6178560,
+          "direct": {
+            "mean_absolute_codes": 72.39073004065672,
+            "rmse_codes": 200.6560441665073,
+            "maximum_absolute_codes": 901,
+            "over_sixteen_codes_percent": 14.218054044955458
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 3.2147919579966855,
+            "rmse_codes": 4.011161405200819,
+            "maximum_absolute_codes": 23,
+            "over_sixteen_codes_percent": 0.014016210897037498
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": -69.17593808266004,
+            "rmse_codes": -196.64488276130646,
+            "maximum_absolute_codes": -878,
+            "over_sixteen_codes_percent": -14.20403783405842
+          },
+          "metrics_increased": []
+        },
+        "P": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 157.3743891780609,
+            "rmse_codes": 505.8526206298647,
+            "maximum_absolute_codes": 2200,
+            "over_sixteen_codes_percent": 13.014521182929355
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 5.289585599233479,
+            "rmse_codes": 6.560746174733251,
+            "maximum_absolute_codes": 51,
+            "over_sixteen_codes_percent": 1.0329591361093846
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": -152.08480357882743,
+            "rmse_codes": -499.29187445513145,
+            "maximum_absolute_codes": -2149,
+            "over_sixteen_codes_percent": -11.98156204681997
+          },
+          "metrics_increased": []
+        },
+        "T": {
+          "samples": 3089280,
+          "direct": {
+            "mean_absolute_codes": 40.00687538844002,
+            "rmse_codes": 117.74222648945806,
+            "maximum_absolute_codes": 631,
+            "over_sixteen_codes_percent": 13.38680857675575
+          },
+          "rgb_bound_diagnostic": {
+            "mean_absolute_codes": 4.933452131240936,
+            "rmse_codes": 6.124227166989655,
+            "maximum_absolute_codes": 43,
+            "over_sixteen_codes_percent": 0.2881253884400249
+          },
+          "change_bound_minus_direct": {
+            "mean_absolute_codes": -35.07342325719909,
+            "rmse_codes": -111.6179993224684,
+            "maximum_absolute_codes": -588,
+            "over_sixteen_codes_percent": -13.098683188315725
+          },
+          "metrics_increased": []
+        }
+      }
+    }
+  ]
+}

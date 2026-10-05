@@ -1,0 +1,320 @@
+{
+  "schema": "yblod.sk4-region-comparison.v1",
+  "status": "complete",
+  "scope": "Transport code errors by diagnostic RGB region, not perceptual accuracy or Dolby compliance",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1960",
+    "pts": 81748,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "identity_basis": "supplied visible-counter/source association; not driver PTS",
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "capture_sha256": "dffabbc1e19d4b6cbdee5bfee7fb9a25a9f461946e0721c842a1c084c560fba3",
+  "composer_report_sha256": "c0c999728160ca9f3e4f69131b1516703b253ad94e806889cbae116f61abe1d6",
+  "rpu_sha256": "ac2a665b24f5370988cf7c1e71ec61fb9ccd3680bb33b70bb594bd078f06520c",
+  "sources": {
+    "direct": {
+      "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-direct",
+      "output_report_sha256": "055e681faae0ae687772fee5c2f46f01bc327e8bea1e9523a99594f2d69ce413",
+      "comparison_report_sha256": "e8501fd6ad997840441bdce79a7f40bb8ad202f294f37af2bdf69a8d1ceecf43",
+      "compared_tunnel_sha256": "96d12416c5afd16e0ee58e4de629bdb447239d37b646a01155b77b7b6039087f"
+    },
+    "rgb_bound_diagnostic": {
+      "directory": "/home/bryan/Projects/libreelec-yblod-reconstruction/target/sk4-sweep-1960-rgb-bound-diagnostic",
+      "output_report_sha256": "1d69c255210b8574f84609f038a76b235ee85246fffe2c88d1820fe6e6cb2a64",
+      "comparison_report_sha256": "3739f060b10fb248ac94fc69e8696e6182355fa585da4a5a2f895ad55272b33c",
+      "compared_tunnel_sha256": "0b1357308d47ebf93566559b1df2473ebabaf8e5f3a9a3129a9ebc5fb5e56974"
+    },
+    "diagnostic_rgb_sha256": "b0b39365d7bfb0fcb623c1134db5b3f6c10ad9117c3f592fee913f21758f223e"
+  },
+  "target_coordinates": {
+    "target_ycc": [
+      [
+        1.000244140625,
+        0.0975341796875,
+        0.2052001953125
+      ],
+      [
+        1.000244140625,
+        -0.1138916015625,
+        0.1331787109375
+      ],
+      [
+        1.000244140625,
+        0.0325927734375,
+        -0.6768798828125
+      ]
+    ],
+    "target_lms": [
+      [
+        1.04248046875,
+        -0.021240234375,
+        -0.021240234375
+      ],
+      [
+        -0.021240234375,
+        1.04248046875,
+        -0.021240234375
+      ],
+      [
+        -0.021240234375,
+        -0.021240234375,
+        1.04248046875
+      ]
+    ],
+    "target_offset": [
+      0.0,
+      0.5,
+      0.5
+    ]
+  },
+  "region_definition": "Across each saved RGB triple: any component <0, any component >1; equality to 0 or 1 is in range.",
+  "chroma_region_sampling": "P and T both use the region of their co-sited even-x RGB triple.",
+  "caveats": [
+    "Region labels use saved float32 diagnostics; computation used float64, so boundary classifications may differ.",
+    "Capture identity and first-copy metadata CRC checks are inherited from existing comparisons; capture bytes are hash-verified here.",
+    "Negative changes mean closer by that metric, not proof of the SK4's internal limiting method.",
+    "Empty regions have zero samples and null metrics; no production pass threshold or fitted offsets."
+  ],
+  "processing_strip_rows": 64,
+  "partition_sample_counts": {
+    "I": 6178560,
+    "P": 3089280,
+    "T": 3089280
+  },
+  "implementation_sha256": "f23793e0e754b4cb6b88970475aeb2324a6be159e6593fddc606c1c94477ee2d",
+  "regions": {
+    "neither": {
+      "I": {
+        "samples": 5810847,
+        "direct": {
+          "mean_absolute_codes": 12.629227546345653,
+          "rmse_codes": 18.968363159010817,
+          "maximum_absolute_codes": 123
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": 12.629227546345653,
+          "rmse_codes": 18.968363159010817,
+          "maximum_absolute_codes": 123
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": 0.0,
+          "rmse_codes": 0.0,
+          "maximum_absolute_codes": 0
+        }
+      },
+      "P": {
+        "samples": 2905415,
+        "direct": {
+          "mean_absolute_codes": 18.689158347430574,
+          "rmse_codes": 25.876271008010868,
+          "maximum_absolute_codes": 96
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": 18.689158347430574,
+          "rmse_codes": 25.876271008010868,
+          "maximum_absolute_codes": 96
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": 0.0,
+          "rmse_codes": 0.0,
+          "maximum_absolute_codes": 0
+        }
+      },
+      "T": {
+        "samples": 2905415,
+        "direct": {
+          "mean_absolute_codes": 8.766755179552662,
+          "rmse_codes": 11.97460699209228,
+          "maximum_absolute_codes": 84
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": 8.766755179552662,
+          "rmse_codes": 11.97460699209228,
+          "maximum_absolute_codes": 84
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": 0.0,
+          "rmse_codes": 0.0,
+          "maximum_absolute_codes": 0
+        }
+      }
+    },
+    "negative-only": {
+      "I": {
+        "samples": 367713,
+        "direct": {
+          "mean_absolute_codes": 22.523514262481882,
+          "rmse_codes": 25.29909893484698,
+          "maximum_absolute_codes": 98
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": 22.587988458390104,
+          "rmse_codes": 25.353727531260734,
+          "maximum_absolute_codes": 98
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": 0.06447419590822179,
+          "rmse_codes": 0.05462859641375317,
+          "maximum_absolute_codes": 0
+        }
+      },
+      "P": {
+        "samples": 183865,
+        "direct": {
+          "mean_absolute_codes": 18.31840752726185,
+          "rmse_codes": 27.036593353139736,
+          "maximum_absolute_codes": 75
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": 18.359062355532593,
+          "rmse_codes": 27.025015227994132,
+          "maximum_absolute_codes": 75
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": 0.04065482827074263,
+          "rmse_codes": -0.01157812514560419,
+          "maximum_absolute_codes": 0
+        }
+      },
+      "T": {
+        "samples": 183865,
+        "direct": {
+          "mean_absolute_codes": 17.97207190057923,
+          "rmse_codes": 27.762118412949764,
+          "maximum_absolute_codes": 83
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": 18.06735920376363,
+          "rmse_codes": 27.779234365071208,
+          "maximum_absolute_codes": 83
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": 0.09528730318439926,
+          "rmse_codes": 0.017115952121443456,
+          "maximum_absolute_codes": 0
+        }
+      }
+    },
+    "above-one-only": {
+      "I": {
+        "samples": 0,
+        "direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        }
+      },
+      "P": {
+        "samples": 0,
+        "direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        }
+      },
+      "T": {
+        "samples": 0,
+        "direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        }
+      }
+    },
+    "both": {
+      "I": {
+        "samples": 0,
+        "direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        }
+      },
+      "P": {
+        "samples": 0,
+        "direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        }
+      },
+      "T": {
+        "samples": 0,
+        "direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "rgb_bound_diagnostic": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        },
+        "change_bound_minus_direct": {
+          "mean_absolute_codes": null,
+          "rmse_codes": null,
+          "maximum_absolute_codes": null
+        }
+      }
+    }
+  }
+}

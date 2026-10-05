@@ -292,7 +292,7 @@ final output bounds. This identifies a concrete reconstruction-stage limit to
 investigate. It does **not** show that the older RGB clamp was correct or explain
 the old/fast hardware-output discrepancy by itself.
 
-Current automated coverage: 96 reference/extraction/preparation/output/report tests
+Current automated coverage: 115 reference/extraction/preparation/output/report tests
 plus all eight existing accuracy-tool tests. The real-frame inspector also
 verifies every saved component's signed addition and final rounding/bounds.
 
@@ -466,11 +466,88 @@ python3 tools/yblod/reference/summarize_cases.py \
   --output target/sk4-case-summary.json
 ```
 
+`compare_regions.py DIRECT BOUND CAPTURE --output NEW.json` additionally checks
+errors separately where the saved pre-bound RGB has negative components, values
+above one, both, or neither. Only the active picture is scored; P/T both use the
+classification at their co-sited even-x pixel. Labels use float32 saved stages,
+so values at a rounding boundary may classify differently from the float64
+calculation. Empty groups have zero samples/null scores. The tool checks the
+RGB-stage and original-capture hashes and streams 64 rows at a time. This stops
+an improvement in one group from concealing a regression in another.
+
+### Four matched SK4 frames, five controlled variants
+
+The existing visible-counter-verified SK4 captures at frames 461, 1406, 1960 and
+2296 were reused; no device playback changes or AM9 capture were needed. Native
+layers/RPU were independently extracted for each new frame, with exact packet
+association and matching one-/four-thread decodes. All use linear preparation
+and the same active rectangle as above. See the committed
+[four-frame report](results/sk4-numbered-four-frames.json) and per-region reports
+[461](results/sk4-regions-461.json), [1406](results/sk4-regions-1406.json),
+[1960](results/sk4-regions-1960.json), [2296](results/sk4-regions-2296.json).
+The [complete five-policy report](results/sk4-numbered-five-policies.json)
+preserves all 20 runs' metrics, deltas, verified provenance, and packed-output
+byte-identity flags. Reproduce it with `summarize_policies.py`, supplying repeated
+`--case DIRECT RGB_BOUND RGB_LOWER RGB_UPPER SOURCE_PQ_BOUND` groups in that fixed
+order and `--output NEW.json`. It applies the same matched-pair checks to every
+control and makes no automatic policy selection.
+
+Mean absolute I/P/T differences, in 12-bit transport codes:
+
+| Frame | Direct | Later RGB bound | Earlier source-PQ bound |
+| --- | --- | --- | --- |
+| 461 | 4.8645 / 5.1382 / 5.5003 | identical | identical |
+| 1406 | 2.8688 / 4.8060 / 5.0347 | 2.8440 / 4.8056 / 5.0363 | 2.8427 / 4.8059 / 5.0348 |
+| 1960 | 13.2181 / 18.6671 / 9.3146 | 13.2219 / 18.6695 / 9.3203 | identical to direct |
+| 2296 | 72.3907 / 157.3744 / 40.0069 | 3.2148 / 5.2896 / 4.9335 | 3.1761 / 5.1998 / 4.9082 |
+
+Interpretation, including results that **do not** support a universal RGB clamp:
+
+- All five packed outputs are byte-identical on frame 461.
+- Frame 1406 has 4,087 pixels with both negative and above-one intermediate RGB.
+  The later bound reduces their mean I error from 41.8960 to 2.4952, while the
+  whole-frame maximum I error falls from 114 to 28. Small colour regressions
+  remain in some groups. Earlier-PQ and upper-only RGB outputs are byte-identical
+  on this frame; the data cannot distinguish their location here.
+- Frame 1960 has 367,713 negative-only pixels and no above-one pixels. Limiting
+  those negatives slightly worsens all three mean errors in that group (I
+  22.5235 -> 22.5880, P 18.3184 -> 18.3591, T 17.9721 -> 18.0674).
+  Earlier-PQ and upper-only RGB variants are byte-identical to direct. Its much
+  larger remaining overall mismatch is **not solved** by any limit tested here.
+- Frame 2296's lower-only RGB variant remains far from SK4: mean errors
+  72.3978 / 157.3468 / 39.9916. Upper-only RGB gives 3.0873 / 6.0165 / 4.8973;
+  limiting the high side explains the major improvement. Earlier source-PQ
+  limiting is slightly closer than the combined later bound in all three means,
+  but the variants trade places across other metrics/channels: no universal
+  winner is declared. In the 833,648 mixed-extreme pixels, the combined later
+  bound reduces mean errors from 511.9038 / 1127.0788 / 264.6042 to
+  3.1287 / 6.0935 / 6.0334.
+- Regions inside the tested RGB range retain exactly the same error metrics in
+  all four direct-versus-combined-bound comparisons. This is a metrics statement,
+  not an independent byte-identity test for those masked regions.
+
+All four frames have **the same source colour matrices and offsets** and come
+from one synthetic test file. These are useful diagnostic cases, not ordinary
+movie coverage, a certification result, or proof of where SK4 limits values.
+The next experiment should use different source matrices and more scenes, and
+isolate the remaining reconstruction/chroma differences without fitting offsets.
+No production playback change is justified by this checkpoint alone.
+
+All heavy jobs ran sequentially with `MemoryMax=512M` and `MemorySwapMax=0`.
+The 20 output conversions/comparisons completed with peak process RSS 116,480
+KiB and no swaps; the regional/report batch peaked at 58,548 KiB. Earlier
+extraction/reconstruction stages used more of the same capped budget. Saved
+float intermediates for the full sweep occupy about 10 GiB under ignored
+`target/`; only source and numerical reports are public. These are offline
+measurements, not evidence of playback performance.
+
 ## Next milestone
 
-1. Test the explicit colour-bound hypothesis on additional matched SK4 frames,
-   including ordinary movie scenes and extreme colours. Isolate the remaining
-   differences without fitting offsets. No AM9 recapture is currently needed.
+1. Compare earlier-PQ and later-RGB bounds on additional matched SK4 material
+   with different source matrices, including ordinary movie scenes. The current
+   extractor rejects reordered streams; extend and verify frame association
+   before using it on typical movie encodes. Isolate the remaining differences
+   without fitting offsets. No AM9 recapture is currently needed.
 2. Add independent dynamic-metadata serialization/embedding before claiming
    complete standalone HDMI output; preserve trim/active-area instructions.
 3. Connect the saved EL-stage comparison boundary to the existing Intel path;
