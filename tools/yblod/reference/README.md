@@ -117,7 +117,12 @@ conservative arithmetic-width gates, not a working GPU playback engine.
 [INTEL_Y416_NEUTRAL_RESULTS.md](INTEL_Y416_NEUTRAL_RESULTS.md) records measured
 fractional near-neutral values without choosing a reconstruction policy.
 
-Latest complete Ollie check: **685 reference tests plus 8 accuracy tests**, no
+[NATIVE_GPU_PROBE.md](NATIVE_GPU_PROBE.md) records the first isolated GPU
+execution check: 21 synthetic polynomial/NLQ/composition cases matched every
+tested C stage exactly. Six MMR cases remained explicitly unsupported. This is
+not a Kodi backend, playback benchmark or improved SK4 colour match.
+
+Latest complete Ollie check: **704 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 

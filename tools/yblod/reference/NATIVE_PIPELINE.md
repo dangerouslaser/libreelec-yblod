@@ -23,6 +23,12 @@ integer C timing from the diagnostic Python/file-output overhead.
   opt-in `colour_frame.py --backend native` diagnostic adapter. Explicit target
   coordinates and out-of-range policies remain diagnostic choices; these do
   not implement complete Dolby display management.
+- `native_y416.c` preserves raw scaler words losslessly; the separate precision
+  probe compares explicitly named alternatives without selecting a default.
+- `native_gpu_probe.c` and its integer shader are isolated desktop-GL diagnostics,
+  not a Kodi backend. The first polynomial/NLQ/composition corpus matched the C
+  reference exactly on Petunia. See [NATIVE_GPU_PROBE.md](NATIVE_GPU_PROBE.md);
+  MMR and the fractional hardware frontend remain outside that first test.
 
 ## Hardware boundary: preserve information first
 

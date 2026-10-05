@@ -1,0 +1,51 @@
+#version 430 core
+#extension GL_ARB_gpu_shader_int64 : require
+layout(local_size_x=64) in;
+layout(std430,binding=0) readonly buffer Metadata { int64_t m[]; };
+layout(std430,binding=1) readonly buffer Samples { uvec4 samples[]; };
+layout(std430,binding=2) writeonly buffer Results { ivec4 results[]; };
+
+int64_t floor_power_two(int64_t value, int shift)
+{
+    return value >= int64_t(0) ? value >> shift :
+        -int64_t(1) - ((-(value+int64_t(1))) >> shift);
+}
+int64_t bound(int64_t value, int64_t low, int64_t high)
+{
+    return value < low ? low : value > high ? high : value;
+}
+void main()
+{
+    uint index=gl_GlobalInvocationID.x;
+    if (index>=uint(m[0])) return;
+    uvec4 sample_value=samples[index];
+    int component=int(m[1]), pivot_count=int(m[11]);
+    int64_t original=int64_t(sample_value[component]);
+    int64_t code=bound(original,m[12],m[12+pivot_count-1]);
+    int segment=0;
+    while (segment<pivot_count-2 && original>=m[13+segment]) ++segment;
+    int offset=29+4*segment;
+    int degree_max=int(m[offset]);
+    int64_t total=int64_t(0), power=int64_t(1);
+    for (int degree=0;degree<=degree_max;++degree) {
+        total += m[offset+1+degree]*power*(int64_t(1) << (20-int(m[4])*degree));
+        power *= code;
+    }
+    int64_t mapped=bound(floor_power_two(total,int(m[5])+4),int64_t(0),int64_t(65535));
+    int64_t residual=int64_t(0);
+    if (m[2]==int64_t(1)) {
+        int64_t distance=int64_t(sample_value.w)-m[7];
+        if (distance!=int64_t(0)) {
+            int64_t direction=distance>int64_t(0) ? int64_t(1) : -int64_t(1);
+            int64_t gain=int64_t(1) << (10-int(m[6]));
+            int64_t accumulator=((int64_t(2)*distance-direction)*m[8]+int64_t(2)*direction*m[9])*gain;
+            int64_t limit=int64_t(2)*gain*m[10];
+            residual=floor_power_two(bound(accumulator,-limit,limit),int(m[5])-5-int(m[6]));
+        }
+    }
+    int64_t summed=mapped+residual;
+    int shift=16-int(m[3]);
+    int64_t reconstructed=bound(floor_power_two(summed+(int64_t(1) << (shift-1)),shift),
+                               int64_t(0),(int64_t(1) << int(m[3]))-int64_t(1));
+    results[index]=ivec4(int(mapped),int(residual),int(summed),int(reconstructed));
+}
