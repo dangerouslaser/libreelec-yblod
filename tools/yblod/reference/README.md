@@ -661,11 +661,25 @@ Current coverage is **246 reference tests plus 8 existing accuracy-tool tests**,
 all passing on Ollie. The four audits ran sequentially under the 512 MiB cap,
 peaked at 48,232 KiB process RSS, and completed without swapping or OOM failures.
 
+## Paused-picture capture repeatability checkpoint
+
+The repeat-capture tools and protocol are now available in
+[CAPTURE_REPEAT.md](CAPTURE_REPEAT.md). Three freshly started capture cycles of
+visibly identified frame 1960 produced six byte-identical physical reads, and
+the independent analyzer found no picture or metadata differences. All repeated
+metadata copies validate. See
+[the aggregate report](results/repeat-comparison-1960-osd.json).
+
+This first run includes Kodi's pause overlay, so it is a repeatability diagnostic,
+not a clean colour reference. Driver dumps were unavailable and DMA
+synchronization remains unverified; matching reads cannot exclude stale cached
+data. No renderer correction follows from this result. A clean, overlay-free run
+is still needed before comparing it with the earlier frame-1960 pipeline output.
+
 ## Next milestone
 
-1. Check readback stability by reading the same frozen completed SK4 buffer
-   twice, then compare fresh captures of one visibly verified paused frame while
-   recording the active device/build state. The existing bit audit narrows the
+1. Repeat the observed-stability check without Kodi's pause overlay, retaining
+   the explicit unverified-DMA limitation. The existing bit audit narrows the
    stored row pattern but does not establish its cause. Then isolate earlier
    colour preparation and reconstruction/enlargement order.
    The tested final vertical interpolation alternatives do not resolve it.

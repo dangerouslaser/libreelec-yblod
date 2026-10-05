@@ -1,0 +1,1784 @@
+{
+  "schema": "yblod.capture-repeat-comparison.v1",
+  "status": "complete",
+  "readback_evidence": {
+    "scope": "empirical captured-byte stability only",
+    "driver_dump_coverage": "none",
+    "cycles_without_driver_dump": [
+      0,
+      1,
+      2
+    ],
+    "cycles_declaring_dma_sync_unverified": [
+      0,
+      1,
+      2
+    ],
+    "cycles_without_dma_sync_record": [],
+    "dma_coherency_proven": false,
+    "software_state_independently_attested": false,
+    "allow_unverified_dma_sync_as_reported": true,
+    "summary_limitations": [
+      "Driver-dump evidence is missing for some or all cycles: identical physical reads cannot rule out stale cache data.",
+      "These are empirical comparisons of captured bytes, not proof that DMA readback reflects current hardware output.",
+      "Captured software, driver timestamps and paused-player state are report provenance; this analyzer does not independently attest them."
+    ]
+  },
+  "summary_limitations": [
+    "Driver-dump evidence is missing for some or all cycles: identical physical reads cannot rule out stale cache data.",
+    "These are empirical comparisons of captured bytes, not proof that DMA readback reflects current hardware output.",
+    "Captured software, driver timestamps and paused-player state are report provenance; this analyzer does not independently attest them."
+  ],
+  "identity": {
+    "source_sha256": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f",
+    "visible_frame_number": 1960,
+    "pts_us": 81748000,
+    "verification": "Visible source counter reads frame01960 and sec81,748 in grayscale capture preview; source extraction.json confirms packet1960 PTS81748 with time_base1/1000 and matching source SHA256. Not inferred from driver PTS.",
+    "overlay_present": true,
+    "scope": "Repeatability diagnostic only; Kodi pause controls contaminate the captured picture. Do not use as a clean pipeline colour reference."
+  },
+  "identity_basis": "caller-supplied visible-counter/source association; not inferred from driver PTS",
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "width": 3840,
+  "height": 2160,
+  "manifest_sha256": "7a3b766752688899965307dee0da9ea00689d14ccb27419a71e9b878004e415f",
+  "identity_file_sha256": "94583399ed7c6b7024882ebf310e74dbc9e6836531ce0626e31d349ee982a6d8",
+  "capture_provenance": {
+    "schema": "yblod.capture-repeat.v1",
+    "status": "complete",
+    "width": 3840,
+    "height": 2160,
+    "storage": "CoreELEC RGB8; reverse each 64-bit word; logical channels G,B,R",
+    "capture_port": "venc0",
+    "cycles": [
+      {
+        "cycle_index": 0,
+        "status": "complete",
+        "state_before_start": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 192092897049
+        },
+        "buffer": {
+          "index": 2,
+          "address_hex": "0xcb660000",
+          "size": 24883200,
+          "timestamp": "192.849063"
+        },
+        "freeze_event": {
+          "index": 2,
+          "timestamp": "192.879109",
+          "list": "rd"
+        },
+        "state_after_freeze": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 192894222924
+        },
+        "dma_sync": {
+          "status": "unverified",
+          "driver_dump_available": false,
+          "reason": "capture command returned but no driver dump file was created",
+          "limitation": "identical physical reads cannot rule out stale cache data"
+        },
+        "first_read": {
+          "file": "cycle-00-first.rgb",
+          "bytes": 24883200,
+          "sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d"
+        },
+        "second_read": {
+          "file": "cycle-00-second.rgb",
+          "bytes": 24883200,
+          "sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d"
+        },
+        "same_buffer_comparison": {
+          "byte_identical": true,
+          "first_difference_offset": null,
+          "compared_bytes": 24883200
+        },
+        "state_after_reads": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 193515388674
+        },
+        "metadata": {
+          "first_read": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true
+          },
+          "second_read": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true
+          }
+        },
+        "completion_scope": "empirical readback stability only; not proof of DMA cache coherency"
+      },
+      {
+        "cycle_index": 1,
+        "status": "complete",
+        "state_before_start": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 193616332508
+        },
+        "buffer": {
+          "index": 2,
+          "address_hex": "0xcb660000",
+          "size": 24883200,
+          "timestamp": "194.338168"
+        },
+        "freeze_event": {
+          "index": 2,
+          "timestamp": "194.367883",
+          "list": "rd"
+        },
+        "state_after_freeze": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 194384247591
+        },
+        "dma_sync": {
+          "status": "unverified",
+          "driver_dump_available": false,
+          "reason": "capture command returned but no driver dump file was created",
+          "limitation": "identical physical reads cannot rule out stale cache data"
+        },
+        "first_read": {
+          "file": "cycle-01-first.rgb",
+          "bytes": 24883200,
+          "sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d"
+        },
+        "second_read": {
+          "file": "cycle-01-second.rgb",
+          "bytes": 24883200,
+          "sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d"
+        },
+        "same_buffer_comparison": {
+          "byte_identical": true,
+          "first_difference_offset": null,
+          "compared_bytes": 24883200
+        },
+        "state_after_reads": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 195003293717
+        },
+        "metadata": {
+          "first_read": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true
+          },
+          "second_read": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true
+          }
+        },
+        "completion_scope": "empirical readback stability only; not proof of DMA cache coherency"
+      },
+      {
+        "cycle_index": 2,
+        "status": "complete",
+        "state_before_start": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 195106620175
+        },
+        "buffer": {
+          "index": 2,
+          "address_hex": "0xcb660000",
+          "size": 24883200,
+          "timestamp": "195.829159"
+        },
+        "freeze_event": {
+          "index": 2,
+          "timestamp": "195.863945",
+          "list": "rd"
+        },
+        "state_after_freeze": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 195882116050
+        },
+        "dma_sync": {
+          "status": "unverified",
+          "driver_dump_available": false,
+          "reason": "capture command returned but no driver dump file was created",
+          "limitation": "identical physical reads cannot rule out stale cache data"
+        },
+        "first_read": {
+          "file": "cycle-02-first.rgb",
+          "bytes": 24883200,
+          "sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d"
+        },
+        "second_read": {
+          "file": "cycle-02-second.rgb",
+          "bytes": 24883200,
+          "sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d"
+        },
+        "same_buffer_comparison": {
+          "byte_identical": true,
+          "first_difference_offset": null,
+          "compared_bytes": 24883200
+        },
+        "state_after_reads": {
+          "pts_90k": 7357320,
+          "kodi": {
+            "speed": 0,
+            "time": {
+              "hours": 0,
+              "milliseconds": 523,
+              "minutes": 1,
+              "seconds": 21
+            }
+          },
+          "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+          "monotonic_ns": 196512769009
+        },
+        "metadata": {
+          "first_read": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true
+          },
+          "second_read": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true
+          }
+        },
+        "completion_scope": "empirical readback stability only; not proof of DMA cache coherency"
+      }
+    ],
+    "allow_unverified_dma_sync": true,
+    "completion_scope": "capture procedure and empirical readback stability; not proof of DMA cache coherency",
+    "readback": "O_RDONLY|O_SYNC /dev/mem, MAP_SHARED/PROT_READ; separate mapping per read",
+    "chunk_bytes": 1048576,
+    "script_sha256": "05652febaa3ad9ad545fc66dc3dd423dc2adfd5a87913e2a62c6130da8052466",
+    "python_version": "3.14.8 (main, Oct  5 2026, 01:41:25) [GCC 16.2.0]",
+    "cleanup": {
+      "vdin_stopped_confirmed": true,
+      "cma_restored": true,
+      "original_cma_flag": 0,
+      "final_state": {
+        "flags": 2048,
+        "cma_flag": 0,
+        "flags_timestamp": "196.675660",
+        "cma_timestamp": "196.675736"
+      }
+    },
+    "source_association": "external visible-counter verification required",
+    "initial_driver_state": {
+      "flags": 0,
+      "cma_flag": 0,
+      "flags_timestamp": "192.042800",
+      "cma_timestamp": "192.042877"
+    },
+    "initial_state": {
+      "pts_90k": 7357320,
+      "kodi": {
+        "speed": 0,
+        "time": {
+          "hours": 0,
+          "milliseconds": 523,
+          "minutes": 1,
+          "seconds": 21
+        }
+      },
+      "hdmi_config": "VIC: 93 3840x2160p24hz\nColour depth: 8-bit\nColourspace: RGB\nColour range: limited\nEOTF: DV-Std\nYCC colour range: limited\nColourimetry: BT.2020\n",
+      "monotonic_ns": 192066219340
+    },
+    "software_state": {
+      "os_release": "NAME=\"CoreELEC\"\nVERSION=\"22.0-Piers_nightly_20261005\"\nID=\"coreelec\"\nVERSION_ID=\"22.0\"\nPRETTY_NAME=\"CoreELEC (official): 22.0-Piers_nightly_20261005\"\nHOME_URL=\"https://coreelec.org\"\nBUG_REPORT_URL=\"https://github.com/CoreELEC/CoreELEC\"\nBUILD_ID=\"96280fdbba2cadbf6c890e63248b6fe89fd5bc14\"\nDISTRO_ARCH=\"Amlogic-no.aarch64\"\nDISTRO_BUILD=\"official\"\nDISTRO_PROJECT=\"Amlogic-ce\"\nDISTRO_DEVICE=\"Amlogic-no\"\nBUILDER_NAME=\"TheCoolest\"\n",
+      "kernel_version": "Linux version 5.15.196 (docker@58758f9dae59) (Android (10087095, +pgo, +bolt, +lto, -mlgo, based on r487747c) clang version 17.0.2 (https://android.googlesource.com/toolchain/llvm-project d9f89f4d16663d5012e5c09495f3b30ece3d2362), LLD 17.0.2) #1 SMP PREEMPT Mon Oct 5 01:32:31 IDT 2026\n",
+      "source_format": "vd1(inst1): DV FORMAT_DOVI\ngraphic: FORMAT_HDR10\n"
+    }
+  },
+  "processing_strip_rows": 32,
+  "same_frozen_buffer_pairs": [
+    {
+      "cycle_index": 0,
+      "buffer": {
+        "index": 2,
+        "address_hex": "0xcb660000",
+        "size": 24883200,
+        "timestamp": "192.849063"
+      },
+      "comparison": {
+        "first_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "second_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "compared_bytes": 24883200,
+        "byte_identical": true,
+        "changed_bytes": 0,
+        "first_difference_byte": null,
+        "classification": "byte_identical",
+        "active_picture_changed": false,
+        "embedded_metadata_lsb_changed_samples": 0,
+        "nonmetadata_payload_changed_pixel_slots": 0,
+        "metadata": {
+          "first": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "second": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "packet_bytes_identical": true
+        },
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 3087360,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "cycle_index": 1,
+      "buffer": {
+        "index": 2,
+        "address_hex": "0xcb660000",
+        "size": 24883200,
+        "timestamp": "194.338168"
+      },
+      "comparison": {
+        "first_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "second_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "compared_bytes": 24883200,
+        "byte_identical": true,
+        "changed_bytes": 0,
+        "first_difference_byte": null,
+        "classification": "byte_identical",
+        "active_picture_changed": false,
+        "embedded_metadata_lsb_changed_samples": 0,
+        "nonmetadata_payload_changed_pixel_slots": 0,
+        "metadata": {
+          "first": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "second": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "packet_bytes_identical": true
+        },
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 3087360,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "cycle_index": 2,
+      "buffer": {
+        "index": 2,
+        "address_hex": "0xcb660000",
+        "size": 24883200,
+        "timestamp": "195.829159"
+      },
+      "comparison": {
+        "first_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "second_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "compared_bytes": 24883200,
+        "byte_identical": true,
+        "changed_bytes": 0,
+        "first_difference_byte": null,
+        "classification": "byte_identical",
+        "active_picture_changed": false,
+        "embedded_metadata_lsb_changed_samples": 0,
+        "nonmetadata_payload_changed_pixel_slots": 0,
+        "metadata": {
+          "first": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "second": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "packet_bytes_identical": true
+        },
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 3087360,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "fresh_buffer_pairs": [
+    {
+      "first_cycle": 0,
+      "second_cycle": 1,
+      "comparison": {
+        "first_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "second_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "compared_bytes": 24883200,
+        "byte_identical": true,
+        "changed_bytes": 0,
+        "first_difference_byte": null,
+        "classification": "byte_identical",
+        "active_picture_changed": false,
+        "embedded_metadata_lsb_changed_samples": 0,
+        "nonmetadata_payload_changed_pixel_slots": 0,
+        "metadata": {
+          "first": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "second": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "packet_bytes_identical": true
+        },
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 3087360,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "first_cycle": 0,
+      "second_cycle": 2,
+      "comparison": {
+        "first_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "second_sha256": "76f27eda66d98a240066977fb65f699764f9861aac2b17ffe480037019b9e00d",
+        "compared_bytes": 24883200,
+        "byte_identical": true,
+        "changed_bytes": 0,
+        "first_difference_byte": null,
+        "classification": "byte_identical",
+        "active_picture_changed": false,
+        "embedded_metadata_lsb_changed_samples": 0,
+        "nonmetadata_payload_changed_pixel_slots": 0,
+        "metadata": {
+          "first": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "second": {
+            "packets": 2,
+            "copies_per_packet": 3,
+            "all_crc_valid": true,
+            "copies_identical": true,
+            "packet_sha256": [
+              "54b766e55880179351222feab0690390dee3d50afa78755d43c4b9a3232e10af",
+              "65b2b34adb3ecc2277abc5b24070d912efa0f81cec5e2be825b818404a747e7d"
+            ]
+          },
+          "packet_bytes_identical": true
+        },
+        "channels": {
+          "I": {
+            "all": {
+              "samples": 6178560,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 3087360,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 3091200,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "P": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          },
+          "T": {
+            "all": {
+              "samples": 3089280,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "even_row": {
+              "samples": 1543680,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            },
+            "odd_row": {
+              "samples": 1545600,
+              "changed_samples": 0,
+              "mean_signed_codes": 0.0,
+              "mean_absolute_codes": 0.0,
+              "maximum_absolute_codes": 0,
+              "rmse_codes": 0.0,
+              "signed_decomposition": {
+                "identity_exact": true,
+                "per_bit_identity_exact": true,
+                "per_bit_signed_sum": 0,
+                "delta12_sum": 0,
+                "weighted_high8_sum": 0,
+                "low4_sum": 0,
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_high8_units": 0.0,
+                "mean_low4_codes": 0.0
+              },
+              "absolute_errors_not_additive": {
+                "mean_delta12_codes": 0.0,
+                "mean_weighted_high8_codes": 0.0,
+                "mean_low4_codes": 0.0
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "driver_dump_vs_first_read_pairs": [],
+  "driver_dump_comparisons_available": 0,
+  "all_available_driver_dumps_match_first_read": null,
+  "all_same_buffer_reads_byte_identical": true,
+  "all_fresh_reads_byte_identical": true,
+  "any_fresh_active_picture_changed": false,
+  "direction": "second read/cycle minus first read/cycle; row parity is absolute frame-row parity",
+  "metadata_only_definition": "Only embedded C-bit0 within first6144 pixel slots changed; all three packet copies validate, all other bits identical",
+  "runtime": {
+    "numpy_version": "1.26.4"
+  },
+  "implementation_sha256": "04037e42b8ceb0eedc423be6f5c104f3344714f408d44cbcc6b4d2856efac05e",
+  "caveats": [
+    "Same frozen-buffer identity and paused-picture state are inherited from capture provenance, not proved by pixel hashes.",
+    "Capture timestamps/software state are recorded, not used to invent source-frame identity.",
+    "Stable results do not exclude spatial dithering; varying results do not establish temporal dithering.",
+    "A loopback capture is not an independent HDMI-wire measurement.",
+    "Explicit active rectangle and supplied visible-frame association must be independently checked by the caller.",
+    "Any unstable same-buffer reread weakens interpretation of fresh-buffer changes.",
+    "Only aggregate differences are reported; no corrections, fitted offsets or reconstructed images."
+  ]
+}
