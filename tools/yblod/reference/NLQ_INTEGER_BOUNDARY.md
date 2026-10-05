@@ -54,3 +54,6 @@ Next, test the metadata residual-maximum boundary independently and decide the
 new engine's input precision contract from source/spec evidence and explicit
 tests, rather than choosing whichever of these alternatives looks closest to
 a captured picture.
+
+The isolated maximum-boundary comparison is now recorded in
+`NLQ_LIMIT_BOUNDARY.md`. It does not select an input-rounding policy.
