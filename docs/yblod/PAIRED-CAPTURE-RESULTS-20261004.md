@@ -82,6 +82,11 @@ this run.**
   `/storage/dvbridge-captures/90-dvbridge-capture.conf.disabled`, systemd was
   reloaded, and Kodi was restarted. Its service environment no longer enables
   capture. Subtitles were turned back on for both test films.
+- After cleanup, Saving Private Ryan ran normally with the TV off. Five
+  consecutive 10-second health intervals reported no stalls, no new drops, and
+  no new skips; renderer failure counters remained zero. One skip had been
+  reported at playback startup, before these intervals. Test playback was then
+  stopped, leaving Kodi running.
 - Experimental direct conversion remains enabled on the test VM; the image's
   setting default remains off. No changes were pushed to GitHub.
 
