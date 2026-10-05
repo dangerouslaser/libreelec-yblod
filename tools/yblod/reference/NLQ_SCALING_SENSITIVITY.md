@@ -69,4 +69,6 @@ Next compare independently declared integer and fractional processing contracts
 on neutral/boundary fixtures, keeping normalization and existing shader sampling
 separate. Only then select a precision boundary for the new engine. Existing
 playback and reconstruction defaults remain unchanged; no SK4-match improvement
-or Dolby conformance is claimed.
+or Dolby conformance is claimed. The subsequent explicit alternatives are
+documented in `NLQ_INTEGER_BOUNDARY.md`; the inspected float shader's separate
+contract and limitations are documented in `NLQ_SHADER_AUDIT.md`.
