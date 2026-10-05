@@ -99,6 +99,10 @@ now available as a CPU comparison baseline, not a production requirement. This
 does not establish which Quick Sync settings or processing order best matches
 the devices.
 
+[SCALING.md](SCALING.md) records the public-spec/alignment audit, independent
+Annex-B oracle and synthetic P010 probes. These check scaling without fitting
+movie captures; they do not yet invoke Intel/AMD hardware.
+
 ## Input contract
 
 Use the generated `frame.json` as the executable example of schema
