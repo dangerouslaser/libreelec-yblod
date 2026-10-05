@@ -73,3 +73,49 @@ Record source/header and binary SHA-256 hashes for each execution. Tests on a
 host compiler do not replace actual SDK/LibreELEC runtime checks. Processing
 through this handoff does not establish real-time performance or a fractional
 hardware-scaling contract.
+
+## Real hardware handoff checkpoint (2026-10-05)
+
+The [public report](results/native-scaled-surface-frame-2296-20261005a.json)
+records an Intel P010 diagnostic route using saved frame-2296 enhancement pixels,
+not Kodi's production Y416 route. External checks matched the saved decoded
+planes and checked all 3,110,400 packed input words without changing them. The
+consumer does not itself establish this source association.
+
+On the LibreELEC VM, upload/copy and explicitly submitted native-size VPP were
+byte-exact. Two 1920x1080-to-3840x2160 enlargements were identical, with zero
+fractional low-six-bit words among all 12,441,600 output words. The probe's own
+client showed VideoEnhance interval deltas of 9,263,956 and 6,725,784 ns; its
+render/copy/video deltas were zero. This identifies engine-class activity, not
+an SFC sub-block or a playback speed measurement. The Intel driver binary hash
+was sampled **after only**, not verified before and after the jobs.
+
+On Ollie, the SDK-built C handoff preserved every one of those 12,441,600 raw
+words. Its exact whole-code route and decoder-instruction bridge completed 191
+arithmetic dispatches and component counts [8,294,400, 2,073,600, 2,073,600].
+The cgroup peak snapshot was 245,694,464 bytes under a 512 MiB cap, with no
+observed swap, limit or OOM events. This was sampled before wrapper exit, not a
+final lifetime peak or total GPU-memory measurement.
+The separate scaling jobs had pre-exit snapshots of 107,167,744 and 106,897,408
+bytes; these are not combined with consumer memory or total GPU allocations.
+The submitted request used advertised P010 input/output, default filter and
+pipeline flags, BT2020/full-range declarations and left chroma on both sides.
+The report preserves their exact numeric values rather than inferring defaults.
+P010's 10-bit hardware output may quantize interpolated values. No rounding in
+our subsequent C handoff does not mean fractional scaler precision survived.
+
+This establishes a complete hardware-output-to-C diagnostic handoff. It does
+**not** compare against the previous linear-scaled baseline, establish an
+independent arithmetic answer, improve SK4 accuracy, select a fractional
+quantizer, certify Dolby conformance, demonstrate AMD, or measure playback FPS.
+Default core CMake and production playback remain unchanged.
+
+`native_scaled_surface_frame.py` is the byte-identical source used for the
+bounded private consumer job, published under a generic name. Use `--help` for
+its required saved inputs and explicit source/library identities. It contains
+no movie pixels or instructions; it is a diagnostic Python orchestration layer
+around C, not a production playback API. Private input/output identities and
+paths remain excluded from the public report. `native_scaled_surface_checkpoint.py`
+replays a bounded exact public schema, and its test checks the executed C/header
+and consumer source hashes. Schema replay verifies report consistency, not the
+truth of assertions independently of the reviewed execution evidence.

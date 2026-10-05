@@ -1,0 +1,121 @@
+{
+  "association": {
+    "externally_verified": true,
+    "original_packed_words_checked": 3110400,
+    "original_packed_words_exact": true,
+    "saved_el_planes_match_extraction_and_decoder": true,
+    "verified_by_consumer_runner": false
+  },
+  "consumer": {
+    "arithmetic_dispatches": 191,
+    "complete_component_counts": [
+      8294400,
+      2073600,
+      2073600
+    ],
+    "diagnostic_queries": 0,
+    "independent_arithmetic_reference": false,
+    "old_linear_baseline_compared": false,
+    "raw_words_byte_exact": 12441600,
+    "route": "exact-whole-code"
+  },
+  "execution_targets": {
+    "consumer": "ollie-cpu",
+    "scaler": "libreelec-vm-intel"
+  },
+  "geometry": {
+    "input": [
+      1920,
+      1080
+    ],
+    "output": [
+      3840,
+      2160
+    ]
+  },
+  "hardware": {
+    "copy_byte_exact": true,
+    "driver_binary_prepost_verified": false,
+    "driver_identity_sampling": "after-only",
+    "enlargement_repeat_byte_exact": true,
+    "enlargement_repeats": 2,
+    "fractional_words": 0,
+    "native_vpp_byte_exact": true,
+    "output_words": 12441600,
+    "own_vpp_engine_delta_ns": [
+      {
+        "copy": 0,
+        "render": 0,
+        "video": 0,
+        "video_enhance": 9263956
+      },
+      {
+        "copy": 0,
+        "render": 0,
+        "video": 0,
+        "video_enhance": 6725784
+      }
+    ],
+    "subblock_verified": false
+  },
+  "limitations": {
+    "amd_measured": false,
+    "fractional_quantizer_selected": false,
+    "licensed_conformance": false,
+    "playback_benchmark": false,
+    "production_y416_acceptance": false,
+    "sk4_accuracy_improvement": false
+  },
+  "pins": {
+    "consumer_runtime": {"ld-linux-x86-64.so.2":"c20a2dc8917c755f02b94049356320fe1f62ac7d9f8994731f807d9df39302da","libc.so.6":"3a15d66867d83762c7f2f1e37359cb8f6c5743edb369c65285cb0b1c4f7498bf","python3.12":"e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f"},
+    "consumer_source": {
+      "native_scaled_surface_frame.py": "6d251986c37c13a1522895fcb0aa449542aecbdec54e7382e010edee64a7a239"
+    },
+    "driver_after_only": {
+      "intel_ihd_driver": "fca0ac8e50a27e9278b8ad17b488dd662af34eb5cd48fe3670e7d7971b3d7d7f"
+    },
+    "engine_sources": {
+      "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+      "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+      "native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+      "native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+      "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+      "native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+      "native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+      "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+      "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+      "native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+      "native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf"
+    },
+    "scaler_artifacts": {
+      "packer_binary": "b85349304cf4ce4beb8d45d93b46f85c6a14f9eaf2287ef773d0089c3875654b",
+      "packer_source": "8d8f08b024f6aa4e0e2039fc46952ee7bdb566a2a3b009b6795a3df8583948f9",
+      "probe_accounting_header": "14e689d9c38088e8694f3f9df3b7b246d5e920e6e93c8851c1b2199739c8befa",
+      "probe_binary": "ad2fb90e14517c46fe8b80a3c551e1f8a751a22b42719aa79a4d0a477d399675",
+      "probe_source": "0d919766632b0a143741e54c595e0426241fd2d28fe54674c5be61ef72ecf792",
+      "wrapper_source": "00a8e45965905e2009c5843dfd34e439517605e024bddf4957dc3f778c29eb1e"
+    },
+    "sdk_library": {
+      "native_scaled_surface_chain.so": "add29d366514736066bd01b9799549837b3a829885feabe8515935b8562c1ab8"
+    },
+    "system_libraries": {
+      "libdrm": "4aef0c2cd85b60b8ca1080f47a26d415a51adb4e44324d7a8f0396b7369e1363",
+      "libva": "f7238c347148567131476e74443e493c9ee7b9729f1da875af20828ce1d93c61",
+      "libva_drm": "3123f157465b2b6d22db28f417b78939fa25a12cca489cff557d03cfa88a050e"
+    }
+  },
+  "resources": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "observed_limit_events": 0,
+    "observed_oom_events": 0,
+    "observed_oom_kill_events": 0,
+    "observed_swap_bytes": 0,
+    "peak_snapshot_bytes": 245694464,
+    "scaler_peak_snapshot_bytes": [107167744,106897408],
+    "snapshot_scope": "before-wrapper-exit-not-final-lifetime-or-total-gpu-memory"
+  },
+  "schema": "yblod.native-scaled-surface-checkpoint.v1",
+  "submitted_request": {"colour_range":2,"colour_standard":12,"filter_flags":0,"input_chroma_siting":6,"input_fourcc":"P010","output_chroma_siting":6,"output_fourcc":"P010","output_surface_advertised":true,"pipeline_flags":0,"surface_contract":"advertised"},
+  "status": "complete"
+}

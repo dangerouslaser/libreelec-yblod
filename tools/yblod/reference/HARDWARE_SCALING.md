@@ -14,6 +14,9 @@ Petunia-key selection incorrectly excluded the working authentication route.
 experimental C handoff for already synchronized CPU-readable P010 allocations.
 It preserves raw words or accepts exact whole-code chunks; it does not scale,
 wait for hardware or choose fractional reconstruction. AMD hardware is untested.
+The [real P010 handoff checkpoint](results/native-scaled-surface-frame-2296-20261005a.json)
+records repeated scaling and complete C consumption; it does not qualify
+production Y416 or establish an independent accuracy answer.
 
 ## Build
 
@@ -290,7 +293,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **862 reference tests**, including native C arithmetic/adapter/frame checks,
+- **876 reference tests**, including native C arithmetic/adapter/frame checks,
   vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under

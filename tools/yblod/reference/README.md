@@ -149,6 +149,10 @@ C handoff for already synchronized, CPU-readable P010 surfaces. Raw words are
 preserved; exact whole-code extraction rejects fractional chunks atomically.
 Synthetic chaining tests and a strict SDK build do not establish hardware
 scaling, AMD support, fractional reconstruction or playback performance.
+[Its real hardware checkpoint](results/native-scaled-surface-frame-2296-20261005a.json)
+now records repeated Intel P010 scaling and complete C consumption, not an
+accuracy comparison or the production Y416 route. The diagnostic packer is
+documented in [NATIVE_P010_FIXTURE.md](NATIVE_P010_FIXTURE.md).
 [NATIVE_GPU_CAPS.md](NATIVE_GPU_CAPS.md) and
 [NATIVE_GPU_GUARD.md](NATIVE_GPU_GUARD.md) establish device capability and
 conservative arithmetic-width gates, not a working GPU playback engine.
@@ -180,7 +184,7 @@ GPU sampling check: sampled/intermediate values matched its declared float
 model, with separately recorded final-correction differences. It is not a
 Kodi import or licensed fractional-input rule.
 
-Latest complete published-candidate Ollie check: **862 reference tests plus 8 accuracy tests**, no
+Latest complete published-candidate Ollie check: **876 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
 below describe their historical checkpoints, not current suite coverage.
 
