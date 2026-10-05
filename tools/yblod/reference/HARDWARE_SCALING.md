@@ -257,7 +257,12 @@ around unsupported same-format processing.
 The probe additionally accepts `--output-format p010|y416` and `--range
 full|reduced` (both input and output). Defaults remain P010/full. Output chroma
 also accepts `unspecified`; input does not. Copy cannot convert or declare a
-range. Requested formats must be advertised; no substitute conversion is used.
+range. Requested formats must be advertised by default; no substitute conversion
+is used. `--surface-contract allocation-diagnostic` explicitly permits attempting
+an exact unadvertised output surface, recording its advertisement state. This
+does not bypass image-format/layout, input capability or submission checks, and
+does not qualify a backend. Copy rejects this declaration. The Python checker
+exposes it only through `--allocation-diagnostic`; it never retries automatically.
 
 `hardware_y416_check.py` first runs24 exact P010 copy/native constant gates,
 then requests48 repeated same-size P010420→Y416444 conversions with full and
@@ -280,8 +285,8 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **423 reference tests**, including vector/scoring, runner failure gates,
-  affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and14 compiled CLI guards,
+- **427 reference tests**, including vector/scoring, runner failure gates,
+  affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
 - Compiled guards test invalid arguments, copy-resize requests, unknown modes,
@@ -290,7 +295,8 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
   input/output siting matrix are complete.
 - Full-size slope controls and per-client engine-class accounting are complete.
 - Full-size signed-ramp/base/quality and per-job pipeline-hint controls are complete.
-- Production Y416/reduced-range conversion, edge/impulse characterization, specific SFC routing,
+- Small constant Y416/reduced-range conversion diagnostics are complete; full-size
+  Y416 scaling, edge/impulse characterization, specific SFC routing,
   playback performance and AMD measurements remain pending. No SK4-match
   improvement or production acceptance is claimed.
 
@@ -301,5 +307,5 @@ YBLOD_VAAPI_PROBE_BINARY=/absolute/path/vaapi_scaler_probe \
   python3 -m unittest discover -s tools/yblod/reference -p 'test_*.py'
 ```
 
-Without that environment variable, the fourteen compiled tests explicitly skip;
+Without that environment variable, the sixteen compiled tests explicitly skip;
 the synthetic Python tests remain runnable from the public source.

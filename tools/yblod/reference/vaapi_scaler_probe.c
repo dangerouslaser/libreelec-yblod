@@ -209,7 +209,7 @@ int main(int argc, char **argv)
 {
     EngineSample before_vpp = {0}, after_vpp = {0};
     if (argc < 9 || (argc - 9) % 2) {
-        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left|unspecified] [--pipeline default|fast] [--output-format p010|y416] [--range full|reduced]\n", argv[0]);
+        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left|unspecified] [--pipeline default|fast] [--output-format p010|y416] [--range full|reduced] [--surface-contract advertised|allocation-diagnostic]\n", argv[0]);
         return EXIT_FAILURE;
     }
     unsigned input_chroma = VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
@@ -218,7 +218,15 @@ int main(int argc, char **argv)
     unsigned output_fourcc = VA_FOURCC_P010, output_rt = VA_RT_FORMAT_YUV420_10;
     unsigned colour_range = VA_SOURCE_RANGE_FULL;
     int seen_input = 0, seen_output = 0, seen_pipeline = 0, seen_format = 0, seen_range = 0;
+    int seen_contract = 0, allocation_diagnostic = 0, surface_output = 0;
     for (int i = 9; i < argc; i += 2) {
+        if (!strcmp(argv[i], "--surface-contract")) {
+            if (seen_contract++) fail("duplicate surface contract option");
+            if (!strcmp(argv[i + 1], "advertised")) allocation_diagnostic = 0;
+            else if (!strcmp(argv[i + 1], "allocation-diagnostic")) allocation_diagnostic = 1;
+            else fail("unknown surface contract request");
+            continue;
+        }
         if (!strcmp(argv[i], "--output-format")) {
             if (seen_format++) fail("duplicate output format option");
             if (!strcmp(argv[i + 1], "p010")) {
@@ -259,6 +267,7 @@ int main(int argc, char **argv)
     unsigned iw = dimension(argv[4]), ih = dimension(argv[5]);
     unsigned ow = dimension(argv[6]), oh = dimension(argv[7]);
     int copy = !strcmp(argv[8], "copy");
+    if (copy && seen_contract) fail("copy test does not accept surface contract declarations");
     if (copy && output_fourcc != VA_FOURCC_P010) fail("copy test requires P010 output");
     if (copy && seen_range) fail("copy test does not accept range declarations");
     if (copy && seen_pipeline) fail("copy test does not accept pipeline declarations");
@@ -307,7 +316,7 @@ int main(int argc, char **argv)
         if (!attributes) fail("surface capability allocation");
         VA_CHECK(vaQuerySurfaceAttributes(display, config, attributes, &count));
         if (count > capacity) fail("surface capability count exceeds allocation");
-        int surface_p010 = 0, surface_output = 0;
+        int surface_p010 = 0;
         for (unsigned i = 0; i < count; ++i)
             if (attributes[i].type == VASurfaceAttribPixelFormat
                     && attributes[i].value.type == VAGenericValueTypeInteger) {
@@ -320,7 +329,10 @@ int main(int argc, char **argv)
             }
         free(attributes);
         if (!surface_p010) fail("P010 not advertised for VideoProc surfaces");
-        if (!surface_output) fail("requested output not advertised for VideoProc surfaces");
+        if (!surface_output && !allocation_diagnostic)
+            fail("requested output not advertised for VideoProc surfaces");
+        if (!surface_output)
+            fprintf(stderr, "diagnostic: exact unadvertised output allocation/submission; NOT backend qualification\n");
         surface_create(ow, oh, 1, output_fourcc, output_rt);
         VA_CHECK(vaCreateContext(display, config, (int)ow, (int)oh, VA_PROGRESSIVE,
                                 &surfaces[1], 1, &context));
@@ -423,6 +435,10 @@ int main(int argc, char **argv)
     free(output);
     printf("{\"schema\":\"yblod.vaapi-scaler-invocation.v1\",\"status\":\"complete\",\"vendor\":");
     json_string(vaQueryVendorString(display) ? vaQueryVendorString(display) : "unknown");
+    printf(",\"surface_contract\":\"%s\",\"output_surface_advertised\":",
+           allocation_diagnostic ? "allocation-diagnostic" : "advertised");
+    if (copy) printf("null");
+    else printf("%s", surface_output ? "true" : "false");
     printf(",\"input_fourcc\":%u,\"output_fourcc\":%u,\"input_rt_format\":%u,"
            "\"output_rt_format\":%u,\"output_packed_bytes\":%zu",
            VA_FOURCC_P010, output_fourcc, VA_RT_FORMAT_YUV420_10, output_rt, output_size);

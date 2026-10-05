@@ -90,6 +90,10 @@ class Y416RunTests(unittest.TestCase):
                "colour_standard":None if copy else 12,"colour_range":None if copy else checker.RANGES[range_name],
                "pipeline_flags":None if copy else 0,"pipeline_caps_flags":None if copy else 2,
                "vpp_submitted":not copy,"hardware_engine_verified":False,"drm_client_engine_accounting":{"synthetic":True}}
+        value["surface_contract"]="allocation-diagnostic" if "--surface-contract" in argv else "advertised"
+        value["output_surface_advertised"]=None if copy else not (self.fault=="unadvertised" and fmt=="y416")
+        if self.fault=="surface-contract" and fmt=="y416":value["surface_contract"]="advertised"
+        if self.fault=="advertisement-type" and fmt=="y416":value["output_surface_advertised"]=1
         if self.fault=="rt" and fmt=="y416":value["output_rt_format"]=0x100
         if self.fault=="fourcc" and fmt=="y416":value["output_fourcc"]=checker.FOURCC["p010"]
         if self.fault=="range" and fmt=="y416":value["colour_range"]=0
@@ -98,9 +102,9 @@ class Y416RunTests(unittest.TestCase):
         if self.fault=="unsupported" and fmt=="y416":return subprocess.CompletedProcess(argv,1,b"",b"unsupported, no fallback")
         return subprocess.CompletedProcess(argv,0,json.dumps(value).encode(),b"fake diagnostics")
 
-    def execute(self,name):
+    def execute(self,name,allocation_diagnostic=False):
         with patch.object(checker.subprocess,"run",side_effect=self.fake),patch.object(checker.sys,"stderr",io.StringIO()):
-            result=checker.run(self.binary,self.root/name)
+            result=checker.run(self.binary,self.root/name,allocation_diagnostic=allocation_diagnostic)
         self.assertEqual(result,json.loads((self.root/name/"y416-report.json").read_text()))
         return result
 
@@ -123,6 +127,28 @@ class Y416RunTests(unittest.TestCase):
         self.fault="lowbits";result=self.execute("lowbits")
         self.assertEqual(result["status"],"complete")
         self.assertEqual(result["results"]["full"]["code-0"]["raw_le16_word_positions"]["1"]["raw_word_values"],[1])
+
+    def test_explicit_allocation_diagnostic_required_and_never_rewrites_format(self):
+        self.fault="unadvertised"
+        result=self.execute("strict")
+        self.assertEqual(result["status"],"failed")
+        self.assertFalse(result["allocation_diagnostic_requested"])
+        self.calls=[]
+        result=self.execute("diagnostic",allocation_diagnostic=True)
+        self.assertEqual(result["status"],"complete")
+        self.assertTrue(result["allocation_diagnostic_requested"])
+        for call in self.calls:
+            if call[8]=="copy":self.assertNotIn("--surface-contract",call)
+            else:
+                self.assertEqual(call[-2:],["--surface-contract","allocation-diagnostic"])
+        self.assertTrue(all(e["invocation"]["output_fourcc"]==checker.FOURCC["y416"] for e in result["invocations"][24:]))
+        self.assertTrue(all(e["invocation"]["output_surface_advertised"] is False for e in result["invocations"][24:]))
+
+    def test_diagnostic_metadata_still_must_match_requested_contract(self):
+        for fault in ("surface-contract","advertisement-type"):
+            self.fault,self.calls=fault,[]
+            result=self.execute(fault,allocation_diagnostic=True)
+            self.assertEqual(result["status"],"failed")
 
     def test_format_metadata_failure_repetition_and_size_fail_closed(self):
         for fault in ("rt","fourcc","range","dimensions","output-dimensions","unsupported","unstable","size"):

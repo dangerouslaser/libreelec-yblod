@@ -96,7 +96,7 @@ def analyse(path,codes,width=64,height=64):
             "interpretation":"raw observations and declared hypotheses only; no assumed12bitalignment, nominalrangeclamp or conversionidentity"}
 
 
-def validate_invocation(stdout,width,height,output_format,range_name,copy_mode=False):
+def validate_invocation(stdout,width,height,output_format,range_name,copy_mode=False,allocation_diagnostic=False):
     value=json.loads(stdout)
     required={"schema":"yblod.vaapi-scaler-invocation.v1","status":"complete",
               "input_size":[width,height],"output_size":[width,height],"filter_flags":0,
@@ -106,6 +106,7 @@ def validate_invocation(stdout,width,height,output_format,range_name,copy_mode=F
               "input_chroma_siting":None if copy_mode else 6,
               "output_chroma_siting":None if copy_mode else (6 if output_format=="p010" else 0),
               "colour_standard":None if copy_mode else 12,"colour_range":None if copy_mode else RANGES[range_name],
+              "surface_contract":"allocation-diagnostic" if allocation_diagnostic and not copy_mode else "advertised",
               "pipeline_flags":None if copy_mode else 0,"vpp_submitted":not copy_mode,"hardware_engine_verified":False}
     if RT_FORMAT[output_format] is None:raise ValueError("outputRTformat must beconfirmed from actual probe SDK")
     for key,expected in required.items():
@@ -114,6 +115,14 @@ def validate_invocation(stdout,width,height,output_format,range_name,copy_mode=F
     if any(len(value[key])!=2 or any(type(n) is not int for n in value[key])
            for key in ("input_size","output_size")):
         raise ValueError("Y416 invocation dimension elements must be strict integers")
+    if "output_surface_advertised" not in value:raise ValueError("missing outputsurfaceadvertisement declaration")
+    advertised=value["output_surface_advertised"]
+    if copy_mode:
+        if advertised is not None:raise ValueError("copy outputadvertisement mustbenull")
+    elif type(advertised) is not bool:
+        raise ValueError("VPP outputadvertisement mustbe strictboolean")
+    elif not allocation_diagnostic and not advertised:
+        raise ValueError("unadvertised outputsurface requires explicit allocationdiagnostic; nofallback")
     caps=value.get("pipeline_caps_flags")
     if copy_mode:
         if "pipeline_caps_flags" not in value or caps is not None:raise ValueError("copycapsmustbenull")
@@ -124,7 +133,7 @@ def validate_invocation(stdout,width,height,output_format,range_name,copy_mode=F
     return value
 
 
-def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD128"):
+def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD128",*,allocation_diagnostic=False):
     root=Path(destination).resolve();root.mkdir(exist_ok=False)
     started=time.monotonic()
     report={"schema":"yblod.hardware-y416-constant-check.v1","status":"failed","invocations":[],"inputs":{},"results":{},
@@ -132,6 +141,7 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
             "source_sha256":large.file_hash(__file__),
             "helper_sha256":{Path(m.__file__).name:large.file_hash(m.__file__) for m in (vectors,transport,large,siting)},
             "format_fourcc":FOURCC,"format_rt":RT_FORMAT,
+            "allocation_diagnostic_requested":allocation_diagnostic,
             "interpretation":"same-sizeP010420->Y416444 conversion observations, NOTbyteidentity; no rawbitmasking, codefit or prescribedrangeclamp"}
 
     def call(case,fmt,range_name,repetition=0,copy_mode=False):
@@ -142,6 +152,7 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
         if not copy_mode:
             argv += ["--input-chroma","left","--output-chroma","left" if fmt=="p010" else "unspecified",
                      "--output-format",fmt,"--range",range_name,"--pipeline","default"]
+            if allocation_diagnostic:argv += ["--surface-contract","allocation-diagnostic"]
         entry={"argv":argv,"case":case,"output_file":output.name,"format":fmt,"range":range_name}
         report["invocations"].append(entry)
         try:
@@ -157,10 +168,11 @@ def run(binary,destination,width=64,height=64,repeats=2,device="/dev/dri/renderD
             entry[kind]={"file":path.name,"sha256":hashlib.sha256(data).hexdigest()}
         if output.exists():entry["output_sha256"]=large.file_hash(output)
         if entry["exit_status"]!=0:raise ValueError("formatprobe failed/timedout; nofallback")
-        entry["invocation"]=validate_invocation(stdout,width,height,fmt,range_name,copy_mode)
+        entry["invocation"]=validate_invocation(stdout,width,height,fmt,range_name,copy_mode,allocation_diagnostic)
         return output,entry
 
     try:
+        if type(allocation_diagnostic) is not bool:raise ValueError("allocationdiagnostic mustbe explicitboolean")
         if type(repeats) is not int or not 2<=repeats<=4:raise ValueError("2..4repeatsrequired")
         inputs={case:input_planes(case,width,height) for case in CASES}
         executable=Path(binary).resolve()
@@ -202,6 +214,9 @@ if __name__=="__main__":
     parser.add_argument("binary",type=Path);parser.add_argument("destination",type=Path)
     parser.add_argument("--width",type=int,default=64);parser.add_argument("--height",type=int,default=64)
     parser.add_argument("--repeats",type=int,default=2);parser.add_argument("--device",default="/dev/dri/renderD128")
-    args=parser.parse_args();result=run(args.binary,args.destination,args.width,args.height,args.repeats,args.device)
+    parser.add_argument("--allocation-diagnostic",action="store_true",
+                        help="explicitly request allocator-accepted surfaces even if unadvertised; never a fallback")
+    args=parser.parse_args();result=run(args.binary,args.destination,args.width,args.height,args.repeats,args.device,
+                                      allocation_diagnostic=args.allocation_diagnostic)
     print(json.dumps({"status":result["status"],"report":str(args.destination/"y416-report.json"),"invocations":len(result["invocations"])}))
     raise SystemExit(result["status"]!="complete")

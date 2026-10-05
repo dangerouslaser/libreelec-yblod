@@ -104,6 +104,18 @@ class CompiledProbeGuards(unittest.TestCase):
     def test_input_siting_cannot_be_unspecified(self):
         self.reject("unknown chroma location", mode="default", extra=("--input-chroma", "unspecified"))
 
+    def test_surface_contract_options_fail_closed(self):
+        for extra, expected in (
+            (("--surface-contract",), "usage:"),
+            (("--surface-contract", "fallback"), "unknown surface contract request"),
+            (("--surface-contract", "advertised", "--surface-contract", "allocation-diagnostic"), "duplicate surface contract option"),
+        ):
+            with self.subTest(extra=extra): self.reject(expected, mode="default", extra=extra)
+
+    def test_copy_cannot_declare_surface_contract(self):
+        self.reject("copy test does not accept surface contract declarations",
+                    extra=("--surface-contract", "allocation-diagnostic"))
+
 
 if __name__ == "__main__":
     unittest.main()
