@@ -682,10 +682,19 @@ matching reads cannot exclude stale cached data or a systematic capture error.
 No renderer correction follows from these results. Compare the second run only
 with a source-identified frame-1943 reconstruction, not with frame 1960.
 
+That [matched reconstruction case](results/frame1943-gui-disabled-case.json) is
+now complete. Its [row/bit audit](results/transport-precision-1943-gui-disabled.json)
+retains a T-channel even-minus-odd signed-error gap of **8.892060 codes**, mostly
+in the upper-eight-bit contribution. Thus the row-dependent difference is still
+observed with no visible pause overlay and stable reads. Its processing/capture
+cause remains unresolved; no fitted offsets have been applied. Current coverage
+is **293 reference tests plus 8 accuracy-tool tests**, passing on Ollie.
+
 ## Next milestone
 
-1. Compare the overlay-free frame-1943 capture with its own source reconstruction,
-   retaining the explicit GUI-plane and unverified-DMA limitations. The existing bit audit narrows the
+1. Isolate earlier source-chroma preparation and enhancement-layer enlargement/
+   reconstruction order on the matched, overlay-free frame-1943 case, retaining
+   the explicit GUI-plane and unverified-DMA limitations. The existing bit audit narrows the
    stored row pattern but does not establish its cause. Then isolate earlier
    colour preparation and reconstruction/enlargement order.
    The tested final vertical interpolation alternatives do not resolve it.

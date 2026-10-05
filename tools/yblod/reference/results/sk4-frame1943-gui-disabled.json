@@ -1,0 +1,51 @@
+{
+  "scope": "SK4 transport comparison; not displayed colour accuracy or proof of Dolby compliance",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1943",
+    "pts": 81039,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "identity_basis": "supplied visible-counter/source association; not driver PTS",
+  "capture_sha256": "3f5bbdaee217bcc244bdb9a6cef4bd6e5947191143cf02c559f60f11e5f2823a",
+  "identity_file_sha256": "8031513b390c659128e7c1fca8ac1e939a054787d1b53e9afe2836269f9c364b",
+  "output_report_sha256": "c862437a7c11d7782fdbe38d3ee5ee3bd3d3abcda489f703141660949f9ae34d",
+  "policy": "direct",
+  "implementation_sha256": "dc1c4328a8f8624cafd33d235bbe06d227d377d1fac21febc115359d68078deb",
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "metadata_first_copy_crc": [
+    true,
+    true
+  ],
+  "transport_matrices_equal": true,
+  "channels": {
+    "I": {
+      "samples": 6178560,
+      "maximum_absolute_codes": 119,
+      "mean_absolute_codes": 9.780931317329605,
+      "rmse_codes": 16.144801680520754,
+      "over_sixteen_codes_percent": 16.740130386368346
+    },
+    "P": {
+      "samples": 3089280,
+      "maximum_absolute_codes": 71,
+      "mean_absolute_codes": 4.971984410607003,
+      "rmse_codes": 6.422220586547515,
+      "over_sixteen_codes_percent": 1.5730849906774393
+    },
+    "T": {
+      "samples": 3089280,
+      "maximum_absolute_codes": 81,
+      "mean_absolute_codes": 5.603209485705407,
+      "rmse_codes": 6.903394923466217,
+      "over_sixteen_codes_percent": 0.8455368241143567
+    }
+  }
+}

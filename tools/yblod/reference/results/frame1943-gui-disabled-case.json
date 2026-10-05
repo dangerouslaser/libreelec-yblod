@@ -1,0 +1,252 @@
+{
+  "schema": "yblod.matched-frame-checkpoint.v1",
+  "status": "complete",
+  "frame": 1943,
+  "scope": "New matched source reconstruction versus overlay-free GUI-plane-disabled SK4 loopback capture; not a Dolby conformance or HDMI-wire test",
+  "identity": {
+    "frame_id": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f:1943",
+    "pts": 81039,
+    "time_base": [
+      1,
+      1000
+    ]
+  },
+  "capture_association_and_controls": {
+    "source_sha256": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f",
+    "visible_frame_number": 1943,
+    "pts_us": 81039000,
+    "verification": "Grayscale capture preview visibly reads frame01943 and sec81,039, with no Kodi clock/progress/pause overlay. ffprobe show_packets confirms zero-based source packet1943 PTS81039 in the source Matroska time_base1/1000. Not inferred from seek responses or driver PTS.",
+    "overlay_present": false,
+    "gui_plane_disabled": true,
+    "gui_plane_backend": "mesondrmfb (read from fb0/name)",
+    "gui_operation": "Temporarily wrote1 to /sys/class/graphics/fb0/blank; wrote0 in finally after capture; restored GUI before stopping test playback.",
+    "gui_orchestration_sha256": "001805a4627c33518dd39b5b3900776c8bd3b3994094b9fb1584281bde1a6477",
+    "executed_prototype_sha256": "a4c11a8cd2e87774cf7ed7bb17c37026264d7515714d192bd14a4db5a780dc2a",
+    "gui_source_review": "The mesondrmfb backend uses drivers/drm/meson_fbdev.c am_meson_drm_fb_blank, disabling only its plane rather than the whole CRTC. The prototype's generic source-reviewed-enable wording initially referred to osd_fb.c; backend-specific DRM source was verified after collection. No independent register restoration readback is claimed.",
+    "gui_source_url": "https://github.com/CoreELEC/common_drivers/blob/4dbe1c27ae176fde4c1cbef7506618fd7f62b976/drivers/drm/meson_fbdev.c#L596",
+    "scope": "Overlay-free GUI-plane-disabled repeatability diagnostic. Unverified DMA synchronization remains. This is not proof of HDMI wire fidelity or Dolby accuracy, nor a matched frame1960 capture."
+  },
+  "capture_sha256": "3f5bbdaee217bcc244bdb9a6cef4bd6e5947191143cf02c559f60f11e5f2823a",
+  "active_rectangle": [
+    0,
+    275,
+    3840,
+    1884
+  ],
+  "pipeline": {
+    "preparation": "linear top-left-to-left chroma phase; unchanged Annex-B CPU reference EL scaling",
+    "composition": "existing integer evaluator, no source code changes",
+    "colour_policy": "direct",
+    "fitted_offsets": false,
+    "output_scope": "offline unembedded transport, not deployed playback"
+  },
+  "validation": {
+    "rpu_matches_source_packet_and_global_index": true,
+    "source_sha256": "04085d8eae7efe23397c025184e8d72258d80761b671f641a83a8dd7b4ae8c7f",
+    "source_packet_index": 1943,
+    "single_four_thread_verification": {
+      "bl": {
+        "plane_hashes_valid": true,
+        "planes_reassemble_exactly": true,
+        "single_and_four_thread_decodes_identical": true,
+        "packet_position_verified_with_both_thread_counts": true,
+        "window_reconstructed_from_source_mapping": true,
+        "sha256": "e436f6ab4308ccc2dd0f54b807a7a392ad149a39f124d7085ebc8c51f503778e"
+      },
+      "el": {
+        "plane_hashes_valid": true,
+        "planes_reassemble_exactly": true,
+        "single_and_four_thread_decodes_identical": true,
+        "packet_position_verified_with_both_thread_counts": true,
+        "window_reconstructed_from_source_mapping": true,
+        "sha256": "f70651f1fc19d660251eab89ab9b85fbc0e2a2c9eacf152d52aba00524916bbc"
+      }
+    },
+    "composition_arithmetic": {
+      "Y": {
+        "signed_addition_verified": true,
+        "final_rounding_and_bounds_verified": true
+      },
+      "Cb": {
+        "signed_addition_verified": true,
+        "final_rounding_and_bounds_verified": true
+      },
+      "Cr": {
+        "signed_addition_verified": true,
+        "final_rounding_and_bounds_verified": true
+      }
+    },
+    "capture_metadata": {
+      "packets": 2,
+      "copies_per_packet": 3,
+      "all_crc_valid": true,
+      "copies_identical": true
+    }
+  },
+  "comparison": {
+    "I": {
+      "samples": 6178560,
+      "maximum_absolute_codes": 119,
+      "mean_absolute_codes": 9.780931317329605,
+      "rmse_codes": 16.144801680520754,
+      "over_sixteen_codes_percent": 16.740130386368346
+    },
+    "P": {
+      "samples": 3089280,
+      "maximum_absolute_codes": 71,
+      "mean_absolute_codes": 4.971984410607003,
+      "rmse_codes": 6.422220586547515,
+      "over_sixteen_codes_percent": 1.5730849906774393
+    },
+    "T": {
+      "samples": 3089280,
+      "maximum_absolute_codes": 81,
+      "mean_absolute_codes": 5.603209485705407,
+      "rmse_codes": 6.903394923466217,
+      "over_sixteen_codes_percent": 0.8455368241143567
+    }
+  },
+  "even_minus_odd_signed_mean_gaps": {
+    "I": {
+      "mean_delta12_codes": -1.0975010582117877,
+      "mean_weighted_high8_codes": -0.9624466822203686,
+      "mean_low4_codes": -0.1350543759914197
+    },
+    "P": {
+      "mean_delta12_codes": 1.8011941867718857,
+      "mean_weighted_high8_codes": 1.9693922597159133,
+      "mean_low4_codes": -0.16819807294402728
+    },
+    "T": {
+      "mean_delta12_codes": 8.89206034961708,
+      "mean_weighted_high8_codes": 8.61935967162119,
+      "mean_low4_codes": 0.2727006779958901
+    }
+  },
+  "gap_definition": "Even-numbered-row minus odd-numbered-row mean signed error, using full-frame row coordinates; error is standalone direct minus SK4. Weighted upper-eight and lower-four signed contributions add exactly before displayed rounding.",
+  "resources": {
+    "extraction": {
+      "log": "target/reference-frame-1943-extraction-v1.time.txt",
+      "sha256": "078a1c72e41cce77bf3369f874959dbe575cf94c1ead458cc0e6577f961a2a33",
+      "elapsed_wall": "2:01.25",
+      "maximum_rss_kib": 511772,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "verification": {
+      "log": "target/reference-frame-1943-verification-v1.time.txt",
+      "sha256": "5d226e62fd506133ffd67913f5501b3a836407a7ec3d76cb83f35517119dc4d1",
+      "elapsed_wall": "0:02.67",
+      "maximum_rss_kib": 392024,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "preparation": {
+      "log": "target/reference-frame-1943-preparation-linear-v1.time.txt",
+      "sha256": "a6595a9d6748ad3fe0c8d59e0f5aaee6409faa94de8405299f6efa4a85684d7b",
+      "elapsed_wall": "0:01.03",
+      "maximum_rss_kib": 288308,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "composition": {
+      "log": "target/reference-frame-1943-composition-linear-v1.time.txt",
+      "sha256": "dcc04c847fd1dac5fce6a2e7bfb233e50d27c0c6fd3f90ce1ec2c1177d3ccc0a",
+      "elapsed_wall": "0:37.25",
+      "maximum_rss_kib": 232112,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "inspection": {
+      "log": "target/reference-frame-1943-inspection-v1.time.txt",
+      "sha256": "a8596eb3de9b25437b8b7fd58226ee305caa930b74bb3d8313753128c32ea25d",
+      "elapsed_wall": "0:01.12",
+      "maximum_rss_kib": 498348,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "output": {
+      "log": "target/reference-frame-1943-output-direct-v1.time.txt",
+      "sha256": "3e991e3a2046ed9f76fc2580842c29323c286ebd3b5e98b9e4eda1f0e84ee7c1",
+      "elapsed_wall": "0:02.59",
+      "maximum_rss_kib": 108784,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "comparison": {
+      "log": "target/reference-frame-1943-sk4-comparison-v1.time.txt",
+      "sha256": "d2adb278c6fade9c31f8a63e0f0d48e9caf510d8e24d3317b4413551e0c9cbb0",
+      "elapsed_wall": "0:00.24",
+      "maximum_rss_kib": 80196,
+      "swaps": 0,
+      "exit_status": 0
+    },
+    "precision": {
+      "log": "target/transport-precision-1943-gui-disabled-v1.time.txt",
+      "sha256": "a72eefd76627e6098e4e59ae13db9bf24c2f25b935632a1812a92c7d39f92b5c",
+      "elapsed_wall": "0:01.40",
+      "maximum_rss_kib": 47876,
+      "swaps": 0,
+      "exit_status": 0
+    }
+  },
+  "resource_limits": {
+    "hard_memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "openblas_threads": 1,
+    "heavy_jobs_sequential": true,
+    "extraction_initial_optional_memory_high_bytes": 402653184,
+    "extraction_optional_memory_high_removed_during_run": true,
+    "note": "Extraction wall time includes soft MemoryHigh reclaim throttling. Only that optional soft threshold was removed; hard512MiB and zero-swap limits remained unchanged. Times are offline diagnostics, not playback performance."
+  },
+  "reports": {
+    "extraction": {
+      "file": "target/reference-frame-1943-v1/extraction.json",
+      "sha256": "a782783d6a96ea63463957d359282955a8f68e34be9e9f5db9689e73031133b8"
+    },
+    "metadata": {
+      "file": "target/reference-frame-1943-v1/composition.json",
+      "sha256": "80ded71710c82587c1349aa49a1858b872f33243217a6a752aa43040f3c559e3"
+    },
+    "verification": {
+      "file": "target/reference-frame-1943-v1/verification/verification.json",
+      "sha256": "88b018eb70a99ded1d7cfe757b73a42a9b5803d06d708ce99615ccf87f90aa33"
+    },
+    "prepared": {
+      "file": "target/reference-frame-1943-prepared-linear-v1/frame.json",
+      "sha256": "ab0d325b5b7ad2ef480e98252068aa9d8c3100a514da2644bdf2df6e3924bfe4"
+    },
+    "composition": {
+      "file": "target/reference-frame-1943-composed-linear-v1/report.json",
+      "sha256": "cb6bd24b4a0b41fd5006bbbd3613b09b908685e9450bba3d2c5068d7a0f2893e"
+    },
+    "inspection": {
+      "file": "target/reference-frame-1943-inspection-v1.json",
+      "sha256": "696486d9cf88bda71fc3fdea7e62cd2654129f825a342d9393103e2877827d4e"
+    },
+    "output": {
+      "file": "target/reference-frame-1943-output-direct-v1/output.json",
+      "sha256": "c862437a7c11d7782fdbe38d3ee5ee3bd3d3abcda489f703141660949f9ae34d"
+    },
+    "comparison": {
+      "file": "target/reference-frame-1943-output-direct-v1/sk4.json",
+      "sha256": "19362412b2225e2d96fcbb681c0d0d5710434369d0de65b294d38b67947724e7"
+    },
+    "precision": {
+      "file": "target/transport-precision-1943-gui-disabled-v1.json",
+      "sha256": "1eb0f696b37e476e0e2bad5e74ac58f9c58055f95aad943744de704b84957b87"
+    },
+    "capture_identity": {
+      "file": "target/dv-repeat-20261005-e/identity.json",
+      "sha256": "8031513b390c659128e7c1fca8ac1e939a054787d1b53e9afe2836269f9c364b"
+    }
+  },
+  "caveats": [
+    "Frame1943 is new matched content, not a recapture of frame1960; earlier row-gap numbers are not paired before/after controls.",
+    "GUI plane was disabled during capture to avoid overlays and restored by the capture orchestration; this differs from prior capture conditions.",
+    "No driver dump was obtained; DMA synchronization remains unverified. Identical rereads/fresh captures do not exclude stale cache data.",
+    "The T row-gap remains in this matched comparison; its presence does not identify a cause or justify a fitted correction.",
+    "Transport-code errors are not perceptual/display accuracy measurements.",
+    "Raw layers, rendered planes, capture pixels and private previews remain outside public source artifacts."
+  ]
+}

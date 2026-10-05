@@ -5,7 +5,8 @@
 We are checking whether our SK4 reference capture is repeatable before treating
 small differences from it as errors in our renderer. Earlier comparisons found
 an alternating-row difference in one colour channel. This experiment checks the
-capture itself; it does not change the picture or tune our output to match it.
+capture itself; it does not change video reconstruction or tune our output to
+match it. The overlay-free run temporarily removes the separate GUI plane.
 
 **Overlay-containing and overlay-free runs are complete.** Each run produced six
 byte-identical physical reads across three fresh capture cycles. The second run
@@ -251,7 +252,7 @@ change playback. Its default still requires a driver dump unless the diagnostic
 fallback is explicitly selected. Visually verify the captured frame and absence
 of overlays before making source-frame comparisons.
 
-The next processing comparison must use the reconstructed source frame **1943**.
+The processing comparison uses the reconstructed source frame **1943**.
 Stable rereads weaken an observed-temporal-variation explanation for this paused
 picture, but do not exclude fixed spatial processing or systematic readback errors.
 Do not convert repeatability into a claim that either device's output is correct.
@@ -259,3 +260,37 @@ Do not convert repeatability into a claim that either device's output is correct
 The new reusable GUI-plane wrapper has **11 additional stdlib tests**, covering
 confirmation/backend rejection, restoration on capture errors and partial hide
 failure, paused-state changes, and unsuccessful restoration reporting.
+
+## Source-matched standalone comparison — frame 1943
+
+The source-frame extraction, one/four-thread decode verification, linear layer
+preparation, integer reconstruction, direct coordinate conversion and transport
+packing completed sequentially under `MemoryMax=512M`, `MemorySwapMax=0`.
+All stages exited successfully without swapping or OOM. The extraction's wall
+time included an optional soft-memory-threshold stall, removed while preserving
+the hard cap; it is not a playback/performance benchmark.
+
+The [matched comparison](results/sk4-frame1943-gui-disabled.json) reports mean
+absolute transport-code differences of **I 9.780931, P 4.971984, T 5.603209**.
+These are stored-number differences, not perceived colour errors. Frame 1943
+differs from earlier frame 1960; lower errors here do not establish an accuracy
+improvement or show what removing the GUI would do on the same source frame.
+
+The [row/bit audit](results/transport-precision-1943-gui-disabled.json) still
+shows an even-minus-odd-row signed-error gap in T: **8.892060 codes**, comprising
+**8.619360** in the weighted upper-eight-bit contribution and **0.272701** in
+the lower-four-bit contribution. These signed contributions add exactly before
+rounding. All repeated metadata copies validate and the coordinate-matrix check
+passes. The clean repeated captures therefore retain a row-dependent difference
+from this frame's standalone output; the pause overlay was not necessary for
+that observation. Neither temporal dithering nor a particular fixed processing
+stage is established as its cause, and the unverified-DMA limitation remains.
+
+The [matched-case provenance](results/frame1943-gui-disabled-case.json) records
+stage/report hashes, decoder verification and resource use. Next isolate source
+chroma preparation and enhancement-layer enlargement/reconstruction order,
+keeping frame identity, metadata, output conversion and transport packing fixed.
+Do not fit alternating-row offsets to this result.
+
+The complete regression run now passes **293 reference tests plus 8 accuracy-tool
+tests** on Ollie. Tests peaked at **49,344 KiB** resident memory with no swapping.
