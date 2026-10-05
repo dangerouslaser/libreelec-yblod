@@ -34,6 +34,13 @@ VPP modes optionally accept `--input-chroma left|top-left` and
 retain `left` (value6); `top-left` is value5. Invalid/duplicate options are
 rejected before device access. Copy mode rejects these declarations because
 it does not submit a colour-processing request.
+VPP also accepts `--pipeline default|fast`, independently of the quality mode.
+This requests pipeline flag0 or `VA_PROC_PIPELINE_FAST` (2). The latter must
+be advertised by `VAProcPipelineCaps.pipeline_flags`; otherwise the probe
+fails without substituting another route. It is a per-job API optimization
+hint, not a portable force-render promise. Copy rejects explicit pipeline
+declarations. Invocation JSON records actual `pipeline_flags` and
+`pipeline_caps_flags`, both null for copy. Default behaviour remains unchanged.
 Only even dimensions2..4096 and one exact tightly packed P010 input are accepted.
 The output path must be new. Modes:
 
@@ -156,6 +163,25 @@ Scans and comparison pairs are cached only by full case/scale/output hashes,
 never by a lower error score. Row-streaming keeps working memory bounded; retained
 generated outputs occupy about3.4GB at production dimensions. No media is used.
 
+### Per-job pipeline-hint comparison
+
+```sh
+systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  python3 hardware_pipeline_route_check.py /path/to/vaapi_scaler_probe \
+  /path/to/fresh-route-results --width 1920 --height 1080 --repeats 2
+```
+
+This isolates the advertised pipeline hint from the scaling-quality selector.
+Quality stays default, siting stays left→left, and the seven safe-band inputs
+are the signed horizontal/vertical controls plus distinct constants at base0.
+Seven copies and14 native-size checks precede28 enlargements with two repeats.
+Unsupported hints, mismatched metadata or identity failures retain failure
+evidence without fallback. Hash differences between routes are diagnostic,
+not a lower-error selection rule. Own-client engine counters must establish
+the observed route response; successful submission alone does not.
+No Kodi/global driver/display setting changes. About0.9GB of generated outputs
+is retained at production dimensions, with row-bounded validation.
+
 ### General small-pattern corpus
 
 Generate configurable vectors on a CPU host without NumPy:
@@ -227,8 +253,8 @@ around unsupported same-format processing.
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **397 reference tests**, including vector/scoring, runner failure gates,
-  affine/siting/large controls,12 host-only DRM parser fixtures and8 compiled CLI guards,
+- **411 reference tests**, including vector/scoring, runner failure gates,
+  affine/siting/large/mode/route controls,12 host-only DRM parser fixtures and10 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
 - Compiled guards test invalid arguments, copy-resize requests, unknown modes,
@@ -247,5 +273,5 @@ YBLOD_VAAPI_PROBE_BINARY=/absolute/path/vaapi_scaler_probe \
   python3 -m unittest discover -s tools/yblod/reference -p 'test_*.py'
 ```
 
-Without that environment variable, the eight compiled tests explicitly skip;
+Without that environment variable, the ten compiled tests explicitly skip;
 the synthetic Python tests remain runnable from the public source.

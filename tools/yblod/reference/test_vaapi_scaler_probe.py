@@ -66,6 +66,19 @@ class CompiledProbeGuards(unittest.TestCase):
     def test_copy_rejects_siting_declarations(self):
         self.reject("copy test does not accept chroma declarations", extra=("--input-chroma", "left"))
 
+    def test_pipeline_options_fail_closed(self):
+        for extra, expected in (
+            (("--pipeline",), "usage:"),
+            (("--pipeline", "render"), "unknown pipeline request"),
+            (("--pipeline", "fast", "--pipeline", "default"), "duplicate pipeline option"),
+        ):
+            with self.subTest(extra=extra): self.reject(expected, mode="default", extra=extra)
+
+    def test_copy_rejects_pipeline_declarations(self):
+        for value in ("default", "fast"):
+            with self.subTest(value=value):
+                self.reject("copy test does not accept pipeline declarations", extra=("--pipeline", value))
+
 
 if __name__ == "__main__":
     unittest.main()

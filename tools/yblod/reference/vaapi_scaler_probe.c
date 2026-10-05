@@ -205,13 +205,21 @@ int main(int argc, char **argv)
 {
     EngineSample before_vpp = {0}, after_vpp = {0};
     if (argc < 9 || (argc - 9) % 2) {
-        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left]\n", argv[0]);
+        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left] [--pipeline default|fast]\n", argv[0]);
         return EXIT_FAILURE;
     }
     unsigned input_chroma = VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
     unsigned output_chroma = input_chroma;
-    int seen_input = 0, seen_output = 0;
+    unsigned pipeline_flags = 0, pipeline_caps_flags = 0;
+    int seen_input = 0, seen_output = 0, seen_pipeline = 0;
     for (int i = 9; i < argc; i += 2) {
+        if (!strcmp(argv[i], "--pipeline")) {
+            if (seen_pipeline++) fail("duplicate pipeline option");
+            if (!strcmp(argv[i + 1], "default")) pipeline_flags = 0;
+            else if (!strcmp(argv[i + 1], "fast")) pipeline_flags = VA_PROC_PIPELINE_FAST;
+            else fail("unknown pipeline request");
+            continue;
+        }
         unsigned *value;
         int *seen;
         if (!strcmp(argv[i], "--input-chroma")) { value = &input_chroma; seen = &seen_input; }
@@ -227,6 +235,7 @@ int main(int argc, char **argv)
     unsigned iw = dimension(argv[4]), ih = dimension(argv[5]);
     unsigned ow = dimension(argv[6]), oh = dimension(argv[7]);
     int copy = !strcmp(argv[8], "copy");
+    if (copy && seen_pipeline) fail("copy test does not accept pipeline declarations");
     if (copy && (seen_input || seen_output)) fail("copy test does not accept chroma declarations");
     unsigned flags = 0;
     if (!strcmp(argv[8], "fast")) flags = VA_FILTER_SCALING_FAST;
@@ -293,6 +302,11 @@ int main(int argc, char **argv)
         caps.output_color_standards = output_standards_storage;
         caps.num_output_color_standards = 64;
         VA_CHECK(vaQueryVideoProcPipelineCaps(display, context, NULL, 0, &caps));
+        pipeline_caps_flags = caps.pipeline_flags;
+        fprintf(stderr, "caps pipeline_flags=%u requested_pipeline_flags=%u\n",
+                pipeline_caps_flags, pipeline_flags);
+        if ((pipeline_flags & pipeline_caps_flags) != pipeline_flags)
+            fail("requested pipeline hint not advertised; no substitute path");
         /* Supply colour buffers per API; Intel can replace their pointers with
          * driver-owned lists. Always read returned pointers; never free them.
          * Leave optional unreported pixel-format lists at NULL/0. */
@@ -347,6 +361,9 @@ int main(int argc, char **argv)
         parameters.surface_region = &source;
         parameters.output_region = &target;
         parameters.filter_flags = flags;
+        /* Separate per-job API optimization hint, NOT the scaling-quality
+         * selector above or a portable promise of an engine. Measure routing. */
+        parameters.pipeline_flags = pipeline_flags;
         /* None can select a size-dependent colour standard in Intel drivers.
          * Equal explicit standards prevent a hidden resize-time CSC request.
          * This is a native-code transport convention, not RPU interpretation. */
@@ -386,6 +403,8 @@ int main(int argc, char **argv)
     if (copy) printf("\"colour_standard\":null,\"colour_range\":null,");
     else printf("\"colour_standard\":%d,\"colour_range\":%u,",
                 VAProcColorStandardBT2020, VA_SOURCE_RANGE_FULL);
+    if (copy) printf("\"pipeline_flags\":null,\"pipeline_caps_flags\":null,");
+    else printf("\"pipeline_flags\":%u,\"pipeline_caps_flags\":%u,", pipeline_flags, pipeline_caps_flags);
     printf("\"vpp_submitted\":%s,\"hardware_engine_verified\":false,", copy ? "false" : "true");
     printf("\"drm_client_engine_accounting\":{\"unit\":\"ns\",\"before_vpp\":");
     engine_json(before_vpp);
