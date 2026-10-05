@@ -1,0 +1,154 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 338bbf8..9372cda 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -21,10 +21,17 @@ extern "C"
+ #include <EGL/egl.h>
+ #include <algorithm>
+ #include <cmath>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
+ #include <GLES3/gl3.h>
+ #include <limits>
++#include <memory>
+ #include <mutex>
++#include <string>
+ #include <string_view>
++#include <sys/stat.h>
++#include <sys/statvfs.h>
+ 
+ namespace
+ {
+@@ -96,6 +103,8 @@ bool CDVBridgeGLES::Initialize(bool allowSoftware, bool hdr10)
+   if (m_gl)
+     return m_renderer && m_packer;
+   m_hdr10 = hdr10;
++  const char* capture = std::getenv("DVBRIDGE_CAPTURE_PAIRS");
++  m_capturePairs = capture && std::strcmp(capture, "1") == 0;
+   pl_opengl_params params{};
+   params.get_proc_addr = reinterpret_cast<pl_voidfunc_t (*)(const char*)>(eglGetProcAddress);
+   params.egl_display = eglGetCurrentDisplay();
+@@ -164,6 +173,95 @@ void CDVBridgeGLES::Reset()
+   m_vppLogged = false;
+ }
+ 
++void CDVBridgeGLES::CapturePair(const pl_frame& frame, const CDVMetadataBuffer& metadata,
++                               double pts, double elPts, dvbridge_geometry geometry)
++{
++  const uint64_t now = DVBRIDGE::DiagnosticNowMs();
++  if (now - m_lastCapturePoll < 250)
++    return;
++  m_lastCapturePoll = now;
++  constexpr const char* request = "/storage/dvbridge-captures/request";
++  struct stat status{};
++  if (lstat(request, &status) != 0 || !S_ISREG(status.st_mode))
++    return;
++  char directory[] = "/storage/dvbridge-captures/pair-XXXXXX";
++  if (!mkdtemp(directory))
++    return;
++  const std::string prefix = std::string(directory) + "/";
++  if (std::rename(request, (prefix + "request").c_str()) != 0)
++    return;
++
++  // A separate renderer keeps diagnostic candidates out of the presentation transaction.
++  pl_tex target = nullptr;
++  dvbridge_renderer* renderer = nullptr;
++  auto write = [&](const char* name, const void* data, size_t size) {
++    FILE* file = std::fopen((prefix + name).c_str(), "wb");
++    if (!file)
++      return false;
++    const bool written = std::fwrite(data, 1, size, file) == size;
++    return std::fclose(file) == 0 && written;
++  };
++  const bool success = [&]() {
++    struct statvfs space{};
++    if (statvfs(directory, &space) != 0 ||
++        static_cast<uint64_t>(space.f_bavail) * space.f_frsize < 256ULL * 1024 * 1024)
++      return false;
++    constexpr size_t bytes = 3840ULL * 2160 * 4;
++    std::unique_ptr<void, decltype(&std::free)> pixels(std::malloc(bytes), &std::free);
++    if (!pixels)
++      return false;
++    pl_tex_params params{};
++    params.w = 3840;
++    params.h = 2160;
++    params.format = pl_find_named_fmt(m_gl->gpu, "rgba8");
++    params.renderable = params.host_readable = true;
++    if (!params.format || params.format->texel_size != 4)
++      return false;
++    target = pl_tex_create(m_gl->gpu, &params);
++    renderer = dvbridge_renderer_create(m_gl->gpu);
++    if (!target || !renderer)
++      return false;
++    static constexpr float zero[3] = {};
++    const float* offset = DVBRIDGE::playbackMatchHardware.load() ? DVBRIDGE::kHardwareIptOffset : zero;
++    dvbridge_renderer_set_ipt_offset(renderer, offset);
++    unsigned margins[4]{};
++    unsigned packets = 0;
++    for (int direct = 0; direct != 2; ++direct)
++    {
++      dvbridge_renderer_reset(renderer);
++      dvbridge_renderer_set_direct_conversion(renderer, direct != 0);
++      if (!dvbridge_render_packed(renderer, &frame, metadata.Data(), metadata.Size(),
++                                   pts, elPts, geometry, target, true) ||
++          dvbridge_renderer_used_direct_conversion(renderer) != (direct != 0))
++        return false;
++      const auto* candidate = dvbridge_render_candidate(renderer);
++      if (!dvbridge_active_area(candidate, margins) || !dvbridge_packets(candidate, &packets))
++        return false;
++      pl_tex_transfer_params transfer{};
++      transfer.tex = target;
++      transfer.ptr = pixels.get();
++      if (!pl_tex_download(m_gl->gpu, &transfer) ||
++          !write(direct ? "direct.rgba" : "release.rgba", pixels.get(), bytes))
++        return false;
++    }
++    if (!write("metadata.bin", metadata.Data(), metadata.Size()))
++      return false;
++    char info[1024];
++    const int size = std::snprintf(info, sizeof(info),
++        "{\"width\":3840,\"height\":2160,\"format\":\"RGBA8 DV tunnel\","
++        "\"pts\":%.17g,\"el_pts\":%.17g,\"qsv_mode\":%d,"
++        "\"ipt_offset\":[%.9g,%.9g,%.9g],\"margins_lrtb\":[%u,%u,%u,%u],"
++        "\"metadata_packets\":%u,\"same_decoded_input\":true}\n",
++        pts, elPts, DVBRIDGE::playbackQsvMode.load(), offset[0], offset[1], offset[2],
++        margins[0], margins[1], margins[2], margins[3], packets);
++    return size > 0 && static_cast<size_t>(size) < sizeof(info) && write("pair.json", info, size);
++  }();
++  dvbridge_renderer_destroy(renderer);
++  pl_tex_destroy(m_gl->gpu, &target);
++  CLog::Log(success ? LOGINFO : LOGERROR, "DVBridge capture pair: success={} directory={} pts={}",
++            success, directory, pts);
++}
++
+ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+                           const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked)
+ {
+@@ -196,6 +294,11 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+   if (!m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
+       geometry.width == 3840 && geometry.height == 2160)
+   {
++    // Finish readback before rendering the real output; capture never replaces scanout.
++    if (m_capturePairs && enhancement && bl.frame.rotation == PL_ROTATION_0 &&
++        geometry.source_width == 3840 && geometry.source_height == 2160 &&
++        std::isfinite(base.pts) && std::isfinite(elPts))
++      CapturePair(bl.frame, metadata, base.pts, elPts, geometry);
+     m_direct = dvbridge_render_packed(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
+                                      base.pts, elPts, geometry, m_scanout, true);
+     if (!m_direct && requestedConversion && m_conversionUsable)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index 6bf0109..8ba6b16 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -53,6 +53,10 @@ public:
+ private:
+   bool Failure(const char* stage);
+   void Summary(const char* event);
++  void CapturePair(const pl_frame& frame, const CDVMetadataBuffer& metadata,
++                   double pts, double elPts, dvbridge_geometry geometry);
++  bool m_capturePairs = false;
++  uint64_t m_lastCapturePoll = 0;
+   DVBRIDGE::DiagnosticFailures m_failures;
+   uint64_t m_prepares{0}, m_directFrames{0}, m_presentations{0}, m_failedPresentations{0};
+   uint64_t m_lastSummary{0}, m_lastReported{0};
