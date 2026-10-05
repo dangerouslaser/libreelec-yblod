@@ -1,0 +1,256 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 61b8436..faed440 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26005,3 +26005,13 @@ msgstr ""
+ msgctxt "#40862"
+ msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Show the menu's colours on the TV's full wide colour range instead of accurate standard colours, like a TV's vivid colour mode."
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40863"
++msgid "Direct Dolby Vision conversion (experimental)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40864"
++msgid "Test a shorter picture conversion path for full-screen 4K Dolby Vision. Subtitles, menus and unsupported layouts use the existing renderer. Stop and restart the video after changing this setting. Off uses the release renderer."
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 4872569..cd404a9 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -93,6 +93,11 @@
+           <default>true</default>
+           <control type="toggle" />
+         </setting>
++        <setting id="dvbridge.directconversion" type="boolean" label="40863" help="40864">
++          <level>0</level>
++          <default>false</default>
++          <control type="toggle" />
++        </setting>
+         <setting id="dvbridge.qsvmode" type="integer" label="40830" help="40831">
+           <level>0</level>
+           <default>1</default>
+diff --git a/tools/dvbridge/dvbridge_render.c b/tools/dvbridge/dvbridge_render.c
+index 9ce6ef3..f86046c 100644
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -20,6 +20,7 @@ struct dvbridge_renderer {
+     struct dvbridge_candidate *pending;
+     bool ready;
+     bool packed, fragment_quad;
++    bool direct_conversion, used_direct_conversion;
+     struct pl_color_space reconstructed_color;
+     AVDOVIMetadata *graphics;
+     size_t graphics_size;
+@@ -33,8 +34,20 @@ struct active_mask {
+     uint32_t count, flip;
+     pl_shader native_shader;
+     bool early_mask;
++    bool direct_conversion;
+ };
+ 
++void dvbridge_renderer_set_direct_conversion(struct dvbridge_renderer *r, bool enabled)
++{
++    if (r)
++        r->direct_conversion = enabled;
++}
++
++bool dvbridge_renderer_used_direct_conversion(const struct dvbridge_renderer *r)
++{
++    return r && r->ready && r->used_direct_conversion;
++}
++
+ static struct pl_hook_res skip_inactive_area(struct active_mask *mask,
+                                              const struct pl_hook_params *p)
+ {
+@@ -79,7 +92,13 @@ static struct pl_hook_res pack_active_area(void *priv, const struct pl_hook_para
+         {.var=pl_var_uint("packet_count"), .data=&mask->count, .dynamic=true},
+         {.var=pl_var_uint("flip_y"), .data=&mask->flip, .dynamic=true},
+         {.var=pl_var_vec3("ipt_offset"), .data=mask->ipt_offset, .dynamic=true}};
++    const int direct_conversion = mask->direct_conversion;
++    const struct pl_shader_const direct_constant = {
++        .name = "dv_direct_conversion", .type = PL_VAR_SINT,
++        .data = &direct_conversion, .compile_time = true,
++    };
+     struct pl_custom_shader shader = {
++        .constants = &direct_constant, .num_constants = 1,
+         .prelude="#extension GL_KHR_shader_subgroup_basic : require\n"
+                  "#extension GL_KHR_shader_subgroup_quad : require\n",
+         .header=
+@@ -97,7 +116,8 @@ static struct pl_hook_res pack_active_area(void *priv, const struct pl_hook_para
+         "}\n"
+         "// 12-bit I, P, T code values (full range), with the optional hardware-matching offset.\n"
+         "vec3 dv_ipt_codes(vec3 rgb, vec3 offset) {\n"
+-        "    vec3 ipt = DV_IPT_FROM_LMS * dv_pq_oetf(DV_LMS_FROM_RGB * dv_pq_eotf(rgb)) + vec3(0.0, 0.5, 0.5);\n"
++        "    vec3 lms = dv_direct_conversion != 0 ? rgb : dv_pq_oetf(DV_LMS_FROM_RGB * dv_pq_eotf(rgb));\n"
++        "    vec3 ipt = DV_IPT_FROM_LMS * lms + vec3(0.0, 0.5, 0.5);\n"
+         "    return clamp(floor(ipt * 4096.0 + offset + 0.5), 0.0, 4095.0);\n"
+         "}\n"
+         ,
+@@ -210,6 +230,7 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+         return false;
+     r->ready = false;
+     r->packed = packed != NULL;
++    r->used_direct_conversion = false;
+     dvbridge_candidate_destroy(r->pending);
+     r->pending = NULL;
+     if (!source || !isfinite(pts) || source->num_planes < 1 || source->num_planes > 4 || (source->rotation && source->rotation != PL_ROTATION_180) ||
+@@ -280,6 +301,25 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+     // Own exact PQ-zero borders below. Do not translate an sRGB clear color
+     // through the output transfer function or clear a full-raster frame twice.
+     params.border = PL_CLEAR_SKIP;
++    // Convert reference HPE LMS directly into the linear basis encoded by our
++    // IPT-PQ-c2 transport. libplacebo still applies the source RPU linear matrix
++    // first. Keep the exact existing matrices: only their intermediate RGB
++    // PQ encode/decode (and its clipping) is removed. Column/row ordering here
++    // is C row-major, unlike the GLSL constructor in the packing hook above.
++    pl_matrix3x3 transport_from_hpe = {{{
++        0.426426931f, 0.529623456f, 0.043891015f}, {
++        0.164319977f, 0.739572962f, 0.096105842f}, {
++        0.012036295f, 0.050566765f, 0.937395721f}}};
++    const pl_matrix3x3 hpe_to_rgb = {{{
++        3.06441879f, -2.16597676f, 0.10155818f}, {
++        -0.65612108f, 1.78554118f, -0.12943749f}, {
++        0.01736321f, -0.04725154f, 1.03004253f}}};
++    const bool direct = r->direct_conversion && packed && !hdr10 &&
++        !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
++        !geometry.x && !geometry.y && geometry.width == 3840 && geometry.height == 2160;
++    if (direct) {
++        pl_matrix3x3_mul(&transport_from_hpe, &hpe_to_rgb);
++    }
+     unsigned margins[4];
+     if (!dvbridge_active_area(r->pending, margins))
+         return false;
+@@ -287,6 +327,7 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+                                        3840 - margins[1], 2160 - margins[3]}};
+     memcpy(mask.ipt_offset, r->ipt_offset, sizeof(mask.ipt_offset));
+     mask.flip = flip;
++    mask.direct_conversion = direct;
+     mask.packets = dvbridge_packets(r->pending, &mask.count);
+     mask.early_mask = packed && !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
+                       (margins[0] || margins[1] || margins[2] || margins[3]);
+@@ -294,16 +335,18 @@ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+         .stages = PL_HOOK_OUTPUT | (mask.early_mask ? PL_HOOK_NATIVE : 0),
+         .input = PL_HOOK_SIG_COLOR,
+         .priv = &mask, .hook = packed ? pack_active_area : mask_active_area,
+-        .signature = packed ? 0x4456425246555302ULL : 0x445642524c350001ULL};
++        .signature = packed ? (direct ? 0x4456425246555303ULL : 0x4456425246555302ULL) : 0x445642524c350001ULL};
+     const struct pl_hook *hooks[] = {&hook};
+     params.hooks = hooks;
+     params.num_hooks = 1;
+     if (!packed && (geometry.x || geometry.y || geometry.width != 3840 || geometry.height != 2160))
+         pl_tex_clear(r->gpu, r->rgb, (float[4]){0, 0, 0, 1});
+-    r->ready = pl_render_image(r->renderer, &image, &target, &params) && mask.called && !mask.failed;
++    r->ready = pl_render_image_dovi(r->renderer, &image, &target, &params,
++                                   direct ? &transport_from_hpe : NULL) && mask.called && !mask.failed;
+     /* An EL sampling failure can otherwise return a successfully rendered BL-only frame. */
+     struct pl_render_errors errors = pl_renderer_get_errors(r->renderer);
+     r->ready = r->ready && !errors.errors && !errors.num_disabled_hooks;
++    r->used_direct_conversion = r->ready && direct;
+     if (!r->ready) {
+         dvbridge_candidate_destroy(r->pending);
+         r->pending = NULL;
+diff --git a/tools/dvbridge/dvbridge_render.h b/tools/dvbridge/dvbridge_render.h
+index 9f31eb3..38561c0 100644
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -10,6 +10,9 @@ void dvbridge_renderer_destroy(struct dvbridge_renderer *renderer);
+ void dvbridge_renderer_reset(struct dvbridge_renderer *renderer);
+ /* Constant I, P, T code offset added to the IPT tunnel signal (zero = exact conversion). */
+ void dvbridge_renderer_set_ipt_offset(struct dvbridge_renderer *renderer, const float offset[3]);
++/* Experimental direct conversion. Only used for native-size packed frames. */
++void dvbridge_renderer_set_direct_conversion(struct dvbridge_renderer *renderer, bool enabled);
++bool dvbridge_renderer_used_direct_conversion(const struct dvbridge_renderer *renderer);
+ 
+ /* Produces an intermediate PQ RGB image, not a scanout-ready DV frame. */
+ bool dvbridge_render_rgb(struct dvbridge_renderer *renderer, const struct pl_frame *source,
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index b731e9f..9e58622 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -18,6 +18,7 @@ inline std::atomic<int> playbackQsvMode{1};
+ // Constant IPT code offset measured on Dolby Vision hardware (Amlogic S928X and S7D, TV-led):
+ // reference minus exact conversion, in 12-bit I, P, T codes.
+ inline std::atomic<bool> playbackMatchHardware{true};
++inline std::atomic<bool> playbackDirectConversion{false};
+ inline constexpr float kHardwareIptOffset[3] = {-5.07f, -7.94f, 3.62f};
+ 
+ inline void SelectOutputSettings()
+@@ -29,6 +30,7 @@ inline void SelectOutputSettings()
+   const int qsv = settings ? settings->GetInt("dvbridge.qsvmode") : 1;
+   playbackQsvMode.store(qsv >= 0 && qsv <= 2 ? qsv : 1);
+   playbackMatchHardware.store(!settings || settings->GetBool("dvbridge.matchhardware"));
++  playbackDirectConversion.store(settings && settings->GetBool("dvbridge.directconversion"));
+ }
+ 
+ // GUI white in the menu output (dvbridge.menubrightness). Read live, as the setting can change while
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 2076417..338bbf8 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -156,6 +156,8 @@ void CDVBridgeGLES::Reset()
+   m_prepared = m_packed = false;
+   m_direct = false;
+   dvbridge_renderer_reset(m_renderer);
++  m_conversionUsable = true;
++  m_lastConversionPath = -1;
+   // Playback ended: free the media-engine surfaces and the decoder's VA device reference.
+   dvbridge_vpp_release(m_vpp);
+   m_vppFailed = false;
+@@ -172,6 +174,8 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+   if (!metadata.Data())
+     return Failure("metadata-unavailable");
+   SetIptOffset(m_renderer, m_packer);
++  const bool requestedConversion = DVBRIDGE::playbackDirectConversion.load();
++  dvbridge_renderer_set_direct_conversion(m_renderer, requestedConversion && m_conversionUsable);
+   dvbridge_gl_frame bl{}, el{};
+   if (!dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
+     return Failure("base-import");
+@@ -194,6 +198,17 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+   {
+     m_direct = dvbridge_render_packed(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
+                                      base.pts, elPts, geometry, m_scanout, true);
++    if (!m_direct && requestedConversion && m_conversionUsable)
++    {
++      // Retry this very frame using the release path, keeping its metadata and
++      // enhancement layer paired. Do not retry the experiment until next play.
++      CLog::Log(LOGWARNING, "DVBridge direct conversion failed; retrying release renderer");
++      m_conversionUsable = false;
++      dvbridge_renderer_reset(m_renderer);
++      dvbridge_renderer_set_direct_conversion(m_renderer, false);
++      m_direct = dvbridge_render_packed(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
++                                       base.pts, elPts, geometry, m_scanout, true);
++    }
+     if (!m_direct)
+     {
+       Failure("direct-path-unavailable-using-composition");
+@@ -229,6 +244,14 @@ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+   dvbridge_gl_frame_release(&bl);
+   if (!m_prepared)
+     return Failure("render-prepare");
++  const int conversionPath = dvbridge_renderer_used_direct_conversion(m_renderer) ? 1 : 0;
++  if (conversionPath != m_lastConversionPath)
++  {
++    CLog::Log(LOGINFO, "DVBridge conversion: requested={} active={} packed={} source={}x{} rotation={}",
++              requestedConversion, conversionPath ? "direct-lms" : "release-rgb", m_direct,
++              base.width, base.height, base.layout == DVBRIDGE_Y416_BASE_ROT180 ? 180 : 0);
++    m_lastConversionPath = conversionPath;
++  }
+   if (DVBRIDGE::DiagnosticsEnabled())
+   {
+     ++m_prepares;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index 8f1e93f..6bf0109 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -68,6 +68,8 @@ private:
+   pl_tex m_scanout = nullptr;
+   bool m_direct = false;
+   bool m_directUsable = true;
++  bool m_conversionUsable = true;
++  int m_lastConversionPath = -1;
+   bool m_prepared = false;
+   bool m_packed = false;
+   unsigned m_pendingInfo = 0;
