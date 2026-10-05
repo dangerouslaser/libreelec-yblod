@@ -1,0 +1,73 @@
+#version 430 core
+#extension GL_ARB_gpu_shader_int64 : require
+layout(local_size_x=64) in;
+layout(std430,binding=0) readonly buffer Metadata { int64_t m[]; };
+layout(std430,binding=1) readonly buffer Samples { uvec4 samples[]; };
+layout(std430,binding=2) writeonly buffer Results { ivec4 results[]; };
+
+int64_t floor_power_two(int64_t value, int shift)
+{
+    return value >= int64_t(0) ? value >> shift :
+        -int64_t(1) - ((-(value+int64_t(1))) >> shift);
+}
+int64_t bound(int64_t value, int64_t low, int64_t high)
+{
+    return value < low ? low : value > high ? high : value;
+}
+void main()
+{
+    uint index=gl_GlobalInvocationID.x;
+    if (index>=uint(m[0])) return;
+    uvec4 sample_value=samples[index];
+    int component=int(m[1]), pivot_count=int(m[17]);
+    int64_t original=int64_t(sample_value[component]);
+    int64_t codes[3];
+    for(int channel=0;channel<3;++channel)
+        codes[channel]=bound(int64_t(sample_value[channel]),m[11+2*channel],m[12+2*channel]);
+    int segment=0;
+    while (segment<pivot_count-2 && original>=m[19+segment]) ++segment;
+    int offset=35+24*segment;
+    int order=int(m[offset+1]);
+    int64_t total=int64_t(0);
+    if(m[offset]==int64_t(0)) {
+        int64_t power=int64_t(1);
+        for (int degree=0;degree<=order;++degree) {
+            total += m[offset+3+degree]*power*(int64_t(1) << (20-int(m[4])*degree));
+            power *= codes[component];
+        }
+    } else {
+        int64_t terms[21];
+        int depth=int(m[4]);
+        for(int channel=0;channel<3;++channel) {
+            terms[channel]=codes[channel]*(int64_t(1) << (20-depth));
+            terms[7+channel]=codes[channel]*codes[channel]*(int64_t(1) << (20-2*depth));
+        }
+        terms[3]=codes[0]*codes[1]*(int64_t(1) << (20-2*depth));
+        terms[4]=codes[0]*codes[2]*(int64_t(1) << (20-2*depth));
+        terms[5]=codes[1]*codes[2]*(int64_t(1) << (20-2*depth));
+        terms[6]=floor_power_two(terms[3]*terms[2],20);
+        for(int term=3;term<7;++term) terms[7+term]=floor_power_two(terms[term]*terms[term],20);
+        for(int term=0;term<7;++term) terms[14+term]=floor_power_two(terms[term]*terms[7+term],20);
+        total=m[offset+2]*(int64_t(1) << 20);
+        for(int row=0;row<order;++row)
+            for(int term=0;term<7;++term)
+                total+=m[offset+3+row*7+term]*terms[row*7+term];
+    }
+    int64_t mapped=bound(floor_power_two(total,int(m[5])+4),int64_t(0),int64_t(65535));
+    int64_t residual=int64_t(0);
+    if (m[2]==int64_t(1)) {
+        int64_t distance=int64_t(sample_value.w)-m[7];
+        if (distance!=int64_t(0)) {
+            int64_t direction=distance>int64_t(0) ? int64_t(1) : -int64_t(1);
+            int64_t gain=int64_t(1) << (10-int(m[6]));
+            int64_t accumulator=((int64_t(2)*distance-direction)*m[8]+int64_t(2)*direction*m[9])*gain;
+            int64_t limit=int64_t(2)*gain*m[10];
+            residual=floor_power_two(bound(accumulator,-limit,limit),int(m[5])-5-int(m[6]));
+        }
+    }
+    int64_t summed=mapped+residual;
+    int shift=16-int(m[3]);
+    int64_t reconstructed=bound(floor_power_two(summed+(int64_t(1) << (shift-1)),shift),
+                               int64_t(0),(int64_t(1) << int(m[3]))-int64_t(1));
+    results[index]=ivec4(int(mapped),int(residual),int(summed),int(reconstructed));
+}

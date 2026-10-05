@@ -1,0 +1,101 @@
+{
+  "schema": "yblod.native-gpu-scaled-frame-profile-results.v1",
+  "status": "complete",
+  "scope": "instrumented-private-prepared-whole-code-full-frame-diagnostic",
+  "gpu_attempted": true,
+  "cpu_full_frame_gate": true,
+  "full_frame_gpu_exact": true,
+  "counts": [
+    8294400,
+    2073600,
+    2073600
+  ],
+  "gpu_verified_dispatches": 191,
+  "gpu_verified_stage_values": 49766400,
+  "warmups": 1,
+  "repeats": 3,
+  "timed_crosscheck_scope": "last-chunk-only",
+  "instrumented_gpu_path_profile": true,
+  "phase_clock": "host-monotonic-wall",
+  "dispatch_wait_is_device_kernel_time": false,
+  "wall_ns": [
+    823958395,
+    784929082,
+    634278507
+  ],
+  "cpu_ns": [
+    218384003,
+    232403769,
+    261213272
+  ],
+  "extract_pack_wall_ns": [
+    154928088,
+    162223757,
+    171816247
+  ],
+  "upload_wall_ns": [
+    30117041,
+    35262239,
+    46797238
+  ],
+  "dispatch_barrier_fence_wait_wall_ns": [
+    624226211,
+    573052432,
+    402436383
+  ],
+  "readback_wall_ns": [
+    14642679,
+    14347539,
+    13184095
+  ],
+  "cold_setup_wall_ns": 24324424,
+  "teardown_wall_ns": 2940301,
+  "resources": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "memory_peak_bytes": 102248448,
+    "memory_swap_current_bytes": 0,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0
+    }
+  },
+  "device_binding_verified": true,
+  "observed_gl_error": 0,
+  "observed_egl_error": 12288,
+  "cleanup_succeeded": true,
+  "kodi_active_after": true,
+  "executed_artifact_identities_unchanged": true,
+  "binary_sha256": "e7f54834c1d595e4809610fbae201e7ef6896d4f3ede24b604b58912a599e489",
+  "source_sha256": {
+    "engine/experimental/native_gpu_scaled_frame_profile.c": "427fb03038697cd0fe22bd7fa4b7be2ce1d577fa31a6f689b9aeb0d42027ab8a",
+    "tools/yblod/reference/native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+    "tools/yblod/reference/native_gpu_probe_fixture.c": "f28bbfe1e2d239fec196e9695b4e845efe9402d6e97ec4021079af3f48b490b3",
+    "tools/yblod/reference/native_gpu_probe_fixture.h": "3a7903adca60641d0cee559e329435a7474b9b8d059be8fb9fb9780d32baf6d8",
+    "tools/yblod/reference/native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+    "tools/yblod/reference/native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+    "tools/yblod/reference/native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+    "tools/yblod/reference/native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+    "tools/yblod/reference/native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+    "tools/yblod/reference/native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+    "tools/yblod/reference/native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "tools/yblod/reference/native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "tools/yblod/reference/native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "tools/yblod/reference/native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "tools/yblod/reference/native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "tools/yblod/reference/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "tools/yblod/reference/native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "tools/yblod/reference/native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+    "tools/yblod/reference/native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094"
+  },
+  "limitations": [
+    "Host phase clocks include CPU, driver submission and synchronization; no GPU timestamp queries were performed.",
+    "Dispatch/barrier/fence/wait is an aggregate host interval, not isolated shader kernel time.",
+    "Each chunk is serialized and all four diagnostic stages are read back; this is not a GPU-resident playback route.",
+    "Source identity and exactness apply to this cohort; no Dolby display accuracy, fractional Y416, Kodi integration or real-time claim."
+  ]
+}
