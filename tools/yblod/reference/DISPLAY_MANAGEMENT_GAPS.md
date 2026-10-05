@@ -57,6 +57,15 @@ Consequently, a player-led backend would need explicit sink capabilities, a decl
 
 Only after those contracts are checked should a separately approved runtime observation inspect the loaded build, actual generated shader/import, HDMI payload and TV mode. Licensed-device captures remain comparison evidence, not a target curve to fit or a replacement for those checks.
 
+The first ownership checkpoint is now implemented in
+`test_display_metadata_sensitivity.py`: three tests passed on Ollie under the
+512 MiB/no-job-swap cap. Adding or changing synthetic L1/L2/L8 dictionaries
+leaves every source-colour conversion intermediate unchanged; checked saved
+association/configuration retains the changed dictionaries and provenance;
+a trim-only change with a stale parsed-RPU hash is rejected. These are opaque
+synthetic association fixtures, not conforming bitstreams, trim semantics or
+proof that the tunnel serializer preserves the instructions.
+
 ## Source inventory
 
 Local staging sources read 2026-10-05; hashes identify this audit checkpoint, not a deployed binary:
