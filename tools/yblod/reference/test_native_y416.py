@@ -142,7 +142,11 @@ def verify_archive(manifest_path,destination):
                     if len(raw)!=count*8:raise ValueError("archive truncated")
                     digest.update(raw)
                     owner=C.create_string_buffer(raw)
-                    surface=Surface(C.cast(owner,C.POINTER(C.c_uint8)),len(raw),width,rows,width*8,1,16,10,6)
+                    # Casting the owning array itself can form ctypes keepalive
+                    # cycles. Borrow its address instead: lexical owner stays
+                    # alive through the synchronous call and comparison below.
+                    pointer=C.cast(C.c_void_p(C.addressof(owner)),C.POINTER(C.c_uint8))
+                    surface=Surface(pointer,len(raw),width,rows,width*8,1,16,10,6)
                     outputs=[(C.c_uint16*count)() for _ in range(4)]
                     status=NativeY416Tests.fn(C.byref(surface),0,rows,*outputs,count)
                     if status:raise ValueError("native archive chunk rejected")

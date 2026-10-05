@@ -1,0 +1,67 @@
+{
+  "schema": "yblod.native-y416-archive-validation.v1",
+  "status": "complete",
+  "scope": "lossless CPU unpack of previously saved synthetic hardware surfaces; no processing/scaler/fence accuracy claim",
+  "source_sha256": {
+    "native_y416.c": "1286a746b0a63b36b663a6894cd3d41a34a4d79b84611e148ae1944bbc989903",
+    "native_y416.h": "545bda41583e1c18b05193e008a4f636c9af78a3a9472874a4bf956e7c1cbd53",
+    "test_native_y416.py": "71ae4ae0dc86c79092cb95a5ec3b164d793defa46ce5515b7e2f72d117320c01"
+  },
+  "declared_layout": "LE16 U/Y/V/A",
+  "declared_colour_significance": "native10 Q6 current-route convention; alpha unscaled",
+  "cases": {
+    "Y-x-ascending": {
+      "size": [
+        3840,
+        2160
+      ],
+      "bytes": 66355200,
+      "source_sha256": "ff758371eee314597986e43d244fb0cd6d166488b968188cd6922bc6e431f3fb",
+      "pixels": 8294400,
+      "word_comparisons": 33177600,
+      "all_words_exact": true,
+      "source_report_sha256": "201a772e81a94a5bf7ba26ce11c7e37febbb4ce7882b5638e43ec99969662d46"
+    },
+    "Cb-y-descending": {
+      "size": [
+        3840,
+        2160
+      ],
+      "bytes": 66355200,
+      "source_sha256": "26f373ef6e7cb6626eed5f82a7e4b044330a3a9e37b6df021dfbc2206bc4c8af",
+      "pixels": 8294400,
+      "word_comparisons": 33177600,
+      "all_words_exact": true,
+      "source_report_sha256": "a0b68ff5817ef518e7a02b5e81fee3ba27cf0a0ee68f89015488851d7abcaefd"
+    },
+    "Cr-x-step": {
+      "size": [
+        3840,
+        2160
+      ],
+      "bytes": 66355200,
+      "source_sha256": "4e7bca22ccd23698f552346159f68e27349036b3f73edf0f105a01769e0de256",
+      "pixels": 8294400,
+      "word_comparisons": 33177600,
+      "all_words_exact": true,
+      "source_report_sha256": "11bd63da20717c3c47d656f0a59dba2302d1520d45edd2a9237b54d61f2c73e9"
+    },
+    "Y-y-stripe-phase1": {
+      "size": [
+        3840,
+        2160
+      ],
+      "bytes": 66355200,
+      "source_sha256": "e93adc4abb4492c8204c00fe236bc88c368382204c014977849450d1e6fc5282",
+      "pixels": 8294400,
+      "word_comparisons": 33177600,
+      "all_words_exact": true,
+      "source_report_sha256": "193768d8d8713ca305306a854a1971f8b3975f9fa3050e0fc24c124b4d194616"
+    }
+  },
+  "elapsed_seconds": 10.631793107953854,
+  "process_peak_rss_kib": 42860,
+  "rss_units": "KiB on Linux; bytes on Darwin; process lifetime includes compile/test harness, not playback",
+  "total_word_comparisons": 132710400,
+  "no_hardware_jobs": true
+}
