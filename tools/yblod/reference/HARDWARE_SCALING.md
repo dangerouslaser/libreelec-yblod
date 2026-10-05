@@ -66,6 +66,18 @@ submission does not prove the named algorithm or dedicated engine was used.
 The invocation JSON explicitly keeps `hardware_engine_verified:false`.
 Copy-mode colour/chroma request fields are null because they were not submitted.
 
+The instrumented probe optionally reads its own Linux DRM fdinfo counters
+immediately before VPP, after explicit output synchronization, and after image
+download. It records raw render/copy/video/video-enhance client nanoseconds
+and separate VPP/readback interval deltas. Upload is already synchronized before
+the first snapshot. Unknown/missing/malformed counters stay null; deltas require
+matching client/device identities and nondecreasing counters. Duplicate fields,
+bad units, signed/overflowing values and truncated snapshots are rejected.
+These counters exclude Kodi's separate client. They show engine-class activity,
+not the SFC sub-block, filter identity, total GPU memory or playback latency.
+Zero short-interval activity is not proof that an engine can never be used.
+Copy mode has no VPP snapshots; its interval deltas remain null.
+
 ## Independent colour-position matrix
 
 ```sh
@@ -84,6 +96,39 @@ offset or picture-derived correction is applied. See the results document
 for the measured input/output asymmetry and why no setting is adopted as a fix.
 
 ## Test order
+
+### Full-size, row-streamed controls
+
+```sh
+systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  python3 hardware_scaling_large.py run /path/to/vaapi_scaler_probe \
+  /path/to/fresh-large-results --width 1920 --height 1080 --repeats 2
+```
+
+The full-size runner uses ten synthetic patterns: distinct channel constants,
+a horizontal slope8 negative control, and vertical slopes±1/2/4/8. Each ramp
+has a centred128-native-sample affine band and constant continuation, remaining
+within0..1023. A16-output-sample margin inside that band excludes filter support
+crossing its ends. Only that interior is compared to rounded Annex-B first
+moments; band boundaries are not silently scored as affine. Every downloaded
+word is still checked for exact size and zero unused P010 low bits.
+
+Inputs, hashes and validation are streamed in row-sized buffers, rather than
+full-resolution lists or Fraction arrays. Ten copies and40 actual native-size
+VPP checks finish before80 enlargement jobs (four declarations, ten patterns,
+two repeats). Identical output hashes allow score reuse, not pixel fitting.
+The independent scalar oracle validates both axes and all signed slopes in
+unit tests, including per-pass half-ties toward positive infinity.
+Small slopes can conceal a position difference through rounding; they cannot
+establish phase agreement by themselves. Successful completion means the
+measurement/gates finished, not that hardware matched the reference.
+
+Fresh destinations are mandatory. At production dimensions retained synthetic
+downloads occupy roughly2.4GB; these are generated patterns, not media frames.
+Resource fields describe Python process-lifetime RSS and diagnostic elapsed
+time only, not GPU allocation or steady-state playback performance.
+
+### General small-pattern corpus
 
 Generate configurable vectors on a CPU host without NumPy:
 
@@ -154,13 +199,15 @@ around unsupported same-format processing.
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **371 reference tests**, including vector/scoring, runner failure gates,
-  affine controls and6 compiled CLI guards, pass on Ollie with no skips under
+- **397 reference tests**, including vector/scoring, runner failure gates,
+  affine/siting/large controls,12 host-only DRM parser fixtures and8 compiled CLI guards,
+  pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
 - Compiled guards test invalid arguments, copy-resize requests, unknown modes,
   bad input sizes and low bits **before any GPU open**. They are not GPU tests.
-- The64x64→128x128 Intel run and ascending/descending affine controls are complete.
-- Production-size comparison, siting-control matrix, actual engine routing,
+- The64x64→128x128 Intel run, ascending/descending affine controls and independent
+  input/output siting matrix are complete.
+- Production-size comparison, actual engine routing,
   playback performance and AMD measurements remain pending. No SK4-match
   improvement or production acceptance is claimed.
 
@@ -171,5 +218,5 @@ YBLOD_VAAPI_PROBE_BINARY=/absolute/path/vaapi_scaler_probe \
   python3 -m unittest discover -s tools/yblod/reference -p 'test_*.py'
 ```
 
-Without that environment variable, the six compiled tests explicitly skip;
+Without that environment variable, the eight compiled tests explicitly skip;
 the synthetic Python tests remain runnable from the public source.

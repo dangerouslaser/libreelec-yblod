@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "drm_engine_accounting.h"
 
 static VADisplay display;
 static int device_fd = -1, initialized;
@@ -20,6 +21,47 @@ static VAConfigID config = VA_INVALID_ID;
 static VAContextID context = VA_INVALID_ID;
 static VABufferID pipeline = VA_INVALID_ID;
 static VASurfaceID surfaces[2] = {VA_INVALID_ID, VA_INVALID_ID};
+
+/* Optional Linux DRM per-client accounting, not an SFC or algorithm proof.
+ * The probe reads its own fd only; counters never include Kodi's client. */
+static EngineSample engine_sample(void)
+{
+    EngineSample result = {0};
+    char path[64], line[256];
+    snprintf(path, sizeof(path), "/proc/self/fdinfo/%d", device_fd);
+    FILE *file = fopen(path, "r");
+    if (!file) return result;
+    while (fgets(line, sizeof(line), file)) {
+        if (!strchr(line, '\n') || !engine_parse_line(&result, line)) {
+            memset(&result, 0, sizeof(result));
+            break;
+        }
+    }
+    if (ferror(file)) memset(&result, 0, sizeof(result));
+    fclose(file);
+    return result;
+}
+
+static void engine_json(EngineSample sample)
+{
+    printf("{\"client_id\":");
+    if (sample.client_present) printf("%llu", sample.client_id);
+    else printf("null");
+    printf(",\"pci_device\":");
+    if (*sample.pci_device) printf("\"%s\"", sample.pci_device);
+    else printf("null");
+    for (unsigned i = 0; i < 4; ++i) {
+        printf(",\"%s\":", engine_names[i]);
+        if (sample.present[i]) printf("%llu", sample.ns[i]);
+        else printf("null");
+    }
+    putchar('}');
+}
+
+static void engine_delta_json(EngineSample before, EngineSample after)
+{
+    engine_json(engine_delta(before, after));
+}
 
 static void cleanup(void)
 {
@@ -161,6 +203,7 @@ static void surface_create(unsigned width, unsigned height, unsigned index)
 
 int main(int argc, char **argv)
 {
+    EngineSample before_vpp = {0}, after_vpp = {0};
     if (argc < 9 || (argc - 9) % 2) {
         fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left]\n", argv[0]);
         return EXIT_FAILURE;
@@ -316,11 +359,15 @@ int main(int argc, char **argv)
         parameters.output_color_properties.chroma_sample_location = output_chroma;
         VA_CHECK(vaCreateBuffer(display, context, VAProcPipelineParameterBufferType,
                                sizeof(parameters), 1, &parameters, &pipeline));
+        before_vpp = engine_sample();
         VA_CHECK(vaBeginPicture(display, context, surfaces[1]));
         VA_CHECK(vaRenderPicture(display, context, &pipeline, 1));
         VA_CHECK(vaEndPicture(display, context));
+        VA_CHECK(vaSyncSurface(display, surfaces[1]));
+        after_vpp = engine_sample();
     }
     unsigned char *output = download(surfaces[copy ? 0 : 1], ow, oh);
+    EngineSample after_download = engine_sample();
     int out_fd = open(argv[3], O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (out_fd < 0) fail("output must be a new writable path");
     FILE *out = fdopen(out_fd, "wb");
@@ -339,7 +386,18 @@ int main(int argc, char **argv)
     if (copy) printf("\"colour_standard\":null,\"colour_range\":null,");
     else printf("\"colour_standard\":%d,\"colour_range\":%u,",
                 VAProcColorStandardBT2020, VA_SOURCE_RANGE_FULL);
-    printf("\"vpp_submitted\":%s,\"hardware_engine_verified\":false}\n", copy ? "false" : "true");
+    printf("\"vpp_submitted\":%s,\"hardware_engine_verified\":false,", copy ? "false" : "true");
+    printf("\"drm_client_engine_accounting\":{\"unit\":\"ns\",\"before_vpp\":");
+    engine_json(before_vpp);
+    printf(",\"after_vpp_sync\":");
+    engine_json(after_vpp);
+    printf(",\"after_download\":");
+    engine_json(after_download);
+    printf(",\"vpp_interval_delta\":");
+    engine_delta_json(before_vpp, after_vpp);
+    printf(",\"download_interval_delta\":");
+    engine_delta_json(after_vpp, after_download);
+    printf("}}\n");
     if (fflush(stdout) || ferror(stdout)) fail("write invocation report");
     return EXIT_SUCCESS;
 }
