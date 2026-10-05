@@ -1,15 +1,17 @@
 import copy
+import hashlib
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 from extract_frame import digest, save_json
 from import_rpu import normalize
 from prepare_frame import (H_OFFSETS, H_WEIGHTS, chroma_to_left, fir, mmr_luma_left,
-                           plane, prepare, upsample_el)
+                           plane, prepare, save_plane, upsample_el)
 from test_import_rpu import synthetic_rpu
 
 
@@ -27,7 +29,80 @@ def scalar_fir(values, axis, offsets, weights, shift, maximum):
     return result
 
 
+def original_full_frame_fir(values, axis, offsets, weights, shift, maximum):
+    """Frozen pre-chunking algorithm, including all diagnostic statistics."""
+    values = values.astype(np.int64)
+    indices = np.arange(values.shape[axis])
+    accumulator = np.zeros_like(values)
+    for offset, weight in zip(offsets, weights):
+        accumulator += weight * np.take(values, np.clip(indices + offset, 0, len(indices) - 1), axis=axis)
+    rounded = (accumulator + (1 << (shift - 1))) >> shift
+    stats = {"below_zero_before_bound": int(np.count_nonzero(rounded < 0)),
+             "above_maximum_before_bound": int(np.count_nonzero(rounded > maximum)),
+             "unbounded_minimum": int(rounded.min()), "unbounded_maximum": int(rounded.max()),
+             "maximum": maximum, "axis": axis, "offsets": list(offsets),
+             "weights": list(weights), "shift": shift}
+    return np.clip(rounded, 0, maximum), stats
+
+
 class FilterTest(unittest.TestCase):
+    def test_chunking_preserves_samples_statistics_and_readonly_input(self):
+        rng = np.random.default_rng(873)
+        # Non-contiguous, read-only input and a partial final chunk. Full-range
+        # values exercise both negative-lobe undershoot and upper saturation.
+        values = rng.integers(0, 65536, (67, 38), dtype=np.uint16)[:, ::2]
+        original = values.copy()
+        values.flags.writeable = False
+        kernels = ((0, (-2, -1, 0, 1), (-3, 29, 111, -9), 7),
+                   (0, (-1, 0, 1, 2), (-9, 111, 29, -3), 7),
+                   (0, (-1, 0), (64, 192), 8),
+                   (0, (0, 1), (192, 64), 8),
+                   (0, (0, 1), (3, 1), 2),
+                   (1, (-1, 0, 1), (1, 2, 1), 2),
+                   (1, H_OFFSETS, H_WEIGHTS, 12))
+        for axis, offsets, weights, shift in kernels:
+            for maximum in (1023, 65535):
+                expected, expected_stats = original_full_frame_fir(values, axis, offsets, weights, shift, maximum)
+                for chunk_rows in (1, 3, 32, 128):
+                    with self.subTest(axis=axis, weights=weights, maximum=maximum, chunk_rows=chunk_rows):
+                        with patch("prepare_frame.FIR_CHUNK_ROWS", chunk_rows):
+                            actual, stats = fir(values, axis, offsets, weights, shift, maximum)
+                        np.testing.assert_array_equal(actual, expected)
+                        self.assertEqual(stats, expected_stats)
+        np.testing.assert_array_equal(values, original)
+
+    def test_chunking_single_pixel_and_input_alias_safety(self):
+        values = np.array([[65535]], dtype=np.int64)
+        values.flags.writeable = False
+        self.assertIs(plane(values), values)
+        for axis in (0, 1):
+            actual, stats = fir(values, axis, H_OFFSETS, H_WEIGHTS, 12, 65535)
+            expected, expected_stats = original_full_frame_fir(values, axis, H_OFFSETS, H_WEIGHTS, 12, 65535)
+            np.testing.assert_array_equal(actual, expected)
+            self.assertEqual(stats, expected_stats)
+            self.assertFalse(np.shares_memory(actual, values))
+
+    def test_mmr_chunking_preserves_full_horizontal_statistics(self):
+        values = np.random.default_rng(612).integers(0, 65536, (70, 20), dtype=np.int64)
+        horizontal, expected_stats = original_full_frame_fir(values, 1, (-1, 0, 1), (1, 2, 1), 2, 65535)
+        expected = (horizontal[::2, ::2] + horizontal[1::2, ::2] + 1) >> 1
+        actual, stats = mmr_luma_left(values)
+        np.testing.assert_array_equal(actual, expected)
+        self.assertEqual(stats["horizontal"], expected_stats)
+
+    def test_streamed_plane_bytes_hash_and_exclusive_creation(self):
+        values = np.random.default_rng(934).integers(0, 65536, (67, 22), dtype=np.int64)[:, ::2]
+        expected = values.astype("<u2").tobytes()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            record = save_plane(root, "plane.u16le", values)
+            self.assertEqual((root / "plane.u16le").read_bytes(), expected)
+            self.assertEqual(record["sha256"], hashlib.sha256(expected).hexdigest())
+            self.assertEqual(record["minimum"], int(values.min()))
+            self.assertEqual(record["maximum"], int(values.max()))
+            with self.assertRaises(FileExistsError):
+                save_plane(root, "plane.u16le", values)
+
     def test_constant_preservation_including_edges(self):
         for value in (0, 1, 512, 1023, 65535):
             for channel in ("Y", "Cb", "Cr"):

@@ -63,6 +63,47 @@ def annexb_nals(data):
     return units
 
 
+def annexb_file(path, chunk_size=1024 * 1024):
+    """Stream NALs with only one unfinished unit plus a chunk in memory.
+
+    Do not retain a whole compressed movie and a second list of copied NALs
+    while launching a decoder. Preserve exact start-code/trailing-zero rules
+    used by annexb_nals, including delimiters crossing read boundaries.
+    """
+    if chunk_size < 4:
+        raise ValueError("Annex B chunk must hold a start code")
+    buffer = b""
+    found = False
+    with Path(path).open("rb") as handle:
+        while True:
+            chunk = handle.read(chunk_size)
+            buffer += chunk
+            starts = list(re.finditer(b"\x00\x00(?:\x00)?\x01", buffer))
+            if starts:
+                if not found and any(buffer[:starts[0].start()]):
+                    raise ValueError("not an Annex B stream")
+                found = True
+                for a, b in zip(starts, starts[1:]):
+                    unit = buffer[a.end():b.start()]
+                    if len(unit) < 2:
+                        raise ValueError("short Annex B NAL")
+                    yield unit
+                buffer = buffer[starts[-1].start():]
+            elif not found and any(buffer):
+                # A delimiter may end in the next chunk, so defer validation.
+                if not chunk:
+                    raise ValueError("not an Annex B stream")
+            if not chunk:
+                if not found:
+                    raise ValueError("not an Annex B stream")
+                start = re.match(b"\x00\x00(?:\x00)?\x01", buffer)
+                unit = buffer[start.end():]
+                if len(unit) < 2:
+                    raise ValueError("short Annex B NAL")
+                yield unit
+                break
+
+
 def nal_type(unit):
     if len(unit) < 2:
         raise ValueError("short NAL header")
@@ -259,7 +300,7 @@ def extract(source, output, pts, dovi_tool, expected_sha256=None):
     bl_path, el_path, rpu_path = output / "BL.hevc", output / "EL.hevc", output / "RPU.bin"
     commands.run("demux", [str(dovi_tool), "demux", str(hevc), "--bl-out", str(bl_path), "--el-out", str(el_path)])
     commands.run("extract-rpu", [str(dovi_tool), "extract-rpu", str(hevc), "-o", str(rpu_path)])
-    bl_count, el_indices, rpu_indices, packet_rpus = layer_associations(annexb_nals(hevc.read_bytes()))
+    bl_count, el_indices, rpu_indices, packet_rpus = layer_associations(annexb_file(hevc))
     if bl_count != len(packets) or index not in el_indices or index not in rpu_indices:
         raise ValueError("source stream association does not contain the selected BL/EL/RPU")
     el_index, rpu_index = el_indices.index(index), rpu_indices.index(index)
@@ -279,13 +320,11 @@ def extract(source, output, pts, dovi_tool, expected_sha256=None):
     for label, path, expected in (("bl", bl_path, source_bl), ("el", el_path, source_el)):
         decode_index = index if label == "bl" else el_index
         expected_count = len(packets) if label == "bl" else len(el_indices)
-        layer_units = annexb_nals(path.read_bytes())
-        vcl, frame_count = frame_vcl(layer_units, decode_index)
+        vcl, frame_count = frame_vcl(annexb_file(path), decode_index)
         # EL commonly uses open GOPs with multi-slice RASL pictures. Start at a
         # closed IDR to avoid dropping their first slices after a CRA seek.
-        start_index = last_random_access(layer_units, decode_index,
+        start_index = last_random_access(annexb_file(path), decode_index,
                                          (19, 20) if label == "el" else (19, 20, 21))
-        del layer_units
         if frame_count != expected_count or vcl != expected:
             raise ValueError(f"{label}: demuxed frame VCL does not match the exact source packet")
         info = commands.probe(f"{label}-stream", ["-show_streams"], path)["streams"][0]

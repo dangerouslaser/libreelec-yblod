@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from output_frame import (TARGET_LMS, TARGET_OFFSET, TARGET_YCC, convert, expand_left,
+from output_frame import (HPE_TO_RGB, TARGET_LMS, TARGET_OFFSET, TARGET_YCC, convert, expand_left,
                           matrix, pack, pq_decode, pq_encode, render, source_matrices)
 from extract_frame import digest
 
@@ -91,6 +91,29 @@ class OutputTests(unittest.TestCase):
         stages = {}
         convert(np.full((1, 2, 3), 5000), dm_identity(), "direct", lambda n, a: stages.update({n: a}))
         self.assertGreater(stages["common_linear_lms"].max(), 1)
+
+    def test_source_pq_bound_is_before_linear_conversion(self):
+        stages = {}
+        convert(np.full((1, 2, 3), 5000), dm_identity(), "source-pq-bound-diagnostic",
+                lambda n, a: stages.update({n: a}))
+        self.assertGreater(stages["source_nonlinear"].max(), 1)
+        np.testing.assert_allclose(stages["common_linear_lms"], 1, atol=1e-12)
+        self.assertNotIn("diagnostic_rgb_before_bound", stages)
+
+    def test_lower_and_upper_bounds_are_independent(self):
+        dm = dm_identity()
+        for policy, low, high in (("rgb-bound-diagnostic", 0, 1),
+                                  ("rgb-lower-bound-diagnostic", 0, None),
+                                  ("rgb-upper-bound-diagnostic", None, 1)):
+            stages = {}
+            convert(np.array([[[5000, 0, 0], [0, 5000, 0]]]), dm, policy,
+                    lambda n, a: stages.update({n: a}))
+            rgb = stages["diagnostic_rgb_before_bound"]
+            self.assertLess(rgb.min(), 0)
+            self.assertGreater(rgb.max(), 1)
+            expected = matrix(np.linalg.inv(TARGET_LMS), matrix(
+                np.linalg.inv(HPE_TO_RGB), np.clip(rgb, low, high)))
+            np.testing.assert_allclose(stages["target_linear"], expected, atol=1e-12)
 
     def test_reject_unsupported_source(self):
         dm = dm_identity()

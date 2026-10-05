@@ -19,15 +19,18 @@ from reference import CHANNELS, SCHEMA, read_plane, validate
 SPEC_SHA256 = "c711442055e73c88be8380317c388d5d9f1992a0fd1fc4bc1f549566a4685b2c"
 H_OFFSETS = (-3, -2, -1, 0, 1, 2, 3, 4)
 H_WEIGHTS = (22, 94, -524, 2456, 2456, -524, 94, 22)
+FIR_CHUNK_ROWS = 32
 
 
 def plane(values):
     values = np.asarray(values)
     if values.ndim != 2 or 0 in values.shape or values.dtype.kind not in "ui":
         raise ValueError("expected a nonempty two-dimensional integer plane")
-    if np.any(values < 0) or np.any(values > 65535):
+    if values.min() < 0 or values.max() > 65535:
         raise ValueError("sample exceeds u16 storage range")
-    return values.astype(np.int64)
+    # Callers do not modify input planes. Reusing an existing int64 buffer avoids
+    # a 66 MB copy for every validation of a 3840x2160 luma plane.
+    return values.astype(np.int64, copy=False)
 
 
 def fir(values, axis, offsets, weights, shift, maximum):
@@ -35,17 +38,34 @@ def fir(values, axis, offsets, weights, shift, maximum):
     values = plane(values)
     if axis not in (0, 1) or len(offsets) != len(weights) or sum(weights) != 1 << shift:
         raise ValueError("invalid FIR kernel")
-    indices = np.arange(values.shape[axis])
-    accumulator = np.zeros_like(values)
-    for offset, weight in zip(offsets, weights):
-        accumulator += weight * np.take(values, np.clip(indices + offset, 0, len(indices) - 1), axis=axis)
-    rounded = (accumulator + (1 << (shift - 1))) >> shift
-    stats = {"below_zero_before_bound": int(np.count_nonzero(rounded < 0)),
-             "above_maximum_before_bound": int(np.count_nonzero(rounded > maximum)),
-             "unbounded_minimum": int(rounded.min()), "unbounded_maximum": int(rounded.max()),
+    result = np.empty_like(values)
+    below, above, minimum, peak = 0, 0, None, None
+    # Bound working storage, independently of frame height. Vertical samples
+    # still address the original full plane, never the edge of a chunk.
+    for start in range(0, values.shape[0], FIR_CHUNK_ROWS):
+        stop = min(start + FIR_CHUNK_ROWS, values.shape[0])
+        indices = np.arange(start, stop) if axis == 0 else np.arange(values.shape[1])
+        source = values if axis == 0 else values[start:stop]
+        accumulator = np.zeros((stop - start, values.shape[1]), dtype=np.int64)
+        for offset, weight in zip(offsets, weights):
+            samples = np.take(source, np.clip(indices + offset, 0, values.shape[axis] - 1), axis=axis)
+            samples *= weight
+            accumulator += samples
+        accumulator += 1 << (shift - 1)
+        accumulator >>= shift
+        below += int(np.count_nonzero(accumulator < 0))
+        above += int(np.count_nonzero(accumulator > maximum))
+        low, high = int(accumulator.min()), int(accumulator.max())
+        minimum = low if minimum is None else min(minimum, low)
+        peak = high if peak is None else max(peak, high)
+        np.clip(accumulator, 0, maximum, out=accumulator)
+        result[start:stop] = accumulator
+    stats = {"below_zero_before_bound": below,
+             "above_maximum_before_bound": above,
+             "unbounded_minimum": minimum, "unbounded_maximum": peak,
              "maximum": maximum, "axis": axis, "offsets": list(offsets),
              "weights": list(weights), "shift": shift}
-    return np.clip(rounded, 0, maximum), stats
+    return result, stats
 
 
 def chroma_to_left(values, location, bit_depth, method):
@@ -85,6 +105,7 @@ def upsample_el(values, component):
         raise ValueError("unknown component")
     vertical = np.empty((values.shape[0] * 2, values.shape[1]), dtype=np.int64)
     vertical[::2], vertical[1::2] = even, odd
+    del even, odd
     horizontal_odd, c = fir(vertical, 1, H_OFFSETS, H_WEIGHTS, 12, 65535)
     result = np.empty((vertical.shape[0], vertical.shape[1] * 2), dtype=np.int64)
     result[:, ::2], result[:, 1::2] = vertical, horizontal_odd
@@ -110,12 +131,15 @@ def mmr_luma_left(values):
 
 def save_plane(directory, name, values):
     values = plane(values)
-    data = values.astype("<u2").tobytes()
+    hasher = hashlib.sha256()
     with (directory / name).open("xb") as handle:
-        handle.write(data)
+        for start in range(0, values.shape[0], FIR_CHUNK_ROWS):
+            data = values[start:start + FIR_CHUNK_ROWS].astype("<u2").tobytes()
+            handle.write(data)
+            hasher.update(data)
     return {"file": name, "width": values.shape[1], "height": values.shape[0],
             "minimum": int(values.min()), "maximum": int(values.max()),
-            "sha256": hashlib.sha256(data).hexdigest()}
+            "sha256": hasher.hexdigest()}
 
 
 def prepare(extraction_dir, output, phase_filter):

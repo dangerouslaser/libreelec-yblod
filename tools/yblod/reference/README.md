@@ -292,7 +292,7 @@ final output bounds. This identifies a concrete reconstruction-stage limit to
 investigate. It does **not** show that the older RGB clamp was correct or explain
 the old/fast hardware-output discrepancy by itself.
 
-Current automated coverage: 76 reference/extraction/preparation/output tests
+Current automated coverage: 96 reference/extraction/preparation/output/report tests
 plus all eight existing accuracy-tool tests. The real-frame inspector also
 verifies every saved component's signed addition and final rounding/bounds.
 
@@ -349,7 +349,7 @@ and bounded to 0..4095. Each intermediate records its range and negative/above-o
 sample counts; those two counters are domain diagnostics for normalized float
 stages, not overflow counts for the integer code/byte stages.
 
-Two **explicit hypotheses**, not automatically selected corrections:
+Five **explicit hypotheses**, not automatically selected corrections:
 
 - `direct`: source -> common linear LMS -> target, without a display-RGB bound.
 - `rgb-bound-diagnostic`: additionally converts common LMS into BT.2020 RGB,
@@ -357,8 +357,26 @@ Two **explicit hypotheses**, not automatically selected corrections:
   Its HPE-to-RGB matrix is documented from the existing renderer. This isolates
   an existing behaviour for investigation; it is not an independently validated
   Dolby requirement or a claim of clean-room derivation of every constant.
+- `rgb-lower-bound-diagnostic`: only replaces negative intermediate RGB values
+  with zero; does not impose an upper RGB limit.
+- `rgb-upper-bound-diagnostic`: only limits intermediate RGB values above one;
+  does not impose a lower RGB limit at that stage.
+- `source-pq-bound-diagnostic`: limits source nonlinear components to 0..1
+  **before PQ decoding**, without the subsequent RGB bound. This tests a different
+  location, not a second adjustment added to the RGB-bound case.
 
-Both save float32 intermediate files (calculations use float64), 12-bit IPT
+All policies still apply the documented PQ-domain and final transport bounds;
+`direct` means no intermediate RGB bound, not absence of every limit. Linear
+one here is the 10,000-nit PQ normalization, **not** the file's source/mastering
+peak. Scene brightness metadata does not specify the RGB cube used by these
+diagnostics. Frame 2296's source nonlinear maximum is 1.3982; extending PQ gives
+an intermediate RGB maximum of 75.8962. This is an extrapolated calculation,
+not evidence of authored 759,000-nit picture content. The source matrix followed
+by HPE-to-RGB is nearly identity for this frame, so different bounding locations
+may look similar. See the [ITU PQ definition](https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2100-2-201807-S%21%21PDF-E.pdf)
+and [Dolby's description of scene measurements](https://professional.dolby.com/en-gb/content-creation/dolby-vision-for-content-creators/).
+
+All policies save float32 intermediate files (calculations use float64), 12-bit IPT
 codes, and top-down RGB8 tunnel pixels. P/T are sampled at the even pixel of
 each pair. L5 defines black borders. **No metadata is embedded in this new
 output**, so it must not be deployed as a playable DV signal. This checkpoint
@@ -382,6 +400,16 @@ systemd-run --user --scope -p MemoryHigh=384M -p MemoryMax=512M -p MemorySwapMax
   target/reference-frame-2296-output-direct /path/to/sk4/native.rgb \
   /path/to/reference.json --report target/reference-frame-2296-output-direct/sk4.json
 ```
+
+Preparation now processes FIR temporaries in 32-row chunks; saved plane hashes
+and every operation statistic matched the existing frame-2296 preparation
+exactly. Measured peak RSS for that preparation is 290,292 KiB. Extraction now
+streams compressed Annex-B units instead of copying entire streams into memory;
+this retains exact NAL bytes and passes delimiter-boundary tests. Other extractor
+steps, external tools and packet lists are not generally bounded for full movies:
+keep the hard cap and current short-file scope. A pre-streaming extraction was
+stopped by its isolated memory cap, not allowed to exhaust the host. Its retry
+completed under the same 512 MiB cap; no swap was permitted.
 
 The comparison identity JSON must contain `source_sha256`,
 `visible_frame_number` (zero-based source packet index), and `pts_us`. This is a
@@ -419,6 +447,24 @@ Offline elapsed times (3.17/3.46 seconds) are **not playback benchmarks**. Saved
 stages occupy about 451/546 MiB per policy; private frame data stays under ignored
 `target/`, not in Git. Capture SHA-256:
 `afb200d61bb672eef1bbeb6b6363eff562fa6a878da1137810c5b922164f9dd9`.
+
+### Multi-frame reports
+
+`summarize_cases.py` takes matched direct/bounded output directories, each with
+`output.json` and `sk4.json`. It validates frame identity, reconstruction/RPU,
+reference-capture association, rectangle, colour-coordinate and processing
+settings, comparison report links, and streamed hashes of compared tunnel files.
+It reports every frame/channel separately with metric changes and flags every
+metric increase; it does not average frames into a single reassuring score or
+declare a production pass. Other saved float stages and original captures are
+not re-read by this summary; the individual comparator checks the capture.
+
+```sh
+python3 tools/yblod/reference/summarize_cases.py \
+  --case target/reference-frame-461-output-direct target/reference-frame-461-output-bound \
+  --case target/reference-frame-2296-output-direct target/reference-frame-2296-output-bound \
+  --output target/sk4-case-summary.json
+```
 
 ## Next milestone
 

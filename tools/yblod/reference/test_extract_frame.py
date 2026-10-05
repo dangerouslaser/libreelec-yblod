@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from extract_frame import (annexb_nals, choose_packet, frame_vcl, layer_associations,
+from extract_frame import (annexb_file, annexb_nals, choose_packet, frame_vcl, layer_associations,
                            last_random_access, length_prefixed_nals, packet_vcl_matches, split_planes, unhex_dump)
 
 
@@ -11,6 +11,26 @@ def nal(kind, body=b"\x80"):
 
 
 class ExtractionTest(unittest.TestCase):
+    def test_streamed_nals_match_at_every_chunk_boundary(self):
+        units = [nal(32, b"x" * 31), nal(19, b"\x80\x00\x00\x03\x01"),
+                 nal(63, nal(19)), nal(62, b"z" * 57), nal(1, b"\x80\x00")]
+        raw = b"\x00" + b"".join((b"\x00\x00\x01" if i % 2 else b"\x00\x00\x00\x01") + n
+                                 for i, n in enumerate(units))
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stream.hevc"
+            path.write_bytes(raw)
+            expected = annexb_nals(raw)
+            for size in range(4, len(raw) + 2):
+                self.assertEqual(list(annexb_file(path, size)), expected, size)
+
+    def test_streamed_nals_reject_invalid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "stream.hevc"
+            for raw in (b"", b"\0\0", b"garbage\0\0\1abc", b"\0\0\1x", b"\0\0\1\0\0\1xx"):
+                path.write_bytes(raw)
+                with self.assertRaises(ValueError):
+                    list(annexb_file(path, 4))
+
     def test_hex_dump_ignores_ascii_column(self):
         self.assertEqual(unhex_dump("\n00000000: 0000 0003 0201 80  .......\n"), b"\0\0\0\3\2\1\x80")
 

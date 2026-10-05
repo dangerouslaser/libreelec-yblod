@@ -27,6 +27,8 @@ HPE_TO_RGB = np.array([[3.06441879, -2.16597676, .10155818],
                        [.01736321, -.04725154, 1.03004253]])
 M1, M2 = 2610 / 16384, 2523 / 32
 C1, C2, C3 = 3424 / 4096, 2413 / 128, 2392 / 128
+POLICIES = ("direct", "rgb-bound-diagnostic", "rgb-lower-bound-diagnostic",
+            "rgb-upper-bound-diagnostic", "source-pq-bound-diagnostic")
 
 
 def measured(a):
@@ -91,17 +93,20 @@ def source_matrices(dm):
 
 
 def convert(ycc, dm, policy, save):
-    if policy not in ("direct", "rgb-bound-diagnostic"):
+    if policy not in POLICIES:
         raise ValueError("unknown colour policy")
     sm, so, sl = source_matrices(dm)
     nonlinear = matrix(sm, ycc / 4096 - so)
     save("source_nonlinear", nonlinear)
-    common = matrix(sl, pq_decode(nonlinear))
+    decode_input = np.clip(nonlinear, 0, 1) if policy == "source-pq-bound-diagnostic" else nonlinear
+    common = matrix(sl, pq_decode(decode_input))
     save("common_linear_lms", common)
-    if policy == "rgb-bound-diagnostic":
+    if policy.startswith("rgb-"):
         rgb = matrix(HPE_TO_RGB, common)
         save("diagnostic_rgb_before_bound", rgb)
-        common = matrix(np.linalg.inv(HPE_TO_RGB), np.clip(rgb, 0, 1))
+        low = None if policy == "rgb-upper-bound-diagnostic" else 0
+        high = None if policy == "rgb-lower-bound-diagnostic" else 1
+        common = matrix(np.linalg.inv(HPE_TO_RGB), np.clip(rgb, low, high))
     target_linear = matrix(np.linalg.inv(TARGET_LMS), common)
     save("target_linear", target_linear)
     target = matrix(np.linalg.inv(TARGET_YCC), pq_encode(target_linear)) + TARGET_OFFSET
@@ -227,7 +232,7 @@ if __name__ == "__main__":
     parser.add_argument("result", type=Path)
     parser.add_argument("extraction", type=Path)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--policy", required=True, choices=("direct", "rgb-bound-diagnostic"))
+    parser.add_argument("--policy", required=True, choices=POLICIES)
     args = parser.parse_args()
     try:
         info = render(args.result, args.extraction, args.output, args.policy)
