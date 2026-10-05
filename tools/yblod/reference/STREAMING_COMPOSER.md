@@ -55,8 +55,8 @@ The default is 4096 samples per chunk; the API accepts 1 through 65536.
 Memory depends on chunk size and the small manifest, not frame pixel count.
 The manifest read has a separate 8 MiB byte limit. Use `--chunk-samples N` to
 declare a different chunk size; invalid sizes are rejected.
-This is still an intentionally slow Python validation path, not a real-time
-playback performance claim.
+The default backend is still an intentionally slow Python validation path.
+Neither backend's offline stage-dump timing is a real-time playback claim.
 
 All three channels produce the same diagnostic stages as the original runner:
 mapped base (unsigned 16-bit), correction and unrounded sum (signed 32-bit), and
@@ -97,6 +97,6 @@ ground truth or proof of Dolby conformance. Fractional hardware-scaled samples
 still need an explicit input contract; they are not silently rounded by this
 runner. Intel/AMD hardware scaling remains a separate upstream operation.
 
-Next validate larger prepared frames within a memory ceiling, connect the
-remaining preparation/colour stages with explicit contracts, and only then
-port tested arithmetic into the accelerated playback path.
+The bounded C adapter is now available. Next measure it on real prepared frames,
+connect the remaining preparation/colour stages with explicit contracts, and
+then integrate tested arithmetic into the accelerated playback path.

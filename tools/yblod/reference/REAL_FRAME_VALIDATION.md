@@ -72,3 +72,25 @@ appropriate memory limit. Compare its manifest/input hashes and every stage
 record with an independently generated `reference.py` report. Rehash both sets
 of files rather than comparing only recorded hashes. Only publish sanitized
 aggregate results; the composer reports themselves contain full frame metadata.
+
+## Explicit native integer backend
+
+The C backend also reproduces all twelve reconstruction files byte-for-byte
+against both the saved Python stages and the original reference. Native-frame
+tests exercise 23 synthetic frame runs and 276 stage-file byte comparisons,
+including different depths, MMR guides, disabled residuals and chunk boundaries.
+Python mapping, correction and composition calls are deliberately forbidden
+while those native tests run, so they cannot silently fall back to the oracle.
+
+On the same prepared real frame, the explicitly selected native backend with
+4096-sample chunks took 10.40 seconds for the complete process (10.331 seconds
+inside the composer), versus the earlier 48.78-second Python run. Process peak
+RSS was 20,004 KiB. The directly read job cgroup peak was 209,944,576 bytes,
+including charged cache, with zero swap and no memory-limit/OOM events under
+the 512 MiB cap. These single offline runs were not a controlled cache/timing
+benchmark and used separately pinned composer source versions. They establish
+correct acceleration of this diagnostic, not real-time playback performance.
+
+The native backend is explicit and is not the default. No fractional Y416
+policy, new enhancement scaler, display adaptation, Kodi integration or
+improved SK4 matching follows from this acceleration result.

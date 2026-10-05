@@ -79,5 +79,41 @@
     "comparison_job_swap_limit_bytes": 0,
     "comparison_exit_status": 0
   },
+  "native_integer_validation": {
+    "backend_selected_explicitly": true,
+    "chunk_samples": 4096,
+    "all_12_stages_byte_exact_against_python_and_original_reference": true,
+    "all_input_manifest_hashes_and_stage_records_match": true,
+    "stage_files_rehashed": 36,
+    "synthetic_native_frame_runs": 23,
+    "synthetic_stage_file_byte_comparisons": 276,
+    "synthetic_native_frame_tests_passed": 4,
+    "synthetic_python_arithmetic_forbidden_during_native_runs": true,
+    "native_report_sha256": "6714b3dc02acd9903c559451c36e5e64d058e6da8d9330adeabc3d9d68279b94",
+    "python_report_sha256": "e6482eea917583063602fe08af6f747fc395d6c73069c966120283dacb30ef75",
+    "original_reference_report_sha256": "40160a26770fc8474ef56c75dfc322c69d4d32df88b9fb8b2472511b142bbf84",
+    "composer_source_sha256": "32e18417ff27cab0e2c75832c941150c72c0eb9a24f37750d9f43ea540fc88a5",
+    "native_source_sha256": {
+      "native_composer.c": "a26899013fee325ab3282ea080a34b151825d58f4c72db26c2ae644e12930392",
+      "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+      "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687"
+    },
+    "library_sha256": "8ae9d5ac4b0e6cdb716771d7b69de575bc8611d8cda1f7ec9c872116499978e9",
+    "build_record_sha256": "31db45ee5d839962ae02a9d825dbfc1d1025e162898e82e5d44ef3e72cbed4e1",
+    "abi_version": 1,
+    "composer_elapsed_seconds": 10.331237765029073,
+    "process_elapsed_seconds": 10.40,
+    "user_seconds": 10.28,
+    "process_peak_rss_kib": 20004,
+    "cgroup_peak_bytes": 209944576,
+    "cgroup_swap_peak_bytes": 0,
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "memory_limit_events": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "exit_status": 0,
+    "interpretation": "single offline runs; cache/source-version differences not controlled; not playback benchmark; native backend not default"
+  },
   "privacy": "aggregate counts, hashes and resource observations only; no layer pixels, RPU payload, full source DM, capture images or private paths"
 }

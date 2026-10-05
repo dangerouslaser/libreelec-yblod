@@ -104,7 +104,8 @@ Compiler/version and target-specific build verification must accompany further
 deployment. The tests verify arithmetic, not GPU execution, licensed Dolby
 conformance, real-film accuracy or a match to the SK4.
 
-Next add a bounded prepared-frame adapter and differential every-stage output
-tests before exposing any experimental playback integration. Existing HDMI
+`native_stage.py` and the opt-in `streaming_composer.py --backend native` now
+provide the bounded prepared-frame adapter and every-stage differential tests.
+Real-frame timing and validation precede experimental playback integration. Existing HDMI
 packing and presentation ownership can stay separate from these arithmetic
 stages; hardware scaling remains an upstream contract decision.
