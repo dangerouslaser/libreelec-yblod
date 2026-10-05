@@ -45,3 +45,29 @@ absent; differences in those regions require separate accuracy investigation.
 Run `python3 tools/yblod/accuracy/test_direct_conversion.py` for double-precision
 CPU math and source-wiring checks. These do not establish GPU accuracy, playback
 performance, or HDMI correctness. Those require testing the image on hardware.
+
+## Performance sampling
+
+`tools/yblod/accuracy/measure_playback.py` runs on the test device. It reads
+Kodi's CPU time and i915's per-client engine busy-time counters once per second,
+deduplicating repeated file descriptors for the same GPU client. It does not
+open a debug overlay or alter playback. Kodi's local JSON-RPC endpoint must be
+available without authentication, as on this test VM.
+
+For example, seek to 10:00, then run:
+
+```
+python3 measure_playback.py 1917-direct --at 610 --seconds 60 > 1917-direct.json
+```
+
+Repeat the same interval with the setting off, restarting the video to latch
+the change. Keep subtitles off, Quick Sync unchanged and all overlays closed.
+Check `DVBridge conversion:` in the log to confirm the requested path ran.
+Reject measurements with changed GPU clients, paused playback, buffering or
+fallback/overlay transitions. Repeat matched pairs to check run-to-run variation.
+
+GPU busy percentage is occupied engine time, not FPS or wall-clock speedup.
+CPU percentage is relative to one core. Video-engine totals can exceed 100%
+when multiple engines are active. Dynamic GPU clocks and movie/network load
+remain sources of variation; the saved samples include clock readings and
+playback positions. Renderer failure counters are not dropped-frame counters.
