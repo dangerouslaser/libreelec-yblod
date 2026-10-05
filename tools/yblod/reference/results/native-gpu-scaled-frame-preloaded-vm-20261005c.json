@@ -1,0 +1,180 @@
+{
+  "schema": "yblod.native-gpu-scaled-frame-preloaded-results.v1",
+  "status": "complete",
+  "scope": "Complete prepared whole-code GPU arithmetic with instrumented preloaded-batch dispatch/wait timing; not playback, display accuracy or Dolby conformance.",
+  "source_sha256": {
+    "engine/experimental/native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+    "engine/experimental/native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "engine/experimental/native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "engine/experimental/native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "engine/experimental/native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+    "engine/include/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "engine/experimental/native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+    "engine/experimental/native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+    "engine/experimental/native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+    "engine/experimental/native_gpu_probe_fixture.c": "f28bbfe1e2d239fec196e9695b4e845efe9402d6e97ec4021079af3f48b490b3",
+    "engine/experimental/native_gpu_probe_fixture.h": "3a7903adca60641d0cee559e329435a7474b9b8d059be8fb9fb9780d32baf6d8",
+    "engine/experimental/native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+    "engine/experimental/native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+    "engine/experimental/native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+    "engine/experimental/native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "engine/experimental/native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "engine/src/native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "engine/experimental/native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "engine/experimental/native_gpu_scaled_frame_preloaded_probe.c": "ddb0d8139dc2627e4fed37edb80713e643a46b0c4b374ad80183ee659522de9f"
+  },
+  "binary_sha256": "8b37a01e5fc162fa9eb3290da5d86a65e610069d2bb7c55010cb7a98b5de132b",
+  "timing_scope": "Instrumented full-frame warm totals include preparation, uploads, extra preload-completion fences/waits, dispatch/barrier/fence/wait and readback. File I/O, input/stage scratch allocation, CPU oracle checks, cold setup and teardown excluded.",
+  "dispatch_timing_scope": "Sum of host-observed dispatch, barrier, fence and wait after upload-completion fence, before readback. Not a pure device-kernel timer and not whole-frame resident processing.",
+  "preload_timing_scope": "Host wall time waiting for per-batch upload-completion fences; excluded from dispatch timing but included in instrumented full-frame totals.",
+  "verification_scope": "Complete CPU reference/cached stage gate before GPU access; complete GPU/reference-C four-stage gate before one warmup and three measured passes.",
+  "timed_crosscheck_scope": "Final CPU-subchunk suffix of the final GPU batch only.",
+  "cold_setup_scope": "Fresh process/context and compile/link; Mesa shader-cache state uncontrolled.",
+  "comparison_policy": "The added preload fences change the workload. Do not claim a median speed improvement against previous non-interleaved cohorts.",
+  "cohorts": [
+    {
+      "counts": [
+        8294400,
+        2073600,
+        2073600
+      ],
+      "cpu_full_frame_gate": true,
+      "full_frame_gpu_exact": true,
+      "gpu_verified_stage_values": 49766400,
+      "gpu_verified_dispatches": 48,
+      "gpu_oracle_dispatches": 191,
+      "cpu_chunk_samples": 65536,
+      "gpu_batch_samples": 262144,
+      "golden_suffix_offset": 196608,
+      "golden_suffix_samples": 41984,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "observed_gl_error": 0,
+      "observed_egl_error": 12288,
+      "device_binding_verified": true,
+      "cleanup_succeeded": true,
+      "memory_max_bytes": 536870912,
+      "swap_bytes": 0,
+      "memory_limit_events": 0,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "kodi_active_before_and_after": true,
+      "executed_artifact_and_input_identities_unchanged": true,
+      "warmups": 1,
+      "preloaded_chunk_dispatch_measurement": true,
+      "whole_frame_resident": false,
+      "dispatch_timing_is_device_kernel_time": false,
+      "label": "prepared-frame-2296",
+      "scaled_input": "Intel-scaled P010",
+      "wall_ns": [
+        396472016,
+        694787031,
+        299967258
+      ],
+      "cpu_ns": [
+        186223295,
+        252085752,
+        160984727
+      ],
+      "dispatch_wall_ns": [
+        206856917,
+        434558662,
+        138704763
+      ],
+      "dispatch_cpu_ns": [
+        4412366,
+        5264284,
+        4168069
+      ],
+      "preload_wait_wall_ns": [
+        8749495,
+        14714083,
+        5281377
+      ],
+      "cold_setup_wall_ns": 26419794,
+      "teardown_wall_ns": 1623578,
+      "charged_peak_bytes": 121352192
+    },
+    {
+      "counts": [
+        8294400,
+        2073600,
+        2073600
+      ],
+      "cpu_full_frame_gate": true,
+      "full_frame_gpu_exact": true,
+      "gpu_verified_stage_values": 49766400,
+      "gpu_verified_dispatches": 48,
+      "gpu_oracle_dispatches": 191,
+      "cpu_chunk_samples": 65536,
+      "gpu_batch_samples": 262144,
+      "golden_suffix_offset": 196608,
+      "golden_suffix_samples": 41984,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "observed_gl_error": 0,
+      "observed_egl_error": 12288,
+      "device_binding_verified": true,
+      "cleanup_succeeded": true,
+      "memory_max_bytes": 536870912,
+      "swap_bytes": 0,
+      "memory_limit_events": 0,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "kodi_active_before_and_after": true,
+      "executed_artifact_and_input_identities_unchanged": true,
+      "warmups": 1,
+      "preloaded_chunk_dispatch_measurement": true,
+      "whole_frame_resident": false,
+      "dispatch_timing_is_device_kernel_time": false,
+      "label": "prepared-frame-1406",
+      "scaled_input": "Software-linear-scaled P010",
+      "wall_ns": [
+        346970710,
+        490538160,
+        646961637
+      ],
+      "cpu_ns": [
+        173188761,
+        197313425,
+        223423426
+      ],
+      "dispatch_wall_ns": [
+        171091167,
+        285013626,
+        415006654
+      ],
+      "dispatch_cpu_ns": [
+        4104401,
+        4580930,
+        5006983
+      ],
+      "preload_wait_wall_ns": [
+        7865821,
+        13754532,
+        14791734
+      ],
+      "cold_setup_wall_ns": 26447422,
+      "teardown_wall_ns": 4943569,
+      "charged_peak_bytes": 121270272
+    }
+  ],
+  "limitations": [
+    "Host dispatch/wait includes driver submission and synchronization, not solely shader execution.",
+    "Only each bounded GPU batch is preloaded; the complete frame is not retained as resident GPU input.",
+    "Only the explicit whole10/enabled enhancement/polynomial-luma prepared-input subset is supported.",
+    "Timed passes cross-check only their final suffix; full GPU/reference comparison occurs before timing.",
+    "All three measurements are published; variable timings and changed synchronization prevent a sustained performance claim.",
+    "Charged job memory is not total system/GPU allocation.",
+    "No shader, arithmetic, enhancement-scaling policy, TV settings or Kodi playback changes."
+  ]
+}
+
