@@ -1,8 +1,10 @@
 # Standalone VA-API scaler probe
 
-Implemented source, not a completed hardware measurement. VM execution is
-currently blocked on confirming its authorized SSH route. No device permissions,
-Kodi configuration, display mode, or playback pipeline have been changed.
+The first synthetic hardware measurement is complete on the LibreELEC VM.
+See [INTEL_SCALING_RESULTS.md](INTEL_SCALING_RESULTS.md) for results and limits.
+No device permissions, Kodi configuration, display mode, or playback pipeline
+have been changed. Normal SSH from the workstation works; the earlier explicit
+Petunia-key selection incorrectly excluded the working authentication route.
 
 ## Build
 
@@ -46,6 +48,12 @@ can infer colour standards from dimensions when given `None`; we deliberately
 avoid that hidden resize-time conversion request. Identity tests must still
 verify actual preservation.
 
+The probe creates the default VideoProc configuration, then queries settable
+P010 surface support. Its generic configuration RTFormat mask is not a decoder
+bit-depth list and must not falsely reject supported P010 processing. Colour
+capability queries use returned pointers: Intel can replace caller buffers with
+driver-owned static lists. Optional unreported pipeline format lists remain
+NULL/0; surface attributes and actual explicit P010 processing remain required.
 The probe queries format/dimension/colour capabilities and records API status,
 image layouts, raw capability flags and submitted requests. Scaling/interpolation
 flags are encoded selectors, not independent Boolean capabilities; accepted
@@ -92,6 +100,24 @@ output samples per side in each component; an empty interior is null, not a pass
 Larger ramps are bounded integer staircases, not exact affine coordinate oracles.
 The earlier tiny affine tests in `test_scaling_probe.py` retain that separate role.
 
+`hardware_scaling_run.py` automates these stages, validates the canonical bundle
+and code pins, and refuses scaling after an identity failure. All subprocesses
+are sequential with bounded timeouts; failure retains evidence, not a completed
+report. Example on the GPU-accessible system:
+
+```sh
+systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  python3 hardware_scaling_run.py ./vaapi_scaler_probe \
+  /path/to/vectors /path/to/NEW-results --modes default fast hq --repeats 2
+```
+
+`hardware_phase_check.py` separately tests exact ascending/descending ramps,
+using copy and submitted-default identity gates before repeated enlargement.
+It predicts affine responses independently of filter tap arrays. It reports
+even/odd error sets and output step sizes with a conservative16-output-sample
+interior margin. A sign reversal under a reversed ramp distinguishes a sampling-
+moment effect from a fixed additive code bias. It never adjusts pixels.
+
 Record executable/source hashes, device/driver/kernel, exact commands, input and
 output hashes, invocation JSON/API logs and checker results. A GPU download test
 is not a steady-state playback benchmark. The offline exact-fraction oracle is
@@ -106,14 +132,15 @@ around unsupported same-format processing.
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **359 reference tests**, including11 vector/scoring tests and6 compiled CLI
-  guard tests, pass on Ollie with no skips under512MiB/no-job-swap constraints.
+- **371 reference tests**, including vector/scoring, runner failure gates,
+  affine controls and6 compiled CLI guards, pass on Ollie with no skips under
+  512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
 - Compiled guards test invalid arguments, copy-resize requests, unknown modes,
   bad input sizes and low bits **before any GPU open**. They are not GPU tests.
-- The previous8 accuracy tests passed at the preceding checkpoint.
-- VM authentication, actual copy/VPP results, larger/production-size comparison
-  and engine/performance measurement remain pending. No SK4-match improvement
-  or Intel/AMD execution result is claimed.
+- The64x64→128x128 Intel run and ascending/descending affine controls are complete.
+- Production-size comparison, siting-control matrix, actual engine routing,
+  playback performance and AMD measurements remain pending. No SK4-match
+  improvement or production acceptance is claimed.
 
 Compiled guard coverage can be enabled after building:
 

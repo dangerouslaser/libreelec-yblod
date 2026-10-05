@@ -199,45 +199,68 @@ int main(int argc, char **argv)
     if (!copy) {
         VAConfigAttrib attribute = {VAConfigAttribRTFormat, 0};
         VA_CHECK(vaGetConfigAttributes(display, VAProfileNone, VAEntrypointVideoProc, &attribute, 1));
-        if (attribute.value == VA_ATTRIB_NOT_SUPPORTED || !(attribute.value & VA_RT_FORMAT_YUV420_10))
-            fail("VPP 10bit420 unavailable");
-        attribute.value = VA_RT_FORMAT_YUV420_10;
-        VA_CHECK(vaCreateConfig(display, VAProfileNone, VAEntrypointVideoProc, &attribute, 1, &config));
+        fprintf(stderr, "VideoProc generic RTFormat attribute=0x%08x\n", attribute.value);
+        /* VideoProc generic RTFormat is not the decoder's bit-depth list.
+         * Intel may omit YUV420_10 here while advertising P010 surfaces.
+         * Default VideoProc config follows FFmpeg's VAAPI VPP setup. */
+        VA_CHECK(vaCreateConfig(display, VAProfileNone, VAEntrypointVideoProc, NULL, 0, &config));
+        unsigned count = 0;
+        VA_CHECK(vaQuerySurfaceAttributes(display, config, NULL, &count));
+        if (!count || count > 4096) fail("invalid surface capability count");
+        unsigned capacity = count;
+        VASurfaceAttrib *attributes = calloc(count, sizeof(*attributes));
+        if (!attributes) fail("surface capability allocation");
+        VA_CHECK(vaQuerySurfaceAttributes(display, config, attributes, &count));
+        if (count > capacity) fail("surface capability count exceeds allocation");
+        int surface_p010 = 0;
+        for (unsigned i = 0; i < count; ++i)
+            if (attributes[i].type == VASurfaceAttribPixelFormat
+                    && attributes[i].value.type == VAGenericValueTypeInteger) {
+                fprintf(stderr, "surface format fourcc=0x%08x flags=%u\n",
+                        attributes[i].value.value.i, attributes[i].flags);
+                surface_p010 |= attributes[i].value.value.i == VA_FOURCC_P010
+                    && (attributes[i].flags & VA_SURFACE_ATTRIB_SETTABLE);
+            }
+        free(attributes);
+        if (!surface_p010) fail("P010 not advertised for VideoProc surfaces");
         surface_create(ow, oh, 1);
         VA_CHECK(vaCreateContext(display, config, (int)ow, (int)oh, VA_PROGRESSIVE,
                                 &surfaces[1], 1, &context));
-        uint32_t input_formats[64] = {0}, output_formats[64] = {0};
-        VAProcColorStandardType input_standards[64] = {0}, output_standards[64] = {0};
+        VAProcColorStandardType input_standards_storage[64] = {0}, output_standards_storage[64] = {0};
         VAProcPipelineCaps caps = {0};
-        caps.input_pixel_format = input_formats;
-        caps.num_input_pixel_formats = 64;
-        caps.output_pixel_format = output_formats;
-        caps.num_output_pixel_formats = 64;
-        caps.input_color_standards = input_standards;
+        caps.input_color_standards = input_standards_storage;
         caps.num_input_color_standards = 64;
-        caps.output_color_standards = output_standards;
+        caps.output_color_standards = output_standards_storage;
         caps.num_output_color_standards = 64;
         VA_CHECK(vaQueryVideoProcPipelineCaps(display, context, NULL, 0, &caps));
+        /* Supply colour buffers per API; Intel can replace their pointers with
+         * driver-owned lists. Always read returned pointers; never free them.
+         * Leave optional unreported pixel-format lists at NULL/0. */
         if (caps.num_input_pixel_formats > 64 || caps.num_output_pixel_formats > 64
                 || caps.num_input_color_standards > 64 || caps.num_output_color_standards > 64)
             fail("pipeline capability list exceeds capacity");
+        if ((caps.num_input_pixel_formats && !caps.input_pixel_format)
+                || (caps.num_output_pixel_formats && !caps.output_pixel_format)
+                || (caps.num_input_color_standards && !caps.input_color_standards)
+                || (caps.num_output_color_standards && !caps.output_color_standards))
+            fail("pipeline capability list has count without data");
         int input_p010 = 0, output_p010 = 0;
         for (unsigned i = 0; i < caps.num_input_pixel_formats; ++i) {
-            fprintf(stderr, "input format fourcc=0x%08x\n", input_formats[i]);
-            input_p010 |= input_formats[i] == VA_FOURCC_P010;
+            fprintf(stderr, "input format fourcc=0x%08x\n", caps.input_pixel_format[i]);
+            input_p010 |= caps.input_pixel_format[i] == VA_FOURCC_P010;
         }
         for (unsigned i = 0; i < caps.num_output_pixel_formats; ++i) {
-            fprintf(stderr, "output format fourcc=0x%08x\n", output_formats[i]);
-            output_p010 |= output_formats[i] == VA_FOURCC_P010;
+            fprintf(stderr, "output format fourcc=0x%08x\n", caps.output_pixel_format[i]);
+            output_p010 |= caps.output_pixel_format[i] == VA_FOURCC_P010;
         }
         int input_bt2020 = 0, output_bt2020 = 0;
         for (unsigned i = 0; i < caps.num_input_color_standards; ++i) {
-            fprintf(stderr, "input colour standard=%d\n", input_standards[i]);
-            input_bt2020 |= input_standards[i] == VAProcColorStandardBT2020;
+            fprintf(stderr, "input colour standard=%d\n", caps.input_color_standards[i]);
+            input_bt2020 |= caps.input_color_standards[i] == VAProcColorStandardBT2020;
         }
         for (unsigned i = 0; i < caps.num_output_color_standards; ++i) {
-            fprintf(stderr, "output colour standard=%d\n", output_standards[i]);
-            output_bt2020 |= output_standards[i] == VAProcColorStandardBT2020;
+            fprintf(stderr, "output colour standard=%d\n", caps.output_color_standards[i]);
+            output_bt2020 |= caps.output_color_standards[i] == VAProcColorStandardBT2020;
         }
         if (!input_bt2020 || !output_bt2020)
             fail("matching BT2020 input/output convention not advertised");

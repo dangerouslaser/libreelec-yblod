@@ -104,8 +104,9 @@ Annex-B oracle and synthetic P010 probes. These check scaling without fitting
 movie captures; they do not yet invoke Intel/AMD hardware.
 
 [HARDWARE_SCALING.md](HARDWARE_SCALING.md) documents the now-built standalone
-VA-API probe and larger synthetic vectors. Actual VM GPU measurements remain
-pending; the source is public without implying a validated hardware result.
+VA-API probe and larger synthetic vectors. The first VM measurements are in
+[INTEL_SCALING_RESULTS.md](INTEL_SCALING_RESULTS.md); these are synthetic results,
+not production acceptance or a resolved SK4 comparison.
 
 ## Input contract
 
