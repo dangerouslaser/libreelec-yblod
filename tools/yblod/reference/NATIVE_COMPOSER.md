@@ -47,8 +47,9 @@ GCC or Clang with signed `__int128` support is required. The mapper's accepted
 MMR coefficient envelope exceeds 64-bit intermediate accumulation at its
 largest denominator. The fixed maximum metadata size and bounded terms fit
 comfortably inside signed 128 bits. The implementation floors signed values
-using division and remainder, never an implementation-defined negative right
-shift. Wide composition addition also avoids overflow at either signed 64-bit
+using an exact complement identity and shifts of nonnegative operands, never
+an implementation-defined negative right shift. This also avoids per-sample
+wide division. Wide composition addition avoids overflow at either signed 64-bit
 correction endpoint. No extra residual-storage clamp is imposed.
 
 The C API intentionally accepts finite signed 64-bit explicit corrections,
@@ -68,7 +69,7 @@ silently ignoring an extra layer.
 Metadata and every input code are validated before the first output write.
 The four outputs are mapped base, signed correction, unrounded signed sum,
 and reconstructed output. Chunk correction/sum arrays are signed 32-bit: the
-validated coefficient bound keeps correction magnitude below 2^17 and sum
+validated coefficient bound keeps correction in [-2^17, 2^17-1] and sum magnitude
 below 2^18, without introducing a new clamp. Inputs and metadata must stay
 stable during the call. Output buffers must not overlap one another, inputs
 or metadata. Alignment and pointer-range overflow are checked; allocation

@@ -16,9 +16,13 @@ uint64_t yb_sizeof_segment(void) { return sizeof(struct yb_segment); }
 
 static yb_wide floor_div_power2(yb_wide value, unsigned shift)
 {
-    const yb_wide divisor = (yb_wide)1 << shift;
-    const yb_wide quotient = value / divisor;
-    return quotient - (value % divisor < 0);
+    /* Shift only nonnegative signed operands. For a negative value, the
+     * complement identity preserves mathematical floor without division:
+     * floor(v / 2^s) = -1 - floor((-(v + 1)) / 2^s).
+     * v+1 also makes the negation safe at the signed-wide minimum.
+     * Validated callers keep shift within 0..36.
+     */
+    return value >= 0 ? value >> shift : -1 - ((-(value + 1)) >> shift);
 }
 
 static yb_wide bounded(yb_wide value, yb_wide low, yb_wide high)
@@ -311,7 +315,7 @@ int yb_process_chunk(const struct yb_mapping_config *map,
             (enabled && el[index] > enhancement_max))
             return YB_INVALID_SAMPLE;
     /* No fallible operation after this point, absent concurrent caller mutation
-     * or invalid buffer ownership. Accepted correction magnitude is <2^17, so
+     * or invalid buffer ownership. Correction is in [-2^17, 2^17-1], so
      * signed correction and unrounded sum fit the declared int32 outputs.
      */
     for (uint32_t index = 0; index < count; ++index) {
