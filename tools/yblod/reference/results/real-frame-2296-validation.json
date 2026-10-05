@@ -1,0 +1,83 @@
+{
+  "schema": "yblod.real-frame-reconstruction-validation.v1",
+  "status": "complete",
+  "frame_number": 2296,
+  "width": 3840,
+  "height": 2160,
+  "scope": "independent integer reconstruction against unchanged reference on identical prepared inputs; not licensed rendering or SK4 accuracy",
+  "manifest_sha256": "35fc36711293df66ffb0a1b288ea7d57bb93e54c514b37f8d43181badd7a8b1b",
+  "source_pins_sha256": {
+    "streaming_composer.py": "2409586e24130d18c3dd2431985c4fa709ea04b396575c54c6c4ea80c8d8fcc4",
+    "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+    "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e",
+    "composition_stage.py": "b724d8b6bd0baaca345da8e12525c1583ce72ae987b910cde168cb759d44680a",
+    "reference.py": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73"
+  },
+  "verification": {
+    "prepared_input_files_rehashed": 7,
+    "oracle_stage_files_rehashed": 12,
+    "independent_stage_files_rehashed": 12,
+    "manifest_hash_matches": true,
+    "all_input_hashes_match": true,
+    "all_stage_records_and_actual_hashes_match": true,
+    "oracle_implementation_pin_matches_current_reference": true,
+    "prepared_extraction_composition_verification_source_pins_match": true
+  },
+  "samples_per_channel": {"Y": 8294400, "Cb": 2073600, "Cr": 2073600},
+  "matching_stage_sha256": {
+    "mapped_Y": "51f0a4793cb17d0413fa4dcba284de7ce24f86a91fa83897e4b00a8ee108ee4b",
+    "residual_Y": "141347013d13d490a64fb9aca8302c6beb074cc569202c2e12f6171cfa5dc79c",
+    "sum_Y": "3cecaebf7f8be6d1b458405678fa893a798eeef172aea660ddd192122eb4dab3",
+    "reconstructed_Y": "6d8dab3b788612803cf0be9205ebfcaa58ce71d91ca195a86e1c240400da61b6",
+    "mapped_Cb": "23ea5102f32e9bc0a5ed1735fe3a55887a531b9dcb07bddb2d792bde445d6195",
+    "residual_Cb": "853cf9c3e83f6eeacef80d78e49d38e194cc87b768beb06bbe04d348c245b348",
+    "sum_Cb": "dbcb3f5170604691f6372561e2148facb46c0d7f035710beff4034d60b353293",
+    "reconstructed_Cb": "51f468a65a098529b336f6488ca0df553496de2729a7768acf6b37970d106dea",
+    "mapped_Cr": "90d9d8cd21d4a0ea97f75980f4a290bf97da60d2a9ff5c48aa2e752fc771c55c",
+    "residual_Cr": "832d0ced6df8e84e986969a69fe7cff27b5ed62f5e58ed3dbf5a30113378e738",
+    "sum_Cr": "b8a1e3be270697566a5902267500eb85bb1239bb2f046e7fa6ed3a5a7af64eaa",
+    "reconstructed_Cr": "42f06412c36e783b72a59b6ff73329aac4ac5413c5691354dc852d192cad3cb8"
+  },
+  "offline_resource_observation": {
+    "elapsed_seconds": 48.78,
+    "process_peak_rss_kib": 21044,
+    "memory_limit_bytes": 536870912,
+    "job_swap_limit_bytes": 0,
+    "cgroup_peak_mib_reported": 175.7,
+    "cgroup_swap_peak_bytes": 0,
+    "exit_status": 0,
+    "playback_performance_measurement": false
+  },
+  "historical_sk4_association": {
+    "basis": "recorded visible frame counter, not matching driver PTS",
+    "source_pts_milliseconds": 95762,
+    "capture_pts_90k": 8629830,
+    "capture_sha256_rehashed": "afb200d61bb672eef1bbeb6b6363eff562fa6a878da1137810c5b922164f9dd9",
+    "driver_pts_matching_claimed": false
+  },
+  "colour_diagnostic_validation": {
+    "scope": "independent colour assembly reproduces old direct diagnostic; not improved SK4 accuracy or full Dolby display management",
+    "aggregate_report_sha256": "40c1c83ef933eec0367a980e89a0ae303f95b52656f930eb8ed8a0be4dd25195",
+    "comparison_source_sha256": "2e08fc433c8b19f6dbc041788dbf41fe67d01f342b0e06855ce0a2c1d98cda34",
+    "colour_frame_source_sha256": "e4512c4ec5d26b343c347c1cc9cc8389dd350a152f89fc8f99f7127c5506d9bf",
+    "colour_stage_source_sha256": "405ac904ae8711587ad20d4f77658a54838804035b7d6eaef4cb484e70ed7217",
+    "new_colour_report_sha256": "e593cd983f1e60d391161eec99b3d41ac85c2e15ca68b69a9767af9b259c4371",
+    "old_colour_report_sha256": "a1ac44bd4c9e9babd66075f9a51e89de0cc6f9c5609df7f3bfcb9fddaba4b2b7",
+    "active_raw_transport_code_changes": {"I": 0, "P": 0, "T": 0},
+    "packed_frame_bytes": 24883200,
+    "packed_frame_changed_bytes": 0,
+    "matching_raw_transport_sha256": "7e0048b6da96184f46154ba45098662bd7e65dfe2e5df9d231cf98876e45d0db",
+    "matching_packed_sha256": "4959013735674617716117f1f08e4455de95f317f13a5f506961e32e2253fc58",
+    "sk4_new_and_old_errors_identical": true,
+    "sk4_mean_absolute_transport_codes": {"I": 72.39073004065672, "P": 157.3743891780609, "T": 40.00687538844002},
+    "sk4_maximum_absolute_transport_codes": {"I": 901, "P": 2200, "T": 631},
+    "sk4_metadata_first_two_crc_valid": true,
+    "sk4_transport_matrices_equal": true,
+    "comparison_elapsed_seconds": 15.57,
+    "comparison_process_peak_rss_kib": 39092,
+    "comparison_memory_limit_bytes": 536870912,
+    "comparison_job_swap_limit_bytes": 0,
+    "comparison_exit_status": 0
+  },
+  "privacy": "aggregate counts, hashes and resource observations only; no layer pixels, RPU payload, full source DM, capture images or private paths"
+}
