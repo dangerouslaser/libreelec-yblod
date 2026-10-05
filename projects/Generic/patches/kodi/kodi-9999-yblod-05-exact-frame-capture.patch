@@ -1,0 +1,97 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 11c2299..818aef5 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -167,6 +167,7 @@ void CDVBridgeGLES::Reset()
+   dvbridge_renderer_reset(m_renderer);
+   m_conversionUsable = true;
+   m_lastConversionPath = -1;
++  m_captureWaiting = false;
+   // Playback ended: free the media-engine surfaces and the decoder's VA device reference.
+   dvbridge_vpp_release(m_vpp);
+   m_vppFailed = false;
+@@ -177,19 +178,38 @@ void CDVBridgeGLES::CapturePair(const pl_frame& frame, const CDVMetadataBuffer&
+                                double pts, double elPts, dvbridge_geometry geometry)
+ {
+   const uint64_t now = DVBRIDGE::DiagnosticNowMs();
+-  if (now - m_lastCapturePoll < 250)
++  if (!m_captureWaiting && now - m_lastCapturePoll < 250)
+     return;
+   m_lastCapturePoll = now;
+   constexpr const char* request = "/storage/dvbridge-captures/request";
+   struct stat status{};
+   if (lstat(request, &status) != 0 || !S_ISREG(status.st_mode))
++  {
++    m_captureWaiting = false;
+     return;
++  }
++  m_captureWaiting = true;
++  // An empty request captures the next frame; otherwise require its source PTS in microseconds.
++  double requestedPts = pts;
++  if (status.st_size)
++  {
++    FILE* file = std::fopen(request, "r");
++    if (!file)
++      return;
++    const bool parsed = std::fscanf(file, "%lf", &requestedPts) == 1;
++    std::fclose(file);
++    if (!parsed || !std::isfinite(requestedPts) || requestedPts < 0)
++      requestedPts = -1;
++    if (pts < requestedPts - 1000.0)
++      return;
++  }
+   char directory[] = "/storage/dvbridge-captures/pair-XXXXXX";
+   if (!mkdtemp(directory))
+     return;
+   const std::string prefix = std::string(directory) + "/";
+   if (std::rename(request, (prefix + "request").c_str()) != 0)
+     return;
++  m_captureWaiting = false;
+ 
+   // A separate renderer keeps diagnostic candidates out of the presentation transaction.
+   pl_tex target = nullptr;
+@@ -202,6 +222,8 @@ void CDVBridgeGLES::CapturePair(const pl_frame& frame, const CDVMetadataBuffer&
+     return std::fclose(file) == 0 && written;
+   };
+   const bool success = [&]() {
++    if (requestedPts < 0 || std::fabs(pts - requestedPts) > 1000.0)
++      return false;
+     struct statvfs space{};
+     if (statvfs(directory, &space) != 0 ||
+         static_cast<uint64_t>(space.f_bavail) * space.f_frsize < 256ULL * 1024 * 1024)
+@@ -249,18 +271,19 @@ void CDVBridgeGLES::CapturePair(const pl_frame& frame, const CDVMetadataBuffer&
+     char info[1024];
+     const int size = std::snprintf(info, sizeof(info),
+         "{\"width\":3840,\"height\":2160,\"format\":\"RGBA8 DV tunnel\","
+-        "\"pts\":%.17g,\"el_pts\":%.17g,\"qsv_mode\":%d,"
++        "\"pts\":%.17g,\"el_pts\":%.17g,\"requested_pts\":%.17g,\"qsv_mode\":%d,"
+         "\"ipt_offset\":[%.9g,%.9g,%.9g],\"margins_lrtb\":[%u,%u,%u,%u],"
+         "\"metadata_packets\":%u,\"same_decoded_input\":true}\n",
+-        pts, elPts, DVBRIDGE::playbackQsvMode.load(), static_cast<double>(offset[0]),
++        pts, elPts, requestedPts, DVBRIDGE::playbackQsvMode.load(), static_cast<double>(offset[0]),
+         static_cast<double>(offset[1]), static_cast<double>(offset[2]),
+         margins[0], margins[1], margins[2], margins[3], packets);
+     return size > 0 && static_cast<size_t>(size) < sizeof(info) && write("pair.json", info, size);
+   }();
+   dvbridge_renderer_destroy(renderer);
+   pl_tex_destroy(m_gl->gpu, &target);
+-  CLog::Log(success ? LOGINFO : LOGERROR, "DVBridge capture pair: success={} directory={} pts={}",
+-            success, directory, pts);
++  CLog::Log(success ? LOGINFO : LOGERROR,
++            "DVBridge capture pair: success={} directory={} pts={} requested_pts={}",
++            success, directory, pts, requestedPts);
+ }
+ 
+ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index 8ba6b16..8b53c59 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -56,6 +56,7 @@ private:
+   void CapturePair(const pl_frame& frame, const CDVMetadataBuffer& metadata,
+                    double pts, double elPts, dvbridge_geometry geometry);
+   bool m_capturePairs = false;
++  bool m_captureWaiting = false;
+   uint64_t m_lastCapturePoll = 0;
+   DVBRIDGE::DiagnosticFailures m_failures;
+   uint64_t m_prepares{0}, m_directFrames{0}, m_presentations{0}, m_failedPresentations{0};
