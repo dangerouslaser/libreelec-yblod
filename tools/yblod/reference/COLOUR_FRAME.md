@@ -42,11 +42,17 @@ types, dimensions, lengths, native code ranges and hashes before creating the
 output. File metadata checks at the end catch ordinary mid-run source changes;
 they are not an immutable/adversarial snapshot guarantee.
 
-**Remaining provenance limitation:** the configuration is tied to the
-reconstruction, but the supplied source colour instructions are still
-caller-declared. They are not independently verified against that video's
-extracted RPU. The result labels this limitation explicitly. This runner must
-not be presented as a fully provenance-checked real-video colour pipeline yet.
+For real frames, `colour_metadata.py` can create a configuration from the saved
+extraction evidence. Supply the explicit target settings with `--target-settings`
+and pass the same extraction directory to `colour_frame.py --extraction`.
+The runner rechecks the extracted instructions, frame identity, active area and
+source hashes against the reconstruction before processing. A configuration
+marked `verified-extracted-rpu` cannot run without that evidence.
+
+This verifies association with the saved extraction bundle, not independent
+authentication of the original film or a second, independently written RPU
+parser. Caller-declared and synthetic configurations remain explicitly labelled;
+their instructions are not promoted to verified evidence.
 
 ## Output and policy boundaries
 
@@ -90,7 +96,9 @@ and its exact composer report, `results/colour-frame-synthetic-composer-v1.json`
 Only reports are published; no film pixels, RPU payloads or raw output planes
 are included. The configuration in the result is entirely synthetic.
 
-Next verify source-DM association against extracted RPU evidence, validate real
-prepared frames, and separately resolve chroma and out-of-range behavior before
-accelerated playback integration. This component selects none of those policies
-as the correct licensed-player behavior.
+The historical synthetic reports above pin the implementation published in
+commit `3556fe94ed`; subsequent source-association checks do not rewrite those
+source pins. Real-frame checks and native C processing are the next validation
+steps. Chroma and out-of-range behavior still need separate evidence before
+playback integration. This component selects none of those policies as the
+correct licensed-player behavior.

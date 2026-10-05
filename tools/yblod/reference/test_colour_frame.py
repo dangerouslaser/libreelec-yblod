@@ -103,6 +103,7 @@ class ColourFrameTests(unittest.TestCase):
             frame.run(self.result, self.config_path, self.output)
         self.assertFalse(self.output.exists())
         evidence = dict(source_dm=self.config["source_dm"],
+            composer_report_sha256=self.config["composer_report_sha256"],
             identity={"frame_id": "synthetic-proof", "pts": 0, "time_base": [1, 24]},
             provenance={"test": "explicit mock, helper separately tested"},
             active_rectangle=self.config["active_rectangle"])
@@ -112,6 +113,11 @@ class ColourFrameTests(unittest.TestCase):
         with mock.patch("colour_metadata.load", return_value=evidence):
             report = frame.run(self.result, self.config_path, self.output, extraction=self.root / "evidence")
         self.assertIsNotNone(report["source_provenance"])
+        evidence["composer_report_sha256"] = "different"
+        with mock.patch("colour_metadata.load", return_value=evidence):
+            with self.assertRaisesRegex(ValueError, "changed between"):
+                frame.run(self.result, self.config_path, self.root / "changed", extraction=self.root / "evidence")
+        evidence["composer_report_sha256"] = self.config["composer_report_sha256"]
         self.config["source_dm"]["ycc_to_rgb_coef0"] += 1
         self.save()
         # Evidence must be independently re-read, not trusted from the config.

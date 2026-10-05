@@ -110,6 +110,8 @@ def run(result, configuration, output, *, extraction=None):
             raise ValueError("verified configuration requires extraction evidence at execution")
         import colour_metadata
         evidence = colour_metadata.load(result, extraction)
+        if evidence["composer_report_sha256"] != report_hash:
+            raise ValueError("composer report changed between association checks")
         for field, value in (("source_dm", evidence["source_dm"]),
                              ("source_identity", evidence["identity"]),
                              ("source_provenance", evidence["provenance"]),
