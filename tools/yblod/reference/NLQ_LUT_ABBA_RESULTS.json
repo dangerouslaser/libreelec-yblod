@@ -1,0 +1,811 @@
+{
+  "schema": "yblod.nlq-lut-abba-results.v1",
+  "provenance": {
+    "source_sha256": {
+      "engine/experimental/native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+      "engine/experimental/native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+      "engine/experimental/native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+      "engine/experimental/native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+      "engine/experimental/native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+      "engine/include/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+      "engine/experimental/native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+      "engine/experimental/native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+      "engine/experimental/native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+      "engine/experimental/native_gpu_probe_fixture.c": "f28bbfe1e2d239fec196e9695b4e845efe9402d6e97ec4021079af3f48b490b3",
+      "engine/experimental/native_gpu_probe_fixture.h": "3a7903adca60641d0cee559e329435a7474b9b8d059be8fb9fb9780d32baf6d8",
+      "engine/experimental/native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+      "engine/experimental/native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+      "engine/experimental/native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+      "engine/experimental/native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+      "engine/experimental/native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+      "engine/src/native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+      "engine/experimental/native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+      "engine/experimental/native_gpu_scaled_frame_preloaded_probe.c": "ddb0d8139dc2627e4fed37edb80713e643a46b0c4b374ad80183ee659522de9f",
+      "engine/experimental/native_gpu_scaled_frame_nlq_lut_probe.c": "d327aa6171eb86ba9ff8231aef6bd4db8c263eb8affea484a397200a539547da",
+      "engine/experimental/native_gpu_nlq_lut_probe.comp": "f89e3019c8c2ffbb35e5bb5f7eca66d6aef267a35e021d41c1af32b696109d18"
+    },
+    "binary_sha256": {
+      "baseline": "8b37a01e5fc162fa9eb3290da5d86a65e610069d2bb7c55010cb7a98b5de132b",
+      "lut": "08c02f14495ddac52442acdf23476a7ec76274a4a19f5ddb4cda815a80422c84"
+    },
+    "comparison_design": "Within each prepared frame: baseline, LUT, LUT, baseline cohorts. Each fresh process performs one warmup and three warm passes; not continuous playback.",
+    "frame_inputs": {
+      "1406": "Software-linear-scaled P010",
+      "2296": "Intel-scaled P010"
+    },
+    "interpretation": "No performance gain established. Baseline changes substantially across cohorts and opposite aggregate directions occur across frames. Distinct frame metadata/input configurations do not establish a hardware-versus-software scaling comparison.",
+    "timing_scope": "Warm frame totals exclude metadata-dependent LUT generation and upfront completion-fenced LUT upload. LUT generation is separately reported; LUT upload is separately reported within cold setup. Add visible setup costs when considering new metadata every frame. Host dispatch/wait is not pure device-kernel time."
+  },
+  "claims": {
+    "reference_equivalence_only": true,
+    "production_playback_tested": false,
+    "performance_gain_established": false,
+    "device_kernel_time_measured": false
+  },
+  "runs": [
+    {
+      "frame": 2296,
+      "label": "2296-1-baseline",
+      "variant": "baseline",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-preloaded-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 27045835,
+        "teardown_wall_ns": 1700983,
+        "warmups": 1,
+        "wall_ns": [
+          621149834,
+          646368310,
+          763346555
+        ],
+        "cpu_ns": [
+          188914239,
+          193851901,
+          259524293
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          13088012,
+          14583931,
+          14586733
+        ],
+        "dispatch_wall_ns": [
+          424899072,
+          443483087,
+          495739389
+        ],
+        "dispatch_cpu_ns": [
+          4695293,
+          4644859,
+          5152640
+        ],
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7593984",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 26030\nuser_usec 26030\nsystem_usec 0\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121442304",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2719812\nuser_usec 2662631\nsystem_usec 57181\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 2296,
+      "label": "2296-2-lut",
+      "variant": "lut",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-nlq-lut-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "lut_entries": 3072,
+        "lut_bytes": 12288,
+        "lut_generation_wall_ns": 31015,
+        "lut_generation_cpu_ns": 29765,
+        "lut_setup_in_warm_timing": false,
+        "lut_upload_in_cold_setup": true,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 118023990,
+        "teardown_wall_ns": 2293868,
+        "warmups": 1,
+        "wall_ns": [
+          639839959,
+          541543220,
+          545445156
+        ],
+        "cpu_ns": [
+          232267677,
+          294486323,
+          264120981
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          11857548,
+          6838741,
+          5709266
+        ],
+        "dispatch_wall_ns": [
+          402321439,
+          250068934,
+          284171997
+        ],
+        "dispatch_cpu_ns": [
+          5442523,
+          8019686,
+          7083126
+        ],
+        "lut_upload_wall_ns": 558337,
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7856128",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 27196\nuser_usec 27196\nsystem_usec 0\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "144994304",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 3008740\nuser_usec 2931443\nsystem_usec 77297\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 2296,
+      "label": "2296-3-lut",
+      "variant": "lut",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-nlq-lut-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "lut_entries": 3072,
+        "lut_bytes": 12288,
+        "lut_generation_wall_ns": 31021,
+        "lut_generation_cpu_ns": 30080,
+        "lut_setup_in_warm_timing": false,
+        "lut_upload_in_cold_setup": true,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 26946240,
+        "teardown_wall_ns": 2588744,
+        "warmups": 1,
+        "wall_ns": [
+          593224995,
+          536412064,
+          493487301
+        ],
+        "cpu_ns": [
+          218880778,
+          292079230,
+          247069532
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          7455131,
+          4431137,
+          5370239
+        ],
+        "dispatch_wall_ns": [
+          373748576,
+          247992822,
+          247544229
+        ],
+        "dispatch_cpu_ns": [
+          5054383,
+          7635755,
+          5309291
+        ],
+        "lut_upload_wall_ns": 483008,
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7856128",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 32974\nuser_usec 29675\nsystem_usec 3299\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121745408",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2864909\nuser_usec 2790956\nsystem_usec 73952\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 2296,
+      "label": "2296-4-baseline",
+      "variant": "baseline",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-preloaded-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 26455405,
+        "teardown_wall_ns": 1889238,
+        "warmups": 1,
+        "wall_ns": [
+          406820397,
+          297127703,
+          298430083
+        ],
+        "cpu_ns": [
+          170842516,
+          161673825,
+          160187193
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          7864004,
+          4945496,
+          5437200
+        ],
+        "dispatch_wall_ns": [
+          233511322,
+          135823374,
+          137960763
+        ],
+        "dispatch_cpu_ns": [
+          4294389,
+          4272298,
+          4091646
+        ],
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7860224",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 32112\nuser_usec 22516\nsystem_usec 9595\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121454592",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2611368\nuser_usec 2531041\nsystem_usec 80327\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 1406,
+      "label": "1406-1-baseline",
+      "variant": "baseline",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-preloaded-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 40417610,
+        "teardown_wall_ns": 1452692,
+        "warmups": 1,
+        "wall_ns": [
+          289365572,
+          472720909,
+          546563114
+        ],
+        "cpu_ns": [
+          164711526,
+          194908596,
+          222092526
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          4701585,
+          10938583,
+          7744075
+        ],
+        "dispatch_wall_ns": [
+          125249309,
+          272519881,
+          322779994
+        ],
+        "dispatch_cpu_ns": [
+          4219956,
+          4592430,
+          4781104
+        ],
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7589888",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 28853\nuser_usec 22441\nsystem_usec 6411\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121638912",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2683975\nuser_usec 2607583\nsystem_usec 76392\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 1406,
+      "label": "1406-2-lut",
+      "variant": "lut",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-nlq-lut-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "lut_entries": 3072,
+        "lut_bytes": 12288,
+        "lut_generation_wall_ns": 34708,
+        "lut_generation_cpu_ns": 33303,
+        "lut_setup_in_warm_timing": false,
+        "lut_upload_in_cold_setup": true,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 27148598,
+        "teardown_wall_ns": 1655815,
+        "warmups": 1,
+        "wall_ns": [
+          497038558,
+          325403886,
+          291053223
+        ],
+        "cpu_ns": [
+          204806836,
+          173443867,
+          170717397
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          7540032,
+          7078260,
+          4944925
+        ],
+        "dispatch_wall_ns": [
+          290465435,
+          150160611,
+          120508841
+        ],
+        "dispatch_cpu_ns": [
+          4642046,
+          4312250,
+          4140602
+        ],
+        "lut_upload_wall_ns": 475660,
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7856128",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 32191\nuser_usec 32191\nsystem_usec 0\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121753600",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2516985\nuser_usec 2460047\nsystem_usec 56937\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 1406,
+      "label": "1406-3-lut",
+      "variant": "lut",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-nlq-lut-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "lut_entries": 3072,
+        "lut_bytes": 12288,
+        "lut_generation_wall_ns": 34452,
+        "lut_generation_cpu_ns": 33163,
+        "lut_setup_in_warm_timing": false,
+        "lut_upload_in_cold_setup": true,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 27012273,
+        "teardown_wall_ns": 1615765,
+        "warmups": 1,
+        "wall_ns": [
+          608823911,
+          420810697,
+          613625676
+        ],
+        "cpu_ns": [
+          198516252,
+          187941885,
+          208324099
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          13991330,
+          10580026,
+          14738191
+        ],
+        "dispatch_wall_ns": [
+          402398266,
+          227675433,
+          396452263
+        ],
+        "dispatch_cpu_ns": [
+          4831655,
+          4410219,
+          4642726
+        ],
+        "lut_upload_wall_ns": 418101,
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7856128",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 25906\nuser_usec 25906\nsystem_usec 0\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121733120",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2607706\nuser_usec 2534446\nsystem_usec 73259\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    },
+    {
+      "frame": 1406,
+      "label": "1406-4-baseline",
+      "variant": "baseline",
+      "result": {
+        "schema": "yblod.native-gpu-scaled-frame-preloaded-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 40753792,
+        "teardown_wall_ns": 3745245,
+        "warmups": 1,
+        "wall_ns": [
+          424019691,
+          578696763,
+          612794680
+        ],
+        "cpu_ns": [
+          168196638,
+          220094150,
+          234753493
+        ],
+        "preloaded_chunk_dispatch_measurement": true,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of preloaded batch dispatch, barrier, fence and host wait; excludes preparation, upload completion and readback",
+        "preload_wait_wall_ns": [
+          11700745,
+          11166459,
+          12001556
+        ],
+        "dispatch_wall_ns": [
+          249375808,
+          353531624,
+          372234622
+        ],
+        "dispatch_cpu_ns": [
+          4153645,
+          4923348,
+          4910871
+        ],
+        "status": "complete"
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7593984",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 26131\nuser_usec 26131\nsystem_usec 0\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "121253888",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+          "cpu.stat": "usage_usec 2716020\nuser_usec 2631317\nsystem_usec 84702\nnice_usec 0",
+          "cpu.max": "unavailable"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "wrapper_unchanged": true,
+        "files_and_runtime_unchanged": true
+      }
+    }
+  ]
+}
