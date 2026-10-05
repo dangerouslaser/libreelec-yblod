@@ -86,6 +86,12 @@ decoding, spatial preparation, colour conversion and playback remain separate.
 with the existing diagnostic colour helpers. `make_streaming_demo.py` generates
 that larger fixture without copyrighted inputs.
 
+[COLOUR_STAGE.md](COLOUR_STAGE.md) documents the independent scalar colour
+component with caller-supplied source/target coordinates and an explicit PQ
+domain policy. Its tests cover independent high-precision answers and a bridge
+from the new composer through separately expanded synthetic component planes.
+No chroma filter, display adaptation or production colour policy is selected.
+
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
 `test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,

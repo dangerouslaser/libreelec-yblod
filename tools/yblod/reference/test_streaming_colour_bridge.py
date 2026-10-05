@@ -12,9 +12,10 @@ from make_streaming_demo import make_demo
 import reference
 import streaming_composer
 from known_answers import COLOUR_INPUTS, identity_source_transport
+from colour_stage import ColourConfig, convert_sample
 if np is not None:
     from inspect_composition import inspect
-    from output_frame import convert, expand_left, pack
+    from output_frame import TARGET_YCC, TARGET_LMS, TARGET_OFFSET, convert, expand_left, pack
 
 
 def identity_dm():
@@ -32,6 +33,25 @@ def identity_dm():
 
 @unittest.skipIf(np is None, "NumPy required for existing colour-path bridge")
 class StreamingColourBridgeTests(unittest.TestCase):
+    def test_new_scalar_component_on_expanded_streamed_planes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            make_demo(root / "input", width=32, height=18)
+            result = streaming_composer.run(root / "input/frame.json", root / "result", chunk_samples=17)
+            planes = []
+            for channel, shape in (("Y", (18, 32)), ("Cb", (9, 16)), ("Cr", (9, 16))):
+                path = root / "result" / result["stages"][f"reconstructed_{channel}"]["file"]
+                planes.append(np.fromfile(path, dtype="<u2").reshape(shape))
+            expanded = np.stack([planes[0], expand_left(planes[1]), expand_left(planes[2])], axis=-1)
+            old = convert(expanded, identity_dm(), "direct", lambda *args: None)
+            cfg = ColourConfig.from_dm(identity_dm(), target_ycc=TARGET_YCC.tolist(),
+                target_lms=TARGET_LMS.tolist(), target_offset=TARGET_OFFSET.tolist(),
+                pq_policy="extend-positive-negative-to-zero", code_scale=4096)
+            new = np.array([convert_sample(tuple(float(v) for v in pixel), cfg).codes
+                            for pixel in expanded.reshape(-1, 3)], dtype=np.uint16).reshape(18, 32, 3)
+            np.testing.assert_array_equal(new, old)
+            np.testing.assert_array_equal(pack(new), pack(old))
+
     def test_synthetic_colour_conversion_against_decimal_oracle(self):
         values = list(COLOUR_INPUTS.values())
         actual = convert(np.array([values], dtype=np.uint16), identity_dm(), "direct", lambda *args: None)

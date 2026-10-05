@@ -285,7 +285,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **567 reference tests**, including vector/scoring, runner failure gates,
+- **576 reference tests**, including vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
