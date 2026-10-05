@@ -64,6 +64,11 @@ inverse quantization and addition/rounding). This is a public compound-content
 specification, not evidence that every current Dolby implementation is identical.
 No implementation code was imported from another renderer.
 
+[NLQ_STAGE.md](NLQ_STAGE.md) documents the extracted reusable integer enhancement
+correction component: validated immutable configuration, explicit metadata cap
+before signed flooring, and lazy sample/row processing. It does not choose how
+fractional scaler samples become integer inputs or alter current playback.
+
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
 `test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,
