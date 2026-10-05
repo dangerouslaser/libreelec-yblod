@@ -83,6 +83,10 @@ to the tested integer specification.
 
 The current real-frame rewrite reproduces the previous diagnostic output; it
 has not reduced the SK4 colour gap. Fractional scaler treatment, chroma sampling,
-complete display management and capture association are still open. Archived
+transport/metadata integration and capture association are still open. The
+inspected standard-DV path is TV-led: preserve that hand-off rather than adding
+unrequested player-side display mapping. A future LLDV backend would have a
+separate mapping contract; see [DISPLAY_MANAGEMENT_GAPS.md](DISPLAY_MANAGEMENT_GAPS.md).
+Archived
 SK4 comparisons use a visible counter, not proven matching driver timestamps.
 Fresh capture may require confirmation of the TV's visible state.

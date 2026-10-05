@@ -133,6 +133,9 @@ confirmation of a loaded Kodi build or licensed-player behaviour.
 [SAMPLING_CONTRACT.md](SAMPLING_CONTRACT.md) defines a standalone exact C
 sampling diagnostic that preserves fractional words and keeps coordinate,
 filter and normalization declarations separate; it selects no playback policy.
+[DISPLAY_MANAGEMENT_GAPS.md](DISPLAY_MANAGEMENT_GAPS.md) distinguishes source
+colour conversion, the existing TV-led metadata/transport hand-off, and a
+separate future player-led display-mapping contract.
 
 Latest complete Ollie check: **755 reference tests plus 8 accuracy tests**, no
 skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
