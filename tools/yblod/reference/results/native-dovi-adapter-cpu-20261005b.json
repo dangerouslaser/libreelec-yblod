@@ -1,0 +1,2247 @@
+{
+  "accepted_per_build": 12,
+  "analysis_pin_scope": "Replay tests and documentation prepared after execution; not executed native build inputs.",
+  "analysis_sha256": {
+    "NATIVE_DOVI_ADAPTER.md": "6535ab106b42c302ea56d6fae3dfbce5dcf9922cdc8e6585d522f3cf29629949",
+    "test_native_dovi_adapter.py": "8380bba885b1d37b98ae15e2a06c93658fd1def6c3613f4aa7a83afa986e5b01"
+  },
+  "binary_sha256": "4a0090f47d336420f126a6beb122c88918622b9358d1e1fa7557bbd9da8544b9",
+  "case_evidence": [
+    {
+      "case": "baseline",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "686cb1ea74c6256586dd1c58b8e7585452c27b941976d030e688fcbae5c0f012",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "686cb1ea74c6256586dd1c58b8e7585452c27b941976d030e688fcbae5c0f012"
+    },
+    {
+      "case": "negative-coefficient",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "a40a805c5d47c33bea44daade32dd6a528cf77f78e2195d3a95e05ce426a64ee",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "a40a805c5d47c33bea44daade32dd6a528cf77f78e2195d3a95e05ce426a64ee"
+    },
+    {
+      "case": "cumulative-pivots",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "e23ace0d4c081e20dfae47635ec88a45dfebab926e3618b3b8a84ed173b20b6e",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "e23ace0d4c081e20dfae47635ec88a45dfebab926e3618b3b8a84ed173b20b6e"
+    },
+    {
+      "case": "mmr1",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "934389887ceb05f49889f2864654c9b81bfe37fa41f8fc03422899772df32b2f",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "934389887ceb05f49889f2864654c9b81bfe37fa41f8fc03422899772df32b2f"
+    },
+    {
+      "case": "mmr2",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "5fb9d3f02151ff23e7535a6419758a2a14e616bccba907bc0e4548244b84edcc",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "5fb9d3f02151ff23e7535a6419758a2a14e616bccba907bc0e4548244b84edcc"
+    },
+    {
+      "case": "mmr3",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "0c6d7ec2efc3fd40c92f3d82d8d9dc5d08e0f11ce93d7efc5290f2edae5d23c6",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "0c6d7ec2efc3fd40c92f3d82d8d9dc5d08e0f11ce93d7efc5290f2edae5d23c6"
+    },
+    {
+      "case": "poisoned-inactive",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "c45d440cda3ebeb25b4800b23a0998d230ac92d9661fcad568d9b3ce2d19a535",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "c45d440cda3ebeb25b4800b23a0998d230ac92d9661fcad568d9b3ce2d19a535"
+    },
+    {
+      "case": "disabled-poisoned-nlq",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "c3cf3e2067595131aa5b037c59901b980f89bfc96325bccd9309ad457c6288f6",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "c3cf3e2067595131aa5b037c59901b980f89bfc96325bccd9309ad457c6288f6"
+    },
+    {
+      "case": "disabled-denominator13",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "1de9503606ee4a99237c419f81d3af55b0e1fb2fd407d97c1c9f6c7c6acf0463",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "1de9503606ee4a99237c419f81d3af55b0e1fb2fd407d97c1c9f6c7c6acf0463"
+    },
+    {
+      "case": "depth8",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "e1503bed22d7441373dcecba9280dc7d3e8e46e621ac1ca089edf6eabac75dd2",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "e1503bed22d7441373dcecba9280dc7d3e8e46e621ac1ca089edf6eabac75dd2"
+    },
+    {
+      "case": "spatial-flags",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "51e3ccfb47b608a5657bd0884d9be11068048414ce4d55e0326d61dbc4aa6dc7",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "51e3ccfb47b608a5657bd0884d9be11068048414ce4d55e0326d61dbc4aa6dc7"
+    },
+    {
+      "case": "empty-ext-at-end",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "5c94cce5f219bcdc36ac7fd1b7bb8765adcb4e7602cbf0762565b573dba2150c",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "5c94cce5f219bcdc36ac7fd1b7bb8765adcb4e7602cbf0762565b573dba2150c"
+    },
+    {
+      "case": "float-coefficients",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "d204eb23794dcb2aba5853861c9ab3302a7cad9ae049d4b381ba7cee71f0abcd",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "d204eb23794dcb2aba5853861c9ab3302a7cad9ae049d4b381ba7cee71f0abcd"
+    },
+    {
+      "case": "explicit-chroma-filter",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "50d5e3264719847986170c42b99eca2fb87dcbf33ebeb8bf009cf21dba265599",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "50d5e3264719847986170c42b99eca2fb87dcbf33ebeb8bf009cf21dba265599"
+    },
+    {
+      "case": "invalid-chroma-flag",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "70e7211da914a37734994fe4506aaf056f4e3c1053fe4e2c9ec430327b769530",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "70e7211da914a37734994fe4506aaf056f4e3c1053fe4e2c9ec430327b769530"
+    },
+    {
+      "case": "unknown-header",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "a590b7138bdfbb22e086487a3eefbac48ddecee5919d5cbf61b18c79e5fb030f",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "a590b7138bdfbb22e086487a3eefbac48ddecee5919d5cbf61b18c79e5fb030f"
+    },
+    {
+      "case": "unsupported-depth",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "f37844dbff73439d6ffdd3d3ceab7e36acdd40df6ab03c9248725f0c1e916bfb",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "f37844dbff73439d6ffdd3d3ceab7e36acdd40df6ab03c9248725f0c1e916bfb"
+    },
+    {
+      "case": "multiple-partitions",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "9bf92819c7d3944f5ff04ebe3cfa216f9a01e262bc392f0ec0675712ad8b4842",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "9bf92819c7d3944f5ff04ebe3cfa216f9a01e262bc392f0ec0675712ad8b4842"
+    },
+    {
+      "case": "unknown-method",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "e3f8438ac7087b1e3cbbf827487ba16e71713c9fe9a010acfddd2bde175d82de",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "e3f8438ac7087b1e3cbbf827487ba16e71713c9fe9a010acfddd2bde175d82de"
+    },
+    {
+      "case": "mmr-luma",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "234ed3e7a9be3d93ee9ee5c45e08f98c302c6ba5c2bf2b67520d4b07c9e32593",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "234ed3e7a9be3d93ee9ee5c45e08f98c302c6ba5c2bf2b67520d4b07c9e32593"
+    },
+    {
+      "case": "bad-nlq-method",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "96dce3613faa0117afc8602c9410fde560ab8c75b7bc59a0c04f96657edf9027",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "96dce3613faa0117afc8602c9410fde560ab8c75b7bc59a0c04f96657edf9027"
+    },
+    {
+      "case": "wrong-nlq-pivots",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "a121a925c763161e8746dfe216e26370d32eb74d5c7e5f70b54e899be9ad60b6",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "a121a925c763161e8746dfe216e26370d32eb74d5c7e5f70b54e899be9ad60b6"
+    },
+    {
+      "case": "late-offset-overflow",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "32bf66fdc6f506f73c0c3230ff2d481afe36c357265eacc1eaeabd283a58c068",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "32bf66fdc6f506f73c0c3230ff2d481afe36c357265eacc1eaeabd283a58c068"
+    },
+    {
+      "case": "late-coefficient-overflow",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "406a468d9c8316043348bdf78ef57bde3fd35c0531aee8d6f363cbdf7cd9713e",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "406a468d9c8316043348bdf78ef57bde3fd35c0531aee8d6f363cbdf7cd9713e"
+    },
+    {
+      "case": "duplicate-pivots",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "123078516c5d33878cf50f143fb3bc2ae2b010481e6b98235889ec2f3775f315",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "123078516c5d33878cf50f143fb3bc2ae2b010481e6b98235889ec2f3775f315"
+    },
+    {
+      "case": "truncated",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "6e7dc2792ff59e0fd9271eac1a96b52c57642304551dea6cd517abaad69ff8f7",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "6e7dc2792ff59e0fd9271eac1a96b52c57642304551dea6cd517abaad69ff8f7"
+    },
+    {
+      "case": "offset-wrap",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "47fd1aa2642506604e1b8c11a61b03f0680638f26a30e88894d0de28c8cf5d92",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "47fd1aa2642506604e1b8c11a61b03f0680638f26a30e88894d0de28c8cf5d92"
+    },
+    {
+      "case": "overlap-regions",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "6269b76390c0eb248c7b2c56b9f2a0e0a64989dc08e0d2d826aadd3a202a1c9a",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "6269b76390c0eb248c7b2c56b9f2a0e0a64989dc08e0d2d826aadd3a202a1c9a"
+    },
+    {
+      "case": "overlap-prefix",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "6129d27dbd943e6adb2e4a848fc0963a35aaca1b8dab1b59339de4cbd235d3ec",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "6129d27dbd943e6adb2e4a848fc0963a35aaca1b8dab1b59339de4cbd235d3ec"
+    },
+    {
+      "case": "overlap-ext",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "a1a348d1bbdfca40976ece69b6e0c7e8a8e3cd4d63ac1cd38f2c40be161a2986",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "a1a348d1bbdfca40976ece69b6e0c7e8a8e3cd4d63ac1cd38f2c40be161a2986"
+    },
+    {
+      "case": "bad-ext-stride",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "4dcc372e7b8ee33a92056b48dd4eaef1c2559857732d8dc4aa335fe261b77004",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "4dcc372e7b8ee33a92056b48dd4eaef1c2559857732d8dc4aa335fe261b77004"
+    },
+    {
+      "case": "negative-ext-count",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "f547bf16755fcf2ea24bd16d940686506da115fe770365f0dc51b1b1b26f1dfe",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "f547bf16755fcf2ea24bd16d940686506da115fe770365f0dc51b1b1b26f1dfe"
+    },
+    {
+      "case": "output-alias",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "9ee2db4c5fed57ebe665936cd87d4fd68e324d3982fe0669ad8e78e0ed337ff3",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "9ee2db4c5fed57ebe665936cd87d4fd68e324d3982fe0669ad8e78e0ed337ff3"
+    },
+    {
+      "case": "address-wrap",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "c836a4f45ed04badbc12a5a4d842c495a99f9a6a4ac90391e04e9ee9f17636ac",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "c836a4f45ed04badbc12a5a4d842c495a99f9a6a4ac90391e04e9ee9f17636ac"
+    },
+    {
+      "case": "null-input",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "5c91b897c8beab479550ba6b87fda77b8737d18e170feec26ddcf3fe1b23101e",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "5c91b897c8beab479550ba6b87fda77b8737d18e170feec26ddcf3fe1b23101e"
+    },
+    {
+      "case": "null-output",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "879e5e5196ba1fbff216b4fb6374f5fcf70fdaa6be6a7bfdcd40f533dda5f92e",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "879e5e5196ba1fbff216b4fb6374f5fcf70fdaa6be6a7bfdcd40f533dda5f92e"
+    },
+    {
+      "case": "misaligned-input",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "c586998e9f858fae3d297eff97585d653088d3e15cc0468364ee2348285863e2",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "c586998e9f858fae3d297eff97585d653088d3e15cc0468364ee2348285863e2"
+    },
+    {
+      "case": "misaligned-output",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "55a6280d3344083c6917936a101826dadb146ab453c785b020a95c24c73558a6",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "55a6280d3344083c6917936a101826dadb146ab453c785b020a95c24c73558a6"
+    },
+    {
+      "case": "wrapping-output",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "6291c347acb40a27a1e2c45235c0042566a9d2f9ffd359dd70f2f11ca5dd11aa",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "6291c347acb40a27a1e2c45235c0042566a9d2f9ffd359dd70f2f11ca5dd11aa"
+    },
+    {
+      "case": "oversized-bytes",
+      "normal_exit_status": 0,
+      "normal_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "normal_stdout_sha256": "a4bc303f25b5f072d59baa36afe228feeefc0f1314dc471ae76abed16b01174c",
+      "ubsan_exit_status": 0,
+      "ubsan_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ubsan_stdout_sha256": "a4bc303f25b5f072d59baa36afe228feeefc0f1314dc471ae76abed16b01174c"
+    }
+  ],
+  "cases": [
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "baseline",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16384,
+          -9,
+          16375,
+          1023
+        ],
+        [
+          8192,
+          -9,
+          8183,
+          511
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "negative-coefficient",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  -8185,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  -8185,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  -8185,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32704,
+          -9,
+          32695,
+          2043
+        ],
+        [
+          16320,
+          -9,
+          16311,
+          1019
+        ],
+        [
+          8128,
+          -9,
+          8119,
+          507
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "cumulative-pivots",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              400,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              },
+              {
+                "coefficients": [
+                  7,
+                  4194304,
+                  2097152
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              400,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              },
+              {
+                "coefficients": [
+                  7,
+                  4194304,
+                  2097152
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              400,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              },
+              {
+                "coefficients": [
+                  7,
+                  4194304,
+                  2097152
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          20480,
+          -9,
+          20471,
+          1279
+        ],
+        [
+          16384,
+          -9,
+          16375,
+          1023
+        ],
+        [
+          8192,
+          -9,
+          8183,
+          511
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "mmr1",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ]
+                ],
+                "constant": 2097152,
+                "method": "mmr"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ]
+                ],
+                "constant": 2097152,
+                "method": "mmr"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16543,
+          -9,
+          16534,
+          1033
+        ],
+        [
+          16543,
+          -9,
+          16534,
+          1033
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "mmr2",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ],
+                  [
+                    -8192,
+                    -16384,
+                    -24576,
+                    -32768,
+                    -40960,
+                    -49152,
+                    -57344
+                  ]
+                ],
+                "constant": 2097152,
+                "method": "mmr"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ],
+                  [
+                    -8192,
+                    -16384,
+                    -24576,
+                    -32768,
+                    -40960,
+                    -49152,
+                    -57344
+                  ]
+                ],
+                "constant": 2097152,
+                "method": "mmr"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16510,
+          -9,
+          16501,
+          1031
+        ],
+        [
+          16510,
+          -9,
+          16501,
+          1031
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "mmr3",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ],
+                  [
+                    -8192,
+                    -16384,
+                    -24576,
+                    -32768,
+                    -40960,
+                    -49152,
+                    -57344
+                  ],
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ]
+                ],
+                "constant": 2097152,
+                "method": "mmr"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ],
+                  [
+                    -8192,
+                    -16384,
+                    -24576,
+                    -32768,
+                    -40960,
+                    -49152,
+                    -57344
+                  ],
+                  [
+                    8192,
+                    16384,
+                    24576,
+                    32768,
+                    40960,
+                    49152,
+                    57344
+                  ]
+                ],
+                "constant": 2097152,
+                "method": "mmr"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16521,
+          -9,
+          16512,
+          1032
+        ],
+        [
+          16521,
+          -9,
+          16512,
+          1032
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "poisoned-inactive",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16384,
+          -9,
+          16375,
+          1023
+        ],
+        [
+          8192,
+          -9,
+          8183,
+          511
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "disabled-poisoned-nlq",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": false,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 0,
+            "denominator": 0,
+            "maximum": 0,
+            "offset": 0,
+            "slope": 0,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 0,
+            "denominator": 0,
+            "maximum": 0,
+            "offset": 0,
+            "slope": 0,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 0,
+            "denominator": 0,
+            "maximum": 0,
+            "offset": 0,
+            "slope": 0,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          0,
+          32768,
+          2048
+        ],
+        [
+          16384,
+          0,
+          16384,
+          1024
+        ],
+        [
+          8192,
+          0,
+          8192,
+          512
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "disabled-denominator13",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 13,
+        "enabled": false,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8192
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8192
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8192
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 0,
+            "denominator": 0,
+            "maximum": 0,
+            "offset": 0,
+            "slope": 0,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 0,
+            "denominator": 0,
+            "maximum": 0,
+            "offset": 0,
+            "slope": 0,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 0,
+            "denominator": 0,
+            "maximum": 0,
+            "offset": 0,
+            "slope": 0,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          0,
+          32768,
+          2048
+        ],
+        [
+          16384,
+          0,
+          16384,
+          1024
+        ],
+        [
+          8192,
+          0,
+          8192,
+          512
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "depth8",
+      "configuration": {
+        "bit_depth": 8,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              255
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              255
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              255
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 8,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 128,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 8,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 128,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 8,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 128,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 126,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        128,
+        64,
+        32
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16384,
+          -9,
+          16375,
+          1023
+        ],
+        [
+          8192,
+          -9,
+          8183,
+          511
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "spatial-flags",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          1,
+          1
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16384,
+          -9,
+          16375,
+          1023
+        ],
+        [
+          8192,
+          -9,
+          8183,
+          511
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "canonical_unused": true,
+      "case": "empty-ext-at-end",
+      "configuration": {
+        "bit_depth": 10,
+        "denominator": 23,
+        "enabled": true,
+        "mappings": [
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          },
+          {
+            "pivots": [
+              0,
+              1023
+            ],
+            "segments": [
+              {
+                "coefficients": [
+                  0,
+                  8388608
+                ],
+                "method": "polynomial"
+              }
+            ]
+          }
+        ],
+        "nlq": [
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          },
+          {
+            "bit_depth": 10,
+            "denominator": 23,
+            "maximum": 1025,
+            "offset": 512,
+            "slope": 2048,
+            "threshold": 0
+          }
+        ],
+        "output_depth": 12,
+        "spatial_flags": [
+          0,
+          0
+        ]
+      },
+      "el_sample": 510,
+      "failure_output_untouched": false,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "sample_triplet": [
+        512,
+        256,
+        128
+      ],
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "source_released_before_arithmetic": true,
+      "stages": [
+        [
+          32768,
+          -9,
+          32759,
+          2047
+        ],
+        [
+          16384,
+          -9,
+          16375,
+          1023
+        ],
+        [
+          8192,
+          -9,
+          8183,
+          511
+        ]
+      ],
+      "status": 0
+    },
+    {
+      "abi_version": 1,
+      "case": "float-coefficients",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 3
+    },
+    {
+      "abi_version": 1,
+      "case": "explicit-chroma-filter",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 7
+    },
+    {
+      "abi_version": 1,
+      "case": "invalid-chroma-flag",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 3
+    },
+    {
+      "abi_version": 1,
+      "case": "unknown-header",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 3
+    },
+    {
+      "abi_version": 1,
+      "case": "unsupported-depth",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 3
+    },
+    {
+      "abi_version": 1,
+      "case": "multiple-partitions",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 4
+    },
+    {
+      "abi_version": 1,
+      "case": "unknown-method",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 4
+    },
+    {
+      "abi_version": 1,
+      "case": "mmr-luma",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 4
+    },
+    {
+      "abi_version": 1,
+      "case": "bad-nlq-method",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 5
+    },
+    {
+      "abi_version": 1,
+      "case": "wrong-nlq-pivots",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 5
+    },
+    {
+      "abi_version": 1,
+      "case": "late-offset-overflow",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 5
+    },
+    {
+      "abi_version": 1,
+      "case": "late-coefficient-overflow",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 4
+    },
+    {
+      "abi_version": 1,
+      "case": "duplicate-pivots",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 4
+    },
+    {
+      "abi_version": 1,
+      "case": "truncated",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "offset-wrap",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 2
+    },
+    {
+      "abi_version": 1,
+      "case": "overlap-regions",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 2
+    },
+    {
+      "abi_version": 1,
+      "case": "overlap-prefix",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 2
+    },
+    {
+      "abi_version": 1,
+      "case": "overlap-ext",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 2
+    },
+    {
+      "abi_version": 1,
+      "case": "bad-ext-stride",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 2
+    },
+    {
+      "abi_version": 1,
+      "case": "negative-ext-count",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 2
+    },
+    {
+      "abi_version": 1,
+      "case": "output-alias",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 6
+    },
+    {
+      "abi_version": 1,
+      "case": "address-wrap",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "null-input",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "null-output",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "misaligned-input",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "misaligned-output",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "wrapping-output",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    },
+    {
+      "abi_version": 1,
+      "case": "oversized-bytes",
+      "failure_output_untouched": true,
+      "input_unchanged": true,
+      "instructions_bytes": 9216,
+      "schema": "yblod.native-dovi-adapter-case.v1",
+      "status": 1
+    }
+  ],
+  "cohort_script_sha256": "6e78363c9aaf0595ab030f1a4ca0c24a684c822e58ffa8a3975ec3ff99e17b85",
+  "excluded_runs": "A separate sanitizer loader preflight and interrupted first attempt are not part of this successful forty-plus-forty cohort.",
+  "gpu_attempted": false,
+  "header_sha256": "f860511cb8be3c992b4ef7da6747d8dc9670d64d276aeab3a7e6867112857a02",
+  "libavutil_sha256": "16e16a2ab0f89a48c7e487d365e84f1c005f119fa8754c146daaeff40883c108",
+  "memory": {
+    "events_after": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "events_before": {
+      "high": 0,
+      "low": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_group_kill": 0,
+      "oom_kill": 0,
+      "sock_throttled": 0
+    },
+    "max_bytes": 536870912,
+    "peak_observed_before_exit_bytes": 6914048,
+    "peak_scope": "In-script snapshot, not final scope-lifetime peak",
+    "swap_current_after_bytes": 0,
+    "swap_current_before_bytes": 0,
+    "swap_max_bytes": 0
+  },
+  "normal_cases": 40,
+  "rejected_per_build": 28,
+  "runtime_library_hash_lists_unchanged": true,
+  "sanitizer_cases": 40,
+  "schema": "yblod.native-dovi-adapter-cohort.v1",
+  "scope": "Actual patched FFmpeg allocator and synthetic metadata; no decoder frame, film, GPU or display work.",
+  "source_sha256": {
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_dovi_adapter.c": "ead2024e8c885ee893ac26c12defbb267b927bcd3d3ec802d55bbe753999ed88",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "native_dovi_adapter_probe.c": "69f84a59ddd3b6da06d0fed154ab551c365be3a3cc3534ed72a04d24e142c615"
+  },
+  "status": "complete",
+  "synthetic_only": true,
+  "ubsan": {
+    "all_stdout_byte_exact": true,
+    "binary_sha256": "4cbb9bbdcbf5b8475e7208f05809ae1f278f109584de116d3993181dd13d7974",
+    "cases": 40,
+    "diagnostics_empty": true,
+    "runtime_sha256": "429866ada58bdd88bd5e50e4d20ddc35c6e4d3e96101b1886da9e94deb4ae323"
+  }
+}
