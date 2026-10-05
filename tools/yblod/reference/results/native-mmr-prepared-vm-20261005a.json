@@ -1,0 +1,107 @@
+{
+  "schema": "yblod.native-mmr-prepared-results.v1",
+  "date": "2026-10-05",
+  "backend": "native_mmr_prepared_composer.c",
+  "status": "complete",
+  "measurement": {
+    "schema": "yblod.native-mmr-paired-benchmark.v1",
+    "status": "complete",
+    "all_four_stages_full_frame_byte_exact": true,
+    "verification_scope": "untimed-full-frame-before-timing",
+    "verified_dispatches": 191,
+    "verified_stage_values": 49766400,
+    "plan_bytes": 46064,
+    "frame_bytes": 9384,
+    "warmups_per_backend": 1,
+    "paired_repeats": 3,
+    "orders": [
+      "reference,mmr",
+      "mmr,reference",
+      "reference,mmr"
+    ],
+    "preparation_and_teardown_included": true,
+    "timed_last_chunk_crosschecks": 8,
+    "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+    "counts": [
+      8294400,
+      2073600,
+      2073600
+    ],
+    "reference": {
+      "wall_ns": [
+        589517695,
+        592728612,
+        588763588
+      ],
+      "cpu_ns": [
+        589461874,
+        592672818,
+        588041617
+      ],
+      "preparation_wall_ns": [
+        3498,
+        3984,
+        3427
+      ],
+      "preparation_cpu_ns": [
+        3360,
+        3818,
+        3189
+      ]
+    },
+    "mmr": {
+      "wall_ns": [
+        240547451,
+        237594444,
+        239543020
+      ],
+      "cpu_ns": [
+        240517342,
+        237493312,
+        239531800
+      ],
+      "preparation_wall_ns": [
+        655981,
+        734055,
+        710259
+      ],
+      "preparation_cpu_ns": [
+        655872,
+        734195,
+        710143
+      ]
+    },
+    "component_routes": [
+      1,
+      0,
+      0
+    ],
+    "mmr_segment_counts_by_64_128_bits": [
+      2,
+      0
+    ]
+  },
+  "source_sha256": "21872597c1794c5c546f2e8c5baca0ea5af0e7b583ee3cbb2ba580ef6ced4977",
+  "test_sha256": "144d4f624e932efe89fc06e276444ed5feb9f7f4727f536e6545185fc0dde5ec",
+  "binary_sha256": "134063c95f2cd5cc1867debca18df58268424e88950cf3efb1b2b5f40b21b1fa",
+  "resources": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "pre_exit_memory_peak_bytes": 57368576,
+    "memory_swap_current_bytes": 0,
+    "high_events": 0,
+    "max_events": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "cpu_quota": "unavailable in scope",
+    "kodi_before": "active",
+    "kodi_after": "active"
+  },
+  "scope": [
+    "Paired against unchanged reference, not directly against earlier optimized backend.",
+    "Four-stage full-frame exactness before timing; timed final-chunk checks only.",
+    "Preparation and teardown included; shared media loading and scratch allocation excluded.",
+    "No GPU scaling, decoding, colour conversion, display or Kodi playback integration.",
+    "Historical 258.599 ms optimized result is a separate cohort, not paired evidence."
+  ]
+}
