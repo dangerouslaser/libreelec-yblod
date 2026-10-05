@@ -130,6 +130,32 @@ downloads occupy roughly2.4GB; these are generated patterns, not media frames.
 Resource fields describe Python process-lifetime RSS and diagnostic elapsed
 time only, not GPU allocation or steady-state playback performance.
 
+### Signed-ramp, base-value and quality-mode controls
+
+```sh
+systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
+  python3 hardware_scaling_controls.py /path/to/vaapi_scaler_probe \
+  /path/to/fresh-controls --width 1920 --height 1080 --repeats 2
+```
+
+This follow-up fixes left→left siting and compares default/fast/HQ requests.
+Its96-native-sample bands stay128..888 at slope8, with declared base offsets
+0/+1/+2. That keeps the patterns away from endpoint clipping. Cases comprise
+horizontal slopes±8, vertical slopes±2/±8 at each base, and distinct constants.
+Nineteen copies and57 native-size quality-mode identity checks must pass before
+114 enlargements; every scaled case is repeated. Mode hash equality is measured,
+not required. Errors are reported against independently validated, separately
+rounded Annex-B affine predictions without changing any output pixel.
+
+Whole-frame and interior base-offset comparisons measure whether adding+1/+2
+to the input adds exactly that value to the output. Differences use signed
+native10bit codes, not packed-byte arithmetic. They are diagnostics, not a fitted
+brightness correction or acceptance criterion for Dolby geometry. Passing this
+covariance check does not imply that the scaler matches the reference.
+Scans and comparison pairs are cached only by full case/scale/output hashes,
+never by a lower error score. Row-streaming keeps working memory bounded; retained
+generated outputs occupy about3.4GB at production dimensions. No media is used.
+
 ### General small-pattern corpus
 
 Generate configurable vectors on a CPU host without NumPy:
