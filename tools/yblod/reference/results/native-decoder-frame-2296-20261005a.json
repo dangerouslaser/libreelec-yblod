@@ -1,0 +1,194 @@
+{
+  "baseline_kind": "native-c-integer",
+  "compiler_version": "GCC 16.2",
+  "completion": {
+    "counts": [
+      8294400,
+      2073600,
+      2073600
+    ],
+    "diagnostic_queries": 0,
+    "kind": "arithmetic-frame-complete"
+  },
+  "executed_bridge_source_sha256": {
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505"
+  },
+  "executed_producer_source_sha256": {
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_decoder_ingestion.c": "0f5fddfa3768ae42a457e5f2c8c8a9b4706fe03d79879f7c58fe57df5decd3fd",
+    "native_dovi_adapter.c": "ead2024e8c885ee893ac26c12defbb267b927bcd3d3ec802d55bbe753999ed88",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094"
+  },
+  "execution_targets": {
+    "producer": "libreelec-vm-cpu",
+    "reconstruction": "ollie-cpu"
+  },
+  "fixture_repair": {
+    "exact_eof_zero_proven": true,
+    "independently_verified": true,
+    "prefix_byte_exact": true,
+    "removed_exact_eof_zero_bytes": 1
+  },
+  "gpu_attempted": false,
+  "memory_guard_passed": true,
+  "playback_attempted": false,
+  "producer": {
+    "adapter_abi": 1,
+    "crc_requested": true,
+    "decoder_metadata": true,
+    "el_active_planes_exact": true,
+    "frames_received": 65,
+    "instructions_bytes": 9216,
+    "local_presentation_index": 64,
+    "original_pts_verified": false,
+    "packets_sent": 65,
+    "raw_rpu_exact": true,
+    "warning_or_error_logs": 0
+  },
+  "producer_resources": {
+    "after": {
+      "events": {
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0
+      },
+      "memory.max": 536870912,
+      "memory.peak": 37830656,
+      "memory.swap.current": 0,
+      "memory.swap.max": 0
+    },
+    "before": {
+      "events": {
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0
+      },
+      "memory.max": 536870912,
+      "memory.peak": 1662976,
+      "memory.swap.current": 0,
+      "memory.swap.max": 0
+    },
+    "peak_scope": "Snapshots before producer scope exit, not final scope lifetime"
+  },
+  "public_artifact_sha256": {
+    "bridge_library": "d5eb67e6d22efdfcd1b6ceb2fa91739d3a99b5255455abe9f1021beaf43a6719",
+    "ffmpeg_dovi_header": "f860511cb8be3c992b4ef7da6747d8dc9670d64d276aeab3a7e6867112857a02",
+    "libavcodec": "0dea77f444b192135ecc7bd233750a51d82cce004fdca02add83fa6755b58bbd",
+    "libavformat": "f426eaa6bd1fb278a9cf04221892ab4de9a9868fb155ff6e5bdf45e034c6c483",
+    "libavutil": "16e16a2ab0f89a48c7e487d365e84f1c005f119fa8754c146daaeff40883c108",
+    "producer_binary": "1ddc08c54603ff590bb1f058a410e93c4269573d47fba08e89a552753ffd1b9b"
+  },
+  "resources": {
+    "after": {
+      "events": {
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0
+      },
+      "memory.max": 536870912,
+      "memory.peak": 218251264,
+      "memory.swap.current": 0,
+      "memory.swap.max": 0
+    },
+    "before": {
+      "events": {
+        "max": 0,
+        "oom": 0,
+        "oom_kill": 0
+      },
+      "memory.max": 536870912,
+      "memory.peak": 10842112,
+      "memory.swap.current": 0,
+      "memory.swap.max": 0
+    },
+    "peak_scope": "Snapshots before comparison completion, not final scope lifetime"
+  },
+  "runtime_source_sha256": {
+    "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+    "colour_metadata.py": "f770827e565dca81930ed50e85b6b54ba00311521961a074e85451a67f706e10",
+    "colour_stage.py": "405ac904ae8711587ad20d4f77658a54838804035b7d6eaef4cb484e70ed7217",
+    "extract_frame.py": "814a414221ba212b2317ad6ee080ff9cdf5fb0e3a39730381c458f92db400dda",
+    "import_rpu.py": "543cbb73b5f8dc1f6a9c60420f6391a62940cb2dbc5b1ee639f5ca2c80c7a2c8",
+    "native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "native_decoder_frame.py": "37db2b6d278ae2c98c793e7f353475f8dc516c2faeab7f51d9108a4c7be3d156",
+    "native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "native_integration_frame.py": "63dee272888ae4150e268e005c5f0cb023a9eadca9d068665c3d8d0e77e0a92f",
+    "native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+    "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687",
+    "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e",
+    "reference.py": "d49affdfc08d10f46653815ad34c0f0e89a50bd94e22dcc02b40052dbe188f73"
+  },
+  "runtime_versions": {
+    "avcodec_version": 4129126,
+    "avformat_version": 4129126,
+    "avutil_version": 3998054
+  },
+  "schema": "yblod.native-decoder-frame-summary.v1",
+  "scope": "Decoder-owned instructions to full prepared whole-code reconstruction; no scaling, fractional policy, colour, playback or licensed conformance claim.",
+  "stages": {
+    "mapped_Cb": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "mapped_Cr": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "mapped_Y": {
+      "byte_exact": true,
+      "samples": 8294400
+    },
+    "reconstructed_Cb": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "reconstructed_Cr": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "reconstructed_Y": {
+      "byte_exact": true,
+      "samples": 8294400
+    },
+    "residual_Cb": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "residual_Cr": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "residual_Y": {
+      "byte_exact": true,
+      "samples": 8294400
+    },
+    "sum_Cb": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "sum_Cr": {
+      "byte_exact": true,
+      "samples": 2073600
+    },
+    "sum_Y": {
+      "byte_exact": true,
+      "samples": 8294400
+    }
+  },
+  "status": "complete"
+}

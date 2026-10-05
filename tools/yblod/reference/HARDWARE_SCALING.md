@@ -285,11 +285,15 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **826 reference tests**, including native C arithmetic/adapter/frame checks,
+- **849 reference tests**, including native C arithmetic/adapter/frame checks,
   vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
+- [The decoder-to-C checkpoint](NATIVE_DECODER_CHECKPOINT.md) verifies real
+  instruction production on the LibreELEC VM and all twelve prepared-frame
+  arithmetic stages on Ollie's CPU. It does not yet exercise hardware-scaled
+  fractional inputs or change the scaling/playback pipeline.
 - Compiled guards test invalid arguments, copy-resize requests, unknown modes,
   bad input sizes and low bits **before any GPU open**. They are not GPU tests.
 - The64x64→128x128 Intel run, ascending/descending affine controls and independent

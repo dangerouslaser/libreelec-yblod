@@ -71,5 +71,33 @@ does not prove that a blob came from genuine decoder side data.
 Six initial synthetic host tests pass: owned-copy/size, header rejection,
 disabled NLQ, aliases, full-stage polynomial/MMR/disabled comparisons across
 different chunk sizes, and corrupt/truncated blob rejection. Synthetic fixture
-construction in tests is not genuine decoder ingestion. No real-frame run,
-licensed conformance, GPU, colour, display or real-time performance is claimed.
+construction in tests is not genuine decoder ingestion. No licensed conformance,
+GPU, colour, display or real-time performance is claimed by those tests.
+
+## Genuine frame-2296 checkpoint
+
+[The checkpoint](results/native-decoder-frame-2296-20261005a.json) records a
+separately reviewed real decoder run. Canonical raw RPU identity and all three
+decoded EL active-plane hashes matched the saved extraction, with strict CRC
+checking and no decoder warning/error logs. The actual frame's same-build owned
+instructions then initialized this C bridge directly; no JSON instruction
+constructor was called.
+
+Every byte of all twelve reconstruction stages matched the saved native baseline
+for the complete prepared 3840×2160 frame: 8,294,400 luma samples and 2,073,600
+samples in each chroma component. Completion reported zero diagnostic queries.
+The capped comparison used no job swap and observed no max/OOM events. Its
+in-script pre-exit memory-peak snapshot was 218,251,264 bytes (208.14 MiB), not a
+final scope-lifetime peak or a playback memory requirement. Nine SDK C/header
+input hashes, the bridge library, private runner, producer executable/report and
+instruction object remained unchanged across the run. No new frame dumps were
+created; detailed movie-associated evidence remains private.
+
+The raw HEVC window has no original container PTS. Association uses exact RPU,
+decoded-pixel and source-slice identity, not an ordinal-only fallback. A separate
+private fixture repaired one independently verified EOF transport-padding zero;
+the decoder's exact RPU and other acceptance checks were not relaxed.
+
+This verifies the genuine decoder-to-C reconstruction handoff for one prepared
+frame. It does not establish hardware-scaler fractional handling, colour/display
+correctness, closeness to the SK4, Kodi integration or real-time playback speed.
