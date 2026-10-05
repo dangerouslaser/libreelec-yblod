@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Bounded diagnostic colour-frame output; no embedded metadata or HDMI.
 
-Configuration is caller-supplied and hash-bound to a completed composer report.
-This does not establish that source DM was parsed from a matching real RPU.
+Configuration is hash-bound to a completed composer report. Extracted source
+association is checked when requested; caller-declared configurations remain
+explicitly labelled. No independent film authentication is implied.
 """
 import argparse
 from collections import OrderedDict
@@ -95,7 +96,9 @@ def _expand(first, second, fy, x):
     return a * (1 - fx) + b * fx
 
 
-def run(result, configuration, output, *, extraction=None):
+def run(result, configuration, output, *, extraction=None, backend="python", native_library=None):
+    if backend not in ("python", "native") or (backend == "native") != (native_library is not None):
+        raise ValueError("declare python without a library or native with an explicit library")
     result, configuration, output = Path(result).resolve(), Path(configuration), Path(output)
     composer, report_hash = _json(result / "report.json")
     settings, settings_hash = _json(configuration)
@@ -132,6 +135,10 @@ def run(result, configuration, output, *, extraction=None):
     cfg = colour_stage.ColourConfig.from_dm(settings["source_dm"],
         target_ycc=settings["target_ycc"], target_lms=settings["target_lms"],
         target_offset=settings["target_offset"], pq_policy=settings["pq_policy"], code_scale=settings["code_scale"])
+    native = None
+    if backend == "native":
+        from native_colour_stage import NativeColourStage
+        native = NativeColourStage(native_library, cfg)
     width, height = manifest["width"], manifest["height"]
     rectangle = settings["active_rectangle"]
     if (type(rectangle) is not list or len(rectangle) != 4 or any(type(v) is not int for v in rectangle)):
@@ -164,9 +171,11 @@ def run(result, configuration, output, *, extraction=None):
             fy = coordinate - iy
             chroma = [(p.row(iy), p.row(iy + 1)) for p in planes[1:]]
             codes = []
-            for x in range(width):
-                converted = colour_stage.convert_sample((luma[x],
-                    _expand(*chroma[0], fy, x), _expand(*chroma[1], fy, x)), cfg)
+            inputs = ((luma[x], _expand(*chroma[0], fy, x), _expand(*chroma[1], fy, x))
+                      for x in range(width))
+            converted_row = (native.convert_chunk(inputs) if native is not None else
+                             (colour_stage.convert_sample(values, cfg) for values in inputs))
+            for x, converted in enumerate(converted_row):
                 for name, statistics in ranges.items():
                     values = getattr(converted, name)
                     low, high = min(values), max(values)
@@ -203,7 +212,9 @@ def run(result, configuration, output, *, extraction=None):
         "quantization": "floor(target*4096+0.5), bound 0..4095; active-area replacement afterwards",
         "input_change_check": "file metadata before/after; not an immutable snapshot guarantee",
         "statistics_scope": "all converted pixels before active-area replacement",
-        "statistics": ranges, "stages": stages}
+        "statistics": ranges, "stages": stages, "backend": backend}
+    if native is not None:
+        report["native_provenance"] = native.provenance
     pending = output / "output.pending.json"
     with pending.open("x") as handle:
         json.dump(report, handle, indent=2, allow_nan=False)
@@ -221,8 +232,11 @@ if __name__ == "__main__":
     parser.add_argument("configuration", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--extraction", type=Path, help="required evidence for a verified extracted-RPU configuration")
+    parser.add_argument("--backend", choices=("python", "native"), default="python")
+    parser.add_argument("--native-library", type=Path)
     args = parser.parse_args()
     try:
-        run(args.result, args.configuration, args.output, extraction=args.extraction)
+        run(args.result, args.configuration, args.output, extraction=args.extraction,
+            backend=args.backend, native_library=args.native_library)
     except (OSError, ValueError, TypeError, KeyError) as error:
         parser.exit(1, f"colour frame: {error}\n")

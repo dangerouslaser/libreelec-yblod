@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import struct
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -66,6 +67,33 @@ class ColourFrameTests(unittest.TestCase):
             with self.assertRaises(ValueError): frame.run(self.result, self.config_path, self.output)
             self.assertFalse(self.output.exists())
             self.config[name] = old
+
+    def test_backend_pairing_and_row_dispatch(self):
+        self.save()
+        for settings in ({"backend": "invalid"}, {"backend": "native"},
+                         {"native_library": "unused.so"}):
+            with self.assertRaises(ValueError):
+                frame.run(self.result, self.config_path, self.output, **settings)
+            self.assertFalse(self.output.exists())
+        expected = frame.run(self.result, self.config_path, self.root / "python")
+        calls = []
+        class Adapter:
+            def __init__(adapter, library, cfg):
+                self.assertEqual(library, "test.so")
+                adapter.cfg = cfg
+                adapter.provenance = {"test_adapter": True}
+            def convert_chunk(adapter, values):
+                row = list(values)
+                calls.append(len(row))
+                return [frame.colour_stage.convert_sample(v, adapter.cfg) for v in row]
+        with mock.patch.dict(sys.modules, {"native_colour_stage": mock.Mock(NativeColourStage=Adapter)}):
+            actual = frame.run(self.result, self.config_path, self.output,
+                               backend="native", native_library="test.so")
+        self.assertEqual(calls, [32] * 18)
+        self.assertEqual(actual["stages"], expected["stages"])
+        self.assertEqual(actual["statistics"], expected["statistics"])
+        self.assertEqual(actual["backend"], "native")
+        self.assertEqual(actual["native_provenance"], {"test_adapter": True})
 
     def test_stage_corruption_path_escape_and_no_overwrite(self):
         self.save()
