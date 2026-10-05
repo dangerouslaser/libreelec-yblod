@@ -74,6 +74,13 @@ addition, output rounding and final bounds, with strict paired-stream length
 checks and an explicit base-only path. Synthetic bundle tests match the old
 reference's Y/Cb/Cr output; base mapping still comes from that reference.
 
+[BASE_MAPPING_STAGE.md](BASE_MAPPING_STAGE.md) and
+[STREAMING_COMPOSER.md](STREAMING_COMPOSER.md) document the independently
+implemented mapper and assembled chunked prepared-frame runner. All twelve
+saved arithmetic stages match the unchanged reference in synthetic differential
+tests. Frame-manifest validation is still explicitly shared with the reference;
+decoding, spatial preparation, colour conversion and playback remain separate.
+
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
 `test_known_answers.py` checks fixed synthetic answers, PQ anchors, matrix order,
