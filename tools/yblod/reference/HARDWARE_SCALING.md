@@ -285,7 +285,7 @@ initial capability-gated result. No loaded-playback-binary equivalence is claime
 ## Verified versus pending
 
 - Standalone probe builds cleanly against the target SDK.
-- **442 reference tests**, including vector/scoring, runner failure gates,
+- **467 reference tests**, including vector/scoring, runner failure gates,
   affine/siting/large/mode/route/format controls,12 host-only DRM parser fixtures and16 compiled CLI guards,
   pass on Ollie with no skips under
   512 MiB/no-job-swap constraints. The8 accuracy tests also pass.
@@ -324,3 +324,16 @@ at luma coordinates `(2i,2j+1/2)`; enlarging the image2x while converting to444
 expands the chroma grid4x. No hypothesis is selected by fitting, and no correction
 is applied. Centre-line scores are not whole-frame acceptance or licensed-player
 reference scores. See `INTEL_Y416_SPATIAL_RESULTS.md` for measured limitations.
+
+`hardware_y416_edges.py` applies the same78-job gated sequence to one-component
+steps and stripe impulses. It additionally compares every raw word over the
+whole frame against the separately captured same-size neutral baseline, including
+alpha. No collateral-channel or alpha invariance is silently assumed.
+
+`y416_edge_metrics.py INPUT-REPORT OUTPUT-REPORT` scores saved centre-line
+profiles using exact raw differences and rational native-code units. Step
+thresholds reference the known64-code stimulus, never measured/fitted plateaus.
+Impulse signed/absolute masses, lobes, support and centroids are response
+statistics, **not geometry corrections or certified filter targets**. Neither
+scorer re-reads image pixels; source report hashes identify their aggregate input.
+See `INTEL_Y416_EDGE_RESULTS.md` for the actual observations and scope.

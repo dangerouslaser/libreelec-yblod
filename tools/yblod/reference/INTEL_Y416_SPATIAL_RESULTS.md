@@ -9,7 +9,7 @@ Y416 jobs (13cases ×native64/enlarged128 ×two repeats). All repeated raw hashe
 matched. Each test changed only one component along one axis, slope+8 or−8
 native codes/sample, centred at512. Other colour components remained exactly512
 over the whole output. Alpha was65535 at64 and65280 at128, independently of
-the gradient. Alpha is ignored by the production colour sampler; this difference
+the gradient. Alpha is ignored by the tracked source colour sampler; this difference
 is still preserved in the report, not hidden or treated as a colour error.
 
 All Y416 output allocations were unadvertised, explicitly labelled diagnostics;
