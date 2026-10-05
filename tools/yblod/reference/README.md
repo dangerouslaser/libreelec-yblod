@@ -631,8 +631,8 @@ all four saved direct outputs byte-for-byte, then changes only final vertical
 colour interpolation. The experiment reports correctly positioned linear/cubic
 filters separately from deliberately wrong-position controls.
 
-Current coverage is **220 reference tests plus 8 existing accuracy-tool tests**,
-all passing on Ollie. All 16 frame/variant comparisons completed under the
+At this checkpoint, **220 reference tests plus 8 existing accuracy-tool tests**
+passed on Ollie. All 16 frame/variant comparisons completed under the
 512 MiB cap, with peak process RSS 96,216 KiB and no swap or OOM failures.
 
 The tested alternatives do not explain frame 1960's main discrepancy. Its
@@ -642,10 +642,32 @@ assumptions also need verification. No filter, colour offset or deployed
 playback setting was changed. See the linked report for per-frame numbers,
 limits, independent tests and memory-capped reproduction commands.
 
+## Transport bits audited — 2026-10-05
+
+[The transport-precision audit](TRANSPORT_PRECISION.md) independently checks
+literal packed bytes and all 4096 component codes, then examines the four saved
+SK4 comparisons without modifying their pixels. Almost all of the T-channel
+alternating-row **mean error gap** is in the upper-byte contribution, not the
+fine-bit contribution. The row pattern also survives an even/odd colour-column
+split. This is a location in the stored numbers, not proof of which processing
+stage or capture block caused the difference.
+
+The SK4's current device tree identifies S7D. Read-only driver-state inspection
+and source review narrow the applicable capture paths; they do not prove the
+configuration during the original captures. No new captures, hardware setting
+changes, fitted corrections or playback changes were made in this checkpoint.
+
+Current coverage is **246 reference tests plus 8 existing accuracy-tool tests**,
+all passing on Ollie. The four audits ran sequentially under the 512 MiB cap,
+peaked at 48,232 KiB process RSS, and completed without swapping or OOM failures.
+
 ## Next milestone
 
-1. Verify the common alternating-row pattern against capture/packing precision,
-   then isolate earlier colour preparation and reconstruction/enlargement order.
+1. Check readback stability by reading the same frozen completed SK4 buffer
+   twice, then compare fresh captures of one visibly verified paused frame while
+   recording the active device/build state. The existing bit audit narrows the
+   stored row pattern but does not establish its cause. Then isolate earlier
+   colour preparation and reconstruction/enlargement order.
    The tested final vertical interpolation alternatives do not resolve it.
    Compare earlier-PQ and later-RGB bounds on additional matched SK4 material
    with different source matrices, including ordinary movie scenes. Reordered
