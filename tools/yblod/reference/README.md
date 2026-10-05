@@ -94,9 +94,23 @@ No chroma filter, display adaptation or production colour policy is selected.
 
 [COLOUR_FRAME.md](COLOUR_FRAME.md) documents the row-bounded diagnostic output
 runner and an end-to-end synthetic CLI workflow. Configuration is explicitly
-hash-bound to the composer result; source colour instructions remain
-caller-declared, not yet verified against a real extracted RPU. Output bytes
-are unembedded diagnostics, not playable Dolby Vision HDMI.
+hash-bound to the composer result. `colour_metadata.py` verifies real settings
+against saved extracted-RPU evidence; caller-declared settings retain their
+explicit limitation. Output bytes are unembedded diagnostics, not playable
+Dolby Vision HDMI.
+
+[NATIVE_PIPELINE.md](NATIVE_PIPELINE.md) describes the C playback direction and
+the remaining hardware precision/grid boundary. The tested C foundations are
+documented in [NATIVE_COMPOSER.md](NATIVE_COMPOSER.md) and
+[NATIVE_COLOUR.md](NATIVE_COLOUR.md); Python remains the reference/test harness.
+[REAL_FRAME_VALIDATION.md](REAL_FRAME_VALIDATION.md) and
+[NATIVE_COLOUR_RESULTS.md](NATIVE_COLOUR_RESULTS.md) record byte-exact frame-2296
+equivalence and bounded offline resource measurements. These rewrites do not
+yet reduce the substantial saved SK4 colour differences or replace Kodi.
+
+Latest complete Ollie check: **654 reference tests plus 8 accuracy tests**, no
+skips, under a 512 MiB per-job memory limit with job swap disabled. Older counts
+below describe their historical checkpoints, not current suite coverage.
 
 `known_answers.py` supplies a separate arithmetic oracle using exact fractions
 and 60-digit decimal calculations, rather than the renderer's own functions.
