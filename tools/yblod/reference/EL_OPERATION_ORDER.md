@@ -63,3 +63,7 @@ width of 17 including sign; this is **not a Y416 packed-storage definition**.
 Do not discard negative values or presume the existing unsigned native-10/Q6
 carrier and 12-bit surface precision can transport those corrections losslessly.
 Neither this note nor the fixture changes production code or playback policy.
+
+The separately checked [Annex B known answers](ANNEX_B_RESAMPLER_VECTORS.md)
+pin a tiny two-pass example, including edge repetition and rounding between
+passes. Those answers are not the declared bilinear experiment above.
