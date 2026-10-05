@@ -1,0 +1,429 @@
+{
+  "schema": "yblod.native-gpu-query-control-results.v1",
+  "status": "diagnostic-complete",
+  "compute_performance_validated": false,
+  "timing_validation": "Compute-performance gate remains incomplete: unbracketed timer rejected; synchronized timer is chronological control only.",
+  "source_sha256": {
+    "engine/experimental/native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+    "engine/experimental/native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+    "engine/experimental/native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+    "engine/experimental/native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+    "engine/experimental/native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+    "engine/include/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+    "engine/experimental/native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+    "engine/experimental/native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+    "engine/experimental/native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+    "engine/experimental/native_gpu_probe_fixture.c": "f28bbfe1e2d239fec196e9695b4e845efe9402d6e97ec4021079af3f48b490b3",
+    "engine/experimental/native_gpu_probe_fixture.h": "3a7903adca60641d0cee559e329435a7474b9b8d059be8fb9fb9780d32baf6d8",
+    "engine/experimental/native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+    "engine/experimental/native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+    "engine/experimental/native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+    "engine/experimental/native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+    "engine/experimental/native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+    "engine/src/native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+    "engine/experimental/native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+    "engine/experimental/native_gpu_scaled_frame_device_probe.c": "07fd9b9a749fceb71ebd1499b619d1318e4d34c77c0ac7d090a34bc454834970",
+    "engine/experimental/native_gpu_scaled_frame_query_control.c": "60620287711cbd0499fa3ff2b68324fdb27b6b1cdeda22dd4608f7ffa1c08ce6"
+  },
+  "binary_sha256": {
+    "device": "6d3f840d55dd5b662def02a489039a7f83f8519676037b1b9c9f9158f52c67ca",
+    "control": "6bd10fa2e171e4bcc0e23d95a89d91040d29448005de781410dee1ea9120cb53"
+  },
+  "run_order": [
+    "device-2296",
+    "device-1406",
+    "control-2296",
+    "control-1406"
+  ],
+  "cohorts": [
+    {
+      "counts": [
+        8294400,
+        2073600,
+        2073600
+      ],
+      "cpu_full_frame_gate": true,
+      "full_frame_gpu_exact": true,
+      "gpu_verified_stage_values": 49766400,
+      "gpu_verified_dispatches": 48,
+      "gpu_oracle_dispatches": 191,
+      "cpu_chunk_samples": 65536,
+      "gpu_batch_samples": 262144,
+      "golden_suffix_offset": 196608,
+      "golden_suffix_samples": 41984,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "timer_counter_bits": 64,
+      "device_query_counts": [
+        48,
+        48,
+        48
+      ],
+      "device_timing_is_alu_busy": false,
+      "observed_gl_error": 0,
+      "observed_egl_error": 12288,
+      "device_binding_verified": true,
+      "cleanup_succeeded": true,
+      "memory_max_bytes": 536870912,
+      "swap_bytes": 0,
+      "memory_limit_events": 0,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "kodi_active_before_and_after": true,
+      "executed_artifact_and_input_identities_unchanged": true,
+      "warmups": 1,
+      "backend": "unbracketed-device-query",
+      "execution_status": "complete",
+      "timer_evidence_status": "untrusted-not-accepted-for-compute-performance",
+      "timer_method": "unbracketed-time-elapsed-query",
+      "label": "prepared-frame-2296",
+      "scaled_input": "Intel-scaled P010",
+      "wall_ns": [
+        715771961,
+        319257769,
+        503669307
+      ],
+      "cpu_ns": [
+        267434161,
+        165287181,
+        207356808
+      ],
+      "dispatch_wall_ns": [
+        441302773,
+        153438562,
+        295402724
+      ],
+      "dispatch_cpu_ns": [
+        6749917,
+        5136531,
+        5566899
+      ],
+      "preload_wait_wall_ns": [
+        15065406,
+        6755653,
+        7611790
+      ],
+      "device_elapsed_ns": [
+        12636,
+        3640,
+        9568
+      ],
+      "cold_setup_wall_ns": 27304112,
+      "teardown_wall_ns": 2061549,
+      "charged_peak_bytes": 121679872,
+      "device_timer_attempted": true,
+      "whole_frame_resident": false
+    },
+    {
+      "counts": [
+        8294400,
+        2073600,
+        2073600
+      ],
+      "cpu_full_frame_gate": true,
+      "full_frame_gpu_exact": true,
+      "gpu_verified_stage_values": 49766400,
+      "gpu_verified_dispatches": 48,
+      "gpu_oracle_dispatches": 191,
+      "cpu_chunk_samples": 65536,
+      "gpu_batch_samples": 262144,
+      "golden_suffix_offset": 196608,
+      "golden_suffix_samples": 41984,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "timer_counter_bits": 64,
+      "device_query_counts": [
+        48,
+        48,
+        48
+      ],
+      "device_timing_is_alu_busy": false,
+      "observed_gl_error": 0,
+      "observed_egl_error": 12288,
+      "device_binding_verified": true,
+      "cleanup_succeeded": true,
+      "memory_max_bytes": 536870912,
+      "swap_bytes": 0,
+      "memory_limit_events": 0,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "kodi_active_before_and_after": true,
+      "executed_artifact_and_input_identities_unchanged": true,
+      "warmups": 1,
+      "backend": "unbracketed-device-query",
+      "execution_status": "complete",
+      "timer_evidence_status": "untrusted-not-accepted-for-compute-performance",
+      "timer_method": "unbracketed-time-elapsed-query",
+      "label": "prepared-frame-1406",
+      "scaled_input": "Software-linear-scaled P010",
+      "wall_ns": [
+        300810160,
+        285659965,
+        662671991
+      ],
+      "cpu_ns": [
+        165906611,
+        156115054,
+        233180931
+      ],
+      "dispatch_wall_ns": [
+        135672026,
+        130446605,
+        422250160
+      ],
+      "dispatch_cpu_ns": [
+        5074003,
+        4907704,
+        6225486
+      ],
+      "preload_wait_wall_ns": [
+        4977057,
+        4993553,
+        14844670
+      ],
+      "device_elapsed_ns": [
+        3692,
+        3692,
+        13572
+      ],
+      "cold_setup_wall_ns": 27430323,
+      "teardown_wall_ns": 3943703,
+      "charged_peak_bytes": 121860096,
+      "device_timer_attempted": true,
+      "whole_frame_resident": false
+    },
+    {
+      "counts": [
+        8294400,
+        2073600,
+        2073600
+      ],
+      "cpu_full_frame_gate": true,
+      "full_frame_gpu_exact": true,
+      "gpu_verified_stage_values": 49766400,
+      "gpu_verified_dispatches": 48,
+      "gpu_oracle_dispatches": 191,
+      "cpu_chunk_samples": 65536,
+      "gpu_batch_samples": 262144,
+      "golden_suffix_offset": 196608,
+      "golden_suffix_samples": 41984,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "timer_counter_bits": 64,
+      "device_query_counts": [
+        48,
+        48,
+        48
+      ],
+      "device_timing_is_alu_busy": false,
+      "observed_gl_error": 0,
+      "observed_egl_error": 12288,
+      "device_binding_verified": true,
+      "cleanup_succeeded": true,
+      "memory_max_bytes": 536870912,
+      "swap_bytes": 0,
+      "memory_limit_events": 0,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "kodi_active_before_and_after": true,
+      "executed_artifact_and_input_identities_unchanged": true,
+      "warmups": 1,
+      "backend": "host-synchronized-query-control",
+      "execution_status": "complete",
+      "timer_evidence_status": "chronological-control-only-not-exclusive-compute-time",
+      "timer_method": "host-synchronized-cross-batch-bracket",
+      "label": "prepared-frame-2296",
+      "scaled_input": "Intel-scaled P010",
+      "wall_ns": [
+        528417043,
+        476203738,
+        721100971
+      ],
+      "cpu_ns": [
+        209902963,
+        175487602,
+        238721858
+      ],
+      "dispatch_wall_ns": [
+        316252233,
+        302002307,
+        480879108
+      ],
+      "dispatch_cpu_ns": [
+        9447430,
+        8592261,
+        10123496
+      ],
+      "preload_wait_wall_ns": [
+        13054378,
+        8351585,
+        12759595
+      ],
+      "device_elapsed_ns": [
+        301511385,
+        286932946,
+        460370134
+      ],
+      "cold_setup_wall_ns": 26060589,
+      "teardown_wall_ns": 1498783,
+      "charged_peak_bytes": 121421824,
+      "device_timer_attempted": true,
+      "whole_frame_resident": false
+    },
+    {
+      "counts": [
+        8294400,
+        2073600,
+        2073600
+      ],
+      "cpu_full_frame_gate": true,
+      "full_frame_gpu_exact": true,
+      "gpu_verified_stage_values": 49766400,
+      "gpu_verified_dispatches": 48,
+      "gpu_oracle_dispatches": 191,
+      "cpu_chunk_samples": 65536,
+      "gpu_batch_samples": 262144,
+      "golden_suffix_offset": 196608,
+      "golden_suffix_samples": 41984,
+      "stage_mismatch_counts": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "timer_counter_bits": 64,
+      "device_query_counts": [
+        48,
+        48,
+        48
+      ],
+      "device_timing_is_alu_busy": false,
+      "observed_gl_error": 0,
+      "observed_egl_error": 12288,
+      "device_binding_verified": true,
+      "cleanup_succeeded": true,
+      "memory_max_bytes": 536870912,
+      "swap_bytes": 0,
+      "memory_limit_events": 0,
+      "oom_events": 0,
+      "oom_kill_events": 0,
+      "kodi_active_before_and_after": true,
+      "executed_artifact_and_input_identities_unchanged": true,
+      "warmups": 1,
+      "backend": "host-synchronized-query-control",
+      "execution_status": "complete",
+      "timer_evidence_status": "chronological-control-only-not-exclusive-compute-time",
+      "timer_method": "host-synchronized-cross-batch-bracket",
+      "label": "prepared-frame-1406",
+      "scaled_input": "Software-linear-scaled P010",
+      "wall_ns": [
+        473951593,
+        336806541,
+        379800950
+      ],
+      "cpu_ns": [
+        172219278,
+        164214569,
+        184706603
+      ],
+      "dispatch_wall_ns": [
+        303781880,
+        174457707,
+        196857631
+      ],
+      "dispatch_cpu_ns": [
+        8375438,
+        7178014,
+        7736438
+      ],
+      "preload_wait_wall_ns": [
+        7447335,
+        6281218,
+        7016193
+      ],
+      "device_elapsed_ns": [
+        286062425,
+        163432010,
+        185745551
+      ],
+      "cold_setup_wall_ns": 26179004,
+      "teardown_wall_ns": 1641234,
+      "charged_peak_bytes": 121286656,
+      "device_timer_attempted": true,
+      "whole_frame_resident": false
+    }
+  ],
+  "scope": "Complete prepared whole-code GPU arithmetic plus a timer-coverage experiment; no validated exclusive compute-performance, playback, display-accuracy or Dolby-conformance claim.",
+  "timing_scope": "Instrumented full-frame warm totals include preparation, uploads, preload-completion fences, dispatch/barrier/completion waits, timer instrumentation/result retrieval and readback. File I/O, input/stage allocation, CPU oracle verification, cold setup and teardown excluded.",
+  "unbracketed_device_timing_scope": "TIME_ELAPSED around dispatch/barrier, without cross-batch chronological fences. Tiny returned values are published as rejected timing evidence, not as shader execution cost.",
+  "control_device_timing_scope": "TIME_ELAPSED start completion is host-fenced before compute submission; compute completion is host-fenced before query end, which is separately fenced before result retrieval. Includes CPU gaps, submission, synchronization and idle time; not pure kernel or exclusive GPU busy time.",
+  "host_dispatch_timing_scope": "Host dispatch interval ends after completion fences, before query availability/result retrieval and readback. Synchronized control adds start/end fence waits to that host interval.",
+  "verification_scope": "Complete CPU reference/cached stage agreement before GPU access; complete GPU/unchanged-C stage agreement before one warmup and three timed passes.",
+  "timed_crosscheck_scope": "Final CPU-subchunk suffix of final GPU batch only.",
+  "cold_setup_scope": "Fresh process/context; Mesa shader-cache state uncontrolled.",
+  "comparison_policy": "Changed synchronization and non-interleaved cohorts prohibit a speed comparison or subtraction-based estimate of pure compute cost.",
+  "limitations": [
+    "Arithmetic and execution success remain valid, but do not validate compute timer coverage.",
+    "All three raw measurements are published; no cherry-picked fastest result.",
+    "Only the explicit prepared whole10/enabled enhancement/polynomial-luma subset is supported.",
+    "Chronological control timer includes host delays and does not establish ALU busy time or absence of preemption.",
+    "Charged scope memory is not total system/GPU allocation.",
+    "No older source, shader, enhancement-scaling policy, TV settings or Kodi playback changes."
+  ],
+  "mesa_source_review": {
+    "version": "26.2.4",
+    "scope": "Read-only inspection of the local SDK Mesa source; inference about engine routing, not proof of the loaded VM driver's exact source or identity.",
+    "loaded_driver_identity_verified": false,
+    "upstream_project": "https://gitlab.freedesktop.org/mesa/mesa",
+    "audit_document": "NATIVE_GPU_TIMER_DRIVER_AUDIT.md",
+    "source_sha256": {
+      "src/gallium/drivers/iris/iris_query.c": "b543decc3c55ee1f01cdce3d15504752580d061c021a9d39b42288ebb1da734e",
+      "src/gallium/drivers/iris/iris_draw.c": "2db0f8123ea073556ba367668e1491c52418ed1b6c653be9eb83e887a1a84727",
+      "src/gallium/drivers/iris/iris_pipe_control.c": "93a760464e6380e5807e1bb5c024bb1326bd2821ad662e155b62b00a1f11cf0d",
+      "src/gallium/drivers/iris/iris_fence.c": "3b7acbbb0149c8be2beabafac030ad79b35633216e19bbbf162df00c46c8945a"
+    },
+    "inference": [
+      "Inspected TIME_ELAPSED query selection and timestamp writes use the render batch, while compute dispatch uses the compute batch.",
+      "The inspected barrier code flushes batches independently; unbracketed render markers need not bracket compute execution.",
+      "Inspected fence flushing/waiting covers batches, supporting the host-synchronized chronological control; that control still includes host gaps and waits."
+    ],
+    "review_touchpoints": {
+      "query_selection": [
+        438,
+        444
+      ],
+      "query_timestamp_writes": [
+        194,
+        200
+      ],
+      "compute_dispatch": [
+        394,
+        445
+      ],
+      "memory_barrier": [
+        376,
+        416
+      ],
+      "fence_all_batch_flush": [
+        246,
+        286
+      ],
+      "fence_wait": [
+        410,
+        434
+      ]
+    }
+  }
+}
