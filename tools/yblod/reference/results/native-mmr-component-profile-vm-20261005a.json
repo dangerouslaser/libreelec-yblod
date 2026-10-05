@@ -1,0 +1,173 @@
+{
+  "schema": "yblod.native-mmr-component-profile-results.v1",
+  "date": "2026-10-05",
+  "status": "complete",
+  "measurement": {
+    "schema": "yblod.native-mmr-paired-benchmark.v1",
+    "status": "complete",
+    "all_four_stages_full_frame_byte_exact": true,
+    "verification_scope": "untimed-full-frame-before-timing",
+    "verified_dispatches": 191,
+    "verified_stage_values": 49766400,
+    "plan_bytes": 36848,
+    "frame_bytes": 9384,
+    "warmups_per_backend": 1,
+    "paired_repeats": 3,
+    "orders": [
+      "reference,mmr",
+      "mmr,reference",
+      "reference,mmr"
+    ],
+    "preparation_and_teardown_included": true,
+    "timed_last_chunk_crosschecks": 8,
+    "timed_crosscheck_scope": "last-chunk-only-external-kernels-no-lto",
+    "counts": [
+      8294400,
+      2073600,
+      2073600
+    ],
+    "reference": {
+      "wall_ns": [
+        590678075,
+        584890692,
+        590510874
+      ],
+      "cpu_ns": [
+        590623914,
+        584842419,
+        590457651
+      ],
+      "preparation_wall_ns": [
+        3319,
+        3428,
+        3400
+      ],
+      "preparation_cpu_ns": [
+        3243,
+        3350,
+        2944
+      ],
+      "extraction_component_0_wall_ns": [
+        43022496,
+        42679846,
+        43642966
+      ],
+      "reconstruction_component_0_wall_ns": [
+        220813882,
+        217940181,
+        223678707
+      ],
+      "extraction_component_1_wall_ns": [
+        10889119,
+        11132647,
+        11027151
+      ],
+      "reconstruction_component_1_wall_ns": [
+        149583521,
+        152590972,
+        153657221
+      ],
+      "extraction_component_2_wall_ns": [
+        11179689,
+        10929231,
+        10738154
+      ],
+      "reconstruction_component_2_wall_ns": [
+        155156378,
+        149581072,
+        147719977
+      ]
+    },
+    "mmr": {
+      "wall_ns": [
+        257305009,
+        263973396,
+        261620766
+      ],
+      "cpu_ns": [
+        257267135,
+        263953116,
+        261296251
+      ],
+      "preparation_wall_ns": [
+        624701,
+        964605,
+        698518
+      ],
+      "preparation_cpu_ns": [
+        624835,
+        964701,
+        698314
+      ],
+      "extraction_component_0_wall_ns": [
+        42569136,
+        43070225,
+        43074571
+      ],
+      "reconstruction_component_0_wall_ns": [
+        35436329,
+        35559173,
+        35482425
+      ],
+      "extraction_component_1_wall_ns": [
+        10782797,
+        10796802,
+        10645148
+      ],
+      "reconstruction_component_1_wall_ns": [
+        78533372,
+        78971044,
+        77481531
+      ],
+      "extraction_component_2_wall_ns": [
+        10789255,
+        11336048,
+        11447439
+      ],
+      "reconstruction_component_2_wall_ns": [
+        78548332,
+        83253650,
+        82759433
+      ]
+    },
+    "instrumented_component_wall_profile": true,
+    "component_order": [
+      "Y",
+      "Cb",
+      "Cr"
+    ],
+    "component_routes": [
+      1,
+      0,
+      0
+    ],
+    "mmr_segment_counts_by_64_128_bits": [
+      2,
+      0
+    ]
+  },
+  "resource_evidence": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "pre_exit_memory_peak_bytes": 57151488,
+    "swap_current_bytes": 0,
+    "high_events": 0,
+    "max_events": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "kodi_before": "active",
+    "kodi_after": "active",
+    "cpu_quota": "controller unavailable in scope"
+  },
+  "binary_sha256": "ee67b16dff74ca10e204de256a46eb5c0616bdcdeb365091964f8100ab378af1",
+  "profiling_source_sha256": "92c5498e7bbe8f3d68eb522d9889709e0630e9676f2a8b65dbd139b4b59aef0a",
+  "profiling_test_sha256": "7a874fd14584ae3cad71c9e30472211de1f0effab58f37c1486d0b779f9068b1",
+  "scope": [
+    "Instrumented wall-clock component profile; added clock reads perturb totals.",
+    "Do not treat totals as a speed comparison with the uninstrumented benchmark.",
+    "Full untimed byte-exact gate before all timings; timed output checks cover final chunk only.",
+    "Reconstruction includes validation, all four stage writes and arithmetic.",
+    "Extraction excludes hardware scaling, decoding, colour conversion and display.",
+    "No Kodi integration or independent Dolby conformance claim."
+  ]
+}
