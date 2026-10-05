@@ -27,6 +27,11 @@ against the actual VM before invoking it. No runtime libraries are replaced.
 ## What is actually submitted
 
 Arguments are `DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H MODE`.
+VPP modes optionally accept `--input-chroma left|top-left` and
+`--output-chroma left|top-left` independently, in either order. Omitted sides
+retain `left` (value6); `top-left` is value5. Invalid/duplicate options are
+rejected before device access. Copy mode rejects these declarations because
+it does not submit a colour-processing request.
 Only even dimensions2..4096 and one exact tightly packed P010 input are accepted.
 The output path must be new. Modes:
 
@@ -40,7 +45,7 @@ Only active bytes are exported, with no padded rows. Output is synchronized
 before readback; unexpected low-six-bit data is retained for diagnosis, not
 coerced into10bit codes. The Python checkers reject it as an unsupported contract.
 
-VPP requests identical BT2020 standards, full code range and left chroma
+By default VPP requests identical BT2020 standards, full code range and left chroma
 (`VERTICAL_CENTER | HORIZONTAL_LEFT`, value6) on both sides. These are a declared
 code-preserving transport convention, **not the colour meaning of enhancement
 data**. Intel's reviewed [driver source](https://github.com/intel/media-driver/blob/master/media_driver/linux/common/vp/ddi/media_libva_vp.c)
@@ -60,6 +65,23 @@ flags are encoded selectors, not independent Boolean capabilities; accepted
 submission does not prove the named algorithm or dedicated engine was used.
 The invocation JSON explicitly keeps `hardware_engine_verified:false`.
 Copy-mode colour/chroma request fields are null because they were not submitted.
+
+## Independent colour-position matrix
+
+```sh
+python3 tools/yblod/reference/hardware_chroma_siting_check.py \
+  /path/to/vaapi_scaler_probe /path/to/fresh-siting-results --repeats 2
+```
+
+This synthetic-only runner tests all four input/output left/top-left pairs.
+Copies and all native-size checks precede enlargement. Same-grid1:1 identity,
+constant/channel-tag preservation, stable repeats, strict P010 packing and
+unchanged luma are gates. Cross-grid1:1 identity is reported, not required:
+that declaration can intentionally request colour resampling. The checker
+records actual invocation metadata, binary/source/input/output/log hashes,
+per-parity differences and independent affine-reference results. No fitted
+offset or picture-derived correction is applied. See the results document
+for the measured input/output asymmetry and why no setting is adopted as a fix.
 
 ## Test order
 

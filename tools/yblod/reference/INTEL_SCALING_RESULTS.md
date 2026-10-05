@@ -75,6 +75,45 @@ Chroma increments alternate2/6 instead of4/4; this is not one uniform shift.
 Do not hide it with a fitted offset or assert that it causes the SK4 difference.
 Physical layer registration and encoded chroma siting remain separate contracts.
 
+## Independent input/output colour-position experiment
+
+The [siting matrix report](results/intel-chroma-siting-v6b.json) adds102
+synthetic invocations:6 transport copies and96 default VPP jobs spanning
+four left/top-left declarations, native/2x sizes, six patterns and two repeats.
+The V6 binary SHA256 is
+`778453ce5edf78d1955f23c4e6e7ddf59e5ca41356e2ed53cb0ac3076f86ed64`;
+its C source SHA256 is
+`a47108893b2191d9ef10ef38f2dd7a082a71a190b5434b2d8aadb191e1584aa2`.
+Same runtime/device as above; jobs remain sequential under512MiB/no-swap.
+
+All copies are exact. Every1:1 job, including the cross-grid requests, is
+also exact. Constants/channel tags stay exact at both sizes; repeated outputs
+are stable and brightness is byte-identical across all four declarations.
+
+For ascending vertical ramps at2x, interior differences from the unchanged
+logical Annex-B first-moment reference are:
+
+| Input request | Output request | Y even/odd error | Cb/Cr even/odd error | Cb/Cr increments |
+| --- | --- | --- | --- | --- |
+| left | left | +2/+2 | +2/0 | 2/6 |
+| top-left | left | +2/+2 | +2/0 | 2/6 |
+| left | top-left | +2/+2 | +2/−2 | 0/8 |
+| top-left | top-left | +2/+2 | +2/−2 | 0/8 |
+
+Descending ramps reverse the error signs. Horizontal ramps remain exact in
+the measured interior. Changing the input declaration gives byte-identical
+outputs for each fixed output declaration across the whole tested corpus.
+Changing the output declaration affects vertical chroma but not brightness.
+Thus there is a measurable output-control response; input-control response was
+not observed in this path. This is not a universal claim about driver behaviour.
+
+Neither setting gives reference4/4 chroma increments, and the Y logical
+sampling-moment difference remains. A zero mean chroma error under top-left output masks
+alternating+2/−2 errors; it is **not** improved accuracy. Identical bytes under
+different input declarations represent different physical sample grids, not the
+same physical picture. Reference differences remain diagnostics, not a Dolby
+conformance verdict. No playback geometry is changed based on these results.
+
 ## Limits and next discriminating experiment
 
 The main run takes10.327 seconds including subprocesses and scalar CPU scoring.
@@ -82,13 +121,13 @@ Reported self/child peak RSS is32,816 KiB, swap deltas0. It runs under a512MiB
 hard cap with job swap disabled. This is not playback latency or throughput;
 RSS is a process high-water mark, not total GPU/cgroup allocation.
 
-Next vary input/output vertical chroma siting independently on synthetic fields:
-left→left, top-left→top-left, left→top-left and top-left→left. Keep range,
-horizontal position, dimensions and filter requests fixed. Check luma stays
-unchanged and record actual per-parity colour responses. Matching one reference
-response by changing the declared output grid is **not** a deployable fix.
+Next distinguish output phase quantization/filter behaviour using additional
+slope controls and production-size surfaces. The completed siting matrix does
+not explain every filter coefficient or establish correct physical registration.
+Matching one response by changing the declared output grid is **not** a
+deployable fix.
 
-Then validate production-size surfaces and actual video/graphics engine use
-before feeding a hardware result into reconstruction. This checkpoint does not
+Also verify actual video/graphics engine use before feeding a hardware result
+into reconstruction. This checkpoint does not
 change the faster production path, resolve SK4 colour differences, certify Dolby
 accuracy, or establish AMD support.

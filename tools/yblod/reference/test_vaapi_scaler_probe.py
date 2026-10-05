@@ -18,11 +18,11 @@ class CompiledProbeGuards(unittest.TestCase):
         self.source.write_bytes(bytes(16 * 16 * 3))
         self.output = self.root / "new-output.p010"
 
-    def reject(self, expected, *, iw="16", ih="16", ow="16", oh="16", mode="copy"):
+    def reject(self, expected, *, iw="16", ih="16", ow="16", oh="16", mode="copy", extra=()):
         # A nonexistent device is deliberate. Every assertion must reject the
         # input BEFORE trying to open it, not pass due to missing GPU access.
         args = [BINARY, "/nonexistent-yblod-render-device", str(self.source), str(self.output),
-                iw, ih, ow, oh, mode]
+                iw, ih, ow, oh, mode, *extra]
         run = subprocess.run(args, capture_output=True, text=True, timeout=5)
         self.assertNotEqual(run.returncode, 0)
         self.assertIn(expected, run.stderr)
@@ -53,6 +53,18 @@ class CompiledProbeGuards(unittest.TestCase):
     def test_unused_low_bits_are_not_silently_discarded(self):
         self.source.write_bytes(b"\1\0" + bytes(16 * 16 * 3 - 2))
         self.reject("nonzero low six bits")
+
+    def test_chroma_options_fail_closed(self):
+        for extra, expected in (
+            (("--input-chroma",), "usage:"),
+            (("--other", "left"), "unknown chroma option"),
+            (("--input-chroma", "center"), "unknown chroma location"),
+            (("--output-chroma", "left", "--output-chroma", "top-left"), "duplicate chroma option"),
+        ):
+            with self.subTest(extra=extra): self.reject(expected, mode="default", extra=extra)
+
+    def test_copy_rejects_siting_declarations(self):
+        self.reject("copy test does not accept chroma declarations", extra=("--input-chroma", "left"))
 
 
 if __name__ == "__main__":

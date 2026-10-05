@@ -161,13 +161,30 @@ static void surface_create(unsigned width, unsigned height, unsigned index)
 
 int main(int argc, char **argv)
 {
-    if (argc != 9) {
-        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest\n", argv[0]);
+    if (argc < 9 || (argc - 9) % 2) {
+        fprintf(stderr, "usage: %s DEVICE INPUT OUTPUT IN_W IN_H OUT_W OUT_H copy|default|fast|hq|bilinear|nearest [--input-chroma left|top-left] [--output-chroma left|top-left]\n", argv[0]);
         return EXIT_FAILURE;
+    }
+    unsigned input_chroma = VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
+    unsigned output_chroma = input_chroma;
+    int seen_input = 0, seen_output = 0;
+    for (int i = 9; i < argc; i += 2) {
+        unsigned *value;
+        int *seen;
+        if (!strcmp(argv[i], "--input-chroma")) { value = &input_chroma; seen = &seen_input; }
+        else if (!strcmp(argv[i], "--output-chroma")) { value = &output_chroma; seen = &seen_output; }
+        else fail("unknown chroma option");
+        if ((*seen)++) fail("duplicate chroma option");
+        if (!strcmp(argv[i + 1], "left"))
+            *value = VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
+        else if (!strcmp(argv[i + 1], "top-left"))
+            *value = VA_CHROMA_SITING_VERTICAL_TOP | VA_CHROMA_SITING_HORIZONTAL_LEFT;
+        else fail("unknown chroma location");
     }
     unsigned iw = dimension(argv[4]), ih = dimension(argv[5]);
     unsigned ow = dimension(argv[6]), oh = dimension(argv[7]);
     int copy = !strcmp(argv[8], "copy");
+    if (copy && (seen_input || seen_output)) fail("copy test does not accept chroma declarations");
     unsigned flags = 0;
     if (!strcmp(argv[8], "fast")) flags = VA_FILTER_SCALING_FAST;
     else if (!strcmp(argv[8], "hq")) flags = VA_FILTER_SCALING_HQ;
@@ -294,9 +311,9 @@ int main(int argc, char **argv)
         parameters.output_color_standard = VAProcColorStandardBT2020;
         parameters.input_color_properties.color_range = VA_SOURCE_RANGE_FULL;
         parameters.output_color_properties.color_range = VA_SOURCE_RANGE_FULL;
-        parameters.input_color_properties.chroma_sample_location =
-            VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT;
+        parameters.input_color_properties.chroma_sample_location = input_chroma;
         parameters.output_color_properties = parameters.input_color_properties;
+        parameters.output_color_properties.chroma_sample_location = output_chroma;
         VA_CHECK(vaCreateBuffer(display, context, VAProcPipelineParameterBufferType,
                                sizeof(parameters), 1, &parameters, &pipeline));
         VA_CHECK(vaBeginPicture(display, context, surfaces[1]));
@@ -315,8 +332,10 @@ int main(int argc, char **argv)
     printf("{\"schema\":\"yblod.vaapi-scaler-invocation.v1\",\"status\":\"complete\",\"vendor\":");
     json_string(vaQueryVendorString(display) ? vaQueryVendorString(display) : "unknown");
     printf(",\"va_version\":[%d,%d],\"input_size\":[%u,%u],\"output_size\":[%u,%u],"
-           "\"filter_flags\":%u,\"input_chroma_siting\":%s,\"output_chroma_siting\":%s,",
-           major, minor, iw, ih, ow, oh, flags, copy ? "null" : "6", copy ? "null" : "6");
+           "\"filter_flags\":%u,\"input_chroma_siting\":",
+           major, minor, iw, ih, ow, oh, flags);
+    if (copy) printf("null,\"output_chroma_siting\":null,");
+    else printf("%u,\"output_chroma_siting\":%u,", input_chroma, output_chroma);
     if (copy) printf("\"colour_standard\":null,\"colour_range\":null,");
     else printf("\"colour_standard\":%d,\"colour_range\":%u,",
                 VAProcColorStandardBT2020, VA_SOURCE_RANGE_FULL);
