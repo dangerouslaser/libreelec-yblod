@@ -6,10 +6,10 @@
 
 static void validation_report(const struct yb_probe_fixture *f, int accepted)
 {
-    printf("\"accepted\":%s,\"polynomial_only\":%s,\"samples\":%u,\"component\":%d,"
+    printf("\"accepted\":%s,\"algorithm_supported\":%s,\"polynomial_only\":%s,\"samples\":%u,\"component\":%d,"
            "\"width_report\":{\"supported\":%s,\"mmr_segment_count\":%u,\"worst_l1_bound\":%llu,"
            "\"first_unsupported_component\":%d,\"first_unsupported_segment\":%d}",
-           accepted ? "true" : "false",f->polynomial_only ? "true" : "false",f->count,f->component,
+           accepted ? "true" : "false",f->algorithm_supported ? "true" : "false",f->polynomial_only ? "true" : "false",f->count,f->component,
            f->width.supported ? "true" : "false",f->width.mmr_segment_count,
            (unsigned long long)f->width.worst_l1_bound,f->width.first_unsupported_component,f->width.first_unsupported_segment);
 }
@@ -283,9 +283,9 @@ int main(int argc,char **argv)
     if(!validate && argc!=4) { fputs("usage: native_gpu_probe --validate FIXTURE | NODE SHADER FIXTURE\n",stderr); return 2; }
     struct yb_probe_fixture *fixture=calloc(1,sizeof(*fixture));
     const char *path=argv[validate ? 2 : 3];
-    if(!fixture || !yb_probe_load(path,fixture)) { free(fixture); puts("{\"schema\":\"yblod.native-gpu-probe.v1\",\"status\":\"invalid-fixture\",\"accepted\":false,\"gpu_attempted\":false}"); return 2; }
-    int accepted=fixture->polynomial_only && fixture->width.supported;
-    fputs("{\"schema\":\"yblod.native-gpu-probe.v1\",",stdout); validation_report(fixture,accepted);
+    if(!fixture || !yb_probe_load(path,fixture)) { free(fixture); puts("{\"schema\":\"yblod.native-gpu-probe.v2\",\"status\":\"invalid-fixture\",\"accepted\":false,\"gpu_attempted\":false}"); return 2; }
+    int accepted=fixture->algorithm_supported && fixture->width.supported;
+    fputs("{\"schema\":\"yblod.native-gpu-probe.v2\",",stdout); validation_report(fixture,accepted);
     struct yb_probe_result *expected=calloc(fixture->count,sizeof(*expected));
     if(!expected || !yb_probe_cpu(fixture,expected)) { free(expected); free(fixture); puts(",\"status\":\"cpu-oracle-failed\",\"gpu_attempted\":false}"); return 2; }
     if(validate) {

@@ -3,7 +3,7 @@
 #include "native_composer.h"
 #include "native_gpu_guard.h"
 #define YB_PROBE_MAX_SAMPLES 4096U
-#define YB_PROBE_METADATA_WORDS 93U
+#define YB_PROBE_METADATA_WORDS 419U
 struct yb_probe_sample { uint32_t y, cb, cr, el; };
 struct yb_probe_result { int32_t mapped, residual, sum, reconstructed; };
 struct yb_probe_fixture {
@@ -14,6 +14,7 @@ struct yb_probe_fixture {
     struct yb_probe_sample samples[YB_PROBE_MAX_SAMPLES];
     struct yb_gpu_width_report width;
     int polynomial_only;
+    int algorithm_supported;
 };
 /* Strict bounded little-endian diagnostic format, never a media/RPU parser. */
 int yb_probe_load(const char *path, struct yb_probe_fixture *fixture);

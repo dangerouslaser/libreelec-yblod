@@ -9,7 +9,7 @@ import unittest
 
 import native_stage
 import native_gpu_probe
-from native_gpu_vectors import vector_fixtures, expected_stages, width_oracle, WIDTH_LIMIT
+from native_gpu_vectors import vector_fixtures, expected_stages, width_oracle, WIDTH_LIMIT, triple_feature
 
 
 class GPUVectorTests(unittest.TestCase):
@@ -57,6 +57,10 @@ class GPUVectorTests(unittest.TestCase):
                          (-8184, -8, 0, 8, 8168))
         self.assertEqual(expected_stages(cases["cross-depth-bl10-el8"])[1],
                          (-2040, -8, 0, 8, 2024))
+        self.assertEqual(expected_stages(cases["mmr-mixed-pivot-right-and-guide-clamp"])[0],
+                         (4096, 4096, 4096, 4096, 33728, 33728, 8192, 8192, 8192, 8192))
+        self.assertEqual(expected_stages(cases["mmr-width-limit-signed-prefix-cancellation"])[0],
+                         (32, 31, 31, 65535, 0))
 
     def test_width_boundary_expected_rejection_is_explicit(self):
         cases = {v.name: v for v in vector_fixtures()}
@@ -82,15 +86,33 @@ class GPUVectorTests(unittest.TestCase):
                 status, report = self.validate_bytes(data)
                 width = width_oracle(vector.mapping)
                 poly = all(s.method == "polynomial" for m in vector.mapping.mappings for s in m.segments)
-                self.assertEqual(status, 0 if poly and width["supported"] else 3)
+                self.assertEqual(status, 0 if width["supported"] else 3)
                 self.assertIs(report["gpu_attempted"], False)
-                self.assertIs(report["accepted"], poly and width["supported"])
+                self.assertIs(report["accepted"], width["supported"])
+                self.assertIs(report["algorithm_supported"], True)
+                self.assertEqual(report["schema"], "yblod.native-gpu-probe.v2")
                 self.assertIs(report["polynomial_only"], poly)
                 self.assertEqual(report["width_report"], dict(supported=width["supported"],
                     mmr_segment_count=width["mmr_segment_count"], worst_l1_bound=width["worst_l1_bound"],
                     first_unsupported_component=width["first_unsupported"][0],
                     first_unsupported_segment=width["first_unsupported"][1]))
                 self.assertEqual(report["cpu_stages"], [list(row) for row in zip(*expected_stages(vector))])
+
+    def test_feature_floors_cannot_be_collapsed_even_at_unclipped_anchor(self):
+        cases = {v.name: v for v in vector_fixtures()}
+        for depth, order, basis in ((8, 3, "cube"), (10, 2, "square")):
+            vector = cases[f"mmr{order}-cr-b{depth}-triple-{basis}-floor"]
+            top = (1 << depth)-1
+            anchor = (top, top-2, top-1)
+            actual = expected_stages(vector)[0][vector.triplets.index(anchor)]
+            self.assertEqual(actual, 32768)
+            y, u, v = anchor
+            collapsed = ((y*u*v)**order * (1 << 20)) // (1 << (3*depth*order))
+            expected_feature = triple_feature(anchor, depth, order)
+            self.assertNotEqual(collapsed, expected_feature)
+            wrong_mapped = 32768 + 2*(collapsed-expected_feature)
+            self.assertTrue(0 < wrong_mapped < 65535)
+            self.assertNotEqual(wrong_mapped, actual)
 
     def test_host_only_malformed_binary_does_not_attempt_gpu(self):
         vector = next(v for v in vector_fixtures() if v.name == "cross-depth-bl8-el10")

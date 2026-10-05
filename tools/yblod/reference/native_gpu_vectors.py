@@ -64,6 +64,16 @@ def config(curves, depth, denominator):
     return BaseMappingConfig.from_mappings(curves, bit_depth=depth, denominator=denominator)
 
 
+def triple_feature(codes, depth, order):
+    """Exact isolated triple basis with required per-pass fixed-point floors."""
+    y, u, v = codes
+    pair = y*u*(1 << (20-2*depth))
+    linear_v = v*(1 << (20-depth))
+    first = pair*linear_v // (1 << 20)
+    second = first*first // (1 << 20)
+    return second if order == 2 else first*second // (1 << 20)
+
+
 def vector_fixtures():
     vectors = []
     # Endpoint and native-depth transport, all components and both output depths.
@@ -135,4 +145,50 @@ def vector_fixtures():
         triples = tuple((x, x, x) for x in (0, 1, bl_top//2, bl_top-1, bl_top))
         vectors.append(GPUVector(f"cross-depth-bl{bl_depth}-el{el_depth}", mapping, 1,
                                  triples, nlq, (0, offset-1, offset, offset+1, el_top), 12))
+    # V2 MMR feature-floor and component coverage; no MMR is legal in Y/c0.
+    for depth, order in ((8, 3), (10, 2)):
+        top = (1 << depth)-1
+        curves = [poly((0, top), (0, 1 << 32)) for _ in range(3)]
+        rows = [[0]*7 for _ in range(order)]
+        rows[order-1][6] = 1 << 37
+        anchor = (top, top-2, top-1)
+        constant = (1 << 31)-triple_feature(anchor, depth, order)*(1 << 17)
+        curves[2]["segments"] = [dict(method="mmr", constant=constant, coefficients=rows)]
+        triples = tuple(product((1, top-2, top-1, top), repeat=3))
+        basis = "cube" if order == 3 else "square"
+        vectors.append(GPUVector(f"mmr{order}-cr-b{depth}-triple-{basis}-floor", config(curves, depth, 32),
+                                 2, triples, None, None, 12))
+    curves = [poly((10, 990), (0, 1 << 23)), poly((100, 800), (0, 1 << 23)),
+              dict(pivots=[100, 300, 700, 900], segments=[
+                  dict(method="polynomial", coefficients=[1 << 19, 0]),
+                  dict(method="mmr", constant=1 << 18,
+                       coefficients=[[1 << 22, 0, 0, 0, 0, 0, 0]]),
+                  dict(method="polynomial", coefficients=[1 << 20, 0])])]
+    triples = tuple((1023, 0, code) for code in (0, 99, 100, 299, 300, 699, 700, 899, 900, 1023))
+    vectors.append(GPUVector("mmr-mixed-pivot-right-and-guide-clamp", config(curves, 10, 23),
+                             2, triples, None, None, 12))
+    constant = 1 << 21
+    positive = (WIDTH_LIMIT-constant)//2
+    negative = WIDTH_LIMIT-constant-positive
+    curves = [poly((0, 1023), (0, 1 << 32)) for _ in range(3)]
+    curves[1]["segments"] = [dict(method="mmr", constant=constant,
+                                  coefficients=[[positive, -negative, 0, 0, 0, 0, 0]])]
+    triples = ((0, 0, 0), (1, 1, 1), (1023, 1023, 1023), (1023, 1022, 1), (1022, 1023, 1))
+    vectors.append(GPUVector("mmr-width-limit-signed-prefix-cancellation", config(curves, 10, 32),
+                             1, triples, None, None, 12))
+    pivots = tuple(i*63 for i in range(16)) + (1023,)
+    segments = []
+    for index in range(16):
+        if index % 2 == 0:
+            segments.append(dict(method="mmr", constant=(index+1) << 19,
+                                 coefficients=[[0, 1 << 20, 0, 0, 0, 0, 0]]))
+        else:
+            segments.append(dict(method="polynomial", coefficients=[(index+1) << 19, 0]))
+    curves = [poly((0, 1023), (0, 1 << 23)) for _ in range(3)]
+    curves[2] = dict(pivots=pivots, segments=segments)
+    codes = sorted({max(0, min(1023, p+d)) for p in pivots for d in (-1, 0, 1)})
+    triples = tuple(((index*37+100)%1024, (index*53+200)%1024, code)
+                    for index, code in enumerate(codes))
+    vectors.append(GPUVector("mmr-max-pivots-and-mixed-segments", config(curves, 10, 23),
+                             2, triples, None, None, 12))
     return tuple(vectors)

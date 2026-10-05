@@ -1,4 +1,3 @@
-import copy
 import json
 from pathlib import Path
 import subprocess
@@ -13,8 +12,8 @@ from native_gpu_vectors import expected_stages, vector_fixtures, width_oracle
 def cpu_report(vector):
     width=width_oracle(vector.mapping)
     polynomial=all(s.method=="polynomial" for c in vector.mapping.mappings for s in c.segments)
-    accepted=polynomial and width["supported"]
-    return dict(schema="yblod.native-gpu-probe.v1",accepted=accepted,polynomial_only=polynomial,
+    accepted=width["supported"]
+    return dict(schema=runner.PROBE_SCHEMA,accepted=accepted,polynomial_only=polynomial,algorithm_supported=True,
         samples=len(vector.triplets),component=vector.component,gpu_attempted=False,
         status="validated" if accepted else "unsupported",cpu_stages=[list(r) for r in zip(*expected_stages(vector))],
         width_report=dict(supported=width["supported"],mmr_segment_count=width["mmr_segment_count"],
@@ -48,11 +47,11 @@ class RunTests(unittest.TestCase):
         with patch.object(runner.subprocess,"run",side_effect=self.invoke) as call:
             report=runner.run(self.binary,self.shader,self.root/"run")
         self.assertEqual(report["status"],"complete")
-        self.assertEqual((report["fixture_count"],report["gpu_case_count"],report["unsupported_case_count"]),(27,21,6))
+        self.assertEqual((report["fixture_count"],report["gpu_case_count"],report["unsupported_case_count"]),(32,31,1))
         args=[c.args[0] for c in call.call_args_list]
-        self.assertTrue(all(a[1]=="--validate" for a in args[:27]))
-        self.assertTrue(all(a[1]=="/dev/dri/renderD128" for a in args[27:]))
-        self.assertEqual(len(args),48)
+        self.assertTrue(all(a[1]=="--validate" for a in args[:32]))
+        self.assertTrue(all(a[1]=="/dev/dri/renderD128" for a in args[32:]))
+        self.assertEqual(len(args),63)
 
     def test_cpu_failure_blocks_all_gpu_and_records_logs(self):
         def wrong(argv,**kwargs):
@@ -71,7 +70,7 @@ class RunTests(unittest.TestCase):
             return subprocess.CompletedProcess(argv,0,json.dumps(result).encode(),b"")
         with patch.object(runner.subprocess,"run",side_effect=wrong) as call:
             report=runner.run(self.binary,self.shader,self.root/"run")
-        self.assertEqual(report["status"],"failed");self.assertEqual(call.call_count,28)
+        self.assertEqual(report["status"],"failed");self.assertEqual(call.call_count,33)
 
     def test_mutation_timeout_and_ambiguous_json_fail_closed(self):
         def mutate(argv,**kwargs):
@@ -105,6 +104,13 @@ class RunTests(unittest.TestCase):
         with self.assertRaises(ValueError):runner.validate_cpu(report,vector)
         report=cpu_report(vector);report["cpu_stages"][0][0]=False
         with self.assertRaises(ValueError):runner.validate_cpu(report,vector)
+
+    def test_no_eligible_cases_is_not_a_gpu_success(self):
+        vector=next(v for v in self.vectors if not width_oracle(v.mapping)["supported"])
+        with patch.object(runner,"vector_fixtures",return_value=(vector,)),patch.object(runner.subprocess,"run",side_effect=self.invoke) as call:
+            report=runner.run(self.binary,self.shader,self.root/"empty-gpu")
+        self.assertEqual(report["status"],"failed");self.assertEqual(call.call_count,1)
+        self.assertTrue(report["all_cpu_gates_complete"])
 
 
 if __name__=="__main__":unittest.main()

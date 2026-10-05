@@ -21,6 +21,7 @@ SOURCES = ("native_gpu_probe.c", "native_gpu_probe.comp", "native_gpu_probe.py",
            "native_gpu_guard.h", "native_gpu_vectors.py", "native_stage.py",
            "base_mapping_stage.py", "nlq_stage.py", "composition_stage.py",
            "hardware_y416_neutral_precision.py", "native_gpu_run.py")
+PROBE_SCHEMA="yblod.native-gpu-probe.v2"
 
 
 def digest(path):
@@ -48,11 +49,11 @@ def validate_cpu(report, vector):
     width = width_oracle(vector.mapping)
     polynomial = all(segment.method == "polynomial"
                      for curve in vector.mapping.mappings for segment in curve.segments)
-    accepted = polynomial and width["supported"]
+    accepted = width["supported"]
     expected_width = dict(supported=width["supported"], mmr_segment_count=width["mmr_segment_count"],
         worst_l1_bound=width["worst_l1_bound"], first_unsupported_component=width["first_unsupported"][0],
         first_unsupported_segment=width["first_unsupported"][1])
-    required=dict(schema="yblod.native-gpu-probe.v1",gpu_attempted=False,accepted=accepted,
+    required=dict(schema=PROBE_SCHEMA,gpu_attempted=False,accepted=accepted,algorithm_supported=True,
         polynomial_only=polynomial,width_report=expected_width,samples=len(vector.triplets),
         component=vector.component,cpu_stages=rows,status="validated" if accepted else "unsupported")
     if type(report) is not dict or any(not same_typed(report.get(k),v) for k,v in required.items()):
@@ -62,8 +63,9 @@ def validate_cpu(report, vector):
 
 def validate_gpu(report, vector):
     width=width_oracle(vector.mapping)
-    required=dict(schema="yblod.native-gpu-probe.v1",status="exact",gpu_attempted=True,accepted=True,
-        polynomial_only=True,device_binding_verified=True,cleanup_succeeded=True,
+    polynomial=all(segment.method=="polynomial" for curve in vector.mapping.mappings for segment in curve.segments)
+    required=dict(schema=PROBE_SCHEMA,status="exact",gpu_attempted=True,accepted=True,algorithm_supported=True,
+        polynomial_only=polynomial,device_binding_verified=True,cleanup_succeeded=True,
         observed_gl_error=0,observed_egl_error=12288,stage_mismatch_counts=[0]*4,
         samples=len(vector.triplets),component=vector.component,
         width_report=dict(supported=width["supported"],mmr_segment_count=width["mmr_segment_count"],
@@ -117,7 +119,7 @@ def run(binary, shader, destination, device="/dev/dri/renderD128"):
     root = Path(destination).resolve()
     root.mkdir(exist_ok=False)
     started = time.monotonic()
-    report = dict(schema="yblod.native-gpu-run.v1", status="failed", source_sha256=source_pins,
+    report = dict(schema="yblod.native-gpu-run.v2", status="failed", source_sha256=source_pins,
         binary_sha256=binary_pin, shader_sha256=shader_pin, requested_render_node=device,
         fixture_count=len(vectors), cases=[], interpretation="Synthetic whole-code correctness diagnostic; not playback, fractional EL policy, colour conversion or HDMI validation.")
     report["cgroup_before"]=cgroup_snapshot()

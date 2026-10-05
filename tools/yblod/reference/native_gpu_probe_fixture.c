@@ -92,6 +92,7 @@ int yb_probe_load(const char *path, struct yb_probe_fixture *f)
     if (fclose(stream)) valid = 0;
     if (!valid || yb_gpu_check_mapping_width(&f->mapping,&f->width) != YB_OK) return 0;
     f->polynomial_only = 1;
+    f->algorithm_supported = 1;
     for (unsigned c = 0; c < 3; ++c)
         for (int32_t s = 0; s < f->mapping.components[c].pivot_count-1; ++s)
             if (f->mapping.components[c].segments[s].method != YB_POLYNOMIAL) f->polynomial_only = 0;
@@ -121,10 +122,18 @@ void yb_probe_metadata(const struct yb_probe_fixture *f, int64_t words[YB_PROBE_
     words[0]=f->count; words[1]=f->component; words[2]=f->enabled; words[3]=f->output_depth;
     words[4]=f->mapping.bit_depth; words[5]=f->mapping.denominator; words[6]=f->nlq.bit_depth; words[7]=f->nlq.offset;
     words[8]=(int64_t)f->nlq.slope; words[9]=(int64_t)f->nlq.threshold; words[10]=(int64_t)f->nlq.maximum;
-    words[11]=curve->pivot_count;
-    for (unsigned p=0;p<17;++p) words[12+p]=curve->pivots[p];
+    for (unsigned c=0;c<3;++c) {
+        const struct yb_component_mapping *bounds=&f->mapping.components[c];
+        words[11+c*2]=bounds->pivots[0];
+        words[12+c*2]=bounds->pivots[bounds->pivot_count-1];
+    }
+    words[17]=curve->pivot_count;
+    for (unsigned p=0;p<17;++p) words[18+p]=curve->pivots[p];
     for (unsigned s=0;s<16;++s) {
-        words[29+s*4]=curve->segments[s].order;
-        for (unsigned t=0;t<3;++t) words[30+s*4+t]=curve->segments[s].coefficients[0][t];
+        words[35+s*24]=curve->segments[s].method;
+        words[36+s*24]=curve->segments[s].order;
+        words[37+s*24]=curve->segments[s].constant;
+        for (unsigned r=0;r<3;++r)
+            for (unsigned t=0;t<7;++t) words[38+s*24+r*7+t]=curve->segments[s].coefficients[r][t];
     }
 }

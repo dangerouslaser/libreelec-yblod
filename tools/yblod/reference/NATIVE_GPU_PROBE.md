@@ -5,10 +5,45 @@ every output of a public integer shader with the native C reference, using
 explicit synthetic fixtures. Python only creates fixtures, runs tests and
 collects reports; it does not perform the GPU arithmetic.
 
-The first shader supports polynomial base mapping, enhancement correction and
-final composition. **MMR is explicitly unsupported in this version**, including
-MMR configurations that pass the separate signed-64-bit width guard. There is
-no automatic CPU fallback or partial substitution during a GPU test.
+The current v2 shader supports polynomial and MMR base mapping, enhancement
+correction and final composition, subject to the explicit signed-64-bit width
+guard. There is no automatic CPU fallback or partial substitution during a GPU
+test. The first polynomial-only checkpoint remains preserved in Git commit
+`a7698a3710` and in its source-pinned report below.
+
+## Current measured checkpoint (v2)
+
+The GPU now also passed the MMR tests: **all 8,512 stage comparisons matched
+exactly**, covering 2,128 positions across 31 polynomial/MMR fixtures. All 32
+CPU checks finished first. The remaining two-sample fixture exceeded the width
+guard and was rejected without GPU dispatch, as intended.
+
+The public report is
+[native-gpu-probe-libreelec-20261005b.json](results/native-gpu-probe-libreelec-20261005b.json).
+It includes exact source/binary/fixture pins and individual results. This run
+used the same Intel render node and desktop OpenGL 4.6 / Mesa 26.2.4. All four
+stage mismatch totals were zero, including the new nested-floor, guide-clamp,
+mixed-segment and near-width-limit cases.
+
+Peak charged memory was 63,397,888 bytes (60.46 MiB), with a 512 MiB limit and
+job swap disabled. Limit-pressure, OOM/OOM-kill and swap counters were zero.
+Parent peak RSS was 24,284 KiB; maximum child RSS was 102,672 KiB. These separate
+accounting measures do not bound all GPU allocations. Kodi remained active
+afterwards. The 1.100-second aggregate time includes setup and checking and is
+**not** a throughput or playback measurement.
+
+Executed v2 artifact pins:
+
+- Main C source: `e51107f2d3c30bb96045f8388442a6f0d35eda56426227a387894023e15468e2`
+- Shader: `a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb`
+- SDK executable: `3b620fa0112736879bbadd5709876408566deb83b4bf4d11f960f629f0f81019`
+
+This establishes exact arithmetic for this bounded synthetic corpus on this
+driver. It does not establish complete metadata coverage, fractional/raw-Y416
+processing, a real-frame GPU result, Kodi integration, licensed Dolby accuracy
+or faster playback. Those are separate tests and integration decisions.
+
+## First measured checkpoint (v1)
 
 The first reviewed LibreELEC VM run completed successfully: **all 6,228 GPU
 stage comparisons matched exactly**, covering 1,557 sample positions across
@@ -29,7 +64,7 @@ these are different accounting measures, not contradictory GPU-memory totals.
 Kodi remained active afterwards. The 0.731-second aggregate diagnostic time
 includes setup and verification and is **not** GPU throughput or playback cost.
 
-Executed artifact pins:
+Executed v1 artifact pins:
 
 - Main C source: `4ea8e1753d9b32b12301fc44c626a4810dc129784bee2fc3caa24933072775b3`
 - Shader: `adab2f868ac0dee19bb248c6950724abd6238c0315a03162b1e08d883f21ba83`
@@ -43,9 +78,11 @@ Kodi integration, real-film accuracy or licensed Dolby conformance.
 
 The native fixture loader accepts 1..4,096 sample triplets and optional integer
 EL codes. It validates all metadata and every input before any EGL/device call.
-It shares the native CPU metadata envelope, with these explicit v1 restrictions:
+It shares the native CPU metadata envelope, with these explicit restrictions:
 
-- Mapping is polynomial only; all configured MMR segments reject GPU dispatch.
+- Polynomial and chroma MMR orders 1..3 are supported in v2. Metadata outside
+  the signed-64-bit accumulation guard rejects GPU dispatch; this is not a
+  claim that every valid native CPU configuration fits the GPU implementation.
 - BL and EL may independently use 8 or 10 bits. Each sample and the NLQ offset
   are checked against their own layer's depth.
 - Mapping and NLQ use the same global coefficient denominator, matching the
@@ -63,10 +100,21 @@ part of the test.
 
 ## Arithmetic
 
-The shader keeps right-owned internal pivot intervals and clamps the driven
-component to its own outer pivots. Polynomial accumulation uses signed 64-bit
+The shader keeps right-owned internal pivot intervals and clamps each of the
+three supplied components to its own outer pivots. For chroma, the supplied Y
+value is the prepared guide; the shader does not invent or resample one.
+Polynomial accumulation uses signed 64-bit
 integers. With supported depths and denominators, each term is at most 2^58 in
 magnitude and the three-term sum is below 2^60, safely within that type.
+
+MMR preserves each integer feature calculation and its individual floor: three
+linear features, their pair products and triple product, then individually
+floored squares and products for higher orders. It does not replace nested
+floors with one algebraically combined expression. All features are below
+2^20. The guard requires the sum of the absolute constant and coefficients to
+be at most 2^43−1, protecting every signed accumulation prefix, not just the
+final sum. Algorithm support, polynomial-only status and width eligibility are
+separate fields in `yblod.native-gpu-probe.v2` reports.
 
 Enhancement correction retains its independently declared EL depth, signed
 half-step threshold, exactly neutral zero and metadata accumulator limit.
@@ -87,19 +135,21 @@ requires a little-endian host for its raw GPU upload convention.
 
 | Binding | GLSL declaration | Host layout |
 |---|---|---|
-| 0 | `int64_t m[]` | 93 signed 64-bit words, 8-byte stride |
+| 0 | `int64_t m[]` | 419 signed 64-bit words, 8-byte stride |
 | 1 | `uvec4 samples[]` | Y, Cb, Cr, EL as four unsigned 32-bit words, 16-byte stride |
 | 2 | `ivec4 results[]` | Mapped, residual, sum, reconstructed as four signed 32-bit words, 16-byte stride |
 
-Metadata is 744 bytes. Each sample/output buffer is at most 65,536 bytes. Output
+Metadata is 3,352 bytes. Each sample/output buffer is at most 65,536 bytes. Output
 words start at `INT32_MIN`, which is impossible for all four expected stages:
 an unwritten output cannot accidentally pass an all-zero fixture.
 
 Metadata words 0..10 carry count, component, enabled flag, output depth, BL depth,
-shared denominator, EL depth, offset, slope, threshold and maximum. Word 11 is
-pivot count; words 12..28 are the 17 pivot slots. Each of the 16 segment slots
-then carries order plus three polynomial coefficients, starting at word 29.
-Unused slots are zero and validated in the native fixture metadata.
+shared denominator, EL depth, offset, slope, threshold and maximum. Words 11..16
+carry the outer-pivot minimum/maximum pair for Y, Cb and Cr. Word 17 is the
+selected curve's pivot count; words 18..34 are its 17 pivot slots. Starting at
+word 35, each of 16 segment slots contains 24 words: method, order, constant and
+21 row-major coefficients. Unused slots are zero and validated in the native
+fixture metadata. Host tests check all 419 packed words independently.
 
 The separate input-file format is explicitly little-endian, not a memory dump:
 8-byte `YBGPU01\0` magic, eight 32-bit header fields, three 64-bit NLQ fields,
@@ -120,7 +170,7 @@ OpenGL 4.3-or-newer core context and requires advertised
 Actual compute and storage-buffer limits are queried before allocating the
 three private buffers. The linked shader must report work-group dimensions
 exactly `[64,1,1]`. One invocation owns one output position, and excess
-invocations immediately return. Polynomial and pivot loops are bounded by
+invocations immediately return. Polynomial, MMR and pivot loops are bounded by
 previously validated metadata.
 
 One compute dispatch is followed by the required storage/buffer barrier, a
@@ -180,10 +230,15 @@ metadata, and 2 for invalid fixtures. JSON always identifies whether GPU work
 was attempted. The host-only test path returns all four CPU stages for the
 independent Python oracle to check.
 
-The initial independent corpus has 27 fixtures: 21 polynomial candidates and
-six deliberately unsupported MMR cases. Tests include independent BL/EL depths,
+The v2 independent corpus has 32 fixtures: 31 width-eligible candidates and
+one deliberately width-rejected MMR case. Tests include independent BL/EL depths,
 right-owned pivots, negative floor, limiting before floor, coefficient extremes,
 disabled enhancement, malformed/truncated/extra data and width boundaries.
+Additional MMR cases isolate nested feature flooring, signed prefix
+cancellation at the accepted width limit, per-channel guide clamps, and mixed
+polynomial/MMR curves with the maximum 17 pivots. Two unclipped floor-isolation
+anchors distinguish correct 32,768 outputs from incorrectly collapsed-feature
+results of 32,774 and 32,772 respectively.
 Host tests and undefined-behaviour-sanitized validation passed before any live
 GPU authorization. This is not a throughput, full-frame, raw-Y416, display
 accuracy or Dolby-conformance claim.
@@ -207,7 +262,7 @@ systemd-run --scope -p MemoryMax=512M -p MemorySwapMax=0 \
 python3 -m unittest test_native_gpu_run
 ```
 
-The initial aggregate uses 27 validation subprocesses and 21 GPU subprocesses.
+The v2 aggregate uses 32 validation subprocesses and 31 GPU subprocesses.
 Every actual calculation runs in native C or the shader; Python supplies the
 independent synthetic oracle and orchestration. The scope limit is externally
 enforced by `systemd-run`, not by the Python process. Before/after cgroup
