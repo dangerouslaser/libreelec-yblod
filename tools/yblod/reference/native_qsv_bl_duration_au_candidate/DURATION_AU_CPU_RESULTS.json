@@ -1,0 +1,47 @@
+{
+  "compile_and_cpu_tests_passed": true,
+  "hardware_or_media_executed": false,
+  "duration_conversion_cases": 14,
+  "property_diagnostic_cases": 17,
+  "source_sha256": {
+    "native_qsv_bl_compare_probe.c": "6957b59ef987bc33e68f17d90319721f486ad2a4dfd92f53de4153d817be5ee8",
+    "native_qsv_bl_duration.h": "7e336a51090d84b513438f8eac1e04c2195dc78afa9db46bf770bdca0ec29c9d",
+    "native_qsv_bl_metadata_equal.h": "166050399b5425810ee08fe36762750399b141f0bec88f758cacd732c21c6a7a",
+    "native_qsv_bl_pair_coverage.h": "2430fb2a6599527e39bba608a603bddd7f34237ccd4925a833faf013f3c56feb",
+    "native_qsv_bl_payload_guard.h": "a4f543caf5cef13c0e326e1d0e446687f6bf017dd233bd63d40599b5a6ab9bba",
+    "native_qsv_bl_rpu_coverage.h": "62174b5c92defe46bd423ceaeb99119b2dbacfcd5352c865c2fbb03c0c7a922c",
+    "native_qsv_probe_handshake.h": "15eb0523b22d0c2ec6bdd87c7a4ece46566dd1d237273895e793978f35e04d7c",
+    "test_native_qsv_bl_duration.c": "2b3cef37129e87650d6cf81a96d5048def82189bfebcc6e92a7c5d2193061d8c",
+    "test_native_qsv_bl_lifecycle.c": "d3c474c800f8afbc8b53598dc83c4b0f0ff8a41be0cf7da05f3af0ca8c1aafe8",
+    "test_native_qsv_bl_pair_coverage.c": "f89fd0c4c3a92b4a773ca9f88e8334248de403b7130ef57bc39b082cef85ae54"
+  },
+  "outputs": {
+    "test_native_qsv_bl_duration": {
+      "sha256": "a9d6dc33221b46eb4f1fdfdc885abddc0b1530d77bcd898de8941d3b3db2998b",
+      "bytes": 19152
+    },
+    "test_native_qsv_bl_pair_coverage": {
+      "sha256": "b7b86df7a6783e9260de203517363ef2380beadf6982a73b832f39e013497869",
+      "bytes": 44912
+    },
+    "test_native_qsv_bl_lifecycle": {
+      "sha256": "010de9a180f3743b3deaea5d0aa77fa2e5dbca30057e963219224566d59c9914",
+      "bytes": 36984
+    },
+    "native_qsv_bl_compare_probe": {
+      "sha256": "871adf1f214b2a1b96a1e4143848179b131818a1bf2f31d95faff682f6617853",
+      "bytes": 65888
+    }
+  },
+  "peak_memory_bytes": 99213312,
+  "memory_events": {
+    "low": 0,
+    "high": 0,
+    "max": 0,
+    "oom": 0,
+    "oom_kill": 0,
+    "oom_group_kill": 0,
+    "sock_throttled": 0
+  },
+  "swap_peak_bytes": 0
+}
