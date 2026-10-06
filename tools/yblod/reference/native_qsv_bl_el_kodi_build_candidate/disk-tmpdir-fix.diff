@@ -1,0 +1,107 @@
+--- attempt1/prepare_build_qsv_kodi.py
++++ attempt2/prepare_build_qsv_kodi.py
+@@ -8,6 +8,7 @@
+ import re
+ import shutil
+ import signal
++import stat
+ import subprocess
+ import time
+ 
+@@ -17,6 +18,7 @@
+ SYSROOT = BUILD + '/toolchain/x86_64-libreelec-linux-gnu/sysroot'
+ IMAGE = 'sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e'
+ CONTROL = Path(__file__).resolve().parent
++COMPILER_TMP_LIMIT = 2147483648
+ 
+ 
+ def digest(path):
+@@ -42,6 +44,27 @@
+                 if s.startswith('MemAvailable:'))
+ 
+ 
++def compiler_tmp_usage(output):
++    directory = output / 'compiler-tmp'
++    assert not directory.is_symlink() and directory.is_dir(), 'Private compiler TMPDIR required'
++    assert directory.resolve() == output.resolve() / 'compiler-tmp', 'Compiler TMPDIR escaped output'
++    assert directory.stat().st_dev == output.stat().st_dev, 'Compiler TMPDIR must use output filesystem'
++    size = 0
++    for current, dirs, files in os.walk(directory, followlinks=False):
++        for name in dirs + files:
++            path = Path(current) / name
++            try:
++                item = path.lstat()
++            except FileNotFoundError:
++                continue
++            assert not stat.S_ISLNK(item.st_mode), 'Unexpected compiler TMPDIR symlink'
++            if stat.S_ISREG(item.st_mode):
++                size += item.st_size
++    assert size <= COMPILER_TMP_LIMIT, 'Compiler TMPDIR sampled budget exceeded'
++    assert shutil.disk_usage(directory).free >= 2147483648, 'Compiler TMPDIR disk reserve'
++    return size
++
++
+ def host_reserves(directory, budgets):
+     result = {'free_disk_bytes': shutil.disk_usage(directory).free,
+               'host_available_memory_bytes': available_memory()}
+@@ -202,6 +225,7 @@
+     if args.phase == 'prepare':
+         host_reserves(output.parent, budgets)
+         output.mkdir(exist_ok=False)
++        (output / 'compiler-tmp').mkdir(mode=0o700)
+         dump(output / 'before-copy-plan.json', plan)
+         dump(output / 'baseline-tree.json', before)
+         shutil.copytree(kodi, output / 'kodi', symlinks=True, copy_function=shutil.copy2)
+@@ -225,13 +249,15 @@
+     assert preparation['controller_sha256'] == digest(__file__)
+     verify_tree(output / 'kodi', json.loads((output / 'prepared-tree.json').read_text()))
+     assert not (output / 'container-before.json').exists(), 'Fresh build attempt required'
++    assert compiler_tmp_usage(output) == 0, 'Fresh empty compiler TMPDIR required'
+     mounts = [(sdk, '/build', False), (output / 'kodi', '/build/' + KODI, True),
+               (candidate, '/candidate', False), (CONTROL, '/control', False),
+               (report_path, '/compatible.json', False),
+               (args.closure_manifest.absolute(), '/closure.json', False), (output, '/lab', True)] + library_mounts
+     command = ['docker', 'create', '--memory=4g', '--memory-swap=4g', '--cpus=1', '--network=none',
+                '--read-only', '--tmpfs', '/tmp:rw,nosuid,exec,size=128m', '--user', '0:0',
+-               '-e', 'CCACHE_DISABLE=1', '-e', 'PYTHONDONTWRITEBYTECODE=1']
++               '-e', 'CCACHE_DISABLE=1', '-e', 'PYTHONDONTWRITEBYTECODE=1',
++               '-e', 'TMPDIR=/lab/compiler-tmp']
+     for source, destination, writable in mounts:
+         assert ',' not in str(source)
+         command += ['--mount', 'type=bind,src=' + str(source) + ',dst=' + destination + ('' if writable else ',readonly')]
+@@ -253,6 +279,7 @@
+     assert re.fullmatch('[0-9a-f]{64}', cid)
+     process = None
+     completed = False
++    maximum_tmp_bytes = 0
+     def stop_signal(unused_signum, unused_frame):
+         raise RuntimeError('Owned build interrupted')
+     for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+@@ -269,6 +296,7 @@
+                 assert time.monotonic() < deadline, 'Build deadline'
+                 assert available_memory() >= budgets['abort_host_available_memory_below_bytes'], 'Host memory pressure'
+                 assert shutil.disk_usage(output).free >= 2147483648, 'Disk reserve'
++                maximum_tmp_bytes = max(maximum_tmp_bytes, compiler_tmp_usage(output))
+                 if time.monotonic() >= next_sample:
+                     samples.write(json.dumps(sample_resources(cid)) + '\n')
+                     samples.flush()
+@@ -291,6 +319,8 @@
+                  'full_build_completed': completed, 'terminal_confirmed': True,
+                  'exit_code': final['State']['ExitCode'], 'oom_killed': final['State']['OOMKilled'],
+                  'final_resource_report_present': (output / 'container-resource-final.json').is_file(),
++                 'compiler_tmp_max_sampled_bytes': maximum_tmp_bytes,
++                 'compiler_tmp_sampled_limit_bytes': COMPILER_TMP_LIMIT,
+                  'runtime_or_pixels_qualified': False})
+         except BaseException as error:
+             dump(output / 'controller-cleanup-failure.json', {'exact_owned_cid': cid,
+@@ -308,6 +338,9 @@
+     assert (cg / 'memory.swap.max').read_text().strip() == '0'
+     quota, period = map(int, (cg / 'cpu.max').read_text().split())
+     assert 0 < quota <= period and not Path('/dev/dri').exists()
++    assert os.environ.get('TMPDIR') == '/lab/compiler-tmp'
++    assert compiler_tmp_usage(Path('/lab')) == 0
++    assert Path('/lab/compiler-tmp').stat().st_dev != Path('/tmp').stat().st_dev
+     assert digest('/compatible.json') == manifest['compatible_build_report_sha256']
+     assert digest('/closure.json') == manifest['qualified_closure_report_sha256']
+     closure = json.loads(Path('/closure.json').read_text())['files']
+

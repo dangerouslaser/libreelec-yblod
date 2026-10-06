@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "scope": "isolated full executable compile/link plus separate read-only loader validation; no Kodi execution or deployment",
+  "binary": {"sha256": "0436e639c1f549316cfe960c5bbf7c1eadd2d2a57bdff741ad9295176e47b5c3", "bytes": 34901704, "artifact": "target/qsv-bl-el-kodi-isolated-disk-tmp-20261006/kodi/.x86_64-libreelec-linux-gnu/kodi.bin"},
+  "qualified_libavcodec_sha256": "c0eee175512c06ae4138b7bf1cf7dbbaaf317b3f406f0413d0ac987262e09466",
+  "controller_sha256": "fa0272e8d2247c958e7b7e12ec35653fb8e2ff947b4f560e092875b03d15c7d6",
+  "source_manifest_sha256": "e9527e4c4db0966337f50a895cc3ee7d79b261e8a0928400885485b23193bf44",
+  "async_patch_sha256": "7909f326ffa893fc05348e22372667b4c0b40271e3ed848bad69b3d92ef86d82",
+  "mocked_tests_passed": 17,
+  "preparation": {
+    "baseline_tree_sha256": "9e4c67faf65b6ad39febe31f2ad57a539f843b85c675394409cffc39622fd0a3",
+    "prepared_tree_sha256": "d4049800c52253a0d51c9834986de3969c13de089a4c708ef202f93d27d651cc",
+    "second_preparation_report_sha256": "0ffd35439e4d64c4166a299c451d83117fa16da5ea9308aef4ddb9562952e555",
+    "regular_files": 15615, "symlinks": 2, "changed_or_added_paths": 11, "removed_paths": 0,
+    "hardlinks_used": false, "live_sdk_modified": false
+  },
+  "attempts": [
+    {"attempt": 1, "kind": "full build", "cid": "b7b5d363290279359c3e4d6ae9d0a654de9bb7604e4880f7872109ac379dd79b", "terminal_exit": 1, "outcome": "final LTO ENOSPC in 128MiB tmpfs /tmp; no disk-backed TMPDIR yet", "memory_peak_bytes": 1942859776, "memory_events_all_zero": true, "swap_bytes": 0},
+    {"attempt": 2, "kind": "full build with disk TMPDIR", "cid": "47f745abf1f1dff9c1afa8233f5ba863a18852416d1c95dbbb7dc8e8d73ba301", "terminal_exit": 1, "compile_and_link_completed": true, "outcome": "post-link initial loader check exit127; controller workflow remains failed", "memory_peak_bytes": 3628261376, "memory_events_all_zero": true, "swap_bytes": 0, "compiler_tmp_max_sampled_bytes": 478985588, "controller_result_sha256": "6368279d18c6f743cae93f3de12a7d81cbe59e8ff15c90910c92f842929f03bc"},
+    {"attempt": 3, "kind": "read-only loader diagnostic", "cid": "ef54bff09dcd30a50f4aa59cf33757a710c383f2204ce4b6bd2cd2068baf0bd0", "terminal_exit": 0, "loader_exit": 127, "outcome": "missing inherited libpulsecommon-17.0.so search directory", "memory_limit_bytes": 536870912, "memory_peak_bytes": 17862656, "memory_events_all_zero": true, "swap_bytes": 0},
+    {"attempt": 4, "kind": "read-only loader diagnostic with PulseAudio path", "cid": "b4a56d532cbbeee38cdd11eee1a19e9a54af53c56cb00a48efec3b3e0d299130", "terminal_exit": 0, "loader_exit": 127, "outcome": "missing inherited libtevent-private-samba.so search directory; clean resource qualification FAILED", "memory_limit_bytes": 536870912, "memory_peak_bytes": 536870912, "memory_events_max": 463, "oom": 0, "oom_kill": 0, "swap_bytes": 0},
+    {"attempt": 5, "kind": "read-only loader diagnostic with explicit PulseAudio and Samba paths", "cid": "e9ad4fb6cf16922d70eb67d585cf3a1ef0a965b0c1d7fff6f3fb2cf9ef0267a7", "terminal_exit": 0, "loader_exit": 0, "stderr_empty": true, "outcome": "PASS: exact new binary and qualified FFmpeg closure", "memory_limit_bytes": 1073741824, "memory_peak_bytes": 811913216, "memory_events_all_zero": true, "swap_bytes": 0}
+  ],
+  "final_loader": {
+    "report": "target/qsv-bl-el-kodi-loader-samba-check-20261006/diagnostic.json",
+    "report_sha256": "9219e9d725ae9c8ba8a8962c049efe549166225af6b95ace0d93136fac51b104",
+    "resolved_library_records": 156, "qualified_probe_code_files_reverified": 27,
+    "retained_and_new_dt_needed_identical": true, "dt_needed_count": 51,
+    "retained_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+    "samba_tevent_staging_and_petunia_sha256": "9b7934ec9279e49e87f0af5ad69903abef0c64d80d3c95c099f55a1794955442",
+    "host_libraries_used": false, "kodi_executed": false
+  },
+  "combined_runtime_qualified": false,
+  "deployed": false
+}

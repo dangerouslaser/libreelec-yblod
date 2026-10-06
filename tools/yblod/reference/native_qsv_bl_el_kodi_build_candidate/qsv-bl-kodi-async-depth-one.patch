@@ -1,0 +1,29 @@
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -540,9 +540,13 @@
+ #if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
+   if (m_dvBaseQsv)
+   {
++    int64_t configuredAsyncDepth = 0;
+     if (!m_pCodecContext->priv_data ||
+         !av_opt_find(m_pCodecContext->priv_data, "dovi_metadata", nullptr, 0, 0) ||
+         av_opt_set_int(m_pCodecContext->priv_data, "dovi_metadata", 1, 0) < 0 ||
++        av_opt_set_int(m_pCodecContext->priv_data, "async_depth", 1, 0) < 0 ||
++        av_opt_get_int(m_pCodecContext->priv_data, "async_depth", 0, &configuredAsyncDepth) < 0 ||
++        configuredAsyncDepth != 1 ||
+         !OpenDVQsvDevice())
+     {
+       Dispose();
+@@ -550,8 +554,10 @@
+     }
+     m_pCodecContext->thread_count = 1;
+     m_pCodecContext->pkt_timebase = AVRational{1, AV_TIME_BASE};
+-    CLog::Log(LOGINFO, "DVBridge BL QSV: decoder=hevc_qsv metadata=1 mapped=0 generation={}",
+-              m_dvQsvGeneration);
++    CLog::Log(LOGINFO,
++              "DVBridge BL QSV: decoder=hevc_qsv metadata=1 async_depth_requested=1 "
++              "async_depth_option_readback={} mapped=0 generation={}",
++              configuredAsyncDepth, m_dvQsvGeneration);
+   }
+ #endif
+ 

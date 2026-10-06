@@ -1,0 +1,42 @@
+{
+  "schema": "yblod.qsv-bl-el-kodi-build-inputs.v1",
+  "sdk_kodi_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "source_sha256": {
+    "xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp": "bf37c37fbf793c928427bc20be03c64a50b780cb4f5713340c155b9ed82a7a82",
+    "xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h": "55b3e8ddab199cb67585a55bbabc216e3c4028c871222ccbeee8981f1401b537",
+    "xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt": "4731da4ebd28b4c8b2ecb828b80bc337f79c43fb4415b4b00b3f7f628df661ef",
+    "xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.cpp": "44736199dbcf0e5932f827881e821c5ab05d0d11133773d929d12021e9aeb095",
+    "xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.h": "33b382541a1c50353481a9937a2e8df6ad6615550c2da31c645917a0583199b4",
+    "xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp": "672ef0626af40a90d512dab0a741d5817127626396389999e44ffccaa8643092",
+    "xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h": "c5f2e7bc9ff01314f1fabaab3fb8b7df332bb0cfd90b3a099a0767deba563eb9",
+    "xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp": "02a2fead173e28ed0956b7e15745c80a00cec9be5b5fd4f6658b0db62104f707",
+    "xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h": "077b2bdee877d5391ac88ead36b2a660b422315960d3537198891b6ee96aa063",
+    "tools/dvbridge/dvbridge_fel.c": "fed8e6e9c3eb4a53108cfe49778959c6df794a027aa646e57145d03a97803df1"
+  },
+  "patch_sha256": {
+    "qsv-bl-kodi-integration-source-only.patch": "ee9268624baa17892617c453b24a8e81fd5a5fcc7b935883ee2407e8ae420c7f",
+    "qsv-bl-kodi-buffer-registration-fix.patch": "4ca625f774d7291e433e0ee37d66c6c8a15d3f227976dc4738d185180e79c9b0",
+    "qsv-bl-kodi-async-depth-one.patch": "7909f326ffa893fc05348e22372667b4c0b40271e3ed848bad69b3d92ef86d82"
+  },
+  "prepared_decoder_sha256": "be1387b8b9213bc8e35073c2ebae2bac04e785d488716f34b654d2aa85d53f2d",
+  "compatible_build_report_sha256": "d46b736f6288ada414b1384bdf7cba43094b5e7fe7dae4b0f008ad7c99a14cae",
+  "qualified_closure_report_sha256": "1796c36d51f6db27e63cb13927a40c5df1578044d6cb2f481cfc20508838f50c",
+  "qualified_libavcodec_sha256": "c0eee175512c06ae4138b7bf1cf7dbbaaf317b3f406f0413d0ac987262e09466",
+  "observed_before_copy": {
+    "kodi_tree_apparent_bytes": 1035598040,
+    "kodi_build_apparent_bytes": 921856782,
+    "regular_files": 15615,
+    "filesystem_available_bytes": 1034093113344
+  },
+  "budgets": {
+    "maximum_copy_bytes": 1342177280,
+    "maximum_copy_files": 20000,
+    "minimum_free_disk_bytes": 6442450944,
+    "minimum_host_available_memory_bytes": 6442450944,
+    "abort_host_available_memory_below_bytes": 2147483648,
+    "container_memory_bytes": 4294967296,
+    "container_swap_bytes": 0,
+    "container_cpus": 1,
+    "build_timeout_seconds": 5400
+  }
+}
