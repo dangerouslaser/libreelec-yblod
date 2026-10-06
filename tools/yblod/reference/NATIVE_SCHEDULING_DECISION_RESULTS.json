@@ -1,0 +1,50 @@
+{
+  "schema": "yblod.native-scheduling-decision.v1",
+  "candidate_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "qualification": {
+    "bounded_full_build": "NATIVE_SCHEDULING_BUILD_RESULTS.json",
+    "retained_planar_baseline_preservation": "NATIVE_SCHEDULING_BASELINE_PRESERVATION_RESULTS.json",
+    "batched_frame_preservation": "NATIVE_BATCHED_PLANES_SPR_FRAME_RESULTS.json",
+    "immutable_frame_preservation": "NATIVE_IMMUTABLE_INSTRUCTIONS_SPR_FRAME_RESULTS.json",
+    "batched_independent_playback": "NATIVE_BATCHED_PLANES_SPR_PLAYBACK_RESULTS.json",
+    "immutable_independent_playback": "NATIVE_IMMUTABLE_INSTRUCTIONS_SPR_PLAYBACK_RESULTS.json",
+    "batched_ownership_failure_contracts": "NATIVE_BATCHED_PLANES_SYNTHETIC_RESULTS.json",
+    "immutable_layout_and_fence_contracts": "NATIVE_IMMUTABLE_INSTRUCTION_RESULTS.json",
+    "same_candidate_three_exact_frames_each_option": true,
+    "four_180_second_ABBA_cases_each_option": true,
+    "combined_options_qualified": false
+  },
+  "selection": {
+    "batched_planes": 1,
+    "immutable_instructions": 0,
+    "native_planar": 1,
+    "reason": "Batched handoff produced a modest measured CPU saving with essentially unchanged render use. Immutable upload reduced upload operations but did not improve measured whole-player CPU or render use and had higher sampled service memory; leave it disabled.",
+    "statistical_significance_claimed": false
+  },
+  "retained_VM_runtime_audit": {
+    "date_utc": "2026-10-06",
+    "service_active": true,
+    "service_result": "success",
+    "actual_binary_is_service_child": true,
+    "actual_running_binary_matches_candidate": true,
+    "effective_flags": {
+      "DVBRIDGE_NATIVE_RECONSTRUCTION": "1",
+      "DVBRIDGE_NATIVE_FP32": "1",
+      "DVBRIDGE_NATIVE_PLANAR_OUTPUT": "1",
+      "DVBRIDGE_NATIVE_BATCHED_PLANES": "1",
+      "DVBRIDGE_NATIVE_IMMUTABLE_INSTRUCTIONS": "0",
+      "DVBRIDGE_CAPTURE_OUTPUTS": "0",
+      "DVBRIDGE_CAPTURE_PAIRS": "0"
+    },
+    "active_players": [],
+    "scope": "Verified live per-boot test binary bind mount and service override, not a reboot-persistent LibreELEC release image."
+  },
+  "limits": [
+    "Exact picture and semantic Dolby payload equality is established for the three matched captured source frames per isolated option, not all media or Dolby conformance.",
+    "All eight steady observation windows had no drops, skips or stalls. One batched enabled case had a raw startup/seek skip; every immutable case had zero raw drops/skips.",
+    "All eight process exits were normal. The preexisting DV display restoration failure occurred in every case and remains separately reported; this is not claimed fixed.",
+    "Performance cases exclude capture readbacks and visible subtitles; original subtitle settings were restored.",
+    "CPU is whole Kodi normalized to one core. GPU is capacity-normalized Kodi DRM client activity. Memory is sampled whole-service usage, not process RSS; lifetime peak is not interval-only.",
+    "The FFmpeg9 VAAPI/QSV decode-only comparison is public separately. Actual Kodi QSV playback remains a separate unfinished task."
+  ]
+}
