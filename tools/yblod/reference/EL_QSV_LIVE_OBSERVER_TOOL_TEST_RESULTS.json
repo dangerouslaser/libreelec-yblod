@@ -1,9 +1,10 @@
 {
   "schema": "yblod.el-qsv-live-observer-cpu-tests.v1",
   "pass": true,
-  "test_count": 8,
+  "test_count": 10,
   "coverage": ["mocked successful live observation", "identity change rejection", "failed probe report rejection", "deadline and owned-child termination", "invalid final resources rejection", "literal timestamp mismatch rejection", "streamed code digest and unchanged bytes with aligned cache advice", "cache advice failure closes qualification"],
   "pinned_container_image_sha256": "40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "post_failure_localization_tests": {"test_count": 10, "independent_reviewer_rerun_pass": true, "execution": "Local CPU-only mocks; additional resource limits not applied or measured", "static_failure_stage_and_code_whitelist_tested": true, "existing_hardware_identity_guards_changed": false},
   "runtime_manifest_preparation": {
     "code_file_count": 23,
     "code_bytes": 676383768,

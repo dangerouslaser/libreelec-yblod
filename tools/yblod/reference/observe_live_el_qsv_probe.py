@@ -14,6 +14,22 @@ from collect_el_qsv_target_identity import fingerprint, gpu_identity, source_sta
 from target_el_qsv_live_handshake import acknowledge_unit_child, process_record
 from run_target_el_qsv_probe import handshake_environment
 
+SAFE_FAILURE_CODES={
+    'Unit process generation changed':'unit_generation',
+    'Exactly one actual unit child must own checkpoint':'unit_child_association',
+    'Actual loader/probe invocation differs':'loader_or_argv',
+    'Actual probe code mapping mismatch':'probe_code_mapping',
+    'Deleted probe mapping':'deleted_probe_mapping',
+    'Actual probe mapping proof required':'probe_mapping_proof',
+    'Actual probe DRM client association missing':'drm_client',
+    'Mapped library outside the exact isolated closure/current driver':'mapped_library_closure',
+    'Actual required hardware route library not mapped':'required_mapped_library',
+    'Actual live GPU client and complete mapped closure required':'live_gpu_or_closure',
+    'Live proof changed before acknowledgement':'live_generation_recheck',
+    'Private regular checkpoint required':'checkpoint_permissions',
+    'Exact private checkpoint required':'checkpoint_identity',
+}
+
 
 def code_fingerprint(path):
     """Bound SDK code hashing file-cache charges; never used for movie bytes."""
@@ -88,7 +104,7 @@ def main():
     args=parser.parse_args()
     os.umask(0o077)
     result=dict(pass_=False,scope='Live raw EL probe diagnostic only; final raw equality and capture-target identity qualification are separate.')
-    child=None;proof=None
+    child=None;proof=None;stage='preflight'
     started=time.monotonic()
     def interrupted(*unused):raise RuntimeError('Scoped observer interrupted')
     signal.signal(signal.SIGTERM,interrupted)
@@ -120,19 +136,24 @@ def main():
             EXPECTED_QSV_VA_DRIVER=str(args.driver.resolve(strict=True)))
         parent=process_record(os.getpid())
         with paths['stdout'].open('xb') as output,paths['stderr'].open('xb') as error:
+            stage='probe_launch'
             child=subprocess.Popen(argv,env=environment,stdout=output,stderr=error)
             deadline=time.monotonic()+170
             while child.poll() is None:
                 if time.monotonic()>=deadline:raise TimeoutError('Scoped probe deadline reached')
                 if paths['ready'].exists() and proof is None:
+                    stage='live_identity_callback'
                     proof=acknowledge_unit_child(paths['ready'],paths['ack'],nonce,parent['pid'],parent['start_ticks'],loader,binary,args.binary_sha256,argv,args.node,runtime_files,args.driver)
                     if proof['probe_pid']!=child.pid:raise ValueError('Ready checkpoint differs from actually launched child')
+                    stage='remaining_raw_comparisons'
                 time.sleep(.05)
+        stage='post_probe_identity'
         after=observe(args,runtime_files)
         if before!=after or proof is None:raise ValueError('Identity changed or no live handshake')
         if paths['stdout'].stat().st_size>1048576:raise ValueError('Unexpected probe report extent')
         raw=json.loads(paths['stdout'].read_text())
         if child.returncode!=0 or raw.get('pass') is not True:raise ValueError('C probe did not pass after actual live acknowledgement')
+        stage='raw_report_validation'
         validate_raw_report(raw,args.pts_us)
         paths['proof'].write_text(json.dumps(dict(before=before,after=after,live=proof,raw=raw)))
         result.update(pass_=True,probe_exit_code=child.returncode,live_child_identity_verified=True,
@@ -140,7 +161,9 @@ def main():
             code_driver_and_source_stat_unchanged=True,private_raw_report_pass=True,
             source_identity_scope='same local file stat/dev/inode/size/mtime/ctime; not content immutability')
         result.update(raw_source_pts_microseconds=args.pts_us,raw_matched_frame_count=3,qsv_mapped_frames=raw['qsv_mapped_frames'])
-    except BaseException as error:result.update(pass_=False,error_type=type(error).__name__)
+    except BaseException as error:
+        result.update(pass_=False,error_type=type(error).__name__,failure_stage=stage)
+        if str(error) in SAFE_FAILURE_CODES:result['failure_code']=SAFE_FAILURE_CODES[str(error)]
     finally:
         signal.signal(signal.SIGTERM,signal.SIG_IGN)
         try:stop_owned_child(child)

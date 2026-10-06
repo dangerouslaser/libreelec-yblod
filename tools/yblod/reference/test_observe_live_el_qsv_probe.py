@@ -51,18 +51,22 @@ class ObserverTests(unittest.TestCase):
             observations=[identity,dict(identity,input='changed') if mode=='identity' else identity]
             clock=iter([0,0,171,180]) if mode=='deadline' else None
             output=io.StringIO()
-            with patch('sys.argv',argv),patch.object(observer,'resources',side_effect=[resources,final]),patch.object(observer,'observe',side_effect=observations),patch.object(observer,'process_record',return_value={'pid':1,'start_ticks':9}),patch.object(observer,'acknowledge_unit_child',return_value={'probe_pid':42}),patch.object(observer.subprocess,'Popen',side_effect=launch),patch.object(observer.signal,'signal'),patch.object(observer.time,'sleep'),patch.object(observer.time,'monotonic',side_effect=(lambda:next(clock)) if clock else None,return_value=1),contextlib.redirect_stdout(output):
+            with patch('sys.argv',argv),patch.object(observer,'resources',side_effect=[resources,final]),patch.object(observer,'observe',side_effect=observations),patch.object(observer,'process_record',return_value={'pid':1,'start_ticks':9}),patch.object(observer,'acknowledge_unit_child',return_value={'probe_pid':42},side_effect=ValueError('Mapped library outside the exact isolated closure/current driver') if mode=='callback-closure' else None),patch.object(observer.subprocess,'Popen',side_effect=launch),patch.object(observer.signal,'signal'),patch.object(observer.time,'sleep'),patch.object(observer.time,'monotonic',side_effect=(lambda:next(clock)) if clock else None,return_value=1),contextlib.redirect_stdout(output):
                 code=observer.main()
             result=json.loads(output.getvalue())
             self.assertEqual(result['pass'],mode=='success')
             self.assertEqual(code,0 if mode=='success' else 1)
             if mode=='deadline':self.assertTrue(child.terminated);self.assertFalse(child.killed)
+            if mode=='callback-closure':
+                self.assertEqual(result['failure_stage'],'live_identity_callback')
+                self.assertEqual(result['failure_code'],'mapped_library_closure')
     def test_success(self):self.run_case()
     def test_identity_failure(self):self.run_case('identity')
     def test_probe_report_failure(self):self.run_case('probe-report')
     def test_deadline_owned_child_termination(self):self.run_case('deadline')
     def test_resource_failure(self):self.run_case('resource')
     def test_literal_timestamp_failure(self):self.run_case('wrong-pts')
+    def test_callback_failure_exports_only_static_stage_code(self):self.run_case('callback-closure')
     def test_code_fingerprint_advises_without_changing_bytes(self):
         with tempfile.TemporaryDirectory() as temp:
             file=Path(temp)/'code';value=b'x'*1048576+b'tail';file.write_bytes(value)
@@ -77,5 +81,9 @@ class ObserverTests(unittest.TestCase):
             file=Path(temp)/'code';file.write_bytes(b'x'*1048576)
             with patch.object(observer.os,'posix_fadvise',side_effect=OSError('not available'),create=True),patch.object(observer.os,'POSIX_FADV_DONTNEED',4,create=True),patch.object(observer.os,'sysconf',return_value=4096):
                 with self.assertRaises(OSError):observer.code_fingerprint(file)
+    def test_failure_code_whitelist_never_exports_private_values(self):
+        self.assertEqual(observer.SAFE_FAILURE_CODES['Actual loader/probe invocation differs'],'loader_or_argv')
+        for private in ('/private/movie','argv=private','nonce=private'):
+            self.assertNotIn(private,observer.SAFE_FAILURE_CODES)
 
 if __name__=='__main__':unittest.main()
