@@ -144,6 +144,17 @@ int yb_native_playback_submit(yb_native_playback_context *,
  * while an output is outstanding. Not an asynchronous deadline guarantee. */
 int yb_native_playback_finish(yb_native_playback_context *,
     uint64_t stage_timeout_ns,yb_native_playback_output *output);
+/* Lazy same-frame RGBA32F expansion after successful planar finish. Caller
+ * flushes renderer work and destroys all planar wrappers before entry, then
+ * stops using the previous planar output even on PENDING. Releases all three
+ * consumer siblings without dropping composer planes or decoded leases, runs
+ * the existing YCC expansion, and publishes one RGBA sibling atomically.
+ * PENDING requires retrying THIS API; other finish/release calls cannot advance
+ * the transition. Terminal failure quarantines/retains the accepted native frame
+ * and forbids an older reconstruction fallback. Output unchanged unless OK.
+ * Configured planar mode is unchanged; normal release ends the expanded frame. */
+int yb_native_playback_materialize_rgba(yb_native_playback_context *,
+    uint64_t stage_timeout_ns,yb_native_playback_output *output);
 /* Finite GLES consumer fence before deleting sibling/imports or allowing source
  * reuse. Failure retains resources for retry; success releases frame references.
  * Caller has to retain decoded refs until this returns OK (conservative lifetime). */

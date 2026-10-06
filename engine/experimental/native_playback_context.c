@@ -17,7 +17,8 @@
 #include <string.h>
 #include <time.h>
 enum { IDLE=0,VA_PENDING=1,PREP_PENDING=2,COMPOSER_PENDING=3,YCC_PENDING=4,OUTPUT_READY=5,
-       PLANAR_PENDING=6,VALIDATION_PENDING=7 };
+       PLANAR_PENDING=6,VALIDATION_PENDING=7,PLANAR_RGBA_RELEASING=8,
+       PLANAR_RGBA_PENDING=9 };
 struct yb_native_playback_context {
     yb_native_playback_create_info settings;
     EGLContext desktop;
@@ -400,7 +401,8 @@ static int playback_finish_impl(yb_native_playback_context *p,uint64_t timeout,
     if (!p || (!out&&!planar) || !timeout || timeout>UINT64_C(5000000000) ||
         (!!planar!=p->planar_output) || (planar&&planar->version!=1)) return YB_NATIVE_PLAYBACK_ARGUMENT;
     if (p->quarantined) return YB_NATIVE_PLAYBACK_QUARANTINED;
-    if (p->state==IDLE || p->state==OUTPUT_READY || p->closing) return YB_NATIVE_PLAYBACK_ARGUMENT;
+    if (p->state==IDLE || p->state==OUTPUT_READY || p->state==PLANAR_RGBA_RELEASING ||
+        p->state==PLANAR_RGBA_PENDING || p->closing) return YB_NATIVE_PLAYBACK_ARGUMENT;
     yb_egl_binding saved;
     if (!snapshot(&saved) || !correct_consumer(p,&saved)) return YB_NATIVE_PLAYBACK_ARGUMENT;
     int status=YB_NATIVE_PLAYBACK_OK;
@@ -558,6 +560,64 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
 int yb_native_playback_finish_planar(yb_native_playback_context *p,uint64_t timeout,
     yb_native_playback_planar_output *out)
 { return playback_finish_impl(p,timeout,NULL,out); }
+int yb_native_playback_materialize_rgba(yb_native_playback_context *p,uint64_t timeout,
+    yb_native_playback_output *out)
+{
+    if(!p||!out||!timeout||timeout>UINT64_C(5000000000)||!p->planar_output||p->closing||
+       (p->state!=OUTPUT_READY&&p->state!=PLANAR_RGBA_RELEASING&&p->state!=PLANAR_RGBA_PENDING))
+        return YB_NATIVE_PLAYBACK_ARGUMENT;
+    if(p->quarantined)return YB_NATIVE_PLAYBACK_QUARANTINED;
+    if(p->state==OUTPUT_READY&&(p->bridge||!p->plane_bridges[0]||
+       !p->plane_bridges[1]||!p->plane_bridges[2]))return YB_NATIVE_PLAYBACK_ARGUMENT;
+    yb_egl_binding saved;
+    if(!snapshot(&saved)||!correct_consumer(p,&saved))return YB_NATIVE_PLAYBACK_ARGUMENT;
+    if(p->reconstructed.version!=1||p->reconstructed.output_depth!=12||
+       p->reconstructed.width!=p->metadata.frame.width||
+       p->reconstructed.height!=p->metadata.frame.height||
+       memcmp(p->reconstructed.frame_id,p->metadata.frame.frame_id,32))goto quarantine;
+    if(p->state==OUTPUT_READY)p->state=PLANAR_RGBA_RELEASING;
+    int status;
+    if(p->state==PLANAR_RGBA_RELEASING) {
+        /* Flush and discard consumer wrappers before entry. Retain every
+         * decoded lease and producer plane while sibling fences are pending. */
+        for(unsigned i=0;i<3;i++) {
+            status=yb_egl_output_bridge_release_timed(&p->plane_bridges[i],timeout);
+            if(status==YB_EGL_BRIDGE_CONSUMER)
+                return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
+            if(status)goto quarantine;
+        }
+        if(!bind_desktop(p))goto quarantine;
+        yb_gpu_ycc_plan plan={0};plan.version=1;plan.width=p->reconstructed.width;
+        plan.height=p->reconstructed.height;plan.output_depth=12;plan.sampling_contract=1;
+        memcpy(plan.textures,p->reconstructed.textures,sizeof(plan.textures));
+        memcpy(plan.frame_id,p->reconstructed.frame_id,32);
+        YB_TIMED_CALL(p,YB_NATIVE_TIMING_YCC_SUBMIT,status,
+            yb_gpu_ycc_submit(p->ycc,&plan),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
+        /* Unlike pre-admission fallback, no failure here may clear the
+         * accepted native frame or authorize an older reconstruction path. */
+        if(status)goto quarantine;
+        p->state=PLANAR_RGBA_PENDING;
+    } else if(!bind_desktop(p))goto quarantine;
+    YB_TIMED_CALL(p,YB_NATIVE_TIMING_YCC_WAIT,status,
+        yb_gpu_ycc_finish(p->ycc,timeout,&p->expanded),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
+    if(status==YB_GPU_BACKEND_PENDING)return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
+    if(status||memcmp(p->expanded.frame_id,p->metadata.frame.frame_id,32)||
+       p->expanded.width!=p->reconstructed.width||p->expanded.height!=p->reconstructed.height)
+        goto quarantine;
+    if(!restore(&saved))goto quarantine;
+    YB_TIMED_NO_PENDING(p,YB_NATIVE_TIMING_BRIDGE,status,
+        yb_egl_output_bridge_create((uintptr_t)p->desktop,p->expanded.texture,&p->bridge),YB_EGL_BRIDGE_OK);
+    if(status)goto quarantine;
+    yb_native_playback_output output={yb_egl_output_bridge_texture(p->bridge),
+        p->expanded.width,p->expanded.height,{0}};
+    if(!output.texture)goto quarantine;
+    memcpy(output.frame_id,p->expanded.frame_id,32);
+    status=finish_call(p,&saved,YB_NATIVE_PLAYBACK_OK);
+    if(!status){p->state=OUTPUT_READY;*out=output;}
+    return status;
+quarantine:
+    quarantine(p);return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
+}
 static int playback_release_impl(yb_native_playback_context *p,uint64_t timeout)
 {
     if (!p || timeout>UINT64_C(5000000000)) return YB_NATIVE_PLAYBACK_ARGUMENT;
