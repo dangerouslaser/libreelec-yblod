@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "scope": "Ollie Intel UHD770 Raptor Lake controlled first-EL-AU initialization only; not quality or Kodi playback qualification",
+  "probe_binary_sha256": "9f7b6707ea51d98a00b14aeffbf96c18d77e26de13b687761c7795f393694941",
+  "interposer_sha256": "20d180ad80fa8416207fad915f416ce3b663270b99a4dbce6a853b3b90c45c11",
+  "variant": "derived36-elheaders",
+  "terminal_confirmed": true,
+  "exit_code": 0,
+  "oom_killed": false,
+  "controller_abort": null,
+  "actual_hardware_qsv_frame_returned": true,
+  "cpu_download_used": false,
+  "actual_first_au_matches_baseline_privately": true,
+  "actual_original_el_nal_payloads_unchanged": true,
+  "copied_inherited_headers_removed": true,
+  "actual_interposer_mapping_observed_while_live": true,
+  "code_runtime_identity_unchanged": true,
+  "private_input_stat_identity_unchanged": true,
+  "baseline_sdk_driver_expected": true,
+  "kodi_idle_after": true,
+  "actual_mfx_init": {"status": 0, "coded_width": 1920, "coded_height": 1088, "crop_x": 0, "crop_y": 0, "crop_width": 1920, "crop_height": 1080, "fourcc": 808530000, "bit_depth_luma": 10, "bit_depth_chroma": 10, "profile": 2, "level": 307, "io_pattern": 16, "async_depth": 1, "matching_query_surface_min": 7, "matching_query_surface_suggested": 7},
+  "resources": {"memory_cap_bytes": 536870912, "memory_peak_bytes": 43356160, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true, "terminal_gates_enforced": true},
+  "limits": [
+    "Standalone diagnostic uses actual helper-selected first AU, not the full product decoder queue",
+    "Same runtime/device/driver as earlier stalled controls; only header-removal and prefix-normalization differ",
+    "No raw EL sample comparison, full reconstructed-frame comparison, metadata equivalence, Petunia or playback/performance qualification",
+    "Tracer can change timing; production nontraced validation still required",
+    "No private media paths, AU/header hashes, bytes or session addresses exported"
+  ]
+}
