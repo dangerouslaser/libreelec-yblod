@@ -1,0 +1,22 @@
+{
+  "schema": "yblod.native-planar-summary-source-test-results.v1",
+  "validator_public_commit": "c0e9364d2b",
+  "tests": [
+    "test_summarize_native_planar_matrix",
+    "test_native_planar_matrix",
+    "test_observe_subtitle_fixture"
+  ],
+  "test_count": 29,
+  "test_result": "passed",
+  "process_exit_code": 0,
+  "resource_limits": {
+    "memory_bytes": 536870912,
+    "extra_swap_bytes": 0,
+    "cpus": 1,
+    "network": "none",
+    "source_mounts": "read-only"
+  },
+  "peak_memory_measured": false,
+  "vm_tooling_or_playback_modified": false,
+  "scope": "Source/mock validation only, not playback performance or pixel conformance. Strict subtitle-state types, same original state across four cases, disable/end-disabled/restore proof, exact native-planar/direct route gates, observation duration, lifecycle and public-output sanitization were exercised."
+}
