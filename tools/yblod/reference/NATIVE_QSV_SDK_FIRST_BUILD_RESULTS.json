@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "source_commit": "61dcedb7b6",
+  "scope": "SDK foundation build only; no GPU, VM, Kodi playback or output qualification",
+  "exit_code": 1,
+  "failure": "vpl-gpu-rt final shared link: undefined __cpu_model from target GCC CPU-feature builtins",
+  "dispatcher": {"version": "2.17.0", "built_and_installed": true},
+  "runtime": {"version": "26.3.5", "built": false},
+  "ffmpeg_rebuild_reached": false,
+  "baseline_driver_unchanged": true,
+  "baseline_kodi_unchanged": true,
+  "resources": {
+    "memory_limit_bytes": 4294967296,
+    "memory_peak_bytes": 1357688832,
+    "swap_limit_bytes": 0,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "oom_killed": false,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0}
+  },
+  "separate_baseline_archive_operation": {
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 536870912,
+    "memory_max_events": 16,
+    "oom_events": 0,
+    "swap_peak_bytes": 0,
+    "exit_code": 0,
+    "note": "Uncompressed archive page-cache pressure reached the separate backup cap; this was not a build OOM."
+  },
+  "focused_link_fix_host_contracts": {
+    "tests_passed": 13,
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 23855104,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "memory_events_all_zero": true,
+    "target_compiler_guard_passed": true,
+    "host_compiler_rejected": true,
+    "scope": "Package source contracts and CPU-only preconfigure guard, not a successful SDK retry"
+  },
+  "cpu_link_reproducer": {
+    "default_link_exit_code": 1,
+    "explicit_target_libgcc_link_exit_code": 0,
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 24403968,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "memory_events_all_zero": true,
+    "qualification": "Tiny CPU-only compiler-runtime linkage evidence, not runtime or playback evidence"
+  }
+}

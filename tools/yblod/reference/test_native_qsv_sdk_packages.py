@@ -78,6 +78,23 @@ class Packages(unittest.TestCase):
             self.assertIn('PKG_BUILD_FLAGS="+bfd -lto -lto-fat +lto-off"', recipe)
             self.assertIn("-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF", recipe)
 
+    def test_runtime_target_libgcc_link_contract(self):
+        recipe = (ROOT / "packages/multimedia/vpl-gpu-rt/package.mk").read_text()
+        self.assertIn('test "${CXX}" = "${TARGET_PREFIX}g++"', recipe)
+        self.assertIn('$("${CXX}" -print-libgcc-file-name)', recipe)
+        self.assertIn('"${TOOLCHAIN}"/lib/gcc/"${TARGET_NAME}"/*/libgcc.a', recipe)
+        self.assertIn('-DCMAKE_CXX_STANDARD_LIBRARIES=${qsv_target_libgcc}', recipe)
+        self.assertNotIn('-DCMAKE_SHARED_LINKER_FLAGS=', recipe)
+
+    def test_failed_build_record_has_no_runtime_claim(self):
+        import json
+        report = json.loads(Path(__file__).with_name("NATIVE_QSV_SDK_FIRST_BUILD_RESULTS.json").read_text())
+        self.assertEqual(report["exit_code"], 1)
+        self.assertIs(report["runtime"]["built"], False)
+        self.assertIs(report["ffmpeg_rebuild_reached"], False)
+        self.assertEqual(report["resources"]["memory_events"]["oom"], 0)
+        self.assertEqual(report["separate_baseline_archive_operation"]["memory_max_events"], 16)
+
     def test_recipe_limits_and_claims(self):
         script = Path(__file__).with_name("build_native_qsv_sdk.sh").read_text()
         for required in ("4294967296", "memory.swap.max", "CONCURRENCY_MAKE_LEVEL=1",

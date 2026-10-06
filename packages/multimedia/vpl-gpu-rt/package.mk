@@ -14,6 +14,18 @@ PKG_BUILD_FLAGS="+bfd -lto -lto-fat +lto-off"
 pre_configure_target() {
   # Upstream accepts an environment header override; never use host SDK headers.
   unset MFX_HOME
+  # This SDK's shared C++ link omits the static CPU-feature builtin runtime.
+  # Resolve it from the target compiler, never from the build host; CMake's
+  # standard libraries follow the runtime objects and dependent archives.
+  local qsv_target_libgcc
+  test "${CXX}" = "${TARGET_PREFIX}g++" || die "VPL runtime requires the target SDK C++ compiler"
+  qsv_target_libgcc="$("${CXX}" -print-libgcc-file-name)"
+  case "${qsv_target_libgcc}" in
+    "${TOOLCHAIN}"/lib/gcc/"${TARGET_NAME}"/*/libgcc.a) ;;
+    *) die "VPL runtime requires the target SDK libgcc archive" ;;
+  esac
+  test -f "${qsv_target_libgcc}" || die "VPL target libgcc archive is missing"
+  PKG_CMAKE_OPTS_TARGET+=" -DCMAKE_CXX_STANDARD_LIBRARIES=${qsv_target_libgcc}"
 }
 
 # Keep upstream runtime/codec capabilities. Use shipped kernels, not a new
