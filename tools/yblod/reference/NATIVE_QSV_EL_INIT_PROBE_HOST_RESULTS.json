@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "Controlled initialization diagnostic compile/CPU interception tests only; no GPU, media, raw sample equality or playback qualification",
+  "probe_binary_sha256": "726f16c6a629379e4e94642e30e3f52235cceb83e53cdf3726d16f2276fd2c0a",
+  "cpu_test_binary_sha256": "0753b05d714088b5d0491fbd2b1465dd487ee6fa22a456a3e40423bbf089cf77",
+  "strict_sdk_compile_passed": true,
+  "cpu_interception_contracts_passed": true,
+  "cpu_contract_scope": ["Actual avcodec_send_packet link seam intercepted before real decoder call", "Packet reference and codec parameters retain ownership after original context/packet free", "Saved callback/timebase/thread/flags preserved", "Intentional rejected submission is not counted as accepted; accepted submission increments once", "No hardware decode in CPU tests"],
+  "configured_variants": ["derived36", "derived0", "direct36"],
+  "direct_device_contract": "FFmpeg hw_any hardware selector, explicit VAAPI child type and identical render node; new display is an intentional diagnostic difference",
+  "actual_callback_lifetime_review": "Published helper hardware_format only accesses the new AVCodecContext hardware device and formats, never opaque/helper state; saved linked function remains valid",
+  "resources": {"memory_limit_bytes": 536870912, "memory_peak_bytes": 30433280, "swap_limit_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu_limit": 1, "network": "none", "memory_events_all_zero": true, "build_helper_enforced_terminal_resource_gates": true},
+  "qualification_limits": ["Real first-AU capture and private identity comparison not executed yet", "Diagnostic intentionally stops original helper before its first real decoder submission", "No CPU download or non-QSV pixel-format fallback", "Separate binary names preserve authoritative checkpoint comparison probe", "No GPU run authorized by these CPU results"]
+}
