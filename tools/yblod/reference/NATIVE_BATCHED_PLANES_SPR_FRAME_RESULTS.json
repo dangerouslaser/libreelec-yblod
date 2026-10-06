@@ -1,0 +1,181 @@
+{
+  "schema": "yblod.native-optimization-frame-results.v1",
+  "binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "content": "Saving Private Ryan",
+  "movie_id": 3391,
+  "seek_seconds": 1200,
+  "frames": [
+    {
+      "index": 0,
+      "source_timestamps_equal": true,
+      "source_metadata_equal": true,
+      "picture_and_payload_preserved": true,
+      "maximum_absolute_12bit_codes": {
+        "I": 0,
+        "P": 0,
+        "T": 0
+      },
+      "exact_picture_percent": {
+        "I": 100,
+        "P": 100,
+        "T": 100
+      },
+      "resources": {
+        "memory_peak_bytes": 62566400,
+        "memory_limit_bytes": 536870912,
+        "swap_limit_bytes": 0,
+        "swap_current_bytes": 0,
+        "cpu_limit": 1,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        }
+      },
+      "before": {
+        "pts_microseconds": 1210000000,
+        "el_pts_microseconds": 1210000000,
+        "route": {
+          "native": 1,
+          "direct_packed": 1,
+          "native_planar": 1,
+          "qsv_mode": 1,
+          "batched_planes": 0,
+          "immutable_instructions": 0
+        }
+      },
+      "after": {
+        "pts_microseconds": 1210000000,
+        "el_pts_microseconds": 1210000000,
+        "route": {
+          "native": 1,
+          "direct_packed": 1,
+          "native_planar": 1,
+          "qsv_mode": 1,
+          "batched_planes": 1,
+          "immutable_instructions": 0
+        }
+      }
+    },
+    {
+      "index": 1,
+      "source_timestamps_equal": true,
+      "source_metadata_equal": true,
+      "picture_and_payload_preserved": true,
+      "maximum_absolute_12bit_codes": {
+        "I": 0,
+        "P": 0,
+        "T": 0
+      },
+      "exact_picture_percent": {
+        "I": 100,
+        "P": 100,
+        "T": 100
+      },
+      "resources": {
+        "memory_peak_bytes": 60534784,
+        "memory_limit_bytes": 536870912,
+        "swap_limit_bytes": 0,
+        "swap_current_bytes": 0,
+        "cpu_limit": 1,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        }
+      },
+      "before": {
+        "pts_microseconds": 1220010000,
+        "el_pts_microseconds": 1220010000,
+        "route": {
+          "native": 1,
+          "direct_packed": 1,
+          "native_planar": 1,
+          "qsv_mode": 1,
+          "batched_planes": 0,
+          "immutable_instructions": 0
+        }
+      },
+      "after": {
+        "pts_microseconds": 1220010000,
+        "el_pts_microseconds": 1220010000,
+        "route": {
+          "native": 1,
+          "direct_packed": 1,
+          "native_planar": 1,
+          "qsv_mode": 1,
+          "batched_planes": 1,
+          "immutable_instructions": 0
+        }
+      }
+    },
+    {
+      "index": 2,
+      "source_timestamps_equal": true,
+      "source_metadata_equal": true,
+      "picture_and_payload_preserved": true,
+      "maximum_absolute_12bit_codes": {
+        "I": 0,
+        "P": 0,
+        "T": 0
+      },
+      "exact_picture_percent": {
+        "I": 100,
+        "P": 100,
+        "T": 100
+      },
+      "resources": {
+        "memory_peak_bytes": 30736384,
+        "memory_limit_bytes": 536870912,
+        "swap_limit_bytes": 0,
+        "swap_current_bytes": 0,
+        "cpu_limit": 1,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        }
+      },
+      "before": {
+        "pts_microseconds": 1230020000,
+        "el_pts_microseconds": 1230020000,
+        "route": {
+          "native": 1,
+          "direct_packed": 1,
+          "native_planar": 1,
+          "qsv_mode": 1,
+          "batched_planes": 0,
+          "immutable_instructions": 0
+        }
+      },
+      "after": {
+        "pts_microseconds": 1230020000,
+        "el_pts_microseconds": 1230020000,
+        "route": {
+          "native": 1,
+          "direct_packed": 1,
+          "native_planar": 1,
+          "qsv_mode": 1,
+          "batched_planes": 1,
+          "immutable_instructions": 0
+        }
+      }
+    }
+  ],
+  "source_identity_verified": true,
+  "subtitles_disabled_and_restored_both": true,
+  "scope": "Exact captured native packed planar tunnel picture/payload preservation; not playback performance, physical HDMI, or Dolby conformance.",
+  "optimization": "batched_planes"
+}
