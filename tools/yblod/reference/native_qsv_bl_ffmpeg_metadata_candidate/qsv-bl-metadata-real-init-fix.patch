@@ -1,0 +1,60 @@
+diff --git a/libavcodec/qsvdec.c b/libavcodec/qsvdec.c
+index 76db912..0176fa2 100644
+--- a/libavcodec/qsvdec.c
++++ b/libavcodec/qsvdec.c
+@@ -1047,8 +1047,19 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+ 
+ #if QSV_DOVI_SUPPORTED
+         if (q->dovi_metadata) {
++            const AVHWFramesContext *output_frames;
++            ret = AVERROR_INVALIDDATA;
++            if (frame->format != AV_PIX_FMT_QSV || !frame->hw_frames_ctx ||
++                !frame->hw_frames_ctx->data || !q->dovi_device_ref)
++                goto dovi_output_invalid;
++            output_frames = (const AVHWFramesContext *)frame->hw_frames_ctx->data;
++            if (output_frames->format != AV_PIX_FMT_QSV ||
++                output_frames->sw_format != AV_PIX_FMT_P010 || !output_frames->device_ref ||
++                output_frames->device_ref->data != q->dovi_device_ref->data)
++                goto dovi_output_invalid;
+             ret = qsv_dovi_output(&q->dovi, outsurf->Data.TimeStamp, frame);
+             if (ret < 0) {
++ dovi_output_invalid:
+                 q->dovi.failed = 1;
+                 av_frame_unref(frame);
+                 return ret;
+@@ -1118,7 +1129,8 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+         frame->crop_bottom = outsurf->Info.Height - (outsurf->Info.CropY + outsurf->Info.CropH);
+ 
+         /* update the surface properties */
+-        if (avctx->pix_fmt == AV_PIX_FMT_QSV)
++        if (avctx->pix_fmt == AV_PIX_FMT_QSV ||
++            (q->dovi_metadata && frame->format == AV_PIX_FMT_QSV))
+             ((mfxFrameSurface1*)frame->data[3])->Info = outsurf->Info;
+ 
+         *got_frame = 1;
+@@ -1245,11 +1257,21 @@ static int qsv_process_data(AVCodecContext *avctx, QSVContext *q,
+     }
+ 
+ #if QSV_DOVI_SUPPORTED
+-    if (q->dovi_metadata && (avctx->field_order != AV_FIELD_PROGRESSIVE ||
+-                            avctx->pix_fmt != AV_PIX_FMT_QSV ||
+-                            avctx->sw_pix_fmt != AV_PIX_FMT_P010)) {
+-        q->dovi.failed = 1;
+-        return AVERROR_INVALIDDATA;
++    if (q->dovi_metadata) {
++        const AVHWFramesContext *frames;
++        if (avctx->field_order != AV_FIELD_PROGRESSIVE || q->pool ||
++            !(q->iopattern & MFX_IOPATTERN_OUT_VIDEO_MEMORY) ||
++            q->frame_info.FourCC != MFX_FOURCC_P010 || !avctx->hw_frames_ctx ||
++            !avctx->hw_frames_ctx->data)
++            goto dovi_input_invalid;
++        frames = (const AVHWFramesContext *)avctx->hw_frames_ctx->data;
++        if (frames->format != AV_PIX_FMT_QSV || frames->sw_format != AV_PIX_FMT_P010 ||
++            !frames->device_ref || !q->dovi_device_ref ||
++            frames->device_ref->data != q->dovi_device_ref->data) {
++ dovi_input_invalid:
++            q->dovi.failed = 1;
++            return AVERROR_INVALIDDATA;
++        }
+     }
+ #endif

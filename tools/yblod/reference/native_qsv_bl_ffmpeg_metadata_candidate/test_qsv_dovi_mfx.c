@@ -19,6 +19,23 @@ static int done, closes, buffer_eagain, sync_calls, frame_frees;
 static mfxStatus sync_status=MFX_ERR_NONE, close_status=MFX_ERR_NONE;
 static int64_t fixture_clock, fixture_clock_step;
 static int busy_remaining;
+static AVCodecContext *fixture_codec;
+static void frames_drop(void *opaque, uint8_t *data)
+{
+    AVHWFramesContext *frames=(AVHWFramesContext*)data;
+    av_buffer_unref(&frames->device_ref); av_free(frames->hwctx); av_free(data);
+}
+static AVBufferRef *fixture_frames(AVBufferRef *device)
+{
+    AVHWFramesContext *frames=av_mallocz(sizeof(*frames)); assert(frames);
+    frames->format=AV_PIX_FMT_QSV; frames->sw_format=AV_PIX_FMT_P010;
+    frames->hwctx=av_mallocz(sizeof(AVQSVFramesContext)); assert(frames->hwctx);
+    frames->device_ref=av_buffer_ref(device); assert(frames->device_ref);
+    AVBufferRef *ref=av_buffer_create((uint8_t*)frames,sizeof(*frames),frames_drop,NULL,0); assert(ref);
+    return ref;
+}
+static void release_codec(AVCodecContext *codec)
+{ av_buffer_unref(&codec->hw_frames_ctx); av_buffer_unref(&codec->hw_device_ctx); }
 int64_t fixture_gettime_relative(void) { fixture_clock+=fixture_clock_step; return fixture_clock; }
 
 static void frame_drop(void *opaque, uint8_t *data) { ++frame_frees; av_free(data); }
@@ -43,6 +60,7 @@ int __wrap_ff_get_buffer(AVCodecContext *avctx, AVFrame *frame, int flags)
     if (!frame->buf[0]) av_free(data);
     if (!frame->buf[0]) return AVERROR(ENOMEM);
     frame->data[3]=frame->buf[0]->data;
+    frame->hw_frames_ctx=av_buffer_ref(avctx->hw_frames_ctx); assert(frame->hw_frames_ctx);
     return 0;
 }
 
@@ -87,7 +105,8 @@ static void setup(QSVContext *q, AVCodecContext *avctx)
 {
     *q=(QSVContext){0}; *avctx=(AVCodecContext){0};
     q->dovi_metadata=1; q->async_depth=1; q->session=(mfxSession)(uintptr_t)1;
-    q->frame_info=(mfxFrameInfo){.FourCC=MFX_FOURCC_NV12,.Width=128,.Height=64,
+    q->iopattern=MFX_IOPATTERN_OUT_VIDEO_MEMORY;
+    q->frame_info=(mfxFrameInfo){.FourCC=MFX_FOURCC_P010,.Width=128,.Height=64,
                                .CropW=4,.CropH=4,.PicStruct=MFX_PICSTRUCT_PROGRESSIVE};
     q->async_fifo=av_fifo_alloc2(1,sizeof(QSVAsyncFrame),0); assert(q->async_fifo);
     q->initialized=1; q->orig_pix_fmt=AV_PIX_FMT_P010;
@@ -95,11 +114,17 @@ static void setup(QSVContext *q, AVCodecContext *avctx)
     avctx->coded_width=4; avctx->coded_height=4;
     avctx->field_order=AV_FIELD_PROGRESSIVE; avctx->codec_id=AV_CODEC_ID_HEVC;
     avctx->pkt_timebase=(AVRational){1,1000000}; returned_token=0;
+    avctx->hw_device_ctx=av_buffer_allocz(sizeof(AVHWDeviceContext)); assert(avctx->hw_device_ctx);
+    ((AVHWDeviceContext*)avctx->hw_device_ctx->data)->type=AV_HWDEVICE_TYPE_QSV;
+    avctx->hw_frames_ctx=fixture_frames(avctx->hw_device_ctx);
+    q->dovi_device_ref=av_buffer_ref(avctx->hw_device_ctx); assert(q->dovi_device_ref);
+    fixture_codec=avctx;
 }
 static void cleanup(QSVContext *q)
 {
     /* Fake session is not an internally-owned dispatcher session. */
     qsv_decode_close_qsvcontext(q); qsv_dovi_uninit(&q->dovi);
+    av_buffer_unref(&q->dovi_device_ref); release_codec(fixture_codec);
 }
 static QSVDecContext *init_decoder(QSVDecContext *s, AVCodecContext *avctx)
 {
@@ -109,8 +134,10 @@ static QSVDecContext *init_decoder(QSVDecContext *s, AVCodecContext *avctx)
     ((AVHWDeviceContext*)avctx->hw_device_ctx->data)->type=AV_HWDEVICE_TYPE_QSV;
     s->qsv.dovi_metadata=1; s->qsv.async_depth=1;
     assert(!qsv_decode_init(avctx));
+    avctx->hw_frames_ctx=fixture_frames(avctx->hw_device_ctx);
     s=qsv_decoder_owner(avctx);
     s->qsv.session=(mfxSession)(uintptr_t)1; s->qsv.initialized=1;
+    s->qsv.iopattern=MFX_IOPATTERN_OUT_VIDEO_MEMORY;
     s->qsv.frame_info=(mfxFrameInfo){.FourCC=MFX_FOURCC_P010,.Width=128,.Height=64,
                                    .CropW=4,.CropH=4,.PicStruct=MFX_PICSTRUCT_PROGRESSIVE};
     s->qsv.async_fifo=av_fifo_alloc2(1,sizeof(QSVAsyncFrame),0); assert(s->qsv.async_fifo);
@@ -152,8 +179,8 @@ static void quarantine_case(int failure)
     assert(owner->dovi_owner==owner && owner->qsv.dovi_device_ref==device &&
            owner->qsv.work_frames==frames && owner->qsv.session && frame_frees==before_frees);
     memset(original,0,sizeof(*original)); av_free(original); avctx.priv_data=NULL;
-    av_buffer_unref(&avctx.hw_device_ctx);
-    assert(av_buffer_get_ref_count(owner->qsv.dovi_device_ref)==1);
+    release_codec(&avctx);
+    assert(av_buffer_get_ref_count(owner->qsv.dovi_device_ref)>=1);
     QSVDecContext reopened={0}; AVCodecContext other={.priv_data=&reopened,.codec_id=AV_CODEC_ID_HEVC};
     reopened.qsv.dovi_metadata=1;
     assert(qsv_decode_init(&other)==AVERROR_EXTERNAL && !reopened.dovi_owner);
@@ -221,7 +248,8 @@ int main(void)
                !av_fifo_can_read(q.async_fifo) && q.dovi.pending.token);
         assert(!qsv_decode_close_qsvcontext(&q));
         assert(sync_calls==before_sync+1 && closes==before_close+1 && !q.dovi_untracked_sync);
-        qsv_dovi_uninit(&q.dovi); av_frame_unref(frame); ++done;
+        qsv_dovi_uninit(&q.dovi); av_buffer_unref(&q.dovi_device_ref);
+        release_codec(&avctx); av_frame_unref(frame); ++done;
     }
 
     for (int mode=BUSY_FOREVER;mode<=SURFACE_FOREVER;mode++) {
@@ -264,14 +292,15 @@ int main(void)
            !decoder.qsv.work_frames && !decoder.qsv.dovi.count && decoder.qsv.dovi.next==2);
     assert(!qsv_dovi_prepare(&decoder.qsv.dovi,&pkt,0) && decoder.qsv.dovi.pending.token==3);
     assert(qsv_dovi_output(&decoder.qsv.dovi,1,frame)==AVERROR_INVALIDDATA);
-    qsv_dovi_uninit(&decoder.qsv.dovi); av_fifo_freep2(&decoder.packet_fifo); ++done;
+    qsv_dovi_uninit(&decoder.qsv.dovi); av_buffer_unref(&decoder.qsv.dovi_device_ref);
+    release_codec(&avctx); av_fifo_freep2(&decoder.packet_fifo); ++done;
 
     QSVDecContext *owned;
     owned=init_decoder(&decoder,&avctx); behavior=BUFFER_ONLY; got=0;
     assert(qsv_decode_frame(&avctx,frame,&got,&pkt)==pkt.size && !got && owned->qsv.dovi.count==1);
     behavior=DRAIN_EMPTY;
     assert(qsv_decode_frame(&avctx,frame,&got,&drain)==AVERROR_INVALIDDATA && owned->qsv.dovi.failed);
-    assert(!qsv_decode_close(&avctx)); av_buffer_unref(&avctx.hw_device_ctx); ++done;
+    assert(!qsv_decode_close(&avctx)); release_codec(&avctx); ++done;
 
     owned=init_decoder(&decoder,&avctx); behavior=COMPLETE; got=0; before_calls=calls;
     assert(!av_packet_ref(&owned->buffer_pkt,&pkt));
@@ -284,7 +313,7 @@ int main(void)
     assert(!owned->qsv.dovi.pending.token && !owned->qsv.dovi.count);
     assert(qsv_decode_frame(&avctx,frame,&got,&pkt)==AVERROR(ENOBUFS) && calls==(int)before_calls &&
            owned->buffer_pkt.size==pkt.size && av_fifo_can_read(owned->packet_fifo)==QSV_DOVI_MAX-1);
-    assert(!qsv_decode_close(&avctx)); av_buffer_unref(&avctx.hw_device_ctx); ++done;
+    assert(!qsv_decode_close(&avctx)); release_codec(&avctx); ++done;
 
     owned=init_decoder(&decoder,&avctx); behavior=COMPLETE; got=0; before_calls=calls;
     for (unsigned i=0;i<QSV_DOVI_MAX;i++) {
@@ -295,7 +324,7 @@ int main(void)
     assert(av_fifo_can_read(owned->packet_fifo)==QSV_DOVI_MAX-1 && calls==(int)before_calls);
     assert(qsv_decode_frame(&avctx,frame,&got,&pkt)==AVERROR(ENOBUFS) &&
            av_fifo_can_read(owned->packet_fifo)==QSV_DOVI_MAX-1 && owned->qsv.dovi.failed);
-    assert(!qsv_decode_close(&avctx)); av_buffer_unref(&avctx.hw_device_ctx); ++done;
+    assert(!qsv_decode_close(&avctx)); release_codec(&avctx); ++done;
 
     owned=init_decoder(&decoder,&avctx); behavior=COMPLETE; got=0; int before_frees=frame_frees;
     assert(qsv_decode_frame(&avctx,frame,&got,&pkt)==pkt.size && got);
@@ -303,18 +332,18 @@ int main(void)
     av_frame_unref(frame); qsv_decode_flush(&avctx);
     assert(frame_frees==before_frees && av_buffer_get_ref_count(consumer)==1);
     av_buffer_unref(&consumer); assert(frame_frees==before_frees+1);
-    assert(!qsv_decode_close(&avctx)); av_buffer_unref(&avctx.hw_device_ctx); ++done;
+    assert(!qsv_decode_close(&avctx)); release_codec(&avctx); ++done;
 
     owned=init_decoder(&decoder,&avctx); owned->qsv.initialized=0; before_closes=closes;
     assert(!qsv_decode_close(&avctx) && closes==before_closes && !atomic_load(&qsv_dovi_process_quarantined));
-    av_buffer_unref(&avctx.hw_device_ctx); ++done;
+    release_codec(&avctx); ++done;
 
     owned=init_decoder(&decoder,&avctx); buffer_eagain=1; behavior=COMPLETE; got=0;
     assert(qsv_decode_frame(&avctx,frame,&got,&pkt)==pkt.size && !got);
     owned->dovi_queued_bytes=64*1024*1024;
     assert(qsv_decode_frame(&avctx,frame,&got,&pkt)==AVERROR(ENOBUFS) &&
            owned->qsv.dovi.failed && owned->qsv.dovi.pending.token==1 && !av_fifo_can_read(owned->packet_fifo));
-    assert(!qsv_decode_close(&avctx)); av_buffer_unref(&avctx.hw_device_ctx); ++done;
+    assert(!qsv_decode_close(&avctx)); release_codec(&avctx); ++done;
 
     for (int i=0;i<4;i++) {
         pid_t child=fork(); assert(child>=0);

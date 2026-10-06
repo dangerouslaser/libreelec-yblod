@@ -1,0 +1,74 @@
+{
+  "schema": "yblod.qsv-dovi-real-init-fix-cpu.v1",
+  "all_passed": true,
+  "source_only": true,
+  "source_sha256": {
+    "qsv-bl-metadata-real-init-fix.patch": "eaa6a505e8ab852eb42262ff12fc7d22a7146163a7d22cf563ec1f8e3d67795a",
+    "test_qsv_dovi_real_init.c": "8dcf1917bf5b8beff139b5941ac8ea3405c1971118c7d007c308a0b467ad4841",
+    "test_qsv_dovi_mfx.c": "12aad805b72833ec49b60628bdd37d88bb40e9994dbd587eeb3d2aff8599d08d",
+    "stage_qsv_dovi_real_init_fixture.py": "1d7f1e4c9a3b52f8bc87633c3f4200b96d7d7858df6e49c0579d31ff67e8bdab",
+    "check_qsv_dovi_real_init_candidate.sh": "05e092a6ffd2f64305579c10bcf6ad29866bf6556b8d717ef121a3e7df18bd8a"
+  },
+  "generated_qsvdec_source_sha256": "bd88929d56c2105d1f9987c23b343c4b8fd468105b0b319061a105f885217226",
+  "foundation_patch_sha256": "ef079ad0f9ac273babbbad1db7a74e42c8bcf75b64b5c84adb20b013bcec009f",
+  "images": {
+    "cpu": "sha256:33c6601e0e65d900edc712bdb6f40bb1e680669d5ffb76ecd014c8e6f2ec0e1e",
+    "sdk": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e"
+  },
+  "tests": {
+    "actual_init_process_decode": {
+      "cases": 10,
+      "actual_init_calls": 10,
+      "actual_process_decode_calls": 6,
+      "sync_calls": 6,
+      "cached_pix_fmt_is_p010": true,
+      "returned_frame_format_is_qsv": true,
+      "hardware_allocation_and_mfx_mocked": true,
+      "returned_surface_info_and_crop_preserved": true,
+      "default_off_surface_info_behavior_unchanged": true,
+      "memory_peak_bytes": 74571776
+    },
+    "original_typed_pool_regressions": {
+      "cases": 24,
+      "parent_process_decode_calls": 62,
+      "quarantine_child_cases": 4,
+      "memory_peak_bytes": 38629376
+    },
+    "unsupported_gpl_gate": {
+      "passed": true,
+      "memory_peak_bytes": 29679616
+    },
+    "strict_authoritative_sdk_object": {
+      "passed": true,
+      "memory_peak_bytes": 98021376
+    }
+  },
+  "limits": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "gpu_devices_mounted": false,
+    "sdk_mount_read_only": true
+  },
+  "resources": {
+    "all_memory_events_zero": true,
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0
+  },
+  "qualification": {
+    "hardware_decode": false,
+    "kodi_playback": false,
+    "picture_accuracy": false,
+    "performance": false,
+    "graceful_parameter_change": false,
+    "dolby_conformance": false
+  },
+  "notes": [
+    "The actual qsv_decode_init_context body is executed; MFX Init and hardware allocation are mocked.",
+    "Returned hardware frame format and retained P010 QSV device owner are checked before timestamp metadata attachment.",
+    "The mocked returned surface Info deliberately differs from pool prefill; opt-in preserves returned geometry/crop and default OFF retains original copy behavior.",
+    "The original candidate report is a historical source/fixture snapshot; this report qualifies the additive correction and updated typed-pool CPU fixture only.",
+    "No authoritative SDK source was modified."
+  ]
+}

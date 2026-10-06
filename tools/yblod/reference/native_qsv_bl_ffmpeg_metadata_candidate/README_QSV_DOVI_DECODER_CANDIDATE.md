@@ -2,6 +2,8 @@
 
 This source-only FFmpeg 9.0.2 candidate adds `hevc_qsv -dovi_metadata 1` for restricted progressive P010 input. The option defaults to OFF. CPU tests exercise the actual decoder functions with mocked Intel runtime operations; they do not qualify hardware decoding, Kodi playback, picture accuracy or performance.
 
+The [hardware format admission fix](README_QSV_DOVI_REAL_INIT_FIX.md) is required before hardware testing: the original candidate incorrectly assumes the cached codec pixel format stays QSV after initialization. Its original CPU report is a historical snapshot; the follow-up executes the real initialization body and records corrected-source and fixture hashes.
+
 The patch includes the previously published GPL-3.0-or-later AU transaction component. The option requires a GPL/version3-enabled FFmpeg build; unsupported builds reject an ON request. The existing default-OFF path retains its original timestamp conversion, decoder retry and surface synchronization behavior.
 
 ## Frame association and retained ownership
