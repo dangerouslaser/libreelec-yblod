@@ -9,6 +9,7 @@ width=$5
 height=$6
 binary_sha=$7
 shader_sha=$8
+alternate=${9-}
 test "$(sha256sum "$binary" | cut -d' ' -f1)" = "$binary_sha"
 test "$(sha256sum "$shader" | cut -d' ' -f1)" = "$shader_sha"
 cd "$task_dir"
@@ -30,6 +31,7 @@ for phase in before after; do
     /usr/lib/libEGL.so.1 /usr/lib/libEGL_mesa.so.0 /usr/lib/libGLdispatch.so.0 \
     /usr/lib/libgallium-26.2.4.so /usr/lib/libgbm.so.1 /usr/lib/libdrm.so.2 \
     /usr/lib/libc.so.6 /usr/lib/ld-linux-x86-64.so.2 > "$phase-hashes.txt"
+  if test -n "$alternate"; then sha256sum "$alternate" >> "$phase-hashes.txt"; fi
   systemctl show kodi -p ActiveState -p MainPID > "$phase-kodi.txt"
   test "$(systemctl show kodi -p ActiveState --value)" = active
   kodi_pid=$(systemctl show kodi -p MainPID --value)
@@ -42,10 +44,12 @@ for phase in before after; do
   done
   if test "$phase" = before; then
     set +e
-    "$binary" /dev/dri/renderD128 "$shader" "$width" "$height" \
+    set -- "$binary" /dev/dri/renderD128 "$shader" "$width" "$height" \
       "$fixture/instructions.bin" "$fixture/bl_Y.u16le" "$fixture/bl_Cb.u16le" \
       "$fixture/bl_Cr.u16le" "$fixture/mmr_luma.u16le" "$fixture/scaled1.p010" \
-      "$task_dir/output.u16le" > result.json 2> stderr.txt
+      "$task_dir/output.u16le"
+    if test -n "$alternate"; then set -- "$@" --alternate-instructions "$alternate"; fi
+    "$@" > result.json 2> stderr.txt
     status=$?
     set -e
     printf '%s\n' "$status" > probe-exit.txt

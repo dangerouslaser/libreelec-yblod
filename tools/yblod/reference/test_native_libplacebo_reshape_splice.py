@@ -55,6 +55,21 @@ class SpliceTests(unittest.TestCase):
         self.assertIn('r->glsl,c', source)
         self.assertNotIn('strstr(r->glsl', source)
 
+    def test_uniform_generator_and_backend_contract(self):
+        source = (HERE / "native_libplacebo_reshape_generate.c").read_text()
+        backend = (HERE / "native_gpu_composer_backend_libplacebo.c").read_text()
+        self.assertIn('strcmp(argv[1],"--uniforms-native-output-range")==0', source)
+        self.assertIn('YB_FP_OUTPUT_RANGE_NATIVE', source)
+        self.assertIn('#define %s yb_fp_c%d_%s', source)
+        self.assertIn('fp_cache_locations(b)', backend)
+        upload = backend[backend.index('static void fp_upload'):backend.index('static int same_context')]
+        self.assertNotIn('GetUniformLocation', upload)
+        self.assertIn('ldexp((double)words', upload)
+        self.assertIn('Uniform4fv(loc[2],packed', upload)
+        submit = backend[backend.index('int yb_gpu_backend_submit'):backend.index('int yb_gpu_backend_finish')]
+        self.assertLess(submit.index('fp_same_topology'), submit.index('b->valid=0'))
+        self.assertLess(submit.index('fp_upload(b,c,words)'), submit.index('g->DispatchCompute'))
+
 
 if __name__ == "__main__":
     unittest.main()

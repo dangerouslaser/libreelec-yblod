@@ -34,5 +34,12 @@ class ComparisonContracts(unittest.TestCase):
         self.assertIn("d->histogram[absolute]++", SOURCE)
         self.assertIn("(d->count*99U+99U)/100U", SOURCE)
 
+    def test_bounded_timing_samples(self):
+        self.assertIn('iteration_setting("YB_COMPARE_WARMUPS",1)', SOURCE)
+        self.assertIn('iteration_setting("YB_COMPARE_SAMPLES",3)', SOURCE)
+        self.assertIn("if(value>32U)return 0", SOURCE)
+        self.assertIn("struct measurement times[32]", SOURCE)
+        self.assertIn("times[pass-timed_start].wall", SOURCE)
+
 if __name__ == "__main__":
     unittest.main()

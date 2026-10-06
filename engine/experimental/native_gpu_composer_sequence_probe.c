@@ -42,12 +42,12 @@ static int stable(const struct stat *a,const struct stat *b)
 }
 static void *load(const char *path,size_t bytes)
 {
- static struct stat identities[6];static size_t loaded;
+ static struct stat identities[7];static size_t loaded;
  int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK); struct stat a,b,c;
  if(fd<0)return NULL;
  void *p=NULL; size_t done=0;
  if(fstat(fd,&a)||!S_ISREG(a.st_mode)||a.st_size<0||(uint64_t)a.st_size!=bytes)goto end;
- if(loaded>=6)goto end;
+ if(loaded>=7)goto end;
  for(size_t i=0;i<loaded;i++)
   if(a.st_dev==identities[i].st_dev&&a.st_ino==identities[i].st_ino)goto end;
  p=malloc(bytes);if(!p)goto end;
@@ -300,27 +300,16 @@ static yb_gpu_proc backend_proc(const char *name,void *opaque)
 static uintptr_t backend_context(void *opaque)
 {(void)opaque;return (uintptr_t)eglGetCurrentContext();}
 
-static unsigned iteration_setting(const char *name,unsigned fallback)
-{
-    const char *p=getenv(name);if(!p)return fallback;
-    unsigned value=0;if(!*p)return 0;
-    for(;*p;p++) {
-        if(*p<'0'||*p>'9')return 0;
-        value=value*10U+(unsigned)(*p-'0');
-        if(value>32U)return 0;
-    }
-    return value;
-}
-static int gpu_run(const char *node,const char *shader_path,const struct workload *w,struct yb_probe_fixture *f,struct stages *scratch,const struct stages *golden,uint32_t last_count,const char *dump_path)
+static int gpu_run(const char *node,const char *shader_path,const struct workload *w,struct yb_probe_fixture *f,struct stages *scratch,const struct stages *golden,uint32_t last_count,const char *dump_path,yb_dovi_integer_instructions *alternate)
 {
     struct timespec cold_begin,cold_end,teardown_begin,teardown_end;
-    unsigned warmups=iteration_setting("YB_COMPARE_WARMUPS",1);
-    unsigned samples=iteration_setting("YB_COMPARE_SAMPLES",3);
-    if(!warmups||!samples)return 0;
-    unsigned timed_start=1U+warmups;
-    struct measurement times[32]={{0}};
+    struct measurement times[3]={{0}};
     uint64_t cold_ns=0,teardown_ns=0,verified=0,oracle_dispatches=0,values=0;
-    struct comparison {uint64_t count,changed,over_one,squared;int64_t signed_sum;uint32_t max_abs;uint64_t histogram[4096];} differences[3]={{0}};
+    struct comparison {uint64_t count,changed,over_one,squared;int64_t signed_sum;uint32_t max_abs;uint64_t histogram[4096];} frame_differences[3][3]={{{0}}};
+    struct comparison *differences=frame_differences[0];
+    struct workload sequence_work=*w;void *base_blob=w->blob;
+    w=&sequence_work;
+    uint64_t changed_from_a[3]={0},restoration_mismatches[3]={0};
     FILE *dump=NULL;
     (void)golden;(void)last_count;
     yb_gpu_composer_backend *backend=NULL;
@@ -340,12 +329,13 @@ static int gpu_run(const char *node,const char *shader_path,const struct workloa
     char *source=NULL;
     _Static_assert(sizeof(uint32_t)==4 && sizeof(int32_t)==4 && sizeof(int64_t)==8,"SSBO scalar widths");
     uint16_t *image_codes=malloc((size_t)width*height*2);
+    uint16_t *initial_codes=malloc((size_t)width*height*3);
     uint16_t *packed_y=NULL,*packed_uv=NULL;
     GLenum observed_gl_error=GL_NO_ERROR;
     EGLint observed_egl_error=EGL_SUCCESS;
     struct stat requested;
     const uint16_t endian=1;
-    if (!image_codes || *(const unsigned char *)&endian!=1 || !node_valid(node)) goto cleanup;
+    if (!image_codes || !initial_codes || !alternate || *(const unsigned char *)&endian!=1 || !node_valid(node)) goto cleanup;
     if(dump_path){dump=fopen(dump_path,"wbx");if(!dump)goto cleanup;}
 
     source=read_shader(shader_path);
@@ -489,11 +479,16 @@ static int gpu_run(const char *node,const char *shader_path,const struct workloa
     memcpy(plan.guide_frame_id,w->frame,32);memcpy(plan.enhancement_frame_id,w->frame,32);
     memcpy(plan.guide_contract_id,w->provenance,32);memcpy(plan.enhancement_scale_contract_id,w->provenance,32);
     for(unsigned c=0;c<3;c++)plan.nlq[c]=((yb_dovi_integer_instructions *)w->blob)->nlq[c];
-    /* Pass zero validates every reconstructed output code. Warm passes include
-     * API submit/finish and only the four-byte frame error readback. */
-    for(unsigned pass=0;pass<timed_start+samples;pass++){
+    /* Three untimed full readbacks use A/B/A metadata on one backend/context.
+     * Then one warmup and three resident baseline-A timing passes follow. */
+    for(unsigned pass=0;pass<7;pass++){
+        yb_dovi_integer_instructions *selected_instructions=pass==1?alternate:base_blob;
+        sequence_work.blob=selected_instructions;plan.mapping=selected_instructions->mapping;
+        plan.output_depth=selected_instructions->output_depth;f->output_depth=selected_instructions->output_depth;
+        for(unsigned c=0;c<3;c++)plan.nlq[c]=selected_instructions->nlq[c];
+        if(pass<3)differences=frame_differences[pass];
         struct timespec begin,begin_cpu,finish,finish_cpu;
-        if(pass>=timed_start&&(clock_gettime(CLOCK_MONOTONIC,&begin)||
+        if(pass>=4&&(clock_gettime(CLOCK_MONOTONIC,&begin)||
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&begin_cpu)))goto cleanup;
         operation="three plane backend submit";
         if(yb_gpu_backend_submit(backend,&plan)!=YB_GPU_BACKEND_OK)goto cleanup;
@@ -506,11 +501,11 @@ static int gpu_run(const char *node,const char *shader_path,const struct workloa
         if(yb_gpu_backend_finish(backend,UINT64_C(5000000000),&image_output)!=YB_GPU_BACKEND_OK)goto cleanup;
         if(memcmp(image_output.frame_id,w->frame,32)||image_output.width!=width||image_output.height!=height||
            image_output.output_depth!=(uint32_t)f->output_depth)goto cleanup;
-        if(pass>=timed_start){
+        if(pass>=4){
             if(clock_gettime(CLOCK_MONOTONIC,&finish)||clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&finish_cpu)||
-               !ns(&begin,&finish,&times[pass-timed_start].wall)||!ns(&begin_cpu,&finish_cpu,&times[pass-timed_start].cpu))goto cleanup;
+               !ns(&begin,&finish,&times[pass-4].wall)||!ns(&begin_cpu,&finish_cpu,&times[pass-4].cpu))goto cleanup;
         }
-        if(pass==0){
+        if(pass<3){
             yb_integration_context reference={0};yb_integration_completion completion={0};int gate_ok=0;
             if(yb_decoder_frame_bridge_init(&reference,&w->descriptor,w->blob,9216))goto cleanup;
             for(uint32_t c=0;c<3;c++){
@@ -519,7 +514,15 @@ static int gpu_run(const char *node,const char *shader_path,const struct workloa
                 gl.PixelStorei(GL_PACK_ALIGNMENT,2);gl.PixelStorei(GL_PACK_ROW_LENGTH,0);
                 gl.GetTexImage(GL_TEXTURE_2D,0,GL_RED_INTEGER,GL_UNSIGNED_SHORT,image_codes);
                 if(gl.GetError()!=GL_NO_ERROR)goto image_gate_cleanup;
-                if(dump&&fwrite(image_codes,sizeof(*image_codes),(size_t)w->counts[c],dump)!=(size_t)w->counts[c])goto image_gate_cleanup;
+                if(dump&&pass==0&&fwrite(image_codes,sizeof(*image_codes),(size_t)w->counts[c],dump)!=(size_t)w->counts[c])goto image_gate_cleanup;
+                size_t plane_start=c==0?0:(size_t)w->counts[0]+(c==2?(size_t)w->counts[1]:0);
+                if(pass==0)memcpy(initial_codes+plane_start,image_codes,(size_t)w->counts[c]*sizeof(*image_codes));
+                else for(size_t j=0;j<(size_t)w->counts[c];j++){
+                    if(image_codes[j]!=initial_codes[plane_start+j]){
+                        if(pass==1)changed_from_a[c]++;
+                        else restoration_mismatches[c]++;
+                    }
+                }
                 for(uint64_t start=0;start<w->counts[c];start+=CHUNK){
                     uint32_t n=(uint32_t)(w->counts[c]-start);if(n>CHUNK)n=CHUNK;
                     if(yb_scaled_surface_extract(&w->surface,w->frame,w->provenance,c,start,n,
@@ -548,6 +551,9 @@ image_gate_cleanup:
         }
     }
     printf(",\"texture_input_abi\":\"normalized-R16-RG16-P010-plus-explicit-native-guide\",\"texture_input_uploaded_checkpoint\":true,\"vaapi_zero_copy_import\":false,\"cpu_expanded_sample_ssbo\":false,\"input_planes_resident\":true,\"warm_input_plane_uploads\":0,\"resident_texture_setup_wall_ns\":%" PRIu64 ",\"resident_texture_setup_cpu_ns\":%" PRIu64,texture_setup_wall,texture_setup_cpu);
+    operation="same-handle numerical metadata update and restoration gate";
+    if(!(changed_from_a[0]+changed_from_a[1]+changed_from_a[2])||
+       restoration_mismatches[0]||restoration_mismatches[1]||restoration_mismatches[2])goto cleanup;
     ok=1;
 cleanup:
     if(dump){if(fclose(dump))ok=0;dump=NULL;}
@@ -579,12 +585,23 @@ cleanup:
     if(initialized && !eglTerminate(display)) cleanup_ok=0;
     if(!eglReleaseThread()) cleanup_ok=0;
     if(fd>=0 && close(fd)) cleanup_ok=0;
-    free(image_codes);free(packed_y);free(packed_uv);free(source);
+    free(image_codes);free(initial_codes);free(packed_y);free(packed_uv);free(source);
     printf(",\"device_binding_verified\":%s,\"observed_gl_error\":%u,\"observed_egl_error\":%u,\"cleanup_succeeded\":%s",
            bound ? "true" : "false",(unsigned)observed_gl_error,(unsigned)observed_egl_error,cleanup_ok ? "true" : "false");
     if(!teardown_clock||clock_gettime(CLOCK_MONOTONIC,&teardown_end)||!ns(&teardown_begin,&teardown_end,&teardown_ns))cleanup_ok=0;
     if(ok&&cleanup_ok){
-        int exact=differences[0].changed==0&&differences[1].changed==0&&differences[2].changed==0;
+        printf(",\"same_backend_handle_sequence\":\"A-B-A\",\"same_input_texture_objects\":true,\"alternate_changed_codes\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"restoration_mismatches\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"sequence_reference_metrics\":[",changed_from_a[0],changed_from_a[1],changed_from_a[2],restoration_mismatches[0],restoration_mismatches[1],restoration_mismatches[2]);
+        for(unsigned frame=0;frame<3;frame++){
+            printf("%s[",frame?",":"");
+            for(unsigned c=0;c<3;c++){
+                const struct comparison *d=&frame_differences[frame][c];
+                printf("%s{\"count\":%" PRIu64 ",\"changed\":%" PRIu64 ",\"over_one\":%" PRIu64 ",\"max_abs\":%u,\"signed_sum\":%" PRId64 ",\"squared_error_sum\":%" PRIu64 "}",c?",":"",d->count,d->changed,d->over_one,d->max_abs,d->signed_sum,d->squared);
+            }
+            printf("]");
+        }
+        printf("]");
+        int exact=1;
+        for(unsigned frame=0;frame<3;frame++)for(unsigned c=0;c<3;c++)if(frame_differences[frame][c].changed)exact=0;
         printf(",\"comparison_reference\":\"native-integer-CPU-composer-not-licensed-hardware\",\"output_depth\":%d,\"difference_units\":\"native-output-code-values\",\"full_frame_reconstructed_exact\":%s,\"all_output_codes_compared\":true,\"difference_metrics\":[",f->output_depth,exact?"true":"false");
         for(unsigned c=0;c<3;c++){
             const struct comparison *d=&differences[c];uint64_t cumulative=0;
@@ -597,11 +614,7 @@ cleanup:
             }
             printf("%s{\"plane\":%u,\"count\":%" PRIu64 ",\"changed\":%" PRIu64 ",\"over_one\":%" PRIu64 ",\"max_abs\":%u,\"signed_sum\":%" PRId64 ",\"squared_error_sum\":%" PRIu64 ",\"mean_bias\":%.17g,\"abs_p50\":%u,\"abs_p95\":%u,\"abs_p99\":%u}",c?",":"",c,d->count,d->changed,d->over_one,d->max_abs,d->signed_sum,d->squared,(double)d->signed_sum/(double)d->count,p50,p95,p99);
         }
-        printf("],\"raw_dump_requested\":%s,\"raw_dump_format\":\"u16le-native-grid-Y-then-Cb-then-Cr-no-padding\",\"gpu_verified_output_planes\":%" PRIu64 ",\"gpu_oracle_dispatches\":%" PRIu64 ",\"gpu_verified_reconstructed_values\":%" PRIu64 ",\"cold_setup_wall_ns\":%" PRIu64 ",\"teardown_wall_ns\":%" PRIu64 ",\"warmups\":%u,\"samples\":%u,\"wall_ns\":[",dump_path?"true":"false",verified,oracle_dispatches,values,cold_ns,teardown_ns,warmups,samples);
-        for(unsigned i=0;i<samples;i++)printf("%s%" PRIu64,i?",":"",times[i].wall);
-        printf("],\"cpu_ns\":[");
-        for(unsigned i=0;i<samples;i++)printf("%s%" PRIu64,i?",":"",times[i].cpu);
-        printf("]");
+        printf("],\"raw_dump_requested\":%s,\"raw_dump_format\":\"u16le-native-grid-Y-then-Cb-then-Cr-no-padding\",\"gpu_verified_output_planes\":%" PRIu64 ",\"gpu_oracle_dispatches\":%" PRIu64 ",\"gpu_verified_reconstructed_values\":%" PRIu64 ",\"cold_setup_wall_ns\":%" PRIu64 ",\"teardown_wall_ns\":%" PRIu64 ",\"warmups\":1,\"wall_ns\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "],\"cpu_ns\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "]",dump_path?"true":"false",verified,oracle_dispatches,values,cold_ns,teardown_ns,times[0].wall,times[1].wall,times[2].wall,times[0].cpu,times[1].cpu,times[2].cpu);
     }
     if(ok&&cleanup_ok) printf(",\"warm_plane_dispatches_per_pass\":3,\"warm_frame_completion_waits_per_pass\":1,\"warm_frame_error_readback_bytes\":4,\"warm_reconstructed_code_check\":false,\"timing_scope\":\"resident input backend submit and finish; three full-plane dispatches, one completion wait and error flag only; excludes per-new-frame preparation/upload and full image readback\",\"whole_frame_resident\":true,\"dispatch_timing_is_device_kernel_time\":false");
     return ok && cleanup_ok;
@@ -614,9 +627,11 @@ int main(int argc,char **argv)
  if(!texture_recover_word(0.0f,&recovered_word))return 2;
  uint32_t tx=0,ty=0;
  if(!texture_coordinate(2,2,0,0,1,0,&tx,&ty))return 2;
- if(argc!=11&&argc!=12){fprintf(stderr,"usage: probe NODE SHADER width height instructions BL-Y BL-Cb BL-Cr guide P010 [NEW_DUMP]\n");return 2;}
- const char *dump_path=argc==12?argv[11]:NULL;
- if(argc==12)argc--;
+ if(argc!=13&&argc!=14){fprintf(stderr,"usage: sequence-probe NODE SHADER width height instructions BL-Y BL-Cb BL-Cr guide P010 [NEW_DUMP] --alternate-instructions PATH\n");return 2;}
+ if(strcmp(argv[argc-2],"--alternate-instructions"))return 2;
+ const char *alternate_path=argv[argc-1];
+ const char *dump_path=argc==14?argv[11]:NULL;
+ argc=11;
 #ifdef YB_GPU_PROBE_HOST_ONLY
  (void)dump_path;
 #endif
@@ -645,15 +660,17 @@ int main(int argc,char **argv)
  uint16_t *bl[4]={load(argv[4],ycount*2),load(argv[5],ccount*2),
                  load(argv[6],ccount*2),load(argv[7],ccount*2)};
  unsigned char *pixels=load(argv[8],ycount*3);
+ yb_dovi_integer_instructions *alternate=load(alternate_path,9216);
  uint16_t *el=malloc(CHUNK*sizeof(*el));
  struct stages a={0},b={0},golden={0};
  uint16_t *zero=calloc(CHUNK,sizeof(*zero));
- if(!blob||!pixels||!el||!zero||!allocate_stages(&a)||!allocate_stages(&b)||
+ if(!blob||!alternate||!pixels||!el||!zero||!allocate_stages(&a)||!allocate_stages(&b)||
     !allocate_stages(&golden))goto end;
  for(int i=0;i<4;i++)if(!bl[i]||!whole(bl[i],i==0?ycount:ccount))goto end;
  yb_dovi_integer_instructions instructions;
  if(sizeof(instructions)!=9216)goto end;
  memcpy(&instructions,blob,sizeof(instructions));
+ if(alternate->version!=1||alternate->residual_enabled!=1||alternate->output_depth!=instructions.output_depth||alternate->mapping.bit_depth!=10)goto end;
  if(instructions.residual_enabled!=1||instructions.mapping.bit_depth!=10||
     instructions.version!=1)goto end;
  for(int i=0;i<3;i++)if(instructions.nlq[i].bit_depth!=10)goto end;
@@ -681,7 +698,7 @@ int main(int argc,char **argv)
  if(yb_decoder_frame_bridge_init(&validated_bridge,&d,blob,9216))goto end;
  yb_integration_reset(&validated_bridge);
  if(!fixture.width.supported){
-  printf("{\"schema\":\"yblod.native-gpu-composer-compare-probe.v1\",\"status\":\"unsupported\",\"gpu_attempted\":false,\"cpu_full_frame_gate\":false,\"full_frame_gpu_exact\":false,\"gpu_verified_dispatches\":0,\"gpu_oracle_dispatches\":0,\"gpu_verified_stage_values\":0}\n");reported=1;status=3;goto end;
+  printf("{\"schema\":\"yblod.native-gpu-composer-sequence-probe.v1\",\"status\":\"unsupported\",\"gpu_attempted\":false,\"cpu_full_frame_gate\":false,\"full_frame_gpu_exact\":false,\"gpu_verified_dispatches\":0,\"gpu_oracle_dispatches\":0,\"gpu_verified_stage_values\":0}\n");reported=1;status=3;goto end;
  }
  struct workload work={0};work.descriptor=d;work.surface=surface;work.blob=blob;
  for(int i=0;i<4;i++)work.bl[i]=bl[i];
@@ -689,8 +706,11 @@ int main(int argc,char **argv)
  memcpy(work.counts,counts,sizeof(counts));
  uint64_t dispatches=0;uint32_t last_count=0;int routes[3]={0};unsigned widths[2]={0};
  if(!verify_frame(&work,&a,&b,&golden,&dispatches,&last_count,routes,widths))goto end;
+ struct workload alternate_work=work;alternate_work.blob=alternate;
+ uint64_t alternate_dispatches=0;uint32_t alternate_last_count=0;
+ if(!verify_frame(&alternate_work,&a,&b,&golden,&alternate_dispatches,&alternate_last_count,routes,widths))goto end;
 
- printf("{\"schema\":\"yblod.native-gpu-composer-compare-probe.v1\",\"gpu_attempted\":%s,\"cpu_full_frame_gate\":true,\"cpu_dispatches\":%" PRIu64 ",\"cpu_stage_values\":%" PRIu64 ",\"counts\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "]",validate?"false":
+ printf("{\"schema\":\"yblod.native-gpu-composer-sequence-probe.v1\",\"gpu_attempted\":%s,\"cpu_full_frame_gate\":true,\"cpu_dispatches\":%" PRIu64 ",\"cpu_stage_values\":%" PRIu64 ",\"counts\":[%" PRIu64 ",%" PRIu64 ",%" PRIu64 "]",validate?"false":
 #ifdef YB_GPU_PROBE_HOST_ONLY
  "false",
 #else
@@ -698,6 +718,7 @@ int main(int argc,char **argv)
 #endif
  dispatches,(counts[0]+counts[1]+counts[2])*4,counts[0],counts[1],counts[2]);
  reported=1;
+ printf(",\"alternate_cpu_full_frame_gate\":true,\"alternate_cpu_dispatches\":%" PRIu64 ",\"alternate_cpu_stage_values\":%" PRIu64,alternate_dispatches,(counts[0]+counts[1]+counts[2])*4);
  uint64_t planned_batches=0;
  for(unsigned c=0;c<3;c++)planned_batches+=(counts[c]+GPU_BATCH-1)/GPU_BATCH;
  uint32_t planned_suffix=0;
@@ -713,12 +734,12 @@ int main(int argc,char **argv)
 #ifdef YB_GPU_PROBE_HOST_ONLY
  (void)shader_path;printf(",\"status\":\"host-validation-build\",\"full_frame_gpu_exact\":false,\"gpu_verified_dispatches\":0,\"gpu_oracle_dispatches\":0,\"gpu_verified_stage_values\":0}\n");status=3;
 #else
- int okay=gpu_run(node,shader_path,&work,&fixture,&a,&golden,last_count,dump_path);
+ int okay=gpu_run(node,shader_path,&work,&fixture,&a,&golden,last_count,dump_path,alternate);
  printf(",\"status\":\"%s\"}\n",okay?"complete":"failed");status=okay?0:1;
 #endif
  }
 end:
- if(status && !reported)printf("{\"schema\":\"yblod.native-gpu-composer-compare-probe.v1\",\"status\":\"failed\",\"gpu_attempted\":false,\"cpu_full_frame_gate\":false}\n");
- free(blob);free(pixels);for(int i=0;i<4;i++)free(bl[i]);
+ if(status && !reported)printf("{\"schema\":\"yblod.native-gpu-composer-sequence-probe.v1\",\"status\":\"failed\",\"gpu_attempted\":false,\"cpu_full_frame_gate\":false}\n");
+ free(blob);free(alternate);free(pixels);for(int i=0;i<4;i++)free(bl[i]);
  free(el);free_stages(&a);free_stages(&b);free_stages(&golden);free(zero);return status;
 }

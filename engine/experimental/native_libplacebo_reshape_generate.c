@@ -175,16 +175,45 @@ static int emit_runtime_variables(const struct pl_shader_res *r,int c)
     }
     printf("}\n");return at==expected;
 }
+static int emit_uniform_variables(const struct pl_shader_res *r,int c)
+{
+    const int64_t *m=metadata[c];int pc=(int)m[17],has_mmr=0,packed=0;
+    for(int s=0;s<pc-1;s++)if(m[35+s*24]) {
+        has_mmr=1;packed+=2*(int)m[36+s*24];
+    }
+    if(r->num_variables!=3+(pc>2?1:0)+(has_mmr?1:0))return 0;
+    printf("// YB_FP_TOPOLOGY %d %d",c,pc);
+    for(int s=0;s<8;s++)printf(" %" PRId64 " %" PRId64,
+        s<pc-1?m[35+s*24]:0,s<pc-1?m[36+s*24]:0);
+    printf("\n");
+    int at=0;
+    for(int role=0;role<5;role++) {
+        const char *names[]={"pivots","coeffs","mmr","lo","hi"};
+        if((role==0&&pc==2)||(role==2&&!has_mmr))continue;
+        const struct pl_shader_var *v=&r->variables[at++];
+        int dim=(role==1||role==2)?4:1;
+        int array=role==0?7:role==1?(pc>2?8:1):role==2?packed:1;
+        if(v->var.type!=PL_VAR_FLOAT||v->var.dim_m!=1||v->var.dim_v!=dim||v->var.dim_a!=array)return 0;
+        printf("uniform %s yb_fp_c%d_%s",dim==1?"float":"vec4",c,names[role]);
+        if(array>1)printf("[%d]",array);
+        printf(";\n#define %s yb_fp_c%d_%s\n",v->var.name,c,names[role]);
+    }
+    return at==r->num_variables;
+}
 int main(int argc,char **argv)
 {
     int runtime=argc==3&&strcmp(argv[1],"--runtime")==0;
-    if((argc!=2&&!runtime)||!read_metadata(argv[runtime?2:1])) {
-        fprintf(stderr,"usage: %s [--runtime] metadata-3x419-i64le.bin\n",argv[0]);return 2;
+    int native_output=argc==3&&strcmp(argv[1],"--uniforms-native-output-range")==0;
+    int uniforms=argc==3&&(strcmp(argv[1],"--uniforms")==0||native_output);
+    if((argc!=2&&!runtime&&!uniforms)||!read_metadata(argv[(runtime||uniforms)?2:1])) {
+        fprintf(stderr,"usage: %s [--runtime|--uniforms|--uniforms-native-output-range] metadata-3x419-i64le.bin\n",argv[0]);return 2;
     }
     /* Validate cross-component pivot counts before indexing companion blocks. */
     for(int c=0;c<3;c++)if(metadata[c][17]<2||metadata[c][17]>9)return 2;
     printf("// Actual libplacebo BL reshaper; domain-preserving diagnostic adapter.\n");
-    printf("// Upstream float segment selection and output-pivot clamp retained.\n");
+    printf("// Upstream float segment selection retained; %s output bounds.\n",
+           native_output?"explicit native-range control":"upstream pivot");
+    if(uniforms)printf("// YB_FP_OUTPUT_RANGE_NATIVE %d\n",native_output);
     for(int c=0;c<3;c++) {
         struct pl_dovi_metadata d={0};
         if(!convert(c,&d))return 2;
@@ -195,24 +224,26 @@ int main(int argc,char **argv)
         const struct pl_shader_res *r=pl_shader_finalize(sh);
         if(!r||r->input!=PL_SHADER_SIG_COLOR||r->output!=PL_SHADER_SIG_COLOR||
            r->num_descriptors||r->num_constants||r->num_vertex_attribs||
-           !(runtime?emit_runtime_variables(r,c):emit_variables(r))) {
+           !(uniforms?emit_uniform_variables(r,c):runtime?emit_runtime_variables(r,c):emit_variables(r))) {
             pl_shader_free(&sh);return 3;
         }
         /* Consume all names/data before freeing the owning shader object. */
         printf("%s\nfloat yb_libplacebo_component_%d(vec3 s) { ",r->glsl,c);
-        if(runtime) {
+        if(runtime||uniforms) {
             printf("if (m[1]!=int64_t(%d) || m[4]!=int64_t(10) || m[5]<int64_t(1) || m[5]>int64_t(32) || m[17]!=int64_t(%" PRId64 ")",c,metadata[c][17]);
             for(int s=0;s<metadata[c][17]-1;s++)
                 printf(" || m[%d]!=int64_t(%" PRId64 ") || m[%d]!=int64_t(%" PRId64 ")",
                        35+s*24,metadata[c][35+s*24],36+s*24,metadata[c][36+s*24]);
             printf(") { atomicOr(frame_error,4u); return 0.0; }\n");
-            printf("yb_libplacebo_init_%d(); ",c);
+            if(runtime)printf("yb_libplacebo_init_%d(); ",c);
         }
         printf("return %s(vec4(s,1.0))[%d]; }\n",r->name,c);
         pl_shader_free(&sh);
     }
+    if(uniforms)printf("uniform vec3 yb_fp_input_lo;\nuniform vec3 yb_fp_input_hi;\n");
     printf("float yb_libplacebo_reshape(uvec3 native_codes, int component) {\n");
-    if(runtime)printf("vec3 s=clamp(vec3(native_codes),vec3(float(m[11]),float(m[13]),float(m[15])),vec3(float(m[12]),float(m[14]),float(m[16])))/1024.0;\n");
+    if(uniforms)printf("vec3 s=clamp(vec3(native_codes),yb_fp_input_lo,yb_fp_input_hi)/1024.0;\n");
+    else if(runtime)printf("vec3 s=clamp(vec3(native_codes),vec3(float(m[11]),float(m[13]),float(m[15])),vec3(float(m[12]),float(m[14]),float(m[16])))/1024.0;\n");
     else printf("vec3 s=clamp(vec3(native_codes),vec3(%" PRId64 ".0,%" PRId64 ".0,%" PRId64 ".0),vec3(%" PRId64 ".0,%" PRId64 ".0,%" PRId64 ".0))/1024.0;\n",
            metadata[0][11],metadata[0][13],metadata[0][15],metadata[0][12],metadata[0][14],metadata[0][16]);
     printf("return component==0 ? yb_libplacebo_component_0(s) : component==1 ? yb_libplacebo_component_1(s) : yb_libplacebo_component_2(s);\n}\n");
