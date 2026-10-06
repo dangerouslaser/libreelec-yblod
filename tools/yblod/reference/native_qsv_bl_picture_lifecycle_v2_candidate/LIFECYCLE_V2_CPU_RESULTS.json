@@ -1,0 +1,51 @@
+{
+  "schema": "yblod.qsv-bl-picture-lifecycle-v2-cpu-results.v1",
+  "scope": "Source compilation, scripted drain/refcount and observer fault fixtures only; separate hardware report required",
+  "base_observer_mock_methods": 12,
+  "lifecycle_observer_mock_methods": 7,
+  "expanded_lifecycle_negative_fixture_repeat": {"passed": true, "mock_methods": 7, "peak_memory_bytes": 24154112, "memory_events_all_zero": true, "swap_peak_bytes": 0},
+  "compile_and_cpu_tests_passed": true,
+  "hardware_or_media_executed": false,
+  "duration_conversion_cases": 14,
+  "source_sha256": {
+    "native_qsv_bl_compare_probe.c": "90a80193c1441f60c478894f15182ec65b1660b0e078a0093dd4df24a4b337e6",
+    "test_native_qsv_bl_duration.c": "f4c65c177bb8ba1da9619371effeae8e8bf86494f8f42ac15b6d38d065d6f654",
+    "test_native_qsv_bl_lifecycle.c": "22e02ad3dc7483f0de9a10c80d59f8879101878ed93362783c9018b26bfd98b9",
+    "test_native_qsv_bl_pair_coverage.c": "6930fc44908a052f0c353a1ed1ee4657b1bd6c4df66ec65bb7fbe3322e7a7d5e",
+    "native_qsv_bl_duration.h": "533a4568c6ce4d5abeaa4d799408c19a8ffa12f97a41c837f2d9ee2100a9847f",
+    "native_qsv_bl_metadata_equal.h": "e04c0cc131a266250da1b9ad7b874a6a5247df013d944dbbd98a38305f30dc25",
+    "native_qsv_bl_pair_coverage.h": "91b66775ba1477800d505a3d83b1a6c52e179840a074a11c020691438279d038",
+    "native_qsv_bl_payload_guard.h": "a2aeb9de033c91ad2ecbf970443de9c3678cb74bbc62a72260f81b08329862e1",
+    "native_qsv_bl_rpu_coverage.h": "ba90f277daa009b2bdeb862c0a7cb486ae79d6e6dbcd4858d8a454809481fa9b",
+    "native_qsv_probe_handshake.h": "10d273de5c74f8f24e45d5b7dac6667541b4d4af4258a3a322b3c2037caec6d5"
+  },
+  "outputs": {
+    "test_native_qsv_bl_duration": {
+      "sha256": "a9d6dc33221b46eb4f1fdfdc885abddc0b1530d77bcd898de8941d3b3db2998b",
+      "bytes": 19152
+    },
+    "test_native_qsv_bl_pair_coverage": {
+      "sha256": "f87b4ef45eb8728c83a933787eae1d50565967d79cec903ea421e9c40f2779e7",
+      "bytes": 49424
+    },
+    "test_native_qsv_bl_lifecycle": {
+      "sha256": "f772fce3e7cd4307229e94a5bf6b0dbe7b29e1f97119e6ce699c626e53307721",
+      "bytes": 41200
+    },
+    "native_qsv_bl_compare_probe": {
+      "sha256": "112a42a3f48d4ad48b036e5c83dc7a7a07c6e8e0832a399b0c83fe68aa3ebfab",
+      "bytes": 70392
+    }
+  },
+  "peak_memory_bytes": 120033280,
+  "memory_events": {
+    "low": 0,
+    "high": 0,
+    "max": 0,
+    "oom": 0,
+    "oom_kill": 0,
+    "oom_group_kill": 0,
+    "sock_throttled": 0
+  },
+  "swap_peak_bytes": 0
+}
