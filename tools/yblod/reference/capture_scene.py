@@ -1,5 +1,6 @@
 """Private bounded scene capture; readback runs are not performance tests."""
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import math
@@ -61,6 +62,8 @@ def parse_args(argv=None):
     parser.add_argument('--expected-native', type=int, choices=(0, 1))
     parser.add_argument('--expected-direct-packed', type=int, choices=(0, 1))
     parser.add_argument('--expected-native-planar', type=int, choices=(0, 1))
+    parser.add_argument('--view-zoom', type=float, choices=(0.9,),
+                        help='Temporary 0.9 zoom for matched same-native RGBA fallback captures.')
     media = parser.add_mutually_exclusive_group()
     media.add_argument('--movie-id', type=int, default=3391)
     media.add_argument('--file', help='Absolute local media path for a clip outside the movie library.')
@@ -109,7 +112,11 @@ def verify_capture_route(info, args):
 def capture_targets(args):
     if not args.baseline:
         return [(seconds * 1000000, 0) for seconds in args.target_seconds]
-    frames = json.loads(args.baseline.read_text())['frames']
+    baseline = json.loads(args.baseline.read_text())
+    if args.view_zoom is not None and baseline.get('viewmode',{}).get('requested') != dict(
+            viewmode='custom',zoom=args.view_zoom,pixelratio=1.0,verticalshift=0.0,nonlinearstretch=False):
+        raise RuntimeError('Exact baseline has different temporary view geometry')
+    frames = baseline['frames']
     values = [row['pts'] for row in frames]
     if not 1 <= len(values) <= 3 or any(isinstance(value, bool) or not isinstance(value, (int, float))
             or not math.isfinite(value) or not args.seek_seconds * 1000000 < value <= 86400000000 for value in values):
@@ -117,6 +124,62 @@ def capture_targets(args):
     if values != sorted(set(values)):
         raise RuntimeError('Exact-frame baseline targets must be strictly increasing')
     return [(value, 1) for value in values]
+
+
+def safe_viewmode(value):
+    modes = {'normal','zoom','stretch4x3','widezoom','stretch16x9','original',
+             'stretch16x9nonlin','zoom120width','zoom110width','custom'}
+    if value.get('viewmode') not in modes or type(value.get('nonlinearstretch')) is not bool:
+        raise RuntimeError('Unsupported view mode state')
+    result = dict(viewmode=value['viewmode'],nonlinearstretch=value['nonlinearstretch'])
+    for name, low, high in (('zoom',0.5,2),('pixelratio',0.5,2),('verticalshift',-2,2)):
+        number = value.get(name)
+        if isinstance(number,bool) or not isinstance(number,(int,float)) or not math.isfinite(number) or not low <= number <= high:
+            raise RuntimeError('Invalid view mode value')
+        result[name] = number
+    return result
+
+
+def wait_viewmode(expected):
+    for _ in range(20):
+        actual = safe_viewmode(rpc('Player.GetViewMode'))
+        if actual['viewmode'] == expected['viewmode'] and actual['nonlinearstretch'] == expected['nonlinearstretch'] and all(
+                abs(actual[key]-expected[key]) <= 0.00001 for key in ('zoom','pixelratio','verticalshift')):
+            return actual
+        time.sleep(.1)
+    raise RuntimeError('View mode did not reach requested state')
+
+
+@contextmanager
+def temporary_view_zoom(zoom, player):
+    # Default capture performs no new RPCs or cleanup operations.
+    if zoom is None:
+        yield None
+        return
+    before = safe_viewmode(rpc('Player.GetViewMode'))
+    requested = dict(viewmode='custom',zoom=zoom,pixelratio=1.0,verticalshift=0.0,nonlinearstretch=False)
+    record = dict(before=before,requested=requested)
+    error = False
+    try:
+        rpc('Player.SetViewMode', {'viewmode':{k:v for k,v in requested.items() if k!='viewmode'}})
+        wait_viewmode(requested)
+        yield record
+    except BaseException:
+        error = True
+        raise
+    finally:
+        try:
+            restored = {k:v for k,v in before.items() if k!='viewmode'} if before['viewmode']=='custom' else before['viewmode']
+            rpc('Player.SetViewMode', {'viewmode':restored})
+            record['restored'] = wait_viewmode(before)
+        except BaseException:
+            error = True
+            raise
+        finally:
+            # Restore while the internal video player still exists. On success,
+            # the original capture flow stops it immediately after this scope.
+            if error:
+                rpc('Player.Stop', {'playerid':player})
 
 
 def main():
@@ -164,36 +227,37 @@ def main():
     if player is None:
         raise RuntimeError('No player')
     verify_file_item(args, player)
-    milliseconds = round(args.seek_seconds * 1000)
-    rpc('Player.Seek', {'playerid': player, 'value': {'time': {'hours': milliseconds // 3600000,
-                       'minutes': milliseconds // 60000 % 60, 'seconds': milliseconds // 1000 % 60,
-                       'milliseconds': milliseconds % 1000}}})
-    captured = []
-    for index, (pts, exact) in enumerate(targets):
-        if index:
-            request.write_text(f'{pts:.17g} {exact}\n')
-        deadline = time.monotonic() + 45
-        while time.monotonic() < deadline:
-            new = set(root.glob('frame-*')) - existing
-            ready = [path for path in new if (path / 'frame.json').is_file()]
-            if len(ready) == 1:
-                path = ready[0]
-                info = json.loads((path / 'frame.json').read_text())
-                if exact and abs(info['pts'] - pts) > 1:
-                    raise RuntimeError('Wrong exact source frame')
-                verify_capture_route(info, args)
-                info['directory'] = str(path)
-                captured.append(info)
-                existing.add(path)
-                print(json.dumps(info), flush=True)
-                break
-            if new and not request.exists():
-                time.sleep(1)
-                if not any((path / 'frame.json').is_file() for path in new):
-                    raise RuntimeError('Failed capture; inspect Kodi log')
-            time.sleep(.1)
-        else:
-            raise RuntimeError('Capture timed out')
+    with temporary_view_zoom(args.view_zoom, player) as viewmode:
+        milliseconds = round(args.seek_seconds * 1000)
+        rpc('Player.Seek', {'playerid': player, 'value': {'time': {'hours': milliseconds // 3600000,
+                           'minutes': milliseconds // 60000 % 60, 'seconds': milliseconds // 1000 % 60,
+                           'milliseconds': milliseconds % 1000}}})
+        captured = []
+        for index, (pts, exact) in enumerate(targets):
+            if index:
+                request.write_text(f'{pts:.17g} {exact}\n')
+            deadline = time.monotonic() + 45
+            while time.monotonic() < deadline:
+                new = set(root.glob('frame-*')) - existing
+                ready = [path for path in new if (path / 'frame.json').is_file()]
+                if len(ready) == 1:
+                    path = ready[0]
+                    info = json.loads((path / 'frame.json').read_text())
+                    if exact and abs(info['pts'] - pts) > 1:
+                        raise RuntimeError('Wrong exact source frame')
+                    verify_capture_route(info, args)
+                    info['directory'] = str(path)
+                    captured.append(info)
+                    existing.add(path)
+                    print(json.dumps(info), flush=True)
+                    break
+                if new and not request.exists():
+                    time.sleep(1)
+                    if not any((path / 'frame.json').is_file() for path in new):
+                        raise RuntimeError('Failed capture; inspect Kodi log')
+                time.sleep(.1)
+            else:
+                raise RuntimeError('Capture timed out')
     rpc('Player.Stop', {'playerid': player})
     time.sleep(2)
     if rpc('Player.GetActivePlayers'):
@@ -206,6 +270,8 @@ def main():
     if set(state.splitlines()) != {'ActiveState=inactive', 'Result=success', 'MainPID=0'}:
         raise RuntimeError(state)
     report = dict(frames=captured, shutdown=state, identity_before=identity, identity_after=final_identity)
+    if viewmode is not None:
+        report['viewmode'] = viewmode
     if args.file:
         report['file'] = dict(basename=Path(args.file).name, seek_seconds=args.seek_seconds)
     else:
