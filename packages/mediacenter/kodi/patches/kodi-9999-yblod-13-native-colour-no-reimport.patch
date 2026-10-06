@@ -1,0 +1,413 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -40,6 +40,7 @@
+ #include <string_view>
+ #include <sys/stat.h>
+ #include <sys/statvfs.h>
++#include <time.h>
+ 
+ namespace
+ {
+@@ -53,6 +54,25 @@
+   const char* value = std::getenv("DVBRIDGE_NATIVE_DIAGNOSTICS");
+   return value && std::strcmp(value, "1") == 0;
+ }
++bool NativeElapsedNs(const timespec& begin, const timespec& end, uint64_t& ns)
++{
++  if (begin.tv_sec < 0 || end.tv_sec < begin.tv_sec || begin.tv_nsec < 0 ||
++      begin.tv_nsec >= 1000000000 || end.tv_nsec < 0 || end.tv_nsec >= 1000000000)
++    return false;
++  uint64_t seconds = static_cast<uint64_t>(end.tv_sec - begin.tv_sec);
++  int64_t fraction = static_cast<int64_t>(end.tv_nsec) - static_cast<int64_t>(begin.tv_nsec);
++  if (fraction < 0)
++  {
++    if (!seconds)
++      return false;
++    --seconds;
++    fraction += 1000000000;
++  }
++  if (seconds > (UINT64_MAX - static_cast<uint64_t>(fraction)) / 1000000000)
++    return false;
++  ns = seconds * 1000000000 + static_cast<uint64_t>(fraction);
++  return true;
++}
+ void LogNativeTimings(yb_native_playback_context* context)
+ {
+   if (!NativeTimingRequested())
+@@ -244,6 +264,8 @@
+   Summary("reset");
+   m_nativePrepared = false;
+   m_nativePresented = 0;
++  m_nativeColourCalls = m_nativeColourWallNs = m_nativeColourCpuNs = 0;
++  m_nativeColourTimingValid = true;
+   m_firstFrame = true;
+   CDVPlaybackInfo::presented.store(0);
+   m_pendingInfo = 0;
+@@ -373,10 +395,12 @@
+ 
+ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+                           const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked,
+-                          pl_tex reconstructed)
++                          pl_tex reconstructed,
++                          const dvbridge_native_colour_association* nativeAssociation)
+ {
+   m_prepared = m_packed = false;
+   m_nativePrepared = false;
++  m_nativeColourNoReimport = false;
+   m_direct = false;
+   if (!m_renderer)
+     return Failure("renderer-unavailable");
+@@ -386,9 +410,13 @@
+   const bool requestedConversion = DVBRIDGE::playbackDirectConversion.load();
+   dvbridge_renderer_set_direct_conversion(m_renderer, !reconstructed && requestedConversion && m_conversionUsable);
+   dvbridge_gl_frame bl{}, el{};
+-  if (!dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
++  if (nativeAssociation && (!reconstructed || enhancement ||
++                           !dvbridge_native_colour_association_valid(nativeAssociation)))
++    return Failure("native-colour-association");
++  if (!nativeAssociation && !dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
+     return Failure("base-import");
+-  double elPts = std::numeric_limits<double>::quiet_NaN();
++  double elPts = nativeAssociation ? nativeAssociation->enhancement_presentation_pts :
++                                    std::numeric_limits<double>::quiet_NaN();
+   if (enhancement)
+   {
+     if (!dvbridge_gl_frame_import(&el, m_gl->gpu, enhancement->layout,
+@@ -432,8 +460,11 @@
+   }
+   const auto renderRGB = m_hdr10 ? dvbridge_render_hdr10_rgb : dvbridge_render_rgb;
+   m_prepared = reconstructed
+-      ? (!m_hdr10 && dvbridge_render_reconstructed_rgb(m_renderer, &bl.frame, reconstructed,
+-                                                     metadata.Data(), metadata.Size(), base.pts, elPts, geometry))
++      ? (!m_hdr10 && (nativeAssociation
++          ? dvbridge_render_native_reconstructed_rgb(m_renderer, nativeAssociation, reconstructed,
++                                                    metadata.Data(), metadata.Size(), geometry)
++          : dvbridge_render_reconstructed_rgb(m_renderer, &bl.frame, reconstructed,
++                                             metadata.Data(), metadata.Size(), base.pts, elPts, geometry)))
+       : (m_direct || renderRGB(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
+                               base.pts, elPts, geometry));
+   m_pendingInfo = 0;
+@@ -444,7 +475,7 @@
+     // An enhancement surface can also belong to MEL. Report FEL only when
+     // the same mapping used by the renderer actually reconstructs residuals.
+     dvbridge_color color{};
+-    const bool fel = enhancement &&
++    const bool fel = (enhancement || nativeAssociation) &&
+                      dvbridge_map_color(&color, metadata.Data(), metadata.Size(), true) &&
+                      color.dovi.nlq_active;
+     DVBRIDGE::StreamTelemetry::Metadata(parsed, fel, m_outputBits);
+@@ -462,6 +493,7 @@
+   if (!m_prepared)
+     return Failure("render-prepare");
+   m_nativePrepared = reconstructed != nullptr;
++  m_nativeColourNoReimport = nativeAssociation != nullptr;
+   const int conversionPath = dvbridge_renderer_used_direct_conversion(m_renderer) ? 1 : 0;
+   if (conversionPath != m_lastConversionPath)
+   {
+@@ -573,6 +605,8 @@
+   std::memcpy(info.enhancement_scale_contract_id, "va-bilinear-fast-top-left-v1", 28);
+   if (!m_native)
+   {
++    m_nativeColourCalls = m_nativeColourWallNs = m_nativeColourCpuNs = 0;
++    m_nativeColourTimingValid = true;
+     const int status = yb_native_playback_create(&info, &m_native);
+     if (status != YB_NATIVE_PLAYBACK_OK)
+       return fail("create", status);
+@@ -648,11 +682,41 @@
+   wrap.iformat = GL_RGBA32F;
+   wrap.width = base.width;
+   wrap.height = base.height;
++  timespec colourBegin{}, colourCpuBegin{};
++  const bool colourTimingRequested = NativeTimingRequested();
++  const bool colourTimingStarted = colourTimingRequested &&
++      clock_gettime(CLOCK_MONOTONIC, &colourBegin) == 0 &&
++      clock_gettime(CLOCK_THREAD_CPUTIME_ID, &colourCpuBegin) == 0;
++  if (colourTimingRequested && !colourTimingStarted)
++    m_nativeColourTimingValid = false;
+   pl_tex reconstructed = pl_opengl_wrap(m_gl->gpu, &wrap);
+   dvbridge_dmabuf imported{};
+   bool prepared = false;
+-  if (reconstructed && dvbridge_dmabuf_import(&imported, enhancement))
++  const char* noReimport = std::getenv("DVBRIDGE_NATIVE_COLOUR_NO_REIMPORT");
++  const bool omitColourImports = noReimport && std::strcmp(noReimport, "1") == 0;
++  if (reconstructed && omitColourImports)
+   {
++    dvbridge_native_colour_association proof{};
++    proof.version = 1;
++    proof.width = output.width;
++    proof.height = output.height;
++    proof.enhancement_width = static_cast<unsigned>(enhancement->width);
++    proof.enhancement_height = static_cast<unsigned>(enhancement->height);
++    proof.vaapi_p010_admitted = 1;
++    proof.unrotated = 1;
++    proof.reconstructed_depth = 12;
++    proof.bl_pts = association.bl_pts;
++    proof.el_pts = association.el_pts;
++    proof.timebase_num = association.bl_timebase_num;
++    proof.timebase_den = association.bl_timebase_den;
++    std::memcpy(proof.expected_frame_id, association.frame_id, 32);
++    std::memcpy(proof.reconstructed_frame_id, output.frame_id, 32);
++    proof.presentation_pts = base.pts;
++    proof.enhancement_presentation_pts = static_cast<double>(enhancement->pts);
++    prepared = Prepare(base, nullptr, metadata, geometry, false, reconstructed, &proof);
++  }
++  else if (reconstructed && dvbridge_dmabuf_import(&imported, enhancement))
++  {
+     Layer originalEnhancement{};
+     originalEnhancement.layout = imported.layout;
+     originalEnhancement.width = enhancement->width;
+@@ -666,10 +730,36 @@
+   pl_gpu_flush(m_gl->gpu);
+   pl_tex_destroy(m_gl->gpu, &reconstructed);
+   dvbridge_dmabuf_release(&imported);
++  if (colourTimingStarted)
++  {
++    timespec colourEnd{}, colourCpuEnd{};
++    uint64_t wallNs = 0, cpuNs = 0;
++    if (!prepared || clock_gettime(CLOCK_MONOTONIC, &colourEnd) != 0 ||
++        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &colourCpuEnd) != 0 ||
++        !NativeElapsedNs(colourBegin, colourEnd, wallNs) ||
++        !NativeElapsedNs(colourCpuBegin, colourCpuEnd, cpuNs) ||
++        m_nativeColourCalls == UINT64_MAX ||
++        wallNs > UINT64_MAX - m_nativeColourWallNs ||
++        cpuNs > UINT64_MAX - m_nativeColourCpuNs)
++      m_nativeColourTimingValid = false;
++    else
++    {
++      ++m_nativeColourCalls;
++      m_nativeColourWallNs += wallNs;
++      m_nativeColourCpuNs += cpuNs;
++    }
++  }
+   const int released = yb_native_playback_release(m_native, 1000000000);
+   if (released != YB_NATIVE_PLAYBACK_OK)
+     return fail("consumer-release", released);
+   LogNativeTimings(m_native);
++  if (colourTimingRequested && m_nativeColourCalls && m_nativeColourCalls % 120 == 0)
++    CLog::Log(LOGINFO,
++        "DVBridge native colour handoff: calls={} valid={} imports={} wall_ms_per_call={:.3f} thread_cpu_ms_per_call={:.3f} scope=wrap-prepare-flush-destroy-excludes-native-release",
++        m_nativeColourCalls, m_nativeColourTimingValid,
++        omitColourImports ? "metadata-only" : "original-bl-el-reimport",
++        static_cast<double>(m_nativeColourWallNs) / static_cast<double>(m_nativeColourCalls) / 1000000.0,
++        static_cast<double>(m_nativeColourCpuNs) / static_cast<double>(m_nativeColourCalls) / 1000000.0);
+   return prepared || fail("colour-only-render", YB_NATIVE_PLAYBACK_ERROR);
+ }
+ #endif
+@@ -854,8 +944,8 @@
+   {
+     ++m_nativePresented;
+     if (m_nativePresented == 1 || m_nativePresented % 120 == 0)
+-      CLog::Log(LOGINFO, "DVBridge native reconstruction: presented={} colour=inherited-release",
+-                m_nativePresented);
++      CLog::Log(LOGINFO, "DVBridge native reconstruction: presented={} colour=inherited-release colour_imports={}",
++                m_nativePresented, m_nativeColourNoReimport ? "metadata-only" : "original-bl-el-reimport");
+   }
+   // A held frame during paced recovery is not a new presentation attempt.
+   if (DVBRIDGE::DiagnosticsEnabled() && m_prepared)
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -56,7 +56,8 @@
+   void Reset();
+   bool Prepare(const Layer& base, const Layer* enhancement,
+                const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false,
+-               pl_tex reconstructed = nullptr);
++               pl_tex reconstructed = nullptr,
++               const struct dvbridge_native_colour_association* nativeAssociation = nullptr);
+   bool PrepareHardware(const Layer& base, const AVFrame* enhancement,
+                        const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false);
+   unsigned int GetPQTexture() const;
+@@ -103,7 +104,12 @@
+   int m_lastConversionPath = -1;
+   bool m_prepared = false;
+   bool m_nativePrepared = false;
++  bool m_nativeColourNoReimport = false;
+   uint64_t m_nativePresented = 0;
++  uint64_t m_nativeColourCalls = 0;
++  uint64_t m_nativeColourWallNs = 0;
++  uint64_t m_nativeColourCpuNs = 0;
++  bool m_nativeColourTimingValid = true;
+   bool m_packed = false;
+   unsigned m_pendingInfo = 0;
+   unsigned int m_framebuffer = 0;
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -225,7 +225,8 @@
+ static bool render(struct dvbridge_renderer *r, const struct pl_frame *source,
+                         const void *metadata, size_t bytes, double pts, double el_pts,
+                         struct dvbridge_geometry geometry, pl_tex packed, bool flip, bool hdr10,
+-                        pl_tex reconstructed)
++                        pl_tex reconstructed,
++                        const struct dvbridge_native_colour_association *native_association)
+ {
+     if (!r)
+         return false;
+@@ -234,12 +235,20 @@
+     r->used_direct_conversion = false;
+     dvbridge_candidate_destroy(r->pending);
+     r->pending = NULL;
+-    if (!source || !isfinite(pts) || source->num_planes < 1 || source->num_planes > 4 || (source->rotation && source->rotation != PL_ROTATION_180) ||
++    if (native_association) {
++        if (source || !reconstructed || packed || hdr10 ||
++            !dvbridge_native_colour_association_valid(native_association) ||
++            native_association->width != (unsigned)geometry.source_width ||
++            native_association->height != (unsigned)geometry.source_height ||
++            pts != native_association->presentation_pts ||
++            el_pts != native_association->enhancement_presentation_pts)
++            return false;
++    } else if (!source || !isfinite(pts) || source->num_planes < 1 || source->num_planes > 4 || (source->rotation && source->rotation != PL_ROTATION_180) ||
+         source->crop.x0 != 0 || source->crop.y0 != 0 ||
+         source->crop.x1 != geometry.source_width || source->crop.y1 != geometry.source_height)
+         return false;
+     if (reconstructed) {
+-        if (packed || hdr10 || source->rotation ||
++        if (packed || hdr10 || (source && source->rotation) ||
+             reconstructed->params.w != geometry.source_width ||
+             reconstructed->params.h != geometry.source_height ||
+             !reconstructed->params.sampleable ||
+@@ -250,10 +259,10 @@
+             if (reconstructed->params.format->component_depth[c] != 32)
+                 return false;
+     }
+-    for (int p = 0; p < source->num_planes; ++p)
++    for (int p = 0; source && p < source->num_planes; ++p)
+         if (!source->planes[p].texture)
+             return false;
+-    const struct pl_frame *el = source->enhancement_layer;
++    const struct pl_frame *el = source ? source->enhancement_layer : NULL;
+     if (el) {
+         if (el->num_planes < 1 || el->num_planes > 4 || el->rotation || el->enhancement_layer)
+             return false;
+@@ -261,7 +270,7 @@
+             if (!el->planes[p].texture)
+                 return false;
+     }
+-    bool paired = source->enhancement_layer && isfinite(el_pts) && fabs(pts - el_pts) < 0.00001;
++    bool paired = native_association || (source->enhancement_layer && isfinite(el_pts) && fabs(pts - el_pts) < 0.00001);
+     struct dvbridge_color mapped;
+     if (!dvbridge_map_color(&mapped, metadata, bytes, paired))
+         return false;
+@@ -269,9 +278,11 @@
+                                  paired && mapped.dovi.nlq_active);
+     if (!r->pending)
+         return false;
+-    struct pl_frame image = *source;
+-    mapped.repr.bits = source->repr.bits;
+-    mapped.repr.alpha = source->repr.alpha;
++    struct pl_frame image = source ? *source : (struct pl_frame){
++        .crop = {0, 0, (float)geometry.source_width, (float)geometry.source_height}};
++    mapped.repr.bits = source ? source->repr.bits : (struct pl_bit_encoding){
++        .sample_depth=12, .color_depth=12};
++    mapped.repr.alpha = source ? source->repr.alpha : PL_ALPHA_INDEPENDENT;
+     image.repr = mapped.repr;
+     image.color = mapped.color;
+     image.profile = (struct pl_icc_profile){0};
+@@ -388,7 +399,7 @@
+                         const void *metadata, size_t bytes, double pts, double el_pts,
+                         struct dvbridge_geometry geometry)
+ {
+-    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, false, NULL);
++    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, false, NULL, NULL);
+ }
+ 
+ bool dvbridge_render_reconstructed_rgb(struct dvbridge_renderer *r,
+@@ -408,14 +419,26 @@
+         return false;
+     }
+     return render(r, paired_source, metadata, bytes, pts, el_pts, geometry,
+-                  NULL, false, false, reconstructed);
++                  NULL, false, false, reconstructed, NULL);
++}
++
++bool dvbridge_render_native_reconstructed_rgb(struct dvbridge_renderer *r,
++                        const struct dvbridge_native_colour_association *association,
++                        pl_tex reconstructed, const void *metadata, size_t bytes,
++                        struct dvbridge_geometry geometry)
++{
++    /* render resets readiness before validating evidence, including failures. */
++    return render(r, NULL, metadata, bytes,
++                  association ? association->presentation_pts : (double)NAN,
++                  association ? association->enhancement_presentation_pts : (double)NAN,
++                  geometry, NULL, false, false, reconstructed, association);
+ }
+ 
+ bool dvbridge_render_hdr10_rgb(struct dvbridge_renderer *r, const struct pl_frame *source,
+                               const void *metadata, size_t bytes, double pts, double el_pts,
+                               struct dvbridge_geometry geometry)
+ {
+-    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true, NULL);
++    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true, NULL, NULL);
+ }
+ 
+ bool dvbridge_render_packed(struct dvbridge_renderer *r, const struct pl_frame *source,
+@@ -449,7 +472,7 @@
+         glDisable(caps[i]);
+     }
+     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+-    bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false, NULL);
++    bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false, NULL, NULL);
+     ok = glGetError() == GL_NO_ERROR && ok;
+     glColorMask(mask[0], mask[1], mask[2], mask[3]);
+     for (unsigned i=0; i<sizeof(caps)/sizeof(*caps); ++i) {
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -3,6 +3,7 @@
+ #define DVBRIDGE_RENDER_H
+ #include <libplacebo/renderer.h>
+ #include "dvbridge_core.h"
++#include "dvbridge_native_colour.h"
+ 
+ struct dvbridge_renderer;
+ struct dvbridge_renderer *dvbridge_renderer_create(pl_gpu gpu);
+@@ -30,6 +31,13 @@
+                         const struct pl_frame *paired_source, pl_tex reconstructed,
+                         const void *metadata, size_t bytes, double pts, double el_pts,
+                         struct dvbridge_geometry geometry);
++/* Opt-in colour-only API with explicit native admission evidence instead of
++ * original BL/EL texture wrappers. Same borrowed RGBA32F contract and inherited
++ * colour/packing as above; native producer owns decoded refs until release. */
++bool dvbridge_render_native_reconstructed_rgb(struct dvbridge_renderer *renderer,
++                        const struct dvbridge_native_colour_association *association,
++                        pl_tex reconstructed, const void *metadata, size_t bytes,
++                        struct dvbridge_geometry geometry);
+ /* Apply L1-guided tone mapping to the source mastering target before overlays. */
+ bool dvbridge_render_hdr10_rgb(struct dvbridge_renderer *renderer, const struct pl_frame *source,
+                               const void *metadata, size_t bytes, double pts, double el_pts,
+--- /dev/null
++++ b/tools/dvbridge/dvbridge_native_colour.h
+@@ -0,0 +1,36 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#ifndef DVBRIDGE_NATIVE_COLOUR_H
++#define DVBRIDGE_NATIVE_COLOUR_H
++#include <stdbool.h>
++#include <stdint.h>
++#include <string.h>
++#include <math.h>
++/* Caller-owned admission evidence, not an authentication token. Only the
++ * native VAAPI/P010 caller may construct this after native finish succeeds.
++ * No original BL/EL textures are represented or invented here. */
++struct dvbridge_native_colour_association {
++    unsigned version, width, height, enhancement_width, enhancement_height;
++    unsigned vaapi_p010_admitted, unrotated, reconstructed_depth;
++    int64_t bl_pts, el_pts;
++    int timebase_num, timebase_den;
++    uint8_t expected_frame_id[32], reconstructed_frame_id[32];
++    double presentation_pts, enhancement_presentation_pts;
++};
++static inline bool dvbridge_native_colour_association_valid(const struct dvbridge_native_colour_association *p)
++{
++    if (!p || p->version != 1 || !p->width || !p->height ||
++        p->width > 3840 || p->height > 2160 || ((p->width | p->height) & 1U) ||
++        !p->enhancement_width || !p->enhancement_height ||
++        p->enhancement_width > 3840 || p->enhancement_height > 2160 ||
++        p->vaapi_p010_admitted != 1 || p->unrotated != 1 || p->reconstructed_depth != 12 ||
++        p->bl_pts == INT64_MIN || p->el_pts == INT64_MIN || p->bl_pts != p->el_pts ||
++        p->timebase_num <= 0 || p->timebase_den <= 0 ||
++        !isfinite(p->presentation_pts) || !isfinite(p->enhancement_presentation_pts) ||
++        fabs(p->presentation_pts - p->enhancement_presentation_pts) >= 0.00001 ||
++        memcmp(p->expected_frame_id, p->reconstructed_frame_id, 32))
++        return false;
++    unsigned nonzero = 0;
++    for (unsigned i = 0; i < 32; ++i) nonzero |= p->expected_frame_id[i];
++    return nonzero != 0;
++}
++#endif
