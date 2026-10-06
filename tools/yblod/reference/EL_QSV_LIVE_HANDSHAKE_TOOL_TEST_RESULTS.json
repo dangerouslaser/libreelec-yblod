@@ -1,0 +1,9 @@
+{
+  "schema": "yblod.el-qsv-live-handshake-cpu-tests.v1",
+  "pass": true,
+  "test_count": 9,
+  "coverage": ["exact private nonce acknowledgement", "changed child generation rejected", "extra child rejected", "wrong checkpoint PID rejected", "nonprivate checkpoint rejected", "wrong private argv rejected", "missing probe mapping rejected", "missing GPU client rejected", "wrong library mapping rejected"],
+  "execution": "CPU-only Python unit tests with mocked process, library mapping and GPU client observations; independently rerun by reviewer.",
+  "resource_measurements": {"peak_memory_measured": false, "cpu_quota_applied": false, "hardware_gpu_access": false},
+  "scope": "Source-only live proof helper, not an executed hardware handshake, raw EL equality, target identity qualification or playback/performance result."
+}
