@@ -33,9 +33,16 @@ export EXPECTED_QSV_LIBVPL="$task_libs/libvpl.so.2.17"
 export EXPECTED_QSV_IMPLEMENTATION="$task_libs/libmfx-gen.so.1.2.17"
 export EXPECTED_QSV_VA_DRIVER="$task_libs/dri/iHD_drv_video.so"
 test -f "$EXPECTED_QSV_LIBVPL" && test -f "$EXPECTED_QSV_IMPLEMENTATION" && test -f "$EXPECTED_QSV_VA_DRIVER"
+task_preload=()
+if test -n "${MFX_TRACE_INTERPOSER:-}"; then
+  test "$(sha256sum "$MFX_TRACE_INTERPOSER" | cut -d' ' -f1)" = "${EXPECTED_MFX_TRACE_SHA256:?}"
+  test -n "${PRIVATE_MFX_INIT_TRACE_PATH:-}"
+  test ! -e "$PRIVATE_MFX_INIT_TRACE_PATH" && test ! -L "$PRIVATE_MFX_INIT_TRACE_PATH"
+  task_preload=(--preload "$MFX_TRACE_INTERPOSER")
+fi
 set +e
 "$task_libs/ld-linux-x86-64.so.2" \
-  --library-path "$task_libs:$task_sdk/x86_64-libreelec-linux-gnu/lib" "$task_binary" "$@"
+  --library-path "$task_libs:$task_sdk/x86_64-libreelec-linux-gnu/lib" "${task_preload[@]}" "$task_binary" "$@"
 task_status=$?
 set -e
 # Resource evidence is scalar and separate from the probe's JSON document.

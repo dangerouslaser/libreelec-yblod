@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "scope": "Diagnostic interposer strict SDK compile and CPU-only mock/delegation/actual dynamic-loader tests; no hardware or playback qualification",
+  "interposer_sha256": "20d180ad80fa8416207fad915f416ce3b663270b99a4dbce6a853b3b90c45c11",
+  "unit_binary_sha256": "17ef2c83eb4e7a0c55cdb9865cc8b332ac2643cc41bdf71a51996d7c93d610d8",
+  "loader_binary_sha256": "0c1daba5687417d6ec0b9fff55a4fc22dedfbfc5a1314a0689f9e6ed400b8db4",
+  "strict_compile_passed": true,
+  "cpu_contracts_passed": ["Delegation preserves dispatcher return status", "Parameter scalars copied before delegated mutation", "Missing path, existing file, symlink and failed write reject before delegation", "Failed QueryIOSurf does not publish valid surface counts", "Private trace bounded to 1024 bytes and fresh mode 0600", "Successful prior QueryIOSurf counts retained only for matching internal session and scalar parameters", "Actual SDK loader preloads interposer over mock LIBVPL_2.0 versioned exports"],
+  "resources": {"memory_cap_bytes": 536870912, "peak_bytes": 20664320, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true, "terminal_gates_enforced": true},
+  "limits": ["Interposition is diagnostic-only and can change timing and failure behavior", "No equivalence claim for production behavior", "Actual hardware-loaded interposer identity must be verified before interpreting later evidence", "Mock dispatcher does not qualify the real Intel runtime or decoder"]
+}
