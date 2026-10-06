@@ -1,0 +1,22 @@
+{
+  "schema": "yblod.playback-frame-admission-host-checkpoint.v1",
+  "status": "complete",
+  "gpu_attempted": false,
+  "hardware_calls": false,
+  "strict_sdk_compile": true,
+  "sdk_runtime_replay": {
+    "schema": "yblod.playback-frame-admission-host-probe.v1",
+    "complete": true,
+    "gpu_attempted": false,
+    "checks": 3,
+    "missing_buf0_rejection_atomic": true
+  },
+  "binary_sha256": "b5ceaddd547fa6d4f85d32ea3d06407f133040a14d7f37f1155bffaeee18b5b6",
+  "playback_archive_sha256": "e82e726d90603e51100822ae57921df61b57cddae311d226dc6e87c195ed8994",
+  "source_sha256": {
+    "engine/experimental/native_playback_frame_admission_probe.c": "3329c93388c0fcbe029f9ec7d39c7a7d8c8c8219335a555252d6c110d8df9f5c",
+    "engine/experimental/native_playback_context.c": "2b34fa7383be16f5333a21b672957b011cde97451996a56c535e7609016cdd11"
+  },
+  "execution_scope": "Matching SDK runtime loader in a network-disabled one-CPU 512MiB/no-swap container. Synthetic FFmpeg buffer structs, no decoded hardware-frame claim; actual pure admission helper accepts retained storage, rejects missing buf[0] atomically, and accepts restored storage.",
+  "gpu_retested": false
+}

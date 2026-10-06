@@ -13,3 +13,5 @@ Additional guards exercise rejected PTS association without decoder-reference ch
 [Frozen actual GPU checkpoint](results/native-playback-context-synthetic-20261005r.json) passed all32,768 final GLES float-bit comparisons,12 restoration checks and decoder-reference/association checks. Peak memory63,389,696 bytes; swap and all memory events were zero, Kodi and pinned runtime unchanged.
 
 After capturing that result, the production admission guard was tightened to require actual AVFrame buf[0] retained decoder storage. The report preserves the original tested executable, archives and source inventory, and separately identifies the later guard. Do not interpret the historical GPU evidence as a test of a rebuilt post-guard binary. Subsequent build-profile changes are likewise not retroactive GPU evidence.
+
+[Separate host admission checkpoint](results/native-playback-frame-admission-host-20261005s.json) passed strict SDK compilation and three actual pure-helper checks in the matching SDK runtime: retained storage accepted, missing buf[0] rejected without mutating returned dimensions, restored storage accepted. It makes no VA/EGL/GPU calls and is not a GPU retest.
