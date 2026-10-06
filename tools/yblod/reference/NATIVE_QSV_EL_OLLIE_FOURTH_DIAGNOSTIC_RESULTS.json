@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "scope": "Ollie Intel UHD770 Raptor Lake diagnostic only; not Petunia Tiger Lake, Kodi output, raw EL equality or playback performance qualification",
+  "source_commit": "0f69332a21",
+  "probe_binary_sha256": "6f9644654fc5e7782c7244e33cb164e329717c441e6e4d598688569203517058",
+  "exit_code": 137,
+  "oom_killed": false,
+  "aborted": "controller wall timeout at 180-second threshold",
+  "last_private_checkpoint": {
+    "stage": "helper_submit",
+    "route": "QSV",
+    "vaapi_demux_reads": 725,
+    "vaapi_accepted_video_packets": 725,
+    "vaapi_exact_frames_returned": 3,
+    "qsv_demux_reads": 1,
+    "qsv_accepted_video_packets": 0,
+    "qsv_exact_frames_returned": 0
+  },
+  "localization": {
+    "method": "Two-second CPU profile of the scoped probe PID; raw samples and callchains retained privately",
+    "function_summary": ["vaCreateContext", "DdiDecode_CreateContext", "DdiDecodeHEVCG12::CodecHalInit", "DdiMediaDecode::CreateCodecHal", "CodechalDevice::CreateFactory", "CodechalInterfacesG12Tgllp::Initialize", "MhwRenderInterfaceG12::EnableL3Caching"],
+    "interpretation": "First QSV submission blocks in VAAPI/iHD HEVC context initialization. No reconstructed-pixel comparison was reached.",
+    "thread_state": {"observed_threads": 17, "runnable_threads": 1, "futex_waiting_threads": 16}
+  },
+  "code_runtime_file_fingerprints_unchanged": true,
+  "private_input_stat_identity_unchanged": true,
+  "baseline_driver_expected": true,
+  "kodi_idle_before_and_after": true,
+  "configured_limits": {"memory_bytes": 536870912, "swap_bytes": 0, "cpus": 1, "network": "none", "internal_loop_wall_seconds": 170, "controller_wall_seconds": 180},
+  "terminal_resource_report_available": false,
+  "limitations": ["No final peak/event report because controller stopped the blocked process", "Three baseline frames do not prove QSV sample equality", "Hardware initialization timeout is not evidence of a pixel-quality difference", "No implementation/device/surface cause yet proven beyond the sampled initialization call", "No Kodi or VM configuration changed", "No raw media, private paths, pointers or callchains published"]
+}
