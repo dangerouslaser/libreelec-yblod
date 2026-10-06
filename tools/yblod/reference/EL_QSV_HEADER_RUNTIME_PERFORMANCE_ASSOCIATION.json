@@ -1,0 +1,162 @@
+{
+  "schema": "yblod.el-qsv-runtime-performance-association.v1",
+  "candidate_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "qualification_document_sha256": "aad6cfcce9a57de3af5adc607a1ef163a2829ef078ba6e3ea440f23ad2ee8950",
+  "tool_manifest_sha256": "504e5413326190573cc8e107689e1a68618b0276e953d84b9f227436c96652bd",
+  "pinned_code": [
+    {
+      "role": "baseline-tools",
+      "filename": "capture_scene.py",
+      "sha256": "2816454523b63aaaf00ad5de4417b0fe76da9fe3ae6fc9d7ddeb44c52e7952e6"
+    },
+    {
+      "role": "baseline-tools",
+      "filename": "collect_el_qsv_target_identity.py",
+      "sha256": "c4c8b9ef552c230e0b4a6e5ee4746c08fa756ac613459c7d74de38946a26dc26"
+    },
+    {
+      "role": "baseline-tools",
+      "filename": "observe_subtitle_fixture.py",
+      "sha256": "4691470a7cac78afacbd049e802594bdc07d20f2044fad215a69711dda1fcf1a"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "capture_scene.py",
+      "sha256": "d31971c2aeab0e7e512b220589f6a5862f08f041ef1d40a35276fef78ed0f880"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "compare_canonical_renderer_records.py",
+      "sha256": "1397aa0a42678a8b4626025ed21c1c3e4308a48bfa1945e4916c64553873a00f"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "el_qsv_canonical_qualification.py",
+      "sha256": "029e4de4c11a6deb6a5c5534b503cd0205d3b7ada4e6a1b0e1855b2cf97d5c3a"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "el_qsv_observer_fixture.py",
+      "sha256": "f6d08dd6f2daa48899148520bf12e86fb91f3e8a80e19b9df49b9e860005baf0"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "el_qsv_qualification.py",
+      "sha256": "4f85fc0cf2cf252bca37e2232ace29e0bccad21aa1b72693624020b928f198be"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "el_qsv_telemetry.py",
+      "sha256": "d8baae8d2487c1268746100f7041fc41f8dd9c6951d9a1829b8e389da7900743"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "native_optimization_qualification.py",
+      "sha256": "8097b11c9160de62167f32749308a0a741b4da4e39d9f7b7b4091538de9decd6"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "native_optimization_telemetry.py",
+      "sha256": "37b7f9569d0a99e06207d4ed4cd1bd9cef6ef8b909cbacdd3ecad61813efacbc"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "observe_el_qsv_active_movie.py",
+      "sha256": "0ba6584eb59e15a76f3bd01953c293c84e8f0cafce390546be64a5f0dfa62195"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "observe_el_qsv_movie.py",
+      "sha256": "a17956fe0144030f76cf87fb58814ef6fc9a23cb97a1ab4e5af151d26f5dbb71"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "observe_native_movie.py",
+      "sha256": "d0709a2ab1bb16009b488787b3757b4f9b813490e137c45c22641d55df75bf89"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "observe_subtitle_fixture.py",
+      "sha256": "4691470a7cac78afacbd049e802594bdc07d20f2044fad215a69711dda1fcf1a"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_colour_import_matrix.py",
+      "sha256": "c02ab4f0459b30381ffe3262d3d7d2e2905b3b14315c65eb9c7a89b881b62db0"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_el_qsv_canonical_matrix.py",
+      "sha256": "06f7830165f6ff6b5bae3c74738bf913f296bf38bf6798c5451ddd99bfcf254e"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_el_qsv_matrix.py",
+      "sha256": "f17e6a3f164f6522cb0dc213b84cd9e936111b014a8a3e06751899aadb5bab42"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_el_qsv_observer_owned.py",
+      "sha256": "1c3427908de753ff9c3b1b7b8ae665155d80de49dd55cf2ddbae72bb8fd33fbf"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_long_matrix.py",
+      "sha256": "5c74452951a47fdcfde59268c023338a4985f194fce291ee5be2a46bbea3fa02"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_native_packed_matrix.py",
+      "sha256": "209c907da36f69e77242fe9cbea4210de1ef48b3c4e44a589cea47ed1ec5c369"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_native_planar_matrix.py",
+      "sha256": "fedf46bbdcbb74a945af2139e8b5e9347c9778d444da7ad93a9b5f37cccfe2a9"
+    },
+    {
+      "role": "perf-tools",
+      "filename": "run_nlq_playback_matrix.py",
+      "sha256": "ad0f36c51ea3f19e432b972b39f3fa4a024c3061a52d4edbf8fa7b6a23c1f967"
+    },
+    {
+      "role": "owned-startup-helper",
+      "filename": "unit_start_barrier3_private.py",
+      "sha256": "651932bfe2eb990a9b7f6d7db3946b76bad3d168a110e48094129624d29fcf79"
+    }
+  ],
+  "frozen_inner_sha256": "b81eac7148b701d15eaba7303a67e104d404232e20419811c56fe32e4ed5d5bb",
+  "frozen_outer_sha256": "d7302482af132eb480c3a2dd7718a887c133cea531f04b151b8523034e0690bb",
+  "matrix_passed": true,
+  "same_candidate_runtime_verified_cases": 4,
+  "source_stat_unchanged": true,
+  "capture_outputs": false,
+  "batched_planes": 0,
+  "immutable_instructions": 0,
+  "controller_resources": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1.0,
+    "peak_memory_bytes": 40759296,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    },
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0
+  },
+  "restoration": {
+    "original_top_source_and_layer_count_restored": true,
+    "original_override_restored": true,
+    "retained_binary_restored": true,
+    "original_runtime_maps_restored": true,
+    "restored_idle": true,
+    "original_launcher_unchanged": true
+  },
+  "scope": "Code-only pins and scalar association for completed EL-only SPR batch0 ABBA. Private host/source records, runtime maps, capture paths and raw data excluded. Source association is stat-level, not whole-film immutability. Controller RAM is not Kodi service RAM."
+}

@@ -1,0 +1,21 @@
+{
+  "schema": "yblod.el-qsv-playback-tool-tests.v1",
+  "observer_fixture_owned_runner_and_generation": {
+    "tests_passed": 13,
+    "exit_code": 0,
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 26738688,
+    "memory_events_all_zero": true,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "network_disabled": true,
+    "gpu_not_exposed": true
+  },
+  "summary_fault_contracts": {
+    "tests_passed": 5,
+    "execution": "Local CPU unittest; memory peak and CPU limits not measured",
+    "covers": ["missing engine", "changed within-case and cross-case capacity", "nonfinite duration or busy", "wrong case flag label", "missing or nonboolean active-runtime admission"]
+  },
+  "limitations": ["Synthetic/mock source contracts only", "Hardware and playback evidence are separate results", "No host package or driver changes"]
+}

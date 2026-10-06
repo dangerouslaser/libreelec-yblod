@@ -1,0 +1,160 @@
+{
+  "schema": "yblod.el-qsv-canonical-qualification.v1",
+  "candidate_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "movie_id": 3391,
+  "content": "Saving Private Ryan",
+  "seek_seconds": 1200,
+  "planar_flag": 1,
+  "batched_planes": 0,
+  "immutable_instructions": 0,
+  "target_identity_verified": true,
+  "same_candidate_runtime_verified": true,
+  "probe_and_captures_same_source_stat_identity_verified": true,
+  "raw_probe_helper_matches_candidate_helper": true,
+  "retained_runtime_output_preserved": true,
+  "residual_metadata_matches_canonical_capture_frames": true,
+  "canonical_comparison": {
+    "schema": "yblod.canonical-tunnel-comparison.v1",
+    "passed": true,
+    "candidate_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+    "frame_count": 3,
+    "source_timestamps_equal": true,
+    "source_metadata_fingerprints_equal": true,
+    "complete_canonical_rgb_fingerprints_equal": true,
+    "canonical_packet_fingerprints_equal": true,
+    "method": "SHA256 equality of complete oriented RGB after validated transport-ID/CRC normalization",
+    "literal_pairwise_byte_comparison": false,
+    "scope": "Three batch0 EL-only frames. No numeric error estimate, BL-QSV, display or performance claim."
+  },
+  "raw_target_enhancement": {
+    "schema": "yblod-el-qsv-petunia-raw-frames-v1",
+    "scope": "Standalone actual-helper EL decode/direct-map comparison on the independently verified playback target; not Kodi playback, reconstructed Dolby Vision output or performance qualification",
+    "pass": true,
+    "probe_sha256": "48ffb2f6f913c2f3016caae147e679062e27c254872e40724ad88ee9f53b9668",
+    "source": "Saving Private Ryan Profile 7 enhancement layer",
+    "source_identity_scope": "Same private local source file stat identity before/after; not a full-film immutable-content hash claim",
+    "decoder_comparison": "VAAPI versus QSV enhancement-layer decode, QSV async depth 1",
+    "diagnostic_cpu_readback": true,
+    "helper_qsv_to_vaapi_mapping_requires_direct": true,
+    "sample_contract": {
+      "format": "P010",
+      "bit_depth": 10,
+      "active_width": 1920,
+      "active_height": 1080,
+      "plane_order": [
+        "Y",
+        "U",
+        "V"
+      ],
+      "active_sample_counts": [
+        2073600,
+        518400,
+        518400
+      ]
+    },
+    "frames": [
+      {
+        "pts_microseconds": 1210000000,
+        "differing_uint16_samples": [
+          0,
+          0,
+          0
+        ],
+        "maximum_absolute_10bit_code_delta": [
+          0,
+          0,
+          0
+        ],
+        "p010_low_bits_zero": true,
+        "all_frame_properties_equal": true
+      },
+      {
+        "pts_microseconds": 1220010000,
+        "differing_uint16_samples": [
+          0,
+          0,
+          0
+        ],
+        "maximum_absolute_10bit_code_delta": [
+          0,
+          0,
+          0
+        ],
+        "p010_low_bits_zero": true,
+        "all_frame_properties_equal": true
+      },
+      {
+        "pts_microseconds": 1230020000,
+        "differing_uint16_samples": [
+          0,
+          0,
+          0
+        ],
+        "maximum_absolute_10bit_code_delta": [
+          0,
+          0,
+          0
+        ],
+        "p010_low_bits_zero": true,
+        "all_frame_properties_equal": true
+      }
+    ],
+    "identity_and_route": {
+      "capture_target_host_gpu_independently_verified": true,
+      "actual_probe_gpu_matches_verified_target": true,
+      "live_probe_child_generation_and_mapping_verified": true,
+      "actual_i915_client_count": 1,
+      "exact_mapped_code_closure_verified": true,
+      "code_closure_file_count": 23,
+      "mapped_isolated_new_runtime_files": 6,
+      "mapped_target_owned_system_files": 17,
+      "deleted_code_mappings": 0,
+      "expected_libvpl_implementation_and_existing_driver_loaded": true,
+      "code_driver_source_stat_identity_unchanged": true,
+      "successful_qsv_direct_mapped_frames": 722,
+      "compared_frames": 3
+    },
+    "resources": {
+      "memory_limit_bytes": 536870912,
+      "memory_peak_bytes": 215166976,
+      "cpu_limit": 1,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "private_network": true
+    },
+    "lifecycle": {
+      "probe_exit_code": 0,
+      "observer_seconds": 8.18656128499424,
+      "controller_seconds": 10.181403841008432,
+      "scoped_unit_terminal_verified": true,
+      "retained_kodi_binary_and_idle_state_unchanged": true,
+      "kodi_configuration_mounts_and_subtitles_not_modified": true
+    },
+    "limitations": [
+      "Only three selected EL frames, not broad media conformance",
+      "No full Dolby Vision reconstruction/output comparison in this run",
+      "No speed or resource-efficiency comparison inferred from diagnostic timing",
+      "Standalone source association must still be tied to future same-candidate Kodi capture evidence",
+      "Private records and raw readback remain on target; only approved scalar results published"
+    ]
+  },
+  "metadata_inspection": {
+    "pass": true,
+    "all_three_actual_map_color_valid": true,
+    "all_three_metadata_use_enhancement_residual": true,
+    "captured_metadata_unchanged": true,
+    "system_loader_and_libplacebo_unchanged": true,
+    "loader_and_relocations_verified": true,
+    "inspector_binary_sha256": "33631aab6ac986f6dc45ca7ab2e814b647778808b86335f9c9d65b8b6274798d",
+    "elapsed_seconds": 0.23169696200056933,
+    "peak_memory_bytes": 10133504,
+    "memory_limit_bytes": 536870912,
+    "cpu_limit": 1,
+    "memory_events_all_zero": true,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "owned_unit_terminal": true
+  },
+  "provenance_scope": "Reviewed code/build receipts and existing private source-stat/GPU/runtime/capture associations; no whole-film immutable hash."
+}
