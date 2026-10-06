@@ -1,0 +1,41 @@
+{
+  "schema": "yblod-el-qsv-header-kodi-build-v1",
+  "pass": true,
+  "scope": "Incremental Kodi compilation and ELF comparison only. No Kodi target installation, playback, Dolby output or performance qualification.",
+  "baseline_candidate_sha256": "aff416779620c4cba8cecb6e6c71a6fb3b228e4bab7e397aaeeba4556166067f",
+  "candidate_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "candidate_bytes": 34885320,
+  "helper_sha256": "fed8e6e9c3eb4a53108cfe49778959c6df794a027aa646e57145d03a97803df1",
+  "build": {
+    "elapsed_seconds": 309.96556856500683,
+    "exit_code": 0,
+    "oom_killed": false,
+    "owned_container_terminal": true,
+    "jobs": 1,
+    "final_effective_lto_workers": 1,
+    "memory_limit_bytes": 4294967296,
+    "cpu_limit": 1,
+    "network_disabled": true,
+    "gpu_exposed": false,
+    "peak_memory_bytes": 3007582208,
+    "peak_evidence": "Final inner cgroup memory.peak; independently agrees with outer controller last-observed peak.",
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_limit_bytes": 0,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0
+  },
+  "source_guards": {
+    "prepared_six_source_files_verified_by_build_helper": true,
+    "eight_engine_files_verified_by_build_helper": true,
+    "actual_helper_hash_independently_rechecked": true,
+    "baseline_archived_binary_hash_independently_rechecked": true,
+    "source_backups_retained": true,
+    "target_unchanged": true
+  },
+  "elf": {
+    "needed_soname_count": 51,
+    "needed_sonames_equal_to_target_admitted_aff416": true,
+    "symbol_version_requirements_equal_to_target_admitted_aff416": true,
+    "limitations": "Equal ELF requirements are not a new target loader or hardware test. Target loader admission will be repeated before any restart; existing target driver and core libraries must remain unchanged."
+  }
+}
