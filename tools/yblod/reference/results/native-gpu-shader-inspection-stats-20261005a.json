@@ -1,0 +1,24 @@
+{
+  "schema": "yblod.synthetic-shader-compiler-stats.v1",
+  "compiler_log_sha256": "065fb3ed41a3d47a67e3e2d48e793e18f2b672a5024ee531093f54a99b15c7c2",
+  "shader_binary_blake3": "8cbd13a1868e72dae4ad444d532387bfc9d36a050a174012d019c122b1a93939",
+  "statistics": {
+    "simd_width": 8,
+    "instruction_count": 1582,
+    "loop_count": 3,
+    "compiler_estimated_cycles": 20424,
+    "spill_count": 42,
+    "fill_count": 14,
+    "send_count": 23,
+    "grf_registers": 128,
+    "non_ssa_registers": 36,
+    "uncompacted_code_bytes": 27584,
+    "compacted_code_bytes": 23152,
+    "compaction_percent": 16
+  },
+  "simd16_register_allocation_failed": true,
+  "simd32_inefficient": true,
+  "statistics_are_measured_runtime": false,
+  "spill_fill_counts_are_allocator_only": false,
+  "interpretation": "Compiler static statistics; not GPU elapsed time, playback FPS, or a production shader comparison. Spill/fill counters include source scratch accesses and register allocator spills/fills; neither their origins nor dynamic frequency are apportioned. NIR scratch is not reported as spill allocation."
+}

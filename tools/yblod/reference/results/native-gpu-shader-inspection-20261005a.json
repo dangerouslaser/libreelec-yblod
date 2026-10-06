@@ -1,0 +1,105 @@
+{
+  "schema": "yblod.synthetic-shader-inspection.v1",
+  "source_sha256": {
+    "native_gpu_probe": "3b620fa0112736879bbadd5709876408566deb83b4bf4d11f960f629f0f81019",
+    "native_gpu_probe.c": "e51107f2d3c30bb96045f8388442a6f0d35eda56426227a387894023e15468e2",
+    "native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+    "native_gpu_vectors.py": "16b706c811ff7141eda5b5e13a7e9184fa40cbd24928e30eb50eb9ccc8fa65a8",
+    "native_gpu_probe.py": "2d3b87df9ee9d80b4b11603a61ba8cef5e23021619c141099d8f6574f7f2aaf4",
+    "native_gpu_run.py": "e47eeb831259c3dbb7927ea5da7e8b4a0fb351a66bade75758da4b18804f7209",
+    "native_stage.py": "a29caebb7e882c58cfff3807e09dd42bbb2ba5ffbf829e0d64115507c655c687",
+    "base_mapping_stage.py": "307855d8a8ebb8df7a9baabb904a711b2055586819d339797ddbaf14cf0c6149",
+    "nlq_stage.py": "43aea713446a3e703687a4e79054c2fb22b811693f8ed7b99da8c8951c83fc7e",
+    "composition_stage.py": "b724d8b6bd0baaca345da8e12525c1583ce72ae987b910cde168cb759d44680a",
+    "native_gpu_shader_inspection_collect.py": "efff569e65adb0bb04c7bac22ae71a9fad66930148bd8db8a44f7bd53f1d9071"
+  },
+  "additional_source_pins_observed_after_job": true,
+  "compiler_statistics_source": {
+    "path": "src/intel/compiler/brw/brw_to_binary.cpp",
+    "sha256": "9ece320094daac04088814589df53b202af6bd9f513b70a67114c2e8611ca1e0",
+    "line": 2178,
+    "interpretation": "Static compiler spill/fill counters and perf.latency estimate, not dynamic executions or measured device cycles."
+  },
+  "fixture_sha256": "65dc89c3fe3c1a9444f89dcdf51e35fd6e08afcb240fc8f17879baceef181b85",
+  "samples": 125,
+  "resources_before": {
+    "memory.max": "536870912",
+    "memory.peak": "11853824",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "kodi_before": [
+    {
+      "pid": 15567,
+      "stat": "4670326"
+    }
+  ],
+  "interpretation": "Compiler inspection only; not playback performance or private media.",
+  "independent_cpu_gate_passed": true,
+  "argv": [
+    "/storage/yblod-native-gpu-probe-20261005b/native_gpu_probe",
+    "/dev/dri/renderD128",
+    "/storage/yblod-native-gpu-probe-20261005b/native_gpu_probe.comp",
+    "/storage/yblod-synthetic-shader-inspect-20261005a/mmr3-all-channel-clamps.bin"
+  ],
+  "debug_environment": {
+    "INTEL_DEBUG": "cs,ann,perf",
+    "INTEL_SHADER_BIN_DUMP_PATH": "/storage/yblod-synthetic-shader-inspect-20261005a/dumps",
+    "MESA_SHADER_CACHE_DISABLE": "true"
+  },
+  "status": "exact",
+  "exit_status": 0,
+  "resources_after": {
+    "memory.max": "536870912",
+    "memory.peak": "60960768",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "kodi_after": [
+    {
+      "pid": 15567,
+      "stat": "4670326"
+    }
+  ],
+  "loaded_library_sha256": {
+    "/usr/lib/ld-linux-x86-64.so.2": "3bd22d737cff5359c57bd420318561e34a9cffb9738a65feb5d0b56ded9f0126",
+    "/usr/lib/libEGL.so.1.1.0": "e96c0e60601984ea832a6b8184ce1f299e0f60023c4a4c52c03bf4fe7ee319a0",
+    "/usr/lib/libEGL_mesa.so.0.0.0": "a6e80958ace576414e239775d6871aff1b3e53ba68a85c5eab08a081d765f192",
+    "/usr/lib/libEGL_nvidia.so.580.178.04": "01f706b4729b92d202c307427d46812e0d04dc507ac04381e695f10442f0a9e5",
+    "/usr/lib/libGLdispatch.so.0.0.0": "cd8c7e4d03802fe9661dd7d35d55b24e796cb1f679ae3fafbdc192ffd3c2d91a",
+    "/usr/lib/libLLVM.so.23.1": "8b6623339c8fa65d6eb0d231218f622d335313cd42bba20d5bafb9ef3f0447f6",
+    "/usr/lib/libc.so.6": "d16d617f8f3d8b18bd933ab259d50c8e829650c1d0da4d5c1b1815acd9d5f5e8",
+    "/usr/lib/libdl.so.2": "b8a1629bc81d1e054f9ddc5fd609ebcc70f3bc5e063fad5415877d92ea88c4c0",
+    "/usr/lib/libdrm.so.2.134.0": "4aef0c2cd85b60b8ca1080f47a26d415a51adb4e44324d7a8f0396b7369e1363",
+    "/usr/lib/libdrm_amdgpu.so.1.134.0": "1cbdb120dbf860ea0696769d74b00174f0827930a4cfe89102354cda21741073",
+    "/usr/lib/libdrm_intel.so.1.134.0": "d4baf5b4be2f8b07a92a5394fc3b97a0ab979adc976ad8b4a9df24880169e684",
+    "/usr/lib/libelf-0.196.so": "5b0be977c32a364ce8031330eef41b29de04a3d39984380da6cf3dc79947cb69",
+    "/usr/lib/libexpat.so.1.12.5": "8156e2fdcd94596b1a33aa3e631df9a24f0ba14522ea90014784f73ce3094673",
+    "/usr/lib/libgallium-26.2.4.so": "0437d7fcd34d05143baec659b6fa998b66e95673b74fd40a2ca449230a22e41f",
+    "/usr/lib/libgbm.so.1.0.0": "1cc8dc6eca4b7a6a9bc27bccda01c45ee83aa4e3d04185f8710be73183c2bcb2",
+    "/usr/lib/libgcc_s.so.1": "28ce66e7c0ea73ee094c4d94ad7cff15a991da4bd5d6c6513d909d2cf9306cfe",
+    "/usr/lib/libm.so.6": "3b4146b7b6eb2376f772beec92adefa955495a0670fd22b911ef9792f2a257ab",
+    "/usr/lib/libnvidia-egl-gbm.so.1.1.3": "364bac2a4f5f08c65de94f3a6a0abf225ca09801cd4f2f282bc2031312ef0f34",
+    "/usr/lib/libnvidia-eglcore.so.580.178.04": "835d19ba22d4fccc79ccaa947c9f55f0807c68e503a92b0fcb86faf3a8708d0f",
+    "/usr/lib/libnvidia-glsi.so.580.178.04": "678488be96f92bff620570da44ee53ee93c7c667a8c7cbe1044f88ab4f0f638d",
+    "/usr/lib/libnvidia-gpucomp.so.580.178.04": "0334f98aef57fb9f0fc16a404f01a09f4f1a644daa0a769cc4b2162372b9d12a",
+    "/usr/lib/libpciaccess.so.0.11.1": "4d0f5845981b37e61b9e66af992da8f627a8adb802599ffb597a9ecd44afee6e",
+    "/usr/lib/libpthread.so.0": "d355037776892962bd786c6724f0eecb5d39016a4af1143f0475a5fdf430ab15",
+    "/usr/lib/librt.so.1": "ee6c9bb1aff02381c7c8f312d47aa76790bd0e728f5ed5f71de2c57ec6814903",
+    "/usr/lib/libstdc++.so.6.0.36": "ee59b2d02664e9a3d1c193f1b227b2a13402340f30f28ba80af9fbb7258baa63",
+    "/usr/lib/libz.so.1.3.2": "cb1da21726dd1f22cf9fd9cb98e25bc963edddaaeeb7fa29d5f2aae5b4565401",
+    "/usr/lib/libzstd.so.1.5.7": "04765ca6ad16a3100c398496405c5ca6273969f49ef0433f5294a6cfcfea1ec9"
+  },
+  "artifact_sha256": {
+    "gpu.json": "7d69f7b65120b3fbb60e4257c3dcd78d87d1a865af5cdcfd0169d477aea8cf49",
+    "cpu.json": "78cad6ec4c983a4153bdb9f4c9dcc8e354d956138682cbf996a2a305698b70d9",
+    "mmr3-all-channel-clamps.bin": "65dc89c3fe3c1a9444f89dcdf51e35fd6e08afcb240fc8f17879baceef181b85",
+    "compiler.log": "065fb3ed41a3d47a67e3e2d48e793e18f2b672a5024ee531093f54a99b15c7c2",
+    "dumps/6d9e7177d3f5caa5ccbf873689b9928fa3c5f957899b5b872c450fcde8474c3d.bin": "752d022df894de7b1da3d5400a1b261f2efb82d75854b494f33f1a07edc7572a",
+    "dumps/516b4aa5b3f8c10b82ba534c025172395e59497b93b2902e94811f25e711796e.bin": "99163107cb0e83f472450d932b295edac8b5418a04aa8115ec3be7408a62727f",
+    "dumps/8cbd13a1868e72dae4ad444d532387bfc9d36a050a174012d019c122b1a93939.bin": "bca3273afcf201427817d07bd0897b1e639ab5a94ec389dc85494d655743ea0e",
+    "dumps/68b83f98986ac65b90a825f17d3c09f2a6f69e02d02333d39ff689e292134f0b.bin": "bc568d3cdf1f12c8f98467760498351d858fa61e90bf8786b84f722245c0cd6a"
+  }
+}
