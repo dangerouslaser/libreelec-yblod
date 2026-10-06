@@ -72,6 +72,7 @@ static void queue(int64_t token)
     pending->best_effort_timestamp = token;
     pending->pkt_dts = token;
     pending->duration = 1;
+    pending->time_base = (AVRational){1, 90000};
     pending->buf[0] = av_buffer_create(av_malloc(8), 8, owner_free, NULL, 0);
     pending->hw_frames_ctx = av_buffer_allocz(sizeof(AVHWFramesContext));
     assert(pending->buf[0] && pending->hw_frames_ctx);
@@ -92,7 +93,13 @@ int main(void)
     assert(held->format == AV_PIX_FMT_VAAPI);
     assert(held->pts == 1234567890123 && held->best_effort_timestamp == held->pts);
     assert(held->pkt_dts == AV_NOPTS_VALUE && held->duration == 41708);
-    assert(held->time_base.num == 1 && held->time_base.den == 1000000);
+    assert(held->time_base.num == 0 && held->time_base.den == 1);
+    AVFrame *readback = av_frame_alloc();
+    assert(readback && av_frame_copy_props(readback, held) == 0);
+    assert(readback->pts == held->pts && readback->best_effort_timestamp == held->best_effort_timestamp);
+    assert(readback->pkt_dts == held->pkt_dts && readback->duration == held->duration);
+    assert(readback->time_base.num == 0 && readback->time_base.den == 1);
+    av_frame_free(&readback);
     assert(held->width == 1920 && held->height == 1088 && held->crop_bottom == 8);
     assert(freed == 0); /* mapping owns source after receive's frame was freed */
     AVFrame *consumer = av_frame_clone(held);
