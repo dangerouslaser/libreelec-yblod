@@ -1,0 +1,33 @@
+{
+  "schema": "yblod.native-kodi-first-playback-attempt.v1",
+  "date": "2026-10-06",
+  "candidate_sha256": "fd0c3794ee435898ae10dc2e60995a116e7cc39426df0c5f20dbf06092dd807e",
+  "movie": "1917",
+  "input_profile": 7,
+  "connected_display": "HDMI-A-2",
+  "display_refresh_required_kodi_restart": true,
+  "dolby_output_eligible_after_restart": true,
+  "dolby_signal_committed": true,
+  "native_reconstruction": {
+    "attempted": true,
+    "presented_frames_confirmed": 0,
+    "fallback_stage": "undeclared-base-chroma-location",
+    "fallback_status": 2,
+    "success": false
+  },
+  "existing_path_baseline": {
+    "active_colour_path": "direct-lms",
+    "enhancement_scaling_reported": "Quick Sync on the Intel media engine",
+    "source_fps": 23.976,
+    "playback_speed": 1000,
+    "last_health_pts_seconds": 70.195,
+    "reported_drops": 0,
+    "reported_skips": 0,
+    "last_interval_output_attempts": 240,
+    "last_interval_milliseconds": 10011,
+    "output_attempts_are_not_display_flips": true,
+    "last_interval_render_average_percent": 9.7
+  },
+  "scope": "Actual connected-display Kodi attempt and existing-path health baseline. New-engine playback, sustained native performance and colour accuracy are NOT established.",
+  "next_action": "Correct the explicit source-property and actual picture-storage handoff for Kodi's surface-backed VAAPI path without guessing chroma metadata or fabricating FFmpeg hardware-frame ownership."
+}

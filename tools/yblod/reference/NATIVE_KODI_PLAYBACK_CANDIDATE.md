@@ -19,3 +19,9 @@ systemctl start kodi
 ```
 
 These commands assume this documented candidate bind mount is still installed; inspect the active mount before unmounting any different installation.
+
+## Connected-display attempt — 2026-10-06
+
+HDMI-A-2 became connected. Restarting Kodi refreshed the display information and enabled Dolby output. The first 1917 test attempted native reconstruction but rejected the base-frame chroma declaration and used the existing renderer instead. The existing path reported no drops or skips through 70 seconds; this is not native-engine performance evidence. See the [first playback attempt](results/native-kodi-first-playback-attempt-20261006.json).
+
+The remaining work is the real Kodi source/storage adapter: its surface-backed path does not hand the renderer the same frame object as the standalone FFmpeg tests. Preserve exact public source properties and Dolby metadata, retain the actual render picture, and validate its pool generation through completion. Do not guess a chroma location, manufacture a hardware-frame context, or label fallback playback as success. Native playback and stop/restart safety must be tested after that adapter is built.
