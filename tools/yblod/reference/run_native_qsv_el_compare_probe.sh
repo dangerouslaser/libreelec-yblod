@@ -15,6 +15,9 @@ test "${#task_expected}" = 64
 test "$(sha256sum "$task_binary" | cut -d' ' -f1)" = "$task_expected"
 test ! -e "$task_log"
 test ! -L "$task_log"
+if test -n "${PRIVATE_PROGRESS_PATH:-}"; then
+  test ! -e "$PRIVATE_PROGRESS_PATH" && test ! -L "$PRIVATE_PROGRESS_PATH"
+fi
 test "$#" = 6
 task_libs="$task_sdk/x86_64-libreelec-linux-gnu/sysroot/usr/lib"
 # Decoder messages may contain private media information. Never print them.

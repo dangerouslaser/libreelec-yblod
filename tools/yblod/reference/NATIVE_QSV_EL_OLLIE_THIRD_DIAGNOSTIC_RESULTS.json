@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "scope": "Ollie Intel UHD770 Raptor Lake diagnostic timeout only; not Petunia Tiger Lake, Kodi output or performance qualification",
+  "source_commit": "09019fe9f9",
+  "probe_binary_sha256": "f5ad883eb8c4b032c747e5e78444d9eb80fc472fa840f52a9e1c3d9f427dd101",
+  "exit_code": 137,
+  "oom_killed": false,
+  "aborted": "controller wall timeout at 180-second threshold",
+  "frame_report_emitted": false,
+  "failure_stage": "Unknown; no persistent call-stage checkpoint in this attempt",
+  "route_reached": null,
+  "raw_el_equality_qualified": false,
+  "runtime_identity_qualified": false,
+  "code_runtime_file_fingerprints_unchanged": true,
+  "private_input_stat_identity_unchanged": true,
+  "baseline_driver_expected": true,
+  "kodi_idle_before_and_after": true,
+  "configured_limits": {"memory_bytes": 536870912, "swap_bytes": 0, "cpus": 1, "network": "none", "internal_loop_wall_seconds": 170, "controller_wall_seconds": 180},
+  "last_observed_live_resources": {"memory_peak_bytes": 140025856, "memory_events_all_zero": true, "swap_current_bytes": 0},
+  "terminal_resource_report_available": false,
+  "limitations": ["Last observed live resources are not a final peak/event measurement", "No empirical identification of the blocking call or active decoder route", "No evidence of pixel inequality; this is an unlocalized diagnostic timeout", "Stopped only the diagnostic container, never Kodi or the VM", "Private diagnostics and identities remain local"]
+}

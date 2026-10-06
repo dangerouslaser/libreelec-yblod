@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
   "scope": "SDK compile and CPU-only diagnostic contracts; no GPU/media/Kodi/playback qualification",
-  "probe_binary_sha256": "f5ad883eb8c4b032c747e5e78444d9eb80fc472fa840f52a9e1c3d9f427dd101",
-  "cpu_test_binary_sha256": "eebb44927207d6143075b8d62a48f81ddafabd01aa1fe86ca07b159bb517be0a",
-  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 26013696},
+  "probe_binary_sha256": "6f9644654fc5e7782c7244e33cb164e329717c441e6e4d598688569203517058",
+  "cpu_test_binary_sha256": "c881102d5ddeeb636d6533752bac899dc23bb905d2ccbdf949db1abaea694957",
+  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 27009024},
   "cpu_contracts": {
     "passed": true,
-    "combined_compile_and_cpu_test_memory_peak_bytes": 26013696,
+    "combined_compile_and_cpu_test_memory_peak_bytes": 27009024,
+    "checkpoint_permissions_content_and_error_contracts_passed": true,
     "independent_audio_heavy_read_and_video_bound_contracts_passed": true,
     "preroll_target_retention_contract_passed": true,
     "failure_json_parser_passed": true,

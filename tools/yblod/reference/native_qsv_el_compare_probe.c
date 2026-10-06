@@ -15,6 +15,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 enum { FRAME_COUNT = 3, VIDEO_PACKET_LIMIT = 4096, DEMUX_READ_LIMIT = 65536, WALL_SECONDS = 170 };
 
@@ -28,6 +30,40 @@ static AVRational actual_timebase;
 static size_t actual_crop[4];
 static struct { uint64_t demux_reads, accepted_packets, accepted_frames, mapped, paired; } counts[2];
 static time_t wall_deadline;
+static int progress_fd = -1;
+static uint64_t progress_sequence;
+static int64_t last_video_pts[2] = {AV_NOPTS_VALUE, AV_NOPTS_VALUE};
+static int diagnostic_failure(int exit_code);
+
+static int checkpoint(void)
+{
+    if (progress_fd < 0) return 1;
+    char record[2048];
+    uint64_t sequence = ++progress_sequence;
+    int length = snprintf(record, sizeof(record),
+        "{\"sequence_begin\":%" PRIu64 ",\"stage\":\"%s\",\"route\":%d,\"counts\":[{\"demux_reads\":%" PRIu64 ",\"accepted_packets\":%" PRIu64 ",\"accepted_frames\":%" PRIu64 "},{\"demux_reads\":%" PRIu64 ",\"accepted_packets\":%" PRIu64 ",\"accepted_frames\":%" PRIu64 "}],\"last_video_pts\":[%" PRId64 ",%" PRId64 "],\"sequence_end\":%" PRIu64 "}\n",
+        sequence, failure_stage, failure_route,
+        counts[0].demux_reads, counts[0].accepted_packets, counts[0].accepted_frames,
+        counts[1].demux_reads, counts[1].accepted_packets, counts[1].accepted_frames,
+        last_video_pts[0], last_video_pts[1], sequence);
+    return length > 0 && (size_t)length < sizeof(record) &&
+        pwrite(progress_fd, record, length, 0) == length && ftruncate(progress_fd, length) == 0;
+}
+
+#define STAGE(name) do { failure_stage = (name); if (!checkpoint()) { \
+    failure_stage = "private_checkpoint_write_failed"; diagnostic_failure(2); \
+    fflush(stdout); exit(2); } } while (0)
+
+static int open_progress(const char *path)
+{
+    if (!path) return 1; /* Explicit opt-in; no checkpoint file by default. */
+    if (path[0] != '/' || strlen(path) >= PATH_MAX) return 0;
+    progress_fd = open(path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (progress_fd < 0) return 0;
+    struct stat info;
+    return !fstat(progress_fd, &info) && S_ISREG(info.st_mode) &&
+        (info.st_mode & 0777) == 0600 && checkpoint();
+}
 
 static const char *count_limit(uint64_t reads, uint64_t videos)
 {
@@ -193,7 +229,7 @@ static int download(AVFrame *hardware, AVBufferRef *device, int qsv,
 {
     uint64_t sequence;
     record_frame(hardware);
-    failure_stage = "download_device_or_route";
+    STAGE("download_device_or_route");
     if (!hardware || hardware->format != AV_PIX_FMT_VAAPI ||
         hardware->pts != pts || !hardware->hw_frames_ctx ||
         dvbridge_fel_qsv_frame_route(hardware, &sequence) != qsv)
@@ -202,14 +238,14 @@ static int download(AVFrame *hardware, AVBufferRef *device, int qsv,
     actual_swformat = frames->sw_format;
     if (frames->device_ctx != (AVHWDeviceContext *)device->data)
         return 0;
-    failure_stage = "download_swformat";
+    STAGE("download_swformat");
     if (frames->sw_format != AV_PIX_FMT_P010)
         return 0;
-    failure_stage = "download_geometry";
+    STAGE("download_geometry");
     if (!active_geometry(hardware))
         return 0;
     AVFrame *software = av_frame_alloc();
-    failure_stage = "download_transfer_or_properties";
+    STAGE("download_transfer_or_properties");
     if (!software || av_hwframe_transfer_data(software, hardware, 0) < 0 ||
         av_frame_copy_props(software, hardware) < 0 || software->width <= 0 ||
         software->height <= 0 || software->width > 2048 || software->height > 1152 ||
@@ -223,7 +259,7 @@ static int download(AVFrame *hardware, AVBufferRef *device, int qsv,
      * origin and derive only right/bottom padding from the destination extent. */
     software->crop_right = (size_t)software->width - software->crop_left - 1920;
     software->crop_bottom = (size_t)software->height - software->crop_top - 1080;
-    failure_stage = "download_storage";
+    STAGE("download_storage");
     if (!valid_buffers(software)) {
         av_frame_free(&software);
         return 0;
@@ -241,13 +277,15 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
     AVPacket *packet = av_packet_alloc();
     int ok = 0, stream, next = 0;
     failure_route = qsv;
-    failure_stage = "input_open_or_stream_info";
+    STAGE("input_open");
     if (!packet || setenv("DVBRIDGE_FEL_QSV", qsv ? "1" : "0", 1) ||
-        avformat_open_input(&input, path, NULL, NULL) < 0 ||
-        avformat_find_stream_info(input, NULL) < 0)
+        avformat_open_input(&input, path, NULL, NULL) < 0)
+        goto done;
+    STAGE("input_find_stream_info");
+    if (avformat_find_stream_info(input, NULL) < 0)
         goto done;
     stream = av_find_best_stream(input, AVMEDIA_TYPE_VIDEO, -1, -1, NULL, 0);
-    failure_stage = "input_format";
+    STAGE("input_format");
     if (stream < 0 || !input->iformat ||
         strcmp(input->iformat->name, "matroska,webm") ||
         input->streams[stream]->codecpar->codec_id != AV_CODEC_ID_HEVC)
@@ -255,30 +293,31 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
     for (unsigned i = 0; i < input->nb_streams; ++i)
         if ((int)i != stream)
             input->streams[i]->discard = AVDISCARD_ALL;
-    failure_stage = "input_seek";
+    STAGE("input_seek");
     if (avformat_seek_file(input, -1, INT64_MIN, seek_us, seek_us, 0) < 0)
         goto done;
+    STAGE("helper_create");
     helper = dvbridge_fel_create(input->streams[stream]->codecpar,
                                 AV_TIME_BASE_Q);
-    failure_stage = "helper_create";
     if (!helper || dvbridge_fel_qsv_selected(helper) != !!qsv)
         goto done;
-    failure_stage = "helper_device";
+    STAGE("helper_device");
     if (!dvbridge_fel_device(helper, device))
         goto done;
     while (next < FRAME_COUNT) {
         const char *limit = count_limit(counts[qsv].demux_reads, counts[qsv].accepted_packets);
         if (limit) {
-            failure_stage = limit;
+            STAGE(limit);
             goto done;
         }
         struct timespec now;
-        failure_stage = "wall_clock_guard";
+        STAGE("wall_clock_guard");
         if (clock_gettime(CLOCK_MONOTONIC, &now) || now.tv_sec >= wall_deadline)
             goto done;
+        STAGE("input_read");
         int read = av_read_frame(input, packet);
         ++counts[qsv].demux_reads;
-        failure_stage = "input_read_or_drain";
+        STAGE("input_read_or_drain");
         if (read < 0) {
             if (read != AVERROR_EOF || !dvbridge_fel_drain(helper))
                 goto done;
@@ -287,7 +326,7 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
                 av_packet_unref(packet);
                 continue;
             }
-            failure_stage = "packet_timestamp_conversion";
+            STAGE("packet_timestamp_conversion");
             if (!kodi_timestamp(packet->pts, input->streams[stream]->time_base,
                                 input->start_time, &packet->pts) ||
                 !kodi_timestamp(packet->dts, input->streams[stream]->time_base,
@@ -295,7 +334,8 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
                 goto done;
             packet->duration = 0; /* Actual Kodi AddData does not set duration. */
             packet->time_base = AV_TIME_BASE_Q;
-            failure_stage = "helper_submit";
+            last_video_pts[qsv] = packet->pts;
+            STAGE("helper_submit");
             if (!dvbridge_fel_submit(helper, packet))
                 goto done;
             ++counts[qsv].accepted_packets;
@@ -304,10 +344,13 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
         while (next < FRAME_COUNT) {
             AVFrame *frame = NULL;
             expected_pts = pts[next];
-            failure_stage = "helper_take";
+            STAGE("helper_take");
             int take = dvbridge_fel_take(helper, pts[next], &frame);
+            counts[qsv].mapped = dvbridge_fel_qsv_mapped_frames(helper);
+            counts[qsv].paired = dvbridge_fel_paired_frames(helper);
+            STAGE("helper_take_completed");
             if (take == 2)
-                failure_stage = "helper_wait_for_anchor";
+                STAGE("helper_wait_for_anchor");
             int action = take_action(take);
             if (action < 0)
                 goto done;
@@ -324,16 +367,20 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
             goto done;
     }
     *mapped = dvbridge_fel_qsv_mapped_frames(helper);
-    failure_stage = "runtime_maps_or_final_counts";
+    STAGE("runtime_maps_or_final_counts");
     ok = next == FRAME_COUNT && (!qsv || sdk_runtime_loaded()) &&
          dvbridge_fel_paired_frames(helper) == FRAME_COUNT &&
          (qsv ? *mapped >= FRAME_COUNT : *mapped == 0);
 done:
     counts[qsv].mapped = dvbridge_fel_qsv_mapped_frames(helper);
     counts[qsv].paired = dvbridge_fel_paired_frames(helper);
+    const char *saved_stage = failure_stage;
+    STAGE("helper_destroy");
     dvbridge_fel_destroy(helper);
+    STAGE("input_close");
     av_packet_free(&packet);
     avformat_close_input(&input);
+    STAGE(saved_stage);
     return ok;
 }
 
@@ -403,31 +450,34 @@ int main(int argc, char **argv)
     for (int i = 0; i < FRAME_COUNT; ++i)
         if (!integer(argv[i + 4], &pts[i]) || (i && pts[i] <= pts[i - 1]))
             return diagnostic_failure(2);
+    failure_stage = "private_checkpoint_setup";
+    if (!open_progress(getenv("PRIVATE_PROGRESS_PATH")))
+        return diagnostic_failure(2);
     /* The bounded launcher redirects all decoder diagnostics to a private file. */
     av_log_set_level(AV_LOG_ERROR);
     struct timespec started;
-    failure_stage = "wall_clock_initial";
+    STAGE("wall_clock_initial");
     if (clock_gettime(CLOCK_MONOTONIC, &started))
         return diagnostic_failure(2);
     wall_deadline = started.tv_sec + WALL_SECONDS;
     struct stat initial, middle, final;
-    failure_stage = "input_stat_initial";
+    STAGE("input_stat_initial");
     if (stat(argv[1], &initial) || !S_ISREG(initial.st_mode))
         return diagnostic_failure(2);
     AVBufferRef *device = NULL;
     AVFrame *reference[FRAME_COUNT] = {0}, *candidate[FRAME_COUNT] = {0};
     uint64_t mapped[2] = {0};
-    failure_stage = "vaapi_device_create";
+    STAGE("vaapi_device_create");
     int report_emitted = 0;
     int ok = av_hwdevice_ctx_create(&device, AV_HWDEVICE_TYPE_VAAPI, argv[2], NULL, 0) >= 0;
     if (ok) ok = route(argv[1], device, 0, seek_us, pts, reference, &mapped[0]);
     if (ok) {
-        failure_stage = "input_stat_middle";
+        STAGE("input_stat_middle");
         ok = !stat(argv[1], &middle) && same_source(&initial, &middle);
     }
     if (ok) ok = route(argv[1], device, 1, seek_us, pts, candidate, &mapped[1]);
     if (ok) {
-        failure_stage = "input_stat_final";
+        STAGE("input_stat_final");
         ok = !stat(argv[1], &final) && same_source(&initial, &final);
     }
     if (ok) {
@@ -458,7 +508,14 @@ int main(int argc, char **argv)
         av_frame_free(&reference[i]);
         av_frame_free(&candidate[i]);
     }
+    const char *saved_stage = failure_stage;
+    STAGE("device_release");
     av_buffer_unref(&device);
+    STAGE(saved_stage);
+    if (progress_fd >= 0) {
+        close(progress_fd);
+        progress_fd = -1;
+    }
     if (!ok && !report_emitted)
         return diagnostic_failure(1);
     return ok ? 0 : 1;

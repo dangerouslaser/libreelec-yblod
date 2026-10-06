@@ -110,6 +110,30 @@ int main(void)
     failure_stage = "cpu_fixture";
     failure_route = 0;
     assert(diagnostic_failure(0) == 0); /* Formatter checked by host JSON parser. */
+    char directory[] = "/tmp/native-qsv-checkpoint-XXXXXX";
+    assert(mkdtemp(directory));
+    char filename[PATH_MAX], linkname[PATH_MAX];
+    assert(snprintf(filename, sizeof(filename), "%s/checkpoint.json", directory) > 0);
+    assert(snprintf(linkname, sizeof(linkname), "%s/link.json", directory) > 0);
+    assert(!open_progress("relative.json"));
+    assert(open_progress(filename));
+    struct stat private_info;
+    assert(!fstat(progress_fd, &private_info) && (private_info.st_mode & 0777) == 0600);
+    STAGE("cpu_checkpoint");
+    FILE *checkpoint_file = fopen(filename, "r");
+    char contents[2048];
+    assert(checkpoint_file && fgets(contents, sizeof(contents), checkpoint_file));
+    fclose(checkpoint_file);
+    assert(strstr(contents, "\"stage\":\"cpu_checkpoint\"") &&
+        strstr(contents, "\"sequence_begin\":2") && strstr(contents, "\"sequence_end\":2") &&
+        !strstr(contents, directory));
+    close(progress_fd); progress_fd = -1;
+    assert(!open_progress(filename)); /* No overwrite of existing evidence. */
+    assert(!symlink(filename, linkname) && !open_progress(linkname));
+    progress_fd = open("/dev/null", O_RDONLY);
+    assert(progress_fd >= 0 && !checkpoint());
+    close(progress_fd); progress_fd = -1;
+    assert(!unlink(linkname) && !unlink(filename) && !rmdir(directory));
     av_frame_free(&a);
     av_frame_free(&b);
     puts("CPU-only geometry/bounds/properties/source-stat/Kodi-timestamp contracts PASS");
