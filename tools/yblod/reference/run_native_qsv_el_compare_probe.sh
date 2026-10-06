@@ -45,4 +45,5 @@ while read -r task_event task_value; do
 done < /sys/fs/cgroup/memory.events
 test "$(cat /sys/fs/cgroup/memory.swap.current)" = 0
 test "$(cat /sys/fs/cgroup/memory.swap.peak)" = 0
+printf 'swap_current_bytes=%s\nswap_peak_bytes=%s\n' "$(cat /sys/fs/cgroup/memory.swap.current)" "$(cat /sys/fs/cgroup/memory.swap.peak)"
 exit "$task_status"

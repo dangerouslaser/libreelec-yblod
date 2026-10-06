@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "scope": "Optional diagnostic live identity handoff and fixed-helper comparison strict CPU compile/tests; no GPU, sample or playback qualification",
+  "container_image_id": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "new_comparison_probe_sha256": "bde66e05305baa417c0200f7085ed1d4435b679ddf691f024de217bc56d5eb9e",
+  "preserved_pre_handshake_probe_sha256": "39134b55bb9a99ef78bb7c2f6abf041b4a45d481ab1f531919b425e031b8b915",
+  "handshake_cpu_test_sha256": "d900e0aae57fcaa928b025a48656d26b58011af9feb896d3e491d82b1d10702d",
+  "strict_compile_passed": true,
+  "handshake_cpu_contracts_passed": ["All environment absent preserves optional bypass", "Incomplete environment rejected", "Fresh 0600 ready file with actual PID/nonce", "Preexisting ready/ack and ready symlink rejected", "Elapsed global deadline rejected", "Exactly 64 nonce bytes accepted", "Atomic fixture publication eliminates intermediate valid ACK race", "Extra ACK byte, wrong nonce and invalid permissions rejected"],
+  "live_hook_location": "First genuine QSV-to-VAAPI mapped frame after actual runtime/device/format/active geometry checks, before diagnostic CPU readback, while helper/device/frame remain live",
+  "protocol": "YB_QSV_PROBE_READY/ACK/NONCE; lowercase 64-hex nonce; wait at most 10 seconds and remaining global deadline",
+  "comparison_compile_resources": {"memory_cap_bytes": 536870912, "peak_bytes": 26812416, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "handshake_cpu_resources": {"memory_cap_bytes": 536870912, "peak_bytes": 14516224, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "reproduction": "Use build_native_qsv_el_header_helper_probe.sh with SDK_ROOT/PUBLIC_ROOT/PROBE_OUTPUT/EL_HELPER_SOURCE/EL_HELPER_INCLUDE in the pinned image, 512 MiB memory+swap-total cap, one CPU, network none; no render node required",
+  "limits": ["CPU filesystem/mock tests do not demonstrate actual hardware identity or interop", "No raw comparison run performed yet", "Old historical compile result retained independently", "Production decoder behavior unchanged by optional diagnostic hook"]
+}

@@ -17,6 +17,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "native_qsv_probe_handshake.h"
 
 enum { FRAME_COUNT = 3, VIDEO_PACKET_LIMIT = 4096, DEMUX_READ_LIMIT = 65536, WALL_SECONDS = 170 };
 
@@ -25,6 +26,7 @@ static int failure_route = -1, have_frame;
 static int64_t expected_pts, actual_pts, actual_best, actual_duration;
 static int actual_width, actual_height, actual_format, actual_chroma, actual_swformat = AV_PIX_FMT_NONE;
 static int runtime_checked, runtime_loaded[3];
+static int handshake_completed;
 static int actual_range, actual_primaries, actual_trc, actual_space;
 static AVRational actual_timebase;
 static size_t actual_crop[4];
@@ -244,6 +246,13 @@ static int download(AVFrame *hardware, AVBufferRef *device, int qsv,
     STAGE("download_geometry");
     if (!active_geometry(hardware))
         return 0;
+    if(qsv&&!handshake_completed){
+        STAGE("live_runtime_maps_before_readback");
+        if(!sdk_runtime_loaded())return 0;
+        STAGE("live_identity_handshake_before_readback");
+        if(!qsv_probe_handshake(wall_deadline))return 0;
+        handshake_completed=1;
+    }
     AVFrame *software = av_frame_alloc();
     STAGE("download_transfer_or_properties");
     if (!software || av_hwframe_transfer_data(software, hardware, 0) < 0 ||
