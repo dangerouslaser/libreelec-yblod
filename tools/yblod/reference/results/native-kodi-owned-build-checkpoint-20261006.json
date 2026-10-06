@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "scope": "actual_opt_in_kodi_custom_vaapi_source_build",
+  "public_source_checkpoint": "d6a5e65231",
+  "patch_sha256": "abda58a3d9181c3c00b2ff56bf419a9a6aa51b4b2492fcc9c862d4b5e0708b34",
+  "post07_source_and_engine_backup_sha256": "ad297bcad6503e3da91672e5d9391aa572aec9fd339372d5d7aaa5a61416b8ea",
+  "source_sha256": {
+    "VAAPI.cpp": "bf370baec97975fb11400642fde8ddce8ced9690e11deb4d372fe90b27f1e9e3",
+    "VAAPI.h": "7a85b08f02ed05a427d9b22960bef891a2a1c239564f3333e06f86971d2606fe",
+    "DVBridgeGLES.cpp": "479f16349e35eeb3da70d6a57b7a30ee6664e4f0bafdeaafd79e0f02f553190e",
+    "DVBridgeGLES.h": "5aed8df4f092b230720905568b2be19e632e6ac35e6fbcbc2fb134b4ef3fa3b3",
+    "RendererVAAPIGLES.cpp": "672ef0626af40a90d512dab0a741d5817127626396389999e44ffccaa8643092",
+    "native_playback_context.h": "3e7e83ff4a6b191a7bc5be42eae0742ba54ec14ce14b2dcee71522c969fc41fb"
+  },
+  "isolated_compile": {
+    "actual_kodi_translation_units": 4,
+    "passed": true,
+    "memory_limit_bytes": 536870912,
+    "memory_plus_swap_limit_bytes": 536870912,
+    "cpus": 1,
+    "sequential": true,
+    "measured_memory_peak_bytes": null,
+    "memory_events_captured": false
+  },
+  "full_build": {
+    "ninja_actions": 21,
+    "ninja_jobs": 1,
+    "cpus": 1,
+    "network": "none",
+    "memory_limit_bytes": 4294967296,
+    "memory_plus_swap_limit_bytes": 4294967296,
+    "final_link_trailing_override": "-flto=1",
+    "sdk_link_strips_with_s_flag": true,
+    "started_utc": "2026-10-06T06:49:44.248304594Z",
+    "finished_utc": "2026-10-06T06:55:37.022197419Z",
+    "elapsed_seconds": 352.773892825,
+    "exit_code": 0,
+    "docker_oom_killed": false,
+    "memory_peak_bytes": 2415263744,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "executable_size_bytes": 34807432,
+    "executable_sha256": "b06db596c9cec559d5ea8634b6bdedcec0cf43bd376cb9be73529dada60c5931"
+  },
+  "installation_tested_by_this_report": false,
+  "film_playback_tested_by_this_report": false,
+  "colour_accuracy_claim": false,
+  "real_time_performance_claim": false,
+  "device_loss_recovery_claim": false
+}
