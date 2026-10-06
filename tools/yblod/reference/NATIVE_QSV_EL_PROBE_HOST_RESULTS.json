@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
   "scope": "SDK compile and CPU-only diagnostic contracts; no GPU/media/Kodi/playback qualification",
-  "probe_binary_sha256": "c710cf76ea3b96c5fdaf4fa612f2aca5e52ea1179ae3c51584159082c550b042",
-  "cpu_test_binary_sha256": "beba39458191c6ccda9fd4642acff642a3f5750c13eb127a2fb070c8e9173cbe",
-  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 25468928},
+  "probe_binary_sha256": "f5ad883eb8c4b032c747e5e78444d9eb80fc472fa840f52a9e1c3d9f427dd101",
+  "cpu_test_binary_sha256": "eebb44927207d6143075b8d62a48f81ddafabd01aa1fe86ca07b159bb517be0a",
+  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 26013696},
   "cpu_contracts": {
     "passed": true,
-    "combined_compile_and_cpu_test_memory_peak_bytes": 26202112,
+    "combined_compile_and_cpu_test_memory_peak_bytes": 26013696,
+    "independent_audio_heavy_read_and_video_bound_contracts_passed": true,
     "preroll_target_retention_contract_passed": true,
     "failure_json_parser_passed": true,
     "coverage": ["visible1080 versus coded1088 bottom8 geometry", "coded padding ignored by actual active-plane comparator", "U/V separation and literal low-bit difference detected", "even crop and overflow rejection", "plane storage bounds and strides", "duration/timebase/best-effort/chroma/colour differences", "stat identity changes", "Kodi ordinary-MKV timestamp truncation", "actual loaded SDK avutil canonical-map identity accepted, incorrect and absent library identities rejected", "QSV runtime gate fails without loaded implementation and driver", "valid scalar failure-stage JSON with route counts and safe frame properties"]

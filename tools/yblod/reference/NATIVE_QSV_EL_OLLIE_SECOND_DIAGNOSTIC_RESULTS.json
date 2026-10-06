@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "scope": "Ollie Intel UHD770 Raptor Lake diagnostic only; not Petunia Tiger Lake, Kodi output or performance qualification",
+  "source_commit": "f5470de1d4",
+  "probe_binary_sha256": "c710cf76ea3b96c5fdaf4fa612f2aca5e52ea1179ae3c51584159082c550b042",
+  "exit_code": 1,
+  "oom_killed": false,
+  "aborted": false,
+  "failure_stage": "packet_limit_or_incomplete",
+  "failure_route": "VAAPI baseline",
+  "accepted_video_packets": 73,
+  "exact_frames_returned": 0,
+  "qsv_route_reached": false,
+  "raw_el_equality_qualified": false,
+  "runtime_identity_qualified": false,
+  "code_runtime_file_fingerprints_unchanged": true,
+  "private_input_stat_identity_unchanged": true,
+  "baseline_driver_expected": true,
+  "kodi_idle_before_and_after": true,
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 113614848,
+    "swap_limit_bytes": 0,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0}
+  },
+  "interpretation": "Diagnostic's original bound counted all demux packets rather than video submissions; audio-heavy input exhausted it before requested target. No frame substitutes or timestamp tolerance accepted.",
+  "limitations": ["No QSV operation evidence", "Stat identity is not immutable content proof", "Private diagnostics and identities remain local"]
+}

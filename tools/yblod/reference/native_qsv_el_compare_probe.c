@@ -14,8 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 
-enum { FRAME_COUNT = 3, PACKET_LIMIT = 4096 };
+enum { FRAME_COUNT = 3, VIDEO_PACKET_LIMIT = 4096, DEMUX_READ_LIMIT = 65536, WALL_SECONDS = 170 };
 
 static const char *failure_stage = "preflight";
 static int failure_route = -1, have_frame;
@@ -25,7 +26,15 @@ static int runtime_checked, runtime_loaded[3];
 static int actual_range, actual_primaries, actual_trc, actual_space;
 static AVRational actual_timebase;
 static size_t actual_crop[4];
-static struct { uint64_t accepted_packets, accepted_frames, mapped, paired; } counts[2];
+static struct { uint64_t demux_reads, accepted_packets, accepted_frames, mapped, paired; } counts[2];
+static time_t wall_deadline;
+
+static const char *count_limit(uint64_t reads, uint64_t videos)
+{
+    if (reads >= DEMUX_READ_LIMIT) return "demux_read_limit";
+    if (videos >= VIDEO_PACKET_LIMIT) return "video_packet_limit";
+    return NULL;
+}
 
 static void record_frame(const AVFrame *f)
 {
@@ -45,8 +54,8 @@ static int diagnostic_failure(int exit_code)
     printf("{\"scope\":\"actual EL helper routes; diagnostic-only CPU readback, not Kodi output/performance\",\"pass\":false,\"failure_stage\":\"%s\",\"failure_route\":%d,\"route_counts\":[",
            failure_stage, failure_route);
     for (unsigned i = 0; i < 2; ++i)
-        printf("%s{\"qsv\":%u,\"accepted_packets\":%" PRIu64 ",\"accepted_frames\":%" PRIu64 ",\"mapped_frames\":%" PRIu64 ",\"paired_frames\":%" PRIu64 "}",
-               i ? "," : "", i, counts[i].accepted_packets, counts[i].accepted_frames, counts[i].mapped, counts[i].paired);
+        printf("%s{\"qsv\":%u,\"demux_reads\":%" PRIu64 ",\"accepted_packets\":%" PRIu64 ",\"accepted_frames\":%" PRIu64 ",\"mapped_frames\":%" PRIu64 ",\"paired_frames\":%" PRIu64 "}",
+               i ? "," : "", i, counts[i].demux_reads, counts[i].accepted_packets, counts[i].accepted_frames, counts[i].mapped, counts[i].paired);
     printf("],\"expected_pts_microseconds\":%" PRId64 ",\"frame_observed\":%s", expected_pts, have_frame ? "true" : "false");
     if (have_frame)
         printf(",\"actual_frame\":{\"pts_microseconds\":%" PRId64 ",\"best_effort_timestamp\":%" PRId64 ",\"duration\":%" PRId64 ",\"time_base\":[%d,%d],\"coded_width\":%d,\"coded_height\":%d,\"crop\":[%zu,%zu,%zu,%zu],\"format_enum\":%d,\"chroma_location\":%d,\"color_range\":%d,\"color_primaries\":%d,\"color_trc\":%d,\"colorspace\":%d}",
@@ -243,6 +252,9 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
         strcmp(input->iformat->name, "matroska,webm") ||
         input->streams[stream]->codecpar->codec_id != AV_CODEC_ID_HEVC)
         goto done;
+    for (unsigned i = 0; i < input->nb_streams; ++i)
+        if ((int)i != stream)
+            input->streams[i]->discard = AVDISCARD_ALL;
     failure_stage = "input_seek";
     if (avformat_seek_file(input, -1, INT64_MIN, seek_us, seek_us, 0) < 0)
         goto done;
@@ -254,8 +266,18 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
     failure_stage = "helper_device";
     if (!dvbridge_fel_device(helper, device))
         goto done;
-    for (unsigned count = 0; count < PACKET_LIMIT && next < FRAME_COUNT; ++count) {
+    while (next < FRAME_COUNT) {
+        const char *limit = count_limit(counts[qsv].demux_reads, counts[qsv].accepted_packets);
+        if (limit) {
+            failure_stage = limit;
+            goto done;
+        }
+        struct timespec now;
+        failure_stage = "wall_clock_guard";
+        if (clock_gettime(CLOCK_MONOTONIC, &now) || now.tv_sec >= wall_deadline)
+            goto done;
         int read = av_read_frame(input, packet);
+        ++counts[qsv].demux_reads;
         failure_stage = "input_read_or_drain";
         if (read < 0) {
             if (read != AVERROR_EOF || !dvbridge_fel_drain(helper))
@@ -302,7 +324,7 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
             goto done;
     }
     *mapped = dvbridge_fel_qsv_mapped_frames(helper);
-    failure_stage = next == FRAME_COUNT ? "runtime_maps_or_final_counts" : "packet_limit_or_incomplete";
+    failure_stage = "runtime_maps_or_final_counts";
     ok = next == FRAME_COUNT && (!qsv || sdk_runtime_loaded()) &&
          dvbridge_fel_paired_frames(helper) == FRAME_COUNT &&
          (qsv ? *mapped >= FRAME_COUNT : *mapped == 0);
@@ -383,6 +405,11 @@ int main(int argc, char **argv)
             return diagnostic_failure(2);
     /* The bounded launcher redirects all decoder diagnostics to a private file. */
     av_log_set_level(AV_LOG_ERROR);
+    struct timespec started;
+    failure_stage = "wall_clock_initial";
+    if (clock_gettime(CLOCK_MONOTONIC, &started))
+        return diagnostic_failure(2);
+    wall_deadline = started.tv_sec + WALL_SECONDS;
     struct stat initial, middle, final;
     failure_stage = "input_stat_initial";
     if (stat(argv[1], &initial) || !S_ISREG(initial.st_mode))

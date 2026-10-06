@@ -92,6 +92,12 @@ int main(void)
         if (action == 1) ++target;
     }
     assert(target == 1 && take_action(-1) == -1 && take_action(3) == -1);
+    /* Large audio traffic is not counted as video submissions. Both bounds
+     * remain independently strict and return distinct diagnostic stages. */
+    assert(!count_limit(20000, 73));
+    assert(!count_limit(DEMUX_READ_LIMIT - 1, VIDEO_PACKET_LIMIT - 1));
+    assert(!strcmp(count_limit(DEMUX_READ_LIMIT, 73), "demux_read_limit"));
+    assert(!strcmp(count_limit(20000, VIDEO_PACKET_LIMIT), "video_packet_limit"));
     const char *avutil = getenv("EXPECTED_CPU_AVUTIL");
     assert(avutil && setenv("EXPECTED_CPU_MAP", avutil, 1) == 0);
     assert(loaded_exact("EXPECTED_CPU_MAP", "libavutil.so."));
