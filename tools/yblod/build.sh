@@ -10,6 +10,7 @@
 #
 # usage: tools/yblod/build.sh <version>        e.g. tools/yblod/build.sh 0.1
 # env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3")
+#        YBLOD_NATIVE_RECONSTRUCTION (0; set 1 for the experimental Kodi build)
 set -u
 V=${1:?usage: tools/yblod/build.sh <version>}
 T=$(cd "$(dirname "$0")/../.." && pwd)
@@ -23,6 +24,7 @@ for JOBS in ${BUILD_JOBS:-7 5 3}; do
     -e PROJECT=Generic -e DEVICE=Generic -e ARCH=x86_64 \
     -e CONCURRENCY_MAKE_LEVEL="$JOBS" -e THREADCOUNT=4 \
     -e CUSTOM_VERSION="yblod-$V" -e BUILDER_NAME=yblod \
+    -e YBLOD_NATIVE_RECONSTRUCTION="${YBLOD_NATIVE_RECONSTRUCTION:-0}" \
     "$IMAGE" bash -c "make image" >> "$LOG" 2>&1
   rc=$?
   if [ $rc -eq 0 ]; then
