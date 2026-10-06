@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "scope": "CPU-only SDK helper contracts, handshake contracts and property-fixed raw EL comparison probe compilation; no hardware qualification",
+  "container_image_id": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "helper_source_sha256": "fed8e6e9c3eb4a53108cfe49778959c6df794a027aa646e57145d03a97803df1",
+  "property_patch_sha256": "ccfcc29438283c0c8c647d303390f3979d13609720a832ac4fa306310475efea",
+  "probe_binary_sha256": "48ffb2f6f913c2f3016caae147e679062e27c254872e40724ad88ee9f53b9668",
+  "helper_contract_binary_sha256": "e0eb68417a400c512a8695d68fa5d71656c31d2bee0c55af10b2eea682572840",
+  "handshake_contract_binary_sha256": "6a1d69e1f4e3ca6a35807b3e0d8617e96cdf4cda00c475dbe1103a213e526348",
+  "default_off_normalization_fail_closed_eagain_token_contracts_passed": true,
+  "optional_env_nonce_fresh_file_symlink_deadline_ack_contracts_passed": true,
+  "strict_sdk_compilation_passed": true,
+  "exit_code": 0,
+  "resources": {"memory_cap_bytes": 536870912, "peak_bytes": 26722304, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "limits": ["No GPU or media execution in this build", "Existing helper contract suite does not independently assert the new time-base property assignment; separate actual-helper property fixture is recorded with patch22", "Mock normalization contracts are not literal actual-bitstream payload or decoder-output proof", "Prior bde66 comparison binary preserved unchanged"]
+}
