@@ -124,10 +124,24 @@ GPU and CPU values pool two cases per condition with time weighting. Render
 activity fell by 18.4642 percentage points, or 31.03 percent relative to the
 control. The helper wait is a host completion wait, not exclusive GPU execution
 time. The [sustained scalar results](NATIVE_PACKED_SPR_SUSTAINED_RESULTS.json)
-record these measurements and playback health. The separate 1917 sustained
-comparison remains in progress.
+record these measurements and playback health.
 
-All four service processes exited normally. Final Dolby Vision display
+The same four-case, 600-second comparison also passed for 1917 at 20 minutes.
+All cases recorded zero dropped or skipped frames and no steady stalls.
+
+| Balanced measurement | Composed output | Packed output |
+| --- | ---: | ---: |
+| GPU render client busy percent | 56.9873 | 40.6105 |
+| Whole Kodi CPU percent of one core | 20.0217 | 17.1634 |
+| Video decode client busy percent | 6.6634 | 6.6520 |
+| Video enhancement client busy percent | 9.4409 | 9.4392 |
+| Consumer release helper wait ms | 6.9013 | 3.9177 |
+
+Time-weighted render activity fell by 28.74 percent and Kodi CPU by 14.28 percent.
+The [1917 sustained scalar results](NATIVE_PACKED_1917_SUSTAINED_RESULTS.json)
+retain the balanced measurements, exclusive route counts, and playback health.
+
+All eight sustained-test service processes exited normally. Final Dolby Vision display
 restoration failed because Kodi destroys the EGL window surface before attempting
 restoration. This pre-existing shutdown-ordering issue also occurs in the earlier
 control and optimized logs; it is not evidence of a packing regression. References

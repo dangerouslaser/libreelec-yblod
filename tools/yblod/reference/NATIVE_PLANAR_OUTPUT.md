@@ -6,9 +6,11 @@ This opt-in candidate passes the reconstructed integer Y, Cb and Cr planes direc
 
 The engine checks every reconstructed sample for the 12-bit range before importing all three planes. Frame association, finite completion waits and decoded-surface ownership remain enforced. Capture metadata reports `native_planar`, and renderer diagnostics count frames that actually used the planar route.
 
-Strict SDK compilation, production argument guards and dyadic arithmetic tests pass. Playback pixel preservation and performance qualification are pending. No speed improvement or universal accuracy claim is established by these checks.
+Strict SDK compilation, production argument guards and dyadic arithmetic tests pass. Three matched frames from each of Saving Private Ryan and 1917, plus one numbered FEL frame, preserve the picture and Dolby metadata payload with planar output enabled. Three non-packed composition frames also pass. Only validated transport update IDs and their CRCs may differ; no pixel tolerance is accepted. Zoom fallback and playback performance qualification remain pending. These sampled checks do not establish universal equivalence or Dolby conformance.
 
-The complete Kodi SDK build passed with a 4 GiB memory limit, one CPU and serial compilation and linking. Peak memory was 2.18 GiB, with no out-of-memory events or swap use. The built candidate has not yet been installed for playback qualification.
+The rebuilt Kodi candidate is installed on the test VM. Its complete SDK build passed with a 4 GiB memory limit, one CPU and serial compilation and linking. Peak memory was 2.20 GiB, with no memory-limit or out-of-memory events and no swap use. The qualified packed-output binary remains available for rollback.
+
+Frame results are retained in [Saving Private Ryan](NATIVE_PLANAR_SPR_FRAME_RESULTS.json), [1917](NATIVE_PLANAR_1917_FRAME_RESULTS.json), [the numbered FEL test](NATIVE_PLANAR_FEL_FRAME_RESULTS.json), and [non-packed composition](NATIVE_PLANAR_COMPOSED_FRAME_RESULTS.json). [Build results](NATIVE_PLANAR_FALLBACK_BUILD_RESULTS.json) identify the tested candidate. If planar rendering is ineligible, the same composer can materialize its existing planes as RGBA without selecting the older reconstruction engine; committed metadata history is preserved during the retry.
 
 ## Synthetic renderer checks
 
