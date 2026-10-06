@@ -85,9 +85,9 @@ def main():
             shutil.copyfile(Path(__file__).parent / f"kodi-native-playback-{route}.conf",
                             configuration)
             command("systemctl", "daemon-reload")
+            run_started = int(time.time())
             command("systemctl", "start", "kodi")
             wait_rpc()
-            run_started = int(time.time())
             print(f"BEGIN {label}", flush=True)
             observer = ["/usr/bin/python3", str(args.observer), "--seconds", str(args.seconds),
                         "--report", label + ".json", "--output-dir", str(args.root),
