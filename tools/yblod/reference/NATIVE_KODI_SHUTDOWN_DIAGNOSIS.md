@@ -86,3 +86,29 @@ network access. No full Kodi link or runtime qualification is implied:
 | `DVBridgeGLES.cpp` | 330,559,488 B | 0 | 0 B |
 | `EGLUtils.cpp` | 335,753,216 B | 0 | 0 B |
 | `WinSystemGbmGLESContext.cpp` | 417,705,984 B | 0 | 0 B |
+
+## Runtime diagnostic control and exit-only safeguard
+
+The diagnostic-only build reproduced failure with DV menus enabled and no
+video playback. The renderer reported `native_present=false`. Output
+restoration failed and explicit window teardown was skipped. Implicit owner
+destruction subsequently destroyed the main EGL context successfully, then
+aborted while destroying the upload context. The service stop timed out.
+
+With DV menus disabled, the same binary exited normally. Restoration completed;
+main context, upload context and display termination all reported success.
+This isolates a failing display-cleanup case without requiring native-engine
+creation, but does not establish where earlier heap corruption originated.
+
+Patch `kodi-9999-yblod-12-exit-window-retention.patch` respects a failed final
+window-system teardown by retaining the whole owner until process exit, rather
+than implicitly destroying the graph after its explicit cleanup declined.
+Successful teardown and non-DVBridge builds are unchanged. This is an exit-only
+quarantine/mitigation, not a proven repair of the corruption or of HDMI output
+restoration. It must not be used for ordinary playback stop or mode changes.
+
+Both branches of the modified `Application.cpp` passed isolated SDK compilation
+under a 1 GiB/no-extra-swap, one-CPU, network-disabled cap: 866,189,312 B peak
+with DVBridge and 842,633,216 B without. Both had zero memory-limit/OOM events
+and zero swap. Repeated real menu/playback shutdown and restart qualification
+is still pending; compilation is not runtime validation.

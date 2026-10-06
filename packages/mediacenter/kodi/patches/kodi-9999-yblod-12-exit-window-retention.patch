@@ -1,0 +1,26 @@
+diff --git a/xbmc/application/Application.cpp b/xbmc/application/Application.cpp
+--- a/xbmc/application/Application.cpp
++++ b/xbmc/application/Application.cpp
+@@ -1779,9 +1779,21 @@ bool CApplication::Cleanup()
+ 
+     if (winSystem)
+     {
+-      winSystem->DestroyWindowSystem();
++      const bool windowDestroyed = winSystem->DestroyWindowSystem();
+       CServiceBroker::UnregisterWinSystem();
+       winSystem = nullptr;
++#ifdef HAVE_DVBRIDGE
++      if (!windowDestroyed)
++      {
++        // Failed output restoration retains scanout and borrowed graphics resources.
++        CLog::Log(LOGWARNING,
++                  "DVBridge shutdown: retaining window-system owner until process exit");
++        m_pWinSystem.release();
++      }
++      else
++#else
++      (void)windowDestroyed;
++#endif
+       m_pWinSystem.reset();
+     }
+ 
