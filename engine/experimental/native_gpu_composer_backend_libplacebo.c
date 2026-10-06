@@ -1,5 +1,6 @@
 #include "native_gpu_composer_backend.h"
 #include "native_gpu_guard.h"
+#include "native_gpu_nlq_lut.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -111,7 +112,10 @@ struct yb_gpu_composer_backend {
     struct backend_gl gl;
     yb_gpu_backend_create_info owner;
     uintptr_t context;
-    GLuint program,buffers[2],outputs[3];
+    GLuint program,buffers[3],outputs[3];
+    int nlq_lut_enabled,lut_valid;
+    yb_gpu_nlq_lut_stats *lut_stats;
+    struct yb_nlq_config lut_configs[3];
     GLsync fence;
     uint32_t width,height,output_depth;
     uint8_t frame_id[32];
@@ -123,6 +127,7 @@ struct yb_gpu_composer_backend {
  * Shader topology is bounded, parsed once, then checked before any submit GL
  * state/output mutation. Numerical coefficients are decoded once per dispatch
  * on the CPU and uploaded as floats, never converted per pixel. */
+static void lut_increment(uint64_t *value){if(*value!=UINT64_MAX)(*value)++;}
 static int fp_manifest_values(const char *p,int *values,unsigned count)
 {
     for(unsigned i=0;i<count;i++) {
@@ -233,19 +238,22 @@ static int software_renderer(const char *name)
 }
 static void delete_owned(yb_gpu_composer_backend *b)
 {
-    b->gl.DeleteTextures(3,b->outputs);b->gl.DeleteBuffers(2,b->buffers);
+    b->gl.DeleteTextures(3,b->outputs);b->gl.DeleteBuffers(b->nlq_lut_enabled?3:2,b->buffers);
     if(b->program)b->gl.DeleteProgram(b->program);
 }
 
-int yb_gpu_backend_create(const yb_gpu_backend_create_info *info,yb_gpu_composer_backend **output)
+static int create_internal(const yb_gpu_backend_create_info *info,yb_gpu_nlq_lut_stats *lut_stats,yb_gpu_composer_backend **output)
 {
     if(!info||!output||*output||!info->get_proc||!info->current_context||info->version!=1||
        !info->shader_source||!info->shader_bytes||info->shader_bytes>65536||
        memchr(info->shader_source,0,info->shader_bytes))return YB_GPU_BACKEND_ARGUMENT;
+    if(lut_stats&&(lut_stats->version!=1||lut_stats->enabled!=1||
+       !yb_gpu_nlq_lut_shader_has_marker(info->shader_source,info->shader_bytes)))return YB_GPU_BACKEND_ARGUMENT;
     uintptr_t context=info->current_context(info->opaque);if(!context)return YB_GPU_BACKEND_ARGUMENT;
     const uint16_t endian=1;if(*(const uint8_t *)&endian!=1)return YB_GPU_BACKEND_UNSUPPORTED;
     yb_gpu_composer_backend *b=calloc(1,sizeof(*b));if(!b)return YB_GPU_BACKEND_GL_FAILURE;
     b->owner=*info;b->context=context;
+    b->nlq_lut_enabled=lut_stats!=NULL;b->lut_stats=lut_stats;
     if(!fp_parse_shader(b,info)){free(b);return YB_GPU_BACKEND_METADATA;}
 #define LOAD(field,type) b->gl.field=(type)info->get_proc("gl" #field,info->opaque);if(!b->gl.field){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
     GL_PROCS(LOAD)
@@ -266,6 +274,15 @@ int yb_gpu_backend_create(const yb_gpu_backend_create_info *info,yb_gpu_composer
     g->GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,&invocations);
     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,0,&sx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,1,&sy);
     if(!supported||units<5||images<3||invocations<64||sx<8||sy<8||g->GetError()!=GL_NO_ERROR){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
+    if(b->nlq_lut_enabled){
+        GLint blocks=0,bindings=0;GLint64 bytes=0;
+        g->GetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS,&blocks);
+        g->GetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS,&bindings);
+        /* Core4.3 minimum block size far exceeds12KiB; query lower bounds
+         * through GLint to avoid requiring a new diagnostic GL entrypoint. */
+        GLint storage_bytes=0;g->GetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE,&storage_bytes);bytes=storage_bytes;
+        if(blocks<3||bindings<3||bytes<(GLint64)(YB_GPU_NLQ_LUT_ENTRIES*sizeof(int32_t))||g->GetError()!=GL_NO_ERROR){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
+    }
     GLuint shader=g->CreateShader(GL_COMPUTE_SHADER);
     if(!shader){free(b);return YB_GPU_BACKEND_GL_FAILURE;}
     GLint length=(GLint)info->shader_bytes;
@@ -281,15 +298,23 @@ int yb_gpu_backend_create(const yb_gpu_backend_create_info *info,yb_gpu_composer
         free(b);return YB_GPU_BACKEND_GL_FAILURE;
     }
     if(!fp_cache_locations(b)){g->DeleteProgram(b->program);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
-    g->GenBuffers(2,b->buffers);
-    for(unsigned i=0;i<2;i++){
+    g->GenBuffers(b->nlq_lut_enabled?3:2,b->buffers);
+    for(unsigned i=0;i<(b->nlq_lut_enabled?3U:2U);i++){
         if(!b->buffers[i]){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
         g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[i]);
-        g->BufferData(GL_SHADER_STORAGE_BUFFER,i?4:(GLsizeiptr)(BACKEND_WORDS*sizeof(int64_t)),NULL,GL_DYNAMIC_COPY);
+        GLsizeiptr bytes=i==2?(GLsizeiptr)(YB_GPU_NLQ_LUT_ENTRIES*sizeof(int32_t)):
+                            i?4:(GLsizeiptr)(BACKEND_WORDS*sizeof(int64_t));
+        g->BufferData(GL_SHADER_STORAGE_BUFFER,bytes,NULL,GL_DYNAMIC_COPY);
     }
     if(g->GetError()!=GL_NO_ERROR){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+    if(b->nlq_lut_enabled)lut_increment(&b->lut_stats->shader_compiles);
     *output=b;return YB_GPU_BACKEND_OK;
 }
+
+int yb_gpu_backend_create(const yb_gpu_backend_create_info *info,yb_gpu_composer_backend **output)
+{ return create_internal(info,NULL,output); }
+int yb_gpu_backend_create_lut(const yb_gpu_backend_create_info *info,yb_gpu_nlq_lut_stats *stats,yb_gpu_composer_backend **output)
+{ if(!stats)return YB_GPU_BACKEND_ARGUMENT;return create_internal(info,stats,output); }
 
 static int validate_texture(yb_gpu_composer_backend *b,const yb_gpu_backend_plan *p,unsigned slot)
 {
@@ -320,6 +345,19 @@ int yb_gpu_backend_submit(yb_gpu_composer_backend *b,const yb_gpu_backend_plan *
     if(!fp_same_topology(b,p))return YB_GPU_BACKEND_METADATA;
     struct backend_gl *g=&b->gl;
     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+    if(b->nlq_lut_enabled&&p->enhancement_enabled){
+        if(!b->lut_valid||!yb_gpu_nlq_lut_configs_equal(p->nlq,b->lut_configs)){
+            int32_t table[YB_GPU_NLQ_LUT_ENTRIES];
+            if(yb_gpu_nlq_lut_build(p->nlq,table)!=YB_OK)return YB_GPU_BACKEND_METADATA;
+            lut_increment(&b->lut_stats->builds);
+            g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[2]);
+            g->BufferSubData(GL_SHADER_STORAGE_BUFFER,0,(GLsizeiptr)sizeof(table),table);
+            if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+            lut_increment(&b->lut_stats->uploads);memcpy(b->lut_configs,p->nlq,sizeof(b->lut_configs));b->lut_valid=1;
+        }else lut_increment(&b->lut_stats->cache_hits);
+        g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,2,b->buffers[2]);
+        if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+    }
     GLint limit=0,gx=0,gy=0;
     g->GetIntegerv(GL_MAX_TEXTURE_SIZE,&limit);
     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,0,&gx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,1,&gy);
@@ -395,7 +433,7 @@ int yb_gpu_backend_destroy(yb_gpu_composer_backend **handle)
         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
         b->outputs[i]=0;
     }
-    for(unsigned i=0;i<2;i++)if(b->buffers[i]){
+    for(unsigned i=0;i<(b->nlq_lut_enabled?3U:2U);i++)if(b->buffers[i]){
         g->DeleteBuffers(1,&b->buffers[i]);
         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
         b->buffers[i]=0;
@@ -416,6 +454,8 @@ int yb_gpu_backend_abandon_destroyed_context(yb_gpu_composer_backend **handle,ui
 struct yb_gpu_composer_backend { int unused; };
 int yb_gpu_backend_create(const yb_gpu_backend_create_info *info,yb_gpu_composer_backend **output)
 {(void)info;(void)output;return YB_GPU_BACKEND_UNSUPPORTED;}
+int yb_gpu_backend_create_lut(const yb_gpu_backend_create_info *info,yb_gpu_nlq_lut_stats *stats,yb_gpu_composer_backend **output)
+{(void)info;(void)stats;(void)output;return YB_GPU_BACKEND_UNSUPPORTED;}
 int yb_gpu_backend_submit(yb_gpu_composer_backend *b,const yb_gpu_backend_plan *p)
 {(void)b;int status=yb_gpu_backend_validate_plan(p);return status?status:YB_GPU_BACKEND_UNSUPPORTED;}
 int yb_gpu_backend_finish(yb_gpu_composer_backend *b,uint64_t timeout,yb_gpu_backend_output *output)

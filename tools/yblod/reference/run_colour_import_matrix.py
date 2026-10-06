@@ -124,13 +124,21 @@ def parser():
 
 
 def validate_args(args):
+    validate_request(args)
+    configs = [(args.config_dir / f'no-reimport-{flag}.conf').read_text() for flag in (0, 1)]
+    validate_configs(configs)
+
+
+def validate_request(args):
     if (not re.fullmatch(r'[a-f0-9]{64}', args.binary_sha256) or args.movie_id <= 0
             or not args.expected_title.strip() or not 0 <= args.seek_seconds <= 14400
             or not 75 <= args.seconds <= 900 or not 20 <= args.startup_settle_seconds <= 60):
         raise ValueError('Invalid bounded request')
     if not args.root.is_dir() or any(args.root.iterdir()) or not args.observer.is_file():
         raise ValueError('Fresh output directory and existing observer required')
-    configs = [(args.config_dir / f'no-reimport-{flag}.conf').read_text() for flag in (0, 1)]
+
+
+def validate_configs(configs):
     normalized = []
     for flag, config in enumerate(configs):
         marker = f'Environment=DVBRIDGE_NATIVE_COLOUR_NO_REIMPORT={flag}'
@@ -147,6 +155,13 @@ def validate_args(args):
 def main():
     args = parser().parse_args()
     validate_args(args)
+    run_configured_matrix(args,
+        [args.config_dir / f'no-reimport-{flag}.conf' for flag in (0, 1)],
+        'colour-imports', lambda flag: f'imports={IMPORTS[flag]}', validate_report)
+
+
+def run_configured_matrix(args, configs, label_prefix, describe, report_validator):
+    """Shared bounded lifecycle; caller validates its exact two configurations."""
     if (command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '--value').strip() != 'inactive'
             or command('systemctl', 'show', 'kodi', '-p', 'Result', '--value').strip() != 'success'):
         raise RuntimeError('Kodi must initially be cleanly stopped')
@@ -155,8 +170,8 @@ def main():
     completed = []
     try:
         for order, flag in enumerate((0, 1, 1, 0), 1):
-            label = f'colour-imports-{order}-flag{flag}'
-            shutil.copyfile(args.config_dir / f'no-reimport-{flag}.conf', override)
+            label = f'{label_prefix}-{order}-flag{flag}'
+            shutil.copyfile(configs[flag], override)
             command('systemctl', 'daemon-reload')
             journal_start = int(time.time())
             command('systemctl', 'start', 'kodi')
@@ -170,7 +185,7 @@ def main():
                 raise RuntimeError('Service changed during startup settling')
             if CRASH.search(command('journalctl', '-u', 'kodi', '--since', f'@{journal_start}', '--no-pager')):
                 raise RuntimeError('Startup crash/failure marker')
-            print(f'BEGIN {label} imports={IMPORTS[flag]}', flush=True)
+            print(f'BEGIN {label} {describe(flag)}', flush=True)
             observer = ['/usr/bin/python3', str(args.observer), '--seconds', str(args.seconds),
                 '--report', label + '.json', '--output-dir', str(args.root), '--label', label,
                 '--expected-binary-sha256', args.binary_sha256, '--movie-id', str(args.movie_id),
@@ -181,7 +196,7 @@ def main():
                                timeout=args.seconds + 100)
             report = json.loads((args.root / (label + '.json')).read_text())
             stopped = json.loads((args.root / (label + '.json.stop.json')).read_text())
-            qualification = validate_report(report, stopped, flag, args.binary_sha256)
+            qualification = report_validator(report, stopped, flag, args.binary_sha256)
             (args.root / (label + '.qualification.json')).write_text(json.dumps(qualification, indent=2))
             command('systemctl', 'stop', 'kodi')
             status = dict(line.split('=', 1) for line in command('systemctl', 'show', 'kodi',

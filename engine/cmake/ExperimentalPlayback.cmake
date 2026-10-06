@@ -21,6 +21,7 @@ set(YB_NATIVE_PLAYBACK_SOURCES
   experimental/native_gpu_composer_backend.c
   experimental/native_gpu_composer_fp32.c
   experimental/native_gpu_composer_fp32_backend.c
+  experimental/native_gpu_nlq_lut.c
   experimental/native_libplacebo_reshape.c
   experimental/native_gpu_preparation.c
   experimental/native_gpu_ycc_backend.c
@@ -51,6 +52,7 @@ install(FILES
   experimental/native_vaapi_gl_import.h experimental/native_egl_output_bridge.h
   experimental/native_playback_context.h experimental/native_gpu_composer_fp32.h
   experimental/native_libplacebo_reshape.h
+  experimental/native_gpu_nlq_lut.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/yblod)
 install(FILES experimental/native_gpu_preparation_probe.comp
   experimental/native_gpu_composer_backend.comp experimental/native_gpu_reconstructed_ycc.comp

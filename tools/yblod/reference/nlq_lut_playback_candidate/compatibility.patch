@@ -1,0 +1,20 @@
+--- a/tools/yblod/reference/build_fp32_wrapper_diagnostic.sh
++++ b/tools/yblod/reference/build_fp32_wrapper_diagnostic.sh
+@@ -16,6 +16,7 @@
+   "$engine/experimental/native_gpu_composer_backend.c" \
+   "$engine/experimental/native_gpu_composer_fp32_backend.c" \
+   "$engine/experimental/native_gpu_composer_fp32.c" \
++  "$engine/experimental/native_gpu_nlq_lut.c" \
+   "$engine/experimental/native_libplacebo_reshape.c" \
+   "$engine/experimental/native_gpu_guard.c" \
+   "$engine/experimental/native_scaled_surface.c" \
+--- a/tools/yblod/reference/build_libplacebo_diagnostics.sh
++++ b/tools/yblod/reference/build_libplacebo_diagnostics.sh
+@@ -12,6 +12,7 @@
+   "$cc" -std=c11 -O2 -fno-lto -Wall -Wextra -Werror -Wconversion -Wshadow \
+     -I"$engine/experimental" -I"$engine/include" \
+     "$engine/experimental/$source" "$engine/experimental/$backend" \
++    "$engine/experimental/native_gpu_nlq_lut.c" \
+     "$engine/experimental/native_gpu_guard.c" "$engine/experimental/native_scaled_surface.c" \
+     "$engine/experimental/native_decoder_frame_bridge.c" "$engine/experimental/native_mmr_composer.c" \
+     "$engine/experimental/native_integration_probe.c" "$engine/experimental/native_sampling_probe.c" \

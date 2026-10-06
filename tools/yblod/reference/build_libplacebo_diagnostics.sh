@@ -12,6 +12,7 @@ compile_probe() {
   "$cc" -std=c11 -O2 -fno-lto -Wall -Wextra -Werror -Wconversion -Wshadow \
     -I"$engine/experimental" -I"$engine/include" \
     "$engine/experimental/$source" "$engine/experimental/$backend" \
+    "$engine/experimental/native_gpu_nlq_lut.c" \
     "$engine/experimental/native_gpu_guard.c" "$engine/experimental/native_scaled_surface.c" \
     "$engine/experimental/native_decoder_frame_bridge.c" "$engine/experimental/native_mmr_composer.c" \
     "$engine/experimental/native_integration_probe.c" "$engine/experimental/native_sampling_probe.c" \

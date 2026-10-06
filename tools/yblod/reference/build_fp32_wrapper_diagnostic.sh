@@ -16,6 +16,7 @@ for kind in compare sequence; do
   "$engine/experimental/native_gpu_composer_backend.c" \
   "$engine/experimental/native_gpu_composer_fp32_backend.c" \
   "$engine/experimental/native_gpu_composer_fp32.c" \
+  "$engine/experimental/native_gpu_nlq_lut.c" \
   "$engine/experimental/native_libplacebo_reshape.c" \
   "$engine/experimental/native_gpu_guard.c" \
   "$engine/experimental/native_scaled_surface.c" \

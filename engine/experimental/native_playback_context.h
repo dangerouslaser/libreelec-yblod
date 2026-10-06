@@ -10,9 +10,13 @@
 extern "C" {
 #endif
 typedef struct yb_native_playback_context yb_native_playback_context;
+enum { YB_NATIVE_PLAYBACK_FP32=1,YB_NATIVE_PLAYBACK_NLQ_LUT=2 };
+typedef struct { uint32_t version,flags,reserved[2]; } yb_native_playback_options;
+int yb_native_playback_options_validate(const yb_native_playback_options *);
 /* CPU-only, same-owner-thread route diagnostics. Zero counters when disabled. */
 int yb_native_playback_fp32_selected(const yb_native_playback_context *);
 int yb_native_playback_fp32_get_stats(const yb_native_playback_context *,yb_gpu_fp32_stats *);
+int yb_native_playback_nlq_lut_get_stats(const yb_native_playback_context *,yb_gpu_nlq_lut_stats *,size_t);
 enum {
     YB_NATIVE_TIMING_SCALER_SUBMIT=0,YB_NATIVE_TIMING_VA_WAIT,
     YB_NATIVE_TIMING_IMPORT,YB_NATIVE_TIMING_PREPARATION_SUBMIT,
@@ -103,6 +107,9 @@ enum { YB_NATIVE_PLAYBACK_OK=0,YB_NATIVE_PLAYBACK_ARGUMENT=1,
  * of settings, and rejects capability failures before accepting decoder work. */
 int yb_native_playback_create(const yb_native_playback_create_info *,
     yb_native_playback_context **output);
+/* Explicit options; LUT requires FP32. Legacy create retains its existing flag. */
+int yb_native_playback_create_ex(const yb_native_playback_create_info *,
+    const yb_native_playback_options *,yb_native_playback_context **output);
 /* Strict route clones actual HWFrames. Custom Kodi BL copies only declared
  * public properties and DOVI bytes; a genuine render-picture lease owns storage.
  * BL best_effort_timestamp and EL pts must match descriptor and each other

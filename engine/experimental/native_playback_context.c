@@ -179,12 +179,29 @@ static int clear_frame(yb_native_playback_context *p)
 int yb_native_playback_create(const yb_native_playback_create_info *info,
     yb_native_playback_context **out)
 {
-    if (!info || !out || *out || info->version!=2 || !info->egl_display || !info->va_display ||
+    const char *fp32=getenv("DVBRIDGE_NATIVE_FP32");
+    const yb_native_playback_options options={1,
+        fp32&&!strcmp(fp32,"1")?(uint32_t)YB_NATIVE_PLAYBACK_FP32:0U,{0,0}};
+    return yb_native_playback_create_ex(info,&options,out);
+}
+int yb_native_playback_options_validate(const yb_native_playback_options *options)
+{
+    if(!options||options->version!=1||options->reserved[0]||options->reserved[1]||
+       (options->flags&~(uint32_t)(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT))||
+       ((options->flags&YB_NATIVE_PLAYBACK_NLQ_LUT)&&!(options->flags&YB_NATIVE_PLAYBACK_FP32)))
+        return YB_NATIVE_PLAYBACK_ARGUMENT;
+    return YB_NATIVE_PLAYBACK_OK;
+}
+int yb_native_playback_create_ex(const yb_native_playback_create_info *info,
+    const yb_native_playback_options *options,yb_native_playback_context **out)
+{
+    if (yb_native_playback_options_validate(options) || !info || !out || *out || info->version!=2 || !info->egl_display || !info->va_display ||
         yb_vaapi_el_scale_validate(&info->enhancement_scaler) ||
         !shader_valid(info->preparation) || !shader_valid(info->composer) || !shader_valid(info->ycc_expansion) ||
         !nonzero(info->guide_contract_id) || !nonzero(info->phase_contract_id) ||
         !nonzero(info->enhancement_scale_contract_id) || info->base_chroma_location>1 ||
         (info->phase_filter!=1 && info->phase_filter!=2)) return YB_NATIVE_PLAYBACK_ARGUMENT;
+    const uint32_t flags=options->flags;
     yb_egl_binding saved;
     if (!snapshot(&saved) || saved.display!=info->egl_display || saved.api!=EGL_OPENGL_ES_API)
         return YB_NATIVE_PLAYBACK_ARGUMENT;
@@ -204,9 +221,10 @@ int yb_native_playback_create(const yb_native_playback_create_info *info,
         info->preparation.bytes,info->preparation.size};
     if (yb_gpu_preparation_create(&gpu,&p->preparation)) goto fail;
     gpu.shader_source=info->composer.bytes; gpu.shader_bytes=info->composer.size;
-    const char *fp32=getenv("DVBRIDGE_NATIVE_FP32");
-    if (fp32 && !strcmp(fp32,"1")) {
-        if (yb_gpu_fp32_create(&gpu,&p->fp32)) goto fail;
+    if (flags&YB_NATIVE_PLAYBACK_FP32) {
+        const yb_gpu_fp32_options composer_options={1,
+            flags&YB_NATIVE_PLAYBACK_NLQ_LUT?(uint32_t)YB_GPU_FP32_NLQ_LUT:0U,{0,0}};
+        if (yb_gpu_fp32_create_ex(&gpu,&composer_options,&p->fp32)) goto fail;
     } else if (yb_gpu_backend_create(&gpu,&p->composer)) goto fail;
     gpu.shader_source=info->ycc_expansion.bytes; gpu.shader_bytes=info->ycc_expansion.size;
     if (yb_gpu_ycc_create(&gpu,&p->ycc)) goto fail;
@@ -561,4 +579,10 @@ int yb_native_playback_fp32_get_stats(const yb_native_playback_context *p,yb_gpu
     if(!p||!out)return YB_NATIVE_PLAYBACK_ARGUMENT;
     if(!p->fp32){memset(out,0,sizeof(*out));return YB_NATIVE_PLAYBACK_OK;}
     return yb_gpu_fp32_get_stats(p->fp32,out)?YB_NATIVE_PLAYBACK_ARGUMENT:YB_NATIVE_PLAYBACK_OK;
+}
+int yb_native_playback_nlq_lut_get_stats(const yb_native_playback_context *p,yb_gpu_nlq_lut_stats *out,size_t bytes)
+{
+    if(!p||!out||bytes!=sizeof(*out)||out->version!=1)return YB_NATIVE_PLAYBACK_ARGUMENT;
+    if(!p->fp32){const yb_gpu_nlq_lut_stats zero={1,0,0,0,0,0,0};*out=zero;return YB_NATIVE_PLAYBACK_OK;}
+    return yb_gpu_fp32_get_nlq_lut_stats(p->fp32,out,bytes)?YB_NATIVE_PLAYBACK_ARGUMENT:YB_NATIVE_PLAYBACK_OK;
 }

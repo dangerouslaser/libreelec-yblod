@@ -1,0 +1,47 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -102,17 +102,22 @@
+       perFrameMs(YB_NATIVE_TIMING_YCC_WAIT), perFrameMs(YB_NATIVE_TIMING_BRIDGE),
+       perFrameMs(YB_NATIVE_TIMING_RELEASE));
+   yb_gpu_fp32_stats composer{};
+-  if (yb_native_playback_fp32_get_stats(context, &composer) == YB_NATIVE_PLAYBACK_OK)
++  yb_gpu_nlq_lut_stats lut{};
++  lut.version = 1;
++  if (yb_native_playback_fp32_get_stats(context, &composer) == YB_NATIVE_PLAYBACK_OK &&
++      yb_native_playback_nlq_lut_get_stats(context, &lut, sizeof(lut)) == YB_NATIVE_PLAYBACK_OK)
+   {
+     // Accepted submits are not unique displayed frames. Route selection is
+     // the latest accepted submit, not merely an environment-variable request.
+     CLog::Log(LOGINFO,
+         "DVBridge native composer: released_frames={} fp32_selected={} "
+         "accepted_fp32={} accepted_integer={} cache_hits={} cache_misses={} "
+-        "shader_compile_failed={} generate_failed={}",
++        "shader_compile_failed={} generate_failed={} nlq_lut_enabled={} accepted_lut={} "
++        "nlq_shader_compiles={} nlq_builds={} nlq_uploads={} nlq_cache_hits={}",
+         stats.completed_frames, yb_native_playback_fp32_selected(context),
+         composer.accepted_fp32, composer.accepted_integer, composer.cache_hits,
+-        composer.cache_misses, composer.shader_compile_failed, composer.generate_failed);
++        composer.cache_misses, composer.shader_compile_failed, composer.generate_failed,
++        lut.enabled, lut.accepted_frames, lut.shader_compiles, lut.builds, lut.uploads, lut.cache_hits);
+   }
+ }
+ #endif
+@@ -607,7 +612,17 @@
+   {
+     m_nativeColourCalls = m_nativeColourWallNs = m_nativeColourCpuNs = 0;
+     m_nativeColourTimingValid = true;
+-    const int status = yb_native_playback_create(&info, &m_native);
++    const char* nlq = std::getenv("DVBRIDGE_NATIVE_NLQ_LUT");
++    if (nlq && std::strcmp(nlq, "0") && std::strcmp(nlq, "1"))
++      return fail("nlq_lut flag", YB_NATIVE_PLAYBACK_ARGUMENT);
++    const bool nlqRequested = nlq && !std::strcmp(nlq, "1");
++    const char* fp32 = std::getenv("DVBRIDGE_NATIVE_FP32");
++    if (nlqRequested && (!fp32 || std::strcmp(fp32, "1")))
++      return fail("nlq_lut requires fp32", YB_NATIVE_PLAYBACK_ARGUMENT);
++    const yb_native_playback_options options{
++        1, YB_NATIVE_PLAYBACK_FP32 | YB_NATIVE_PLAYBACK_NLQ_LUT, {0, 0}};
++    const int status = nlqRequested ? yb_native_playback_create_ex(&info, &options, &m_native)
++                                    : yb_native_playback_create(&info, &m_native);
+     if (status != YB_NATIVE_PLAYBACK_OK)
+       return fail("create", status);
+     if (NativeTimingRequested() &&

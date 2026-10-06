@@ -109,7 +109,7 @@ class ColourImportTests(unittest.TestCase):
 
     def test_abba_flags_and_finally_no_start_stop_or_kill(self):
         tree = ast.parse(Path(__file__).with_name('run_colour_import_matrix.py').read_text())
-        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'run_configured_matrix')
         loop = next(node for node in ast.walk(main) if isinstance(node, ast.For))
         self.assertEqual(ast.literal_eval(loop.iter.args[0]), (0, 1, 1, 0))
         final = next(node.finalbody for node in ast.walk(main) if isinstance(node, ast.Try))
@@ -121,7 +121,7 @@ class ColourImportTests(unittest.TestCase):
 
     def test_startup_settle_and_journal_boundary_precede_playback(self):
         tree = ast.parse(Path(__file__).with_name('run_colour_import_matrix.py').read_text())
-        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'run_configured_matrix')
         loop = next(node for node in ast.walk(main) if isinstance(node, ast.For))
         boundary = next(i for i, node in enumerate(loop.body) if isinstance(node, ast.Assign)
                         and isinstance(node.targets[0], ast.Name) and node.targets[0].id == 'journal_start')

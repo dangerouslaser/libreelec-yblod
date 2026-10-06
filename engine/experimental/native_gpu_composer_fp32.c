@@ -5,6 +5,7 @@
 
 /* Compile reviewed experimental hybrid backend with these symbol prefixes. */
 int yb_fp_backend_create(const yb_gpu_backend_create_info *,yb_gpu_composer_backend **);
+int yb_fp_backend_create_lut(const yb_gpu_backend_create_info *,yb_gpu_nlq_lut_stats *,yb_gpu_composer_backend **);
 int yb_fp_backend_submit(yb_gpu_composer_backend *,const yb_gpu_backend_plan *);
 int yb_fp_backend_finish(yb_gpu_composer_backend *,uint64_t,yb_gpu_backend_output *);
 int yb_fp_backend_destroy(yb_gpu_composer_backend **);
@@ -21,6 +22,7 @@ struct yb_gpu_fp32 {
     int active,pending,failed,closing;
     unsigned next;
     yb_gpu_fp32_stats stats;
+    yb_gpu_nlq_lut_stats lut_stats;
 };
 static void increment(uint64_t *value){if(*value!=UINT64_MAX)(*value)++;}
 static struct topology topology(const yb_gpu_backend_plan *p)
@@ -57,13 +59,30 @@ static int shader(yb_gpu_fp32 *b,const yb_gpu_backend_plan *p,char **out,size_t 
     memcpy(text,b->canonical,a);memcpy(text+a,fragment,n);text[a+n]='\n';
     memcpy(text+a+n+1,main,z);memcpy(text+a+n+1+z,replacement,r);
     memcpy(text+a+n+1+z+r,end,tail+1);
-    free(fragment);*out=text;*size=length;return 1;
+    free(fragment);
+    if(b->lut_stats.enabled){
+        char *patched=NULL;size_t patched_bytes=0;
+        if(!yb_gpu_nlq_lut_shader_patch(text,length,&patched,&patched_bytes)){free(text);return 0;}
+        free(text);text=patched;length=patched_bytes;
+    }
+    *out=text;*size=length;return 1;
+}
+int yb_gpu_fp32_options_validate(const yb_gpu_fp32_options *options)
+{
+    return !options||options->version!=1||(options->flags&~(uint32_t)YB_GPU_FP32_NLQ_LUT)||
+        options->reserved[0]||options->reserved[1]?YB_GPU_BACKEND_ARGUMENT:YB_GPU_BACKEND_OK;
 }
 int yb_gpu_fp32_create(const yb_gpu_backend_create_info *i,yb_gpu_fp32 **out)
 {
-    if(!i||!out||*out||!i->shader_source||!i->shader_bytes||i->shader_bytes>1048576U||
+    const yb_gpu_fp32_options options={1,0,{0,0}};
+    return yb_gpu_fp32_create_ex(i,&options,out);
+}
+int yb_gpu_fp32_create_ex(const yb_gpu_backend_create_info *i,const yb_gpu_fp32_options *options,yb_gpu_fp32 **out)
+{
+    if(yb_gpu_fp32_options_validate(options)||!i||!out||*out||!i->shader_source||!i->shader_bytes||i->shader_bytes>1048576U||
        memchr(i->shader_source,0,i->shader_bytes))return YB_GPU_BACKEND_ARGUMENT;
     yb_gpu_fp32 *b=calloc(1,sizeof(*b));if(!b)return YB_GPU_BACKEND_GL_FAILURE;
+    b->lut_stats.version=1;b->lut_stats.enabled=(options->flags&YB_GPU_FP32_NLQ_LUT)!=0;
     b->canonical=malloc(i->shader_bytes+1);
     if(!b->canonical){free(b);return YB_GPU_BACKEND_GL_FAILURE;}
     memcpy(b->canonical,i->shader_source,i->shader_bytes);b->canonical[i->shader_bytes]=0;
@@ -88,7 +107,8 @@ int yb_gpu_fp32_submit(yb_gpu_fp32 *b,const yb_gpu_backend_plan *p)
         if(shader(b,p,&source,&bytes)) {
             index=(int)(b->next%2U);
             yb_gpu_backend_create_info info=b->owner;info.shader_source=source;info.shader_bytes=bytes;
-            status=yb_fp_backend_create(&info,&b->staged);free(source);
+            status=b->lut_stats.enabled?yb_fp_backend_create_lut(&info,&b->lut_stats,&b->staged):
+                yb_fp_backend_create(&info,&b->staged);free(source);
             if(status) {
                 increment(&b->stats.shader_compile_failed);
                 if(b->staged){b->failed=1;return status;}
@@ -102,11 +122,14 @@ int yb_gpu_fp32_submit(yb_gpu_fp32 *b,const yb_gpu_backend_plan *p)
             }
         } else increment(&b->stats.generate_failed);
     }
+    if(b->lut_stats.enabled&&index<0)return YB_GPU_BACKEND_UNSUPPORTED;
     status=index<0?yb_gpu_backend_submit(b->integer,p):yb_fp_backend_submit(b->entries[index].backend,p);
     /* GL failure may leave queued work; never switch backend or destroy it. */
     if(status!=YB_GPU_BACKEND_OK){if(status==YB_GPU_BACKEND_GL_FAILURE)b->failed=1;return status;}
     b->active=index;b->pending=1;
-    increment(index<0?&b->stats.accepted_integer:&b->stats.accepted_fp32);return 0;
+    increment(index<0?&b->stats.accepted_integer:&b->stats.accepted_fp32);
+    if(b->lut_stats.enabled&&p->enhancement_enabled)increment(&b->lut_stats.accepted_frames);
+    return 0;
 }
 int yb_gpu_fp32_finish(yb_gpu_fp32 *b,uint64_t timeout,yb_gpu_backend_output *out)
 {
@@ -140,4 +163,9 @@ int yb_gpu_fp32_get_stats(const yb_gpu_fp32 *b,yb_gpu_fp32_stats *out)
 {
     if(!b||!out)return YB_GPU_BACKEND_ARGUMENT;
     *out=b->stats;return 0;
+}
+int yb_gpu_fp32_get_nlq_lut_stats(const yb_gpu_fp32 *b,yb_gpu_nlq_lut_stats *out,size_t bytes)
+{
+    if(!b||!out||bytes!=sizeof(*out)||out->version!=1)return YB_GPU_BACKEND_ARGUMENT;
+    *out=b->lut_stats;return YB_GPU_BACKEND_OK;
 }
