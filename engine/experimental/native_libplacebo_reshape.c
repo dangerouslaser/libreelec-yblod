@@ -1,4 +1,6 @@
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include "native_libplacebo_reshape.h"
 /* Diagnostic, metadata-specialized BL reshape generator. Actual libplacebo
  * generated code; not a hand-written FP32 composer. Native NLQ stays separate.
@@ -239,4 +241,3 @@ done:
     if(status||length>1048576U){free(buffer);return status?status:4;}
     *text=buffer;*bytes=length;return 0;
 }
-

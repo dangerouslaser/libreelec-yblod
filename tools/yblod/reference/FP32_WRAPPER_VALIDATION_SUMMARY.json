@@ -1,0 +1,57 @@
+{
+  "schema": "yblod.fp32-wrapper-validation-summary.v1",
+  "status": "accuracy-qualified-on-two-frames-playback-candidate-pending",
+  "reference": "our native integer CPU composer, not licensed Dolby hardware",
+  "private_pixels_rpu_and_input_hashes_published": false,
+  "accuracy": {
+    "unique_frames": 2,
+    "output_depth": 12,
+    "compared_codes": 24883200,
+    "changed_codes": 21204,
+    "exact_percent": 99.91478587962963,
+    "maximum_absolute_code_difference": 1,
+    "codes_over_one": 0,
+    "plane_metrics": [
+      {"plane": "Y", "count": 16588800, "changed": 0, "exact_percent": 100.0, "squared_error_sum": 0, "mean_bias_codes": 0.0, "psnr_db": null, "psnr_note": "identical; mathematically infinite"},
+      {"plane": "Cb", "count": 4147200, "changed": 16444, "exact_percent": 99.60349151234568, "squared_error_sum": 16444, "mean_bias_codes": 0.0013932291666666667, "psnr_db": 96.26255323939043},
+      {"plane": "Cr", "count": 4147200, "changed": 4760, "exact_percent": 99.8852237654321, "squared_error_sum": 4760, "mean_bias_codes": 0.00011525848765432099, "psnr_db": 101.64655839326862}
+    ],
+    "psnr_peak_code": 4095,
+    "psnr_formula": "10*log10(4095^2 * count / squared_error_sum)",
+    "second_frame_scope": "frame 1406 uses previously prepared software-linear.p010; verifies composer against identical resident inputs, not equivalence of different enhancement scaling routes",
+    "repeated_first_frame_not_counted_twice": true,
+    "route_per_proper_fp32_run": {"accepted_fp32": 21, "accepted_integer": 0, "cache_hits": 20, "cache_misses": 1, "shader_compile_failed": 0, "generate_failed": 0}
+  },
+  "standalone_performance": {
+    "scope": "resident-input submit and finish; three planes, one completion wait and error flag; excludes per-frame preparation, decoding, VA import, image readback and display",
+    "exclusive_device_kernel_timing": false,
+    "reliable_speedup_confirmed": false,
+    "reason": "large jitter and unmatched sequential runs; earlier direct-hybrid 46.8 percent result cannot be treated as reproduced playback-wrapper speedup",
+    "runs": [
+      {"label": "frame1-A-fp32", "warmups": 1, "samples": 3, "min_ms": 16.635976, "median_ms": 17.263, "max_ms": 17.50962, "configuration_note": "initial requested warmups/samples used incorrect YB_GPU names; actual YB_COMPARE defaults applied"},
+      {"label": "frame1-B-fp32", "warmups": 8, "samples": 12, "min_ms": 8.67634, "median_ms": 34.6312505, "max_ms": 47.92316},
+      {"label": "frame1-integer", "warmups": 8, "samples": 12, "min_ms": 29.63651, "median_ms": 67.4841815, "max_ms": 81.309528},
+      {"label": "frame1406-fp32", "warmups": 8, "samples": 12, "min_ms": 19.781728, "median_ms": 31.975356, "max_ms": 32.469226}
+    ]
+  },
+  "playback_baseline": {
+    "media": "1917",
+    "route": "existing integer native composer",
+    "observer_elapsed_seconds": 76.40267553098965,
+    "health_counter_window": "approximately source 9.968 to 70.112 seconds; not whole observer interval",
+    "drop_delta": 4,
+    "skip_delta": 6,
+    "normal_speed": true,
+    "stalled": false,
+    "failure_marker": false,
+    "service_identity_unchanged": true,
+    "released_frames_are_not_display_flips_or_unique_playback_fps": true,
+    "candidate_comparison": null
+  },
+  "roadblocks": [
+    "candidate playback build and controlled before-after runs pending",
+    "standalone jitter requires characterization before declaring speedup",
+    "old b06 service-shutdown heap abort is not fixed or qualified by successful player stop",
+    "two real frames do not establish complete Dolby conformance or hardware-output equivalence"
+  ]
+}
