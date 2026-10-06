@@ -63,6 +63,10 @@ class Tests(unittest.TestCase):
         result = self.run_compare(packed(), packed(), dict(native_planar=1))
         self.assertNotIn('native_planar', result['before'])
         self.assertEqual(result['after']['native_planar'], 1)
+        for field in ('batched_planes', 'immutable_instructions'):
+            result = self.run_compare(packed(), packed(), {field: 1})
+            self.assertNotIn(field, result['before'])
+            self.assertEqual(result['after'][field], 1)
 
     def test_metadata_rows_excluded(self):
         new = packed()

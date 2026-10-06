@@ -24,8 +24,9 @@ def load_frame(folder):
     info = json.loads((folder / 'frame.json').read_text())
     if info.get('format') != 'RGBA8 DV tunnel bottom up':
         raise ValueError('Unsupported capture format')
-    if 'native_planar' in info and (type(info['native_planar']) is not int or info['native_planar'] not in (0, 1)):
-        raise ValueError('Invalid native planar route metadata')
+    for field in ('native_planar', 'batched_planes', 'immutable_instructions'):
+        if field in info and (type(info[field]) is not int or info[field] not in (0, 1)):
+            raise ValueError('Invalid native output route metadata')
     for name in ('pts', 'el_pts'):
         value = info.get(name)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
@@ -163,10 +164,10 @@ def compare(a, b, require_exact=False, require_picture_and_payload_preserved=Fal
         preservation_scope='All oriented tunnel RGB bytes, including metadata rows; alpha is not transmitted.',
         before=dict(native=ia['native'], direct_packed=ia['direct_packed'],
                     rows_flipped=fa, valid_leading_packets=ca,
-                    **({'native_planar': ia['native_planar']} if 'native_planar' in ia else {})),
+                    **{key: ia[key] for key in ('native_planar', 'batched_planes', 'immutable_instructions') if key in ia}),
         after=dict(native=ib['native'], direct_packed=ib['direct_packed'],
                    rows_flipped=fb, valid_leading_packets=cb,
-                   **({'native_planar': ib['native_planar']} if 'native_planar' in ib else {})), planes=planes,
+                   **{key: ib[key] for key in ('native_planar', 'batched_planes', 'immutable_instructions') if key in ib}), planes=planes,
         scope='12-bit tunnel code differences between players, not Dolby conformance or display quality.',
         region='Full picture excluding first four metadata rows; letterbox bars remain included.')
 

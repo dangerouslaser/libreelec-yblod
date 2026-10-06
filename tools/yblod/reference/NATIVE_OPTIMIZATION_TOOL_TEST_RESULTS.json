@@ -1,0 +1,28 @@
+{
+  "schema": "yblod.native-optimization-source-test-results.v1",
+  "test_result": "passed",
+  "test_count": 44,
+  "suites": [
+    "test_capture_scene",
+    "test_capture_scene_view_zoom",
+    "test_compare_renderer_frames",
+    "test_native_optimization_qualification",
+    "test_native_optimization_matrix",
+    "test_native_optimization_telemetry",
+    "test_summarize_native_optimization_matrix"
+  ],
+  "resource_limits": {
+    "memory_bytes": 536870912,
+    "extra_swap_bytes": 0,
+    "cpus": 1,
+    "execution": "All seven suites ran together in a bounded Ollie user unit using installed NumPy; tests do not perform network access, GPU execution, or VM operations.",
+    "network_isolation_enforced_for_complete_host_gate": false
+  },
+  "peak_memory_measured_for_all_suites": true,
+  "memory_peak_bytes": 32002048,
+  "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+  "swap_current_bytes": 0,
+  "exit_code": 0,
+  "vm_tooling_or_playback_modified": false,
+  "scope": "Source/mock tests, not playback qualification or measured optimization savings. Exact same-candidate matched-frame gates, isolated configuration flags, actual successful-use counters, optional movie capture subtitle-state restoration before Stop, owned-service error cleanup with capture disabled, packed planar routes, duration-weighted CPU/GPU and strict whole-service sampled memory aggregation, and private-data sanitization were tested. Existing default and zoom capture behavior remains covered."
+}

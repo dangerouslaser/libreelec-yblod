@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import time
 import urllib.request
+from observe_subtitle_fixture import subtitles_off_fixture, validate_fixture
 
 
 def rpc(method, params=None):
@@ -62,8 +63,12 @@ def parse_args(argv=None):
     parser.add_argument('--expected-native', type=int, choices=(0, 1))
     parser.add_argument('--expected-direct-packed', type=int, choices=(0, 1))
     parser.add_argument('--expected-native-planar', type=int, choices=(0, 1))
+    parser.add_argument('--expected-batched-planes', type=int, choices=(0, 1))
+    parser.add_argument('--expected-immutable-instructions', type=int, choices=(0, 1))
     parser.add_argument('--view-zoom', type=float, choices=(0.9,),
                         help='Temporary 0.9 zoom for matched same-native RGBA fallback captures.')
+    parser.add_argument('--subtitles-off', action='store_true',
+                        help='Temporarily disable movie subtitles and restore before playback stop.')
     media = parser.add_mutually_exclusive_group()
     media.add_argument('--movie-id', type=int, default=3391)
     media.add_argument('--file', help='Absolute local media path for a clip outside the movie library.')
@@ -76,6 +81,8 @@ def parse_args(argv=None):
         parser.error('Positive movie ID and nonempty expected title required')
     if args.file is not None and not Path(args.file).is_absolute():
         parser.error('An absolute local media file path is required')
+    if args.file and args.subtitles_off:
+        parser.error('The temporary subtitle fixture requires a library movie')
     if not math.isfinite(args.seek_seconds) or not 0 <= args.seek_seconds <= 86400:
         parser.error('Seek must be finite and between zero and 86400 seconds')
     if args.baseline and args.target_seconds:
@@ -104,7 +111,9 @@ def verify_file_item(args, player):
 def verify_capture_route(info, args):
     for field, expected in (('native', args.expected_native),
                             ('direct_packed', args.expected_direct_packed),
-                            ('native_planar', args.expected_native_planar)):
+                            ('native_planar', args.expected_native_planar),
+                            ('batched_planes', getattr(args, 'expected_batched_planes', None)),
+                            ('immutable_instructions', getattr(args, 'expected_immutable_instructions', None))):
         if expected is not None and (type(info.get(field)) is not int or info.get(field) != expected):
             raise RuntimeError('Wrong captured rendering route: ' + field)
 
@@ -113,6 +122,8 @@ def capture_targets(args):
     if not args.baseline:
         return [(seconds * 1000000, 0) for seconds in args.target_seconds]
     baseline = json.loads(args.baseline.read_text())
+    if args.subtitles_off:
+        validate_fixture(baseline.get('subtitle_fixture'), args.movie_id)
     if args.view_zoom is not None and baseline.get('viewmode',{}).get('requested') != dict(
             viewmode='custom',zoom=args.view_zoom,pixelratio=1.0,verticalshift=0.0,nonlinearstretch=False):
         raise RuntimeError('Exact baseline has different temporary view geometry')
@@ -182,6 +193,42 @@ def temporary_view_zoom(zoom, player):
                 rpc('Player.Stop', {'playerid':player})
 
 
+@contextmanager
+def capture_fixtures(args, player):
+    with temporary_view_zoom(args.view_zoom, player) as viewmode:
+        with subtitles_off_fixture(args.subtitles_off, rpc, time.sleep, args.movie_id) as subtitles:
+            yield viewmode, subtitles
+
+
+def capture_failure_cleanup(override, previous, request, state):
+    active = command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '--value').strip()
+    if active != 'inactive' and state.get('identity') is not None and process_identity() != state['identity']:
+        raise RuntimeError('Capture process changed; refusing cleanup of another service process')
+    # Restore the previous override with capture requests disabled.
+    lines = previous.splitlines()
+    lines.append('[Service]')
+    for name in ('OUTPUTS', 'PAIRS'):
+        prefix = f'Environment=DVBRIDGE_CAPTURE_{name}='
+        lines = [line for line in lines if not line.startswith(prefix)]
+        lines.append(prefix+'0')
+    try:
+        override.write_text('\n'.join(lines)+'\n')
+        command('systemctl', 'daemon-reload')
+        if request.exists():
+            request.unlink()
+    finally:
+        if state.get('started'):
+            try:
+                players = rpc('Player.GetActivePlayers') if state.get('identity') is not None else []
+                for player in players:
+                    if player['type'] == 'video' and player['playerid'] == state.get('player'):
+                        rpc('Player.Stop', {'playerid':player['playerid']})
+            finally:
+                command('systemctl', 'stop', 'kodi')
+    if state.get('started') and command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '--value').strip() != 'inactive':
+        raise RuntimeError('Failed capture service did not stop')
+
+
 def main():
     args = parse_args()
     if command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '--value').strip() != 'inactive':
@@ -193,8 +240,19 @@ def main():
         raise RuntimeError('Fresh request/report required')
     targets = capture_targets(args)
     override = Path('/run/systemd/system/kodi.service.d/yblod-native-playback.conf')
+    previous = override.read_text() if override.exists() else '[Service]\n'
+    state = {}
+    try:
+        capture_started(args, root, request, targets, override, state)
+    except BaseException:
+        capture_failure_cleanup(override, previous, request, state)
+        raise
+
+
+def capture_started(args, root, request, targets, override, state):
     shutil.copyfile(args.config, override)
     command('systemctl', 'daemon-reload')
+    state['started'] = True
     command('systemctl', 'start', 'kodi')
     for _ in range(30):
         try:
@@ -207,6 +265,7 @@ def main():
         raise RuntimeError('Kodi not reachable and idle')
     time.sleep(20)
     identity = process_identity()
+    state['identity'] = identity
     if args.binary_sha256 and identity['binary_sha256'] != args.binary_sha256.lower():
         raise RuntimeError('Wrong Kodi binary')
     title = None
@@ -226,8 +285,9 @@ def main():
         time.sleep(1)
     if player is None:
         raise RuntimeError('No player')
+    state['player'] = player
     verify_file_item(args, player)
-    with temporary_view_zoom(args.view_zoom, player) as viewmode:
+    with capture_fixtures(args, player) as (viewmode, subtitles):
         milliseconds = round(args.seek_seconds * 1000)
         rpc('Player.Seek', {'playerid': player, 'value': {'time': {'hours': milliseconds // 3600000,
                            'minutes': milliseconds // 60000 % 60, 'seconds': milliseconds // 1000 % 60,
@@ -258,6 +318,8 @@ def main():
                 time.sleep(.1)
             else:
                 raise RuntimeError('Capture timed out')
+    if subtitles is not None:
+        validate_fixture(subtitles, args.movie_id)
     rpc('Player.Stop', {'playerid': player})
     time.sleep(2)
     if rpc('Player.GetActivePlayers'):
@@ -272,6 +334,8 @@ def main():
     report = dict(frames=captured, shutdown=state, identity_before=identity, identity_after=final_identity)
     if viewmode is not None:
         report['viewmode'] = viewmode
+    if subtitles is not None:
+        report['subtitle_fixture'] = subtitles
     if args.file:
         report['file'] = dict(basename=Path(args.file).name, seek_seconds=args.seek_seconds)
     else:
