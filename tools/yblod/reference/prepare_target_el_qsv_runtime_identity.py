@@ -9,6 +9,19 @@ import subprocess
 from observe_live_el_qsv_probe import code_fingerprint, resources
 
 
+def needed_names(data):
+    """Both GNU and target elfutils readelf; unparsed NEEDED is an error."""
+    names=[]
+    for line in data.splitlines():
+        if not re.search(r'\bNEEDED\b',line):
+            continue
+        match=re.search(r'\bNEEDED\)?\s+Shared library:\s*\[([^\]]+)\]',line)
+        if match is None:
+            raise ValueError('Unrecognized target dependency listing')
+        names.append(match.group(1))
+    return names
+
+
 def closure(runtime, driver, loader):
     if shutil.which('readelf') is None:
         raise ValueError('Target readelf required before closure preparation')
@@ -16,6 +29,7 @@ def closure(runtime, driver, loader):
     system = Path('/usr/lib').resolve(strict=True)
     roots = [runtime / name for name in ('libavcodec.so.63', 'libavformat.so.63',
              'libavutil.so.61', 'libvpl.so.2', 'libmfx-gen.so.1.2')]
+    required_dynamic_roots={path.resolve(strict=True) for path in roots+[Path(driver)]}
     pending = roots + [Path(driver), Path(loader)]
     files = {}
     while pending:
@@ -27,8 +41,11 @@ def closure(runtime, driver, loader):
         if not path.is_file():
             raise ValueError('Regular code artifact required')
         data = subprocess.check_output(['readelf', '-d', str(path)], text=True)
+        dependencies=needed_names(data)
+        if path in required_dynamic_roots and not dependencies:
+            raise ValueError('Known shared runtime root requires dependencies')
         files[path] = code_fingerprint(path)[1]
-        for name in re.findall(r'\(NEEDED\).*?\[([^\]]+)\]', data):
+        for name in dependencies:
             if '/' in name:
                 raise ValueError('Unexpected absolute dependency')
             candidates = [runtime / name, system / name]
