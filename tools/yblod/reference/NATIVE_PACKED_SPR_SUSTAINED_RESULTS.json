@@ -1,0 +1,146 @@
+{
+  "schema": "yblod.native-packed-sustained-scalar-results.v1",
+  "content": "Saving Private Ryan",
+  "movie_id": 3391,
+  "seek_seconds": 1200,
+  "seconds_per_case": 600,
+  "matrix": [
+    0,
+    1,
+    1,
+    0
+  ],
+  "same_installed_binary": true,
+  "binary_sha256": "ef4eb9a9600662b2215d0c468625056eed19adbd284d76a3e696242fadfb281c",
+  "mixed_routes_allowed": false,
+  "before": {
+    "whole_kodi_cpu_percent_one_core": 19.589250413943745,
+    "cpu_elapsed_seconds": 1198.565514446,
+    "gpu_elapsed_seconds": 1198.565514446,
+    "gpu_engine_busy_percent": {
+      "drm-engine-copy": 0.0,
+      "drm-engine-render": 59.504645377658456,
+      "drm-engine-video": 5.6262363179345565,
+      "drm-engine-video-enhance": 9.474315636095014
+    },
+    "helper_wall_ms_per_release": {
+      "scaler_submit": 0.1805720338983051,
+      "va_wait": 4.078792372881356,
+      "imports": 0.254385593220339,
+      "prep_submit": 0.08689830508474576,
+      "prep_wait": 1.9303305084745763,
+      "composer_submit": 0.1001228813559322,
+      "composer_wait": 6.970737288135594,
+      "ycc_submit": 0.0688813559322034,
+      "ycc_wait": 5.370533898305085,
+      "bridge": 0.04679661016949153,
+      "consumer_release": 7.394898305084746
+    },
+    "released_operation_count_delta": 28320,
+    "colour_handoff_ms_per_call": {
+      "wall_ms_per_call": 0.20276271186440678,
+      "thread_cpu_ms_per_call": 0.2017584745762712
+    },
+    "colour_handoff_call_count_delta": 28320,
+    "health_case_totals": [
+      {
+        "order": 1,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      },
+      {
+        "order": 4,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      }
+    ],
+    "renderer_preparation_routes": {
+      "prepared": 25920,
+      "direct": 0,
+      "composed": 25920,
+      "direct_percent": 0.0
+    }
+  },
+  "after": {
+    "whole_kodi_cpu_percent_one_core": 16.024514060058785,
+    "cpu_elapsed_seconds": 1198.226662477,
+    "gpu_elapsed_seconds": 1198.226662477,
+    "gpu_engine_busy_percent": {
+      "drm-engine-copy": 0.0,
+      "drm-engine-render": 41.04045526790632,
+      "drm-engine-video": 5.621940989423865,
+      "drm-engine-video-enhance": 9.488136573507626
+    },
+    "helper_wall_ms_per_release": {
+      "scaler_submit": 0.16852100840336134,
+      "va_wait": 4.085903361344538,
+      "imports": 0.23826470588235293,
+      "prep_submit": 0.0823781512605042,
+      "prep_wait": 1.9046848739495796,
+      "composer_submit": 0.09404621848739496,
+      "composer_wait": 6.895966386554622,
+      "ycc_submit": 0.06688235294117648,
+      "ycc_wait": 5.340819327731092,
+      "bridge": 0.04577731092436974,
+      "consumer_release": 3.9607394957983195
+    },
+    "released_operation_count_delta": 28560,
+    "colour_handoff_ms_per_call": {
+      "wall_ms_per_call": 0.21271848739495797,
+      "thread_cpu_ms_per_call": 0.21171848739495797
+    },
+    "colour_handoff_call_count_delta": 28560,
+    "health_case_totals": [
+      {
+        "order": 2,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      },
+      {
+        "order": 3,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      }
+    ],
+    "renderer_preparation_routes": {
+      "prepared": 25920,
+      "direct": 25920,
+      "composed": 0,
+      "direct_percent": 100.0
+    }
+  },
+  "lifecycle": {
+    "normal_process_exit_cases": 4,
+    "dv_display_restoration_failure_cases": 4,
+    "successful_dv_display_restoration_claimed": false,
+    "known_preexisting_issue": "EGL surface destroyed before final DV restore"
+  },
+  "scopes": [
+    "Same candidate binary, source title, starting position and reconstruction settings; only native packed-output flag changes.",
+    "Two 600-second cases per condition in ABBA order; GPU and CPU are time-weighted pooled measurements.",
+    "CPU is all Kodi threads normalized to one CPU core, not whole-system percent.",
+    "GPU is Kodi DRM client activity; helper wall timing is not exclusive GPU cost or presentation latency.",
+    "Playback counters do not establish pixel accuracy; matched-frame preservation was separately qualified.",
+    "Normal service process exit does not prove DV display restoration; the preexisting restoration failure remains unresolved."
+  ]
+}

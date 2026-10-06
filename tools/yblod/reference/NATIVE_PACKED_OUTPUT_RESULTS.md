@@ -1,7 +1,7 @@
 # Native colour and transport packing results
 
-The opt-in packing candidate reduces GPU render-client activity by 30.74 percent
-and whole Kodi CPU by 16.24 percent on the matched Saving Private Ryan scene.
+The opt-in packing candidate reduces GPU render-client activity by 31.03 percent
+and whole Kodi CPU by 18.20 percent in the sustained Saving Private Ryan comparison.
 It preserves every transmitted RGB byte on three matched frames from each of two
 movies while eliminating
 a full-resolution RGB intermediate write/read and a separate packing draw during
@@ -104,6 +104,35 @@ checks above establish preservation for the captured frames.
 
 The [playback measurements](NATIVE_PACKED_OUTPUT_SPR_PLAYBACK_RESULTS.json) retain
 per-case route, health, lifecycle, timing, memory and counter records.
+
+## Sustained playback results
+
+Four 600-second Saving Private Ryan cases repeated the same scene at 20 minutes
+in disabled/enabled/enabled/disabled order, with captures disabled. All four
+recorded zero dropped and skipped frames, including startup and seeking, and no
+steady-playback stalls. Actual preparation counters proved the selected route.
+
+| Balanced measurement | Composed output | Packed output |
+| --- | ---: | ---: |
+| GPU render client busy percent | 59.5046 | 41.0405 |
+| Whole Kodi CPU percent of one core | 19.5893 | 16.0245 |
+| Video decode client busy percent | 5.6262 | 5.6219 |
+| Video enhancement client busy percent | 9.4743 | 9.4881 |
+| Consumer release helper wait ms | 7.3949 | 3.9607 |
+
+GPU and CPU values pool two cases per condition with time weighting. Render
+activity fell by 18.4642 percentage points, or 31.03 percent relative to the
+control. The helper wait is a host completion wait, not exclusive GPU execution
+time. The [sustained scalar results](NATIVE_PACKED_SPR_SUSTAINED_RESULTS.json)
+record these measurements and playback health. The separate 1917 sustained
+comparison remains in progress.
+
+All four service processes exited normally. Final Dolby Vision display
+restoration failed because Kodi destroys the EGL window surface before attempting
+restoration. This pre-existing shutdown-ordering issue also occurs in the earlier
+control and optimized logs; it is not evidence of a packing regression. References
+to clean service shutdown elsewhere in these results mean normal process exit,
+not verified display restoration. The issue remains unresolved.
 
 ## GUI and overlay routes
 
