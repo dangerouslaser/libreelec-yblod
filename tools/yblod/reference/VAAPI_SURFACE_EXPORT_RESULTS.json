@@ -1,0 +1,161 @@
+{
+  "schema": "yblod.vaapi-export-checkpoint.v1",
+  "provenance": {
+    "source_sha256": {
+      "tools/yblod/reference/vaapi_surface_export_probe.c": "413df8623252a36ec4832e091f59f33760479570b79128a5e600427a6af8c0c9",
+      "tools/yblod/reference/vaapi_surface_export_validation.h": "ba9bf969a3806c24a8e52278a19a75a0edf11c2850fc2e78795fa0d4c4e2ea30"
+    },
+    "binary_sha256": "5e472f51acd4965649ab8271a342d2afad9fe87b5d1a930218dcd766093059a9",
+    "runtime_snapshot_sha256": {
+      "/usr/lib/libva.so.2.2400.0": "f7238c347148567131476e74443e493c9ee7b9729f1da875af20828ce1d93c61",
+      "/usr/lib/libva-drm.so.2.2400.0": "3123f157465b2b6d22db28f417b78939fa25a12cca489cff557d03cfa88a050e",
+      "/usr/lib/dri/iHD_drv_video.so": "fca0ac8e50a27e9278b8ad17b488dd662af34eb5cd48fe3670e7d7971b3d7d7f",
+      "/usr/lib/libdrm.so.2.134.0": "4aef0c2cd85b60b8ca1080f47a26d415a51adb4e44324d7a8f0396b7369e1363",
+      "/usr/lib/libigdgmm.so.12.10.0": "540361a3c88ebfc42819f974ef92e55f465486b567a93d5528c063592a546261",
+      "/usr/lib/libstdc++.so.6.0.36": "ee59b2d02664e9a3d1c193f1b227b2a13402340f30f28ba80af9fbb7258baa63",
+      "/usr/lib/libgcc_s.so.1": "28ce66e7c0ea73ee094c4d94ad7cff15a991da4bd5d6c6513d909d2cf9306cfe",
+      "/usr/lib/libc.so.6": "d16d617f8f3d8b18bd933ab259d50c8e829650c1d0da4d5c1b1815acd9d5f5e8",
+      "/usr/lib/libm.so.6": "3b4146b7b6eb2376f772beec92adefa955495a0670fd22b911ef9792f2a257ab",
+      "/usr/lib/ld-linux-x86-64.so.2": "3bd22d737cff5359c57bd420318561e34a9cffb9738a65feb5d0b56ded9f0126"
+    },
+    "runtime_scope": "Selected installed libraries and requested iHD driver pinned before/after; not a complete loaded-module inventory."
+  },
+  "runs": [
+    {
+      "format": "p010",
+      "result": {
+        "schema": "yblod.vaapi-surface-export-probe.v1",
+        "complete": true,
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "va_major": 1,
+        "va_minor": 24,
+        "fourcc": 808530000,
+        "rt_format": 256,
+        "nominal_rt_bits": 10,
+        "width": 4,
+        "height": 4,
+        "objects": 1,
+        "layers": 2,
+        "synthetic_upload": true,
+        "surface_synchronized": true,
+        "descriptor_structural_valid": true,
+        "layout_extent_verified": false,
+        "egl_import_tested": false,
+        "zero_copy_proven": false,
+        "dv_playback_tested": false,
+        "cleanup_complete": true,
+        "object_layout": [
+          {
+            "size": 12288,
+            "modifier": 72057594037927938
+          }
+        ],
+        "layer_layout": [
+          {
+            "drm_format": 540422482,
+            "planes": [
+              {
+                "object_index": 0,
+                "offset": 0,
+                "pitch": 128
+              }
+            ]
+          },
+          {
+            "drm_format": 842224199,
+            "planes": [
+              {
+                "object_index": 0,
+                "offset": 4096,
+                "pitch": 128
+              }
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7852032",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "10969088",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "artifacts_unchanged": true,
+        "driver_requested": "iHD"
+      }
+    },
+    {
+      "format": "y416",
+      "result": {
+        "schema": "yblod.vaapi-surface-export-probe.v1",
+        "complete": true,
+        "vendor": "Intel iHD driver for Intel(R) Gen Graphics - 26.3.5 (3de4708)",
+        "va_major": 1,
+        "va_minor": 24,
+        "fourcc": 909194329,
+        "rt_format": 16384,
+        "nominal_rt_bits": 12,
+        "width": 4,
+        "height": 4,
+        "objects": 1,
+        "layers": 1,
+        "synthetic_upload": true,
+        "surface_synchronized": true,
+        "descriptor_structural_valid": true,
+        "layout_extent_verified": false,
+        "egl_import_tested": false,
+        "zero_copy_proven": false,
+        "dv_playback_tested": false,
+        "cleanup_complete": true,
+        "object_layout": [
+          {
+            "size": 8192,
+            "modifier": 72057594037927938
+          }
+        ],
+        "layer_layout": [
+          {
+            "drm_format": 909194329,
+            "planes": [
+              {
+                "object_index": 0,
+                "offset": 0,
+                "pitch": 128
+              }
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "before": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "7847936",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "after": {
+          "memory.max": "536870912",
+          "memory.swap.max": "0",
+          "memory.swap.current": "0",
+          "memory.peak": "10649600",
+          "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+        },
+        "kodi_before": "active",
+        "kodi_after": "active",
+        "artifacts_unchanged": true,
+        "driver_requested": "iHD"
+      }
+    }
+  ]
+}

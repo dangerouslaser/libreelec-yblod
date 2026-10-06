@@ -93,6 +93,31 @@ idle observation. No clocks were changed. This idle snapshot does not explain
 the clock behavior during earlier tests or prove that scheduling caused them.
 No intel_gpu_top executable was found. Kodi remained active.
 
+## Integer-shader compilation finding
+
+The local Mesa 26.2.4 source makes another important distinction: advertised
+integer64 shader support is not native efficient integer64 arithmetic.
+Tiger Lake GT2 inherits the GFX12/GFX11 feature chain with `has_64bit_int=false`;
+the Intel compiler consequently enables all integer64 lowering options.
+Our exact-integer shader can therefore expand into smaller operations rather
+than executing each 64-bit expression as one native operation. This is a
+plausible instruction-count/register-pressure cost versus the older float
+path, not measured attribution of our frame times.
+
+Reviewed local source pins:
+
+- `src/intel/dev/intel_device_info.c`, SHA256
+  `de506e40168a09bcbd96a543e38f55b4ac48bc0695cef30e4c62b9a6e687d2aa`.
+- `src/intel/compiler/brw/brw_compiler.c`, SHA256
+  `787ef3a192776559defeb5e1fd37f402a57a3b610bf7501af05887a8bd44f4cf`.
+
+[Mesa device source](https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-26.2.4/src/intel/dev/intel_device_info.c),
+[Mesa compiler source](https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-26.2.4/src/intel/compiler/brw/brw_compiler.c).
+Inspect actual compiled shader instructions, register use and spills before
+optimizing arithmetic. Source feature flags alone do not establish those stats
+for the running binary. Keep exactness and width/overflow gates if introducing
+specialized narrower operations; never silently replace safe arithmetic.
+
 ## Incremental gates
 
 - Inventory exported P010/Y416 surface layouts with complete producer
