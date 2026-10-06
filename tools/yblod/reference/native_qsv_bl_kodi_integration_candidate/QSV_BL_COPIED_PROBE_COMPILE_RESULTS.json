@@ -1,0 +1,39 @@
+{
+  "schema": "yblod.qsv-bl-copied-probe-compile.v1",
+  "compile_completed": true,
+  "terminal_exit_code": 0,
+  "terminal_oom_killed": false,
+  "terminal_identity_and_limits_verified": true,
+  "image": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "limits": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "sdk_and_candidate_mounts_read_only": true,
+    "gpu_devices_mounted": false
+  },
+  "gpu_or_media_execution": false,
+  "sdk_native_and_abi_guards_unchanged": true,
+  "candidate_guard_before_after": true,
+  "probe_sha256": "e665f3f5815ab8848c807af08fdbe31db34789ea3e326fb8eb016d61c31a71ae",
+  "probe_bytes": 39632,
+  "source_sha256": {
+    "native_qsv_probe_handshake.h": "10d273de5c74f8f24e45d5b7dac6667541b4d4af4258a3a322b3c2037caec6d5",
+    "native_qsv_bl_compare_probe.c": "c66c574c7a9e114004dfdf202a90909ba28317ef3bdb3573e5a15a115f7748a8",
+    "native_qsv_bl_metadata_equal.h": "e04c0cc131a266250da1b9ad7b874a6a5247df013d944dbbd98a38305f30dc25",
+    "build_native_qsv_bl_compare_probe.sh": "ed2c60925098d8f19192136657cb494b65aacdab7f223d62c393fd0e3c44ddc5"
+  },
+  "memory_peak_bytes": 74018816,
+  "memory_events": {
+    "low": 0,
+    "high": 0,
+    "max": 0,
+    "oom": 0,
+    "oom_kill": 0,
+    "oom_group_kill": 0,
+    "sock_throttled": 0
+  },
+  "memory_swap_peak_bytes": 0,
+  "note": "Reviewed baseline probe only; pending AU scanner integration is not qualified."
+}
