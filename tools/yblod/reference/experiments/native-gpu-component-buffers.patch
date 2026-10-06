@@ -1,0 +1,65 @@
+--- a/engine/experimental/native_gpu_composer_backend.c
++++ b/engine/experimental/native_gpu_composer_backend.c
+@@ -107,7 +107,9 @@
+     struct backend_gl gl;
+     yb_gpu_backend_create_info owner;
+     uintptr_t context;
+-    GLuint program,buffers[2],outputs[3];
++    /* Slot 1 remains the frame-error SSBO. Slots 0,2,3 are immutable
++     * component metadata for each queued frame's three dispatches. */
++    GLuint program,buffers[4],outputs[3];
+     GLsync fence;
+     uint32_t width,height,output_depth;
+     uint8_t frame_id[32];
+@@ -124,7 +126,7 @@
+ }
+ static void delete_owned(yb_gpu_composer_backend *b)
+ {
+-    b->gl.DeleteTextures(3,b->outputs);b->gl.DeleteBuffers(2,b->buffers);
++    b->gl.DeleteTextures(3,b->outputs);b->gl.DeleteBuffers(4,b->buffers);
+     if(b->program)b->gl.DeleteProgram(b->program);
+ }
+ 
+@@ -170,11 +172,11 @@
+         if(b->program)g->DeleteProgram(b->program);
+         free(b);return YB_GPU_BACKEND_GL_FAILURE;
+     }
+-    g->GenBuffers(2,b->buffers);
+-    for(unsigned i=0;i<2;i++){
++    g->GenBuffers(4,b->buffers);
++    for(unsigned i=0;i<4;i++){
+         if(!b->buffers[i]){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+         g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[i]);
+-        g->BufferData(GL_SHADER_STORAGE_BUFFER,i?4:(GLsizeiptr)(BACKEND_WORDS*sizeof(int64_t)),NULL,GL_DYNAMIC_COPY);
++        g->BufferData(GL_SHADER_STORAGE_BUFFER,i==1?4:(GLsizeiptr)(BACKEND_WORDS*sizeof(int64_t)),NULL,GL_DYNAMIC_COPY);
+     }
+     if(g->GetError()!=GL_NO_ERROR){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+     *output=b;return YB_GPU_BACKEND_OK;
+@@ -232,10 +234,16 @@
+     g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,1,b->buffers[1]);
+     g->UseProgram(b->program);g->Uniform3ui(0,p->width,p->height,0);
+     for(unsigned c=0;c<3;c++)g->BindImageTexture(c,resize?fresh[c]:b->outputs[c],0,GL_FALSE,0,GL_WRITE_ONLY,GL_R16UI);
++    static const unsigned component_buffer_slots[3]={0,2,3};
++    /* Upload every component before any dispatch can read metadata. The
++     * previous frame's fence must already be finished by the pending guard. */
+     for(uint32_t c=0;c<3;c++){
+         int64_t words[BACKEND_WORDS];pack_metadata(p,c,words);
+-        g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[0]);g->BufferSubData(GL_SHADER_STORAGE_BUFFER,0,(GLsizeiptr)sizeof(words),words);
+-        g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,0,b->buffers[0]);
++        g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[component_buffer_slots[c]]);
++        g->BufferSubData(GL_SHADER_STORAGE_BUFFER,0,(GLsizeiptr)sizeof(words),words);
++    }
++    for(uint32_t c=0;c<3;c++){
++        g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,0,b->buffers[component_buffer_slots[c]]);
+         uint32_t width=c?p->width/2U:p->width,height=c?p->height/2U:p->height;
+         g->DispatchCompute((width+7U)/8U,(height+7U)/8U,1);
+     }
+@@ -282,7 +290,7 @@
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+         b->outputs[i]=0;
+     }
+-    for(unsigned i=0;i<2;i++)if(b->buffers[i]){
++    for(unsigned i=0;i<4;i++)if(b->buffers[i]){
+         g->DeleteBuffers(1,&b->buffers[i]);
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+         b->buffers[i]=0;
