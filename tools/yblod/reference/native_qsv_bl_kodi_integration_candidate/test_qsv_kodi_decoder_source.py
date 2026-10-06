@@ -44,5 +44,11 @@ class Contracts(unittest.TestCase):
         self.assertIn('m_dvQsvMappedFrames == 1', SOURCE)
         self.assertIn('hardware = hardware || m_dvBaseQsv;', SOURCE)
 
+    def test_buffer_implementation_in_non_dvbridge_vaapi_build(self):
+        cmake = (ROOT / 'xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt').read_text()
+        self.assertIn('if(TARGET ${APP_NAME_LC}::VAAPI)', cmake)
+        self.assertNotIn('ENABLE_DVBRIDGE', cmake)
+        self.assertIn('list(APPEND SOURCES QsvMappedBuffer.cpp)', cmake)
+
 if __name__ == '__main__':
     unittest.main()

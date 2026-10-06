@@ -1,0 +1,40 @@
+{
+  "schema": "yblod.qsv-bl-non-dvbridge-source.v1",
+  "all_passed": true,
+  "source_only": true,
+  "source_sha256": {
+    "qsv-bl-kodi-buffer-registration-fix.patch": "4ca625f774d7291e433e0ee37d66c6c8a15d3f227976dc4738d185180e79c9b0",
+    "stage_qsv_kodi_integration.py": "de458a5d8ffe249a810518bc1fb6437ac8b674a23cecac9279d593bb7832641c",
+    "test_qsv_kodi_decoder_source.py": "9ff1151524397bf1930d8bdea5b7ed35bc55e3324f99849a16c52d5d151fdaa7",
+    "compile_qsv_non_dvbridge_renderer.py": "96e41d691271c7a4646958c00f6445ff4d777c0b78320565fd833a021e13a0b4",
+    "check_qsv_non_dvbridge_renderer.sh": "579d793146ff89d66128e293591566662b5738a57b397edeafe30d0efcd43b79"
+  },
+  "tests": {
+    "decoder_source_contracts": 7,
+    "inherited_renderer_source_contracts": 5,
+    "strict_objects_without_dvbridge": 3,
+    "relocatable_partial_link_qsv_symbols_resolved": true,
+    "full_kodi_executable_link": false,
+    "runtime_or_hardware_test": false
+  },
+  "limits": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "gpu_devices_mounted": false,
+    "sdk_mount_read_only": true
+  },
+  "resources": {
+    "memory_peak_bytes": 365674496,
+    "all_memory_events_zero": true,
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0
+  },
+  "image": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "notes": [
+    "The buffer implementation is registered for VAAPI independently of DVBridge because renderer RTTI and Valid references are unconditional.",
+    "The original integration result remains a historical source snapshot; this report covers the additive registration correction.",
+    "An initial ad-hoc cap-check invocation rejected before compilation due to shell quoting. The reproducible helper corrected that preflight; production source was unchanged."
+  ]
+}

@@ -24,6 +24,9 @@ for relative in files:
 subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-i',
                 str(reference.resolve() / 'qsv-bl-kodi-integration-source-only.patch')],
                cwd=work, check=True)
+subprocess.run(['patch', '--batch', '--fuzz=0', '-p1', '-i',
+                str(reference.resolve() / 'qsv-bl-kodi-buffer-registration-fix.patch')],
+               cwd=work, check=True)
 files += [buffers / name for name in ('QsvMappedBuffer.cpp', 'QsvMappedBuffer.h')]
 for relative in files:
     if relative.suffix in ('.h', '.cpp'):

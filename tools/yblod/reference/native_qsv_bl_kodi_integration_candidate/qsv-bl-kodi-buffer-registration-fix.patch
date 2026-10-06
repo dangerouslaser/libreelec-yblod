@@ -1,0 +1,12 @@
+diff --git a/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt b/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
+--- a/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ set(SOURCES VideoBuffer.cpp)
+ set(HEADERS VideoBuffer.h)
+ 
+-if(ENABLE_DVBRIDGE AND TARGET ${APP_NAME_LC}::VAAPI)
++if(TARGET ${APP_NAME_LC}::VAAPI)
+   list(APPEND SOURCES QsvMappedBuffer.cpp)
+   list(APPEND HEADERS QsvMappedBuffer.h)
+ endif()

@@ -4,6 +4,8 @@ This source-only candidate connects the previously published typed QSV-to-VAAPI 
 
 `qsv-bl-kodi-integration-source-only.patch` contains the complete eleven-file Kodi change, including the earlier mapped-buffer and renderer foundations. Do not also apply those earlier Kodi patches. The smaller `qsv-bl-kodi-decoder-source-only.patch` is the three-file decoder/build-registration delta for an already integrated foundation.
 
+Apply `qsv-bl-kodi-buffer-registration-fix.patch` after either integration route. It builds the mapped-buffer implementation whenever VAAPI is built, because the renderer's typed references also exist with DVBridge disabled. This changes source registration only; QSV playback remains default OFF.
+
 ## Admission and ownership
 
 The route requires `DVBRIDGE_BASE_QSV=1`, `DVBRIDGE_NATIVE_RECONSTRUCTION=1`, HEVC Profile 7 with an enhancement layer, no forced software decoding and no rotation. It requires the new FFmpeg `hevc_qsv` Dolby metadata option before opening the codec. The published FFmpeg metadata candidate and its hardware format admission fix are both prerequisites.
@@ -21,6 +23,8 @@ sh tools/yblod/reference/native_qsv_bl_kodi_integration_candidate/check_qsv_kodi
 ```
 
 The complete patch applies to disposable copies. Six decoder and five renderer source-contract checks pass; two strict SDK decoder objects compile with DVBridge enabled and disabled. The combined run peaked at 427,843,584 bytes under 512 MiB, no swap, one CPU, no network and no GPU. These checks do not execute Kodi codec opening, real hardware mapping or playback. Earlier mapped-buffer ownership tests remain separately scoped CPU fixtures.
+
+That original result is a historical source snapshot. The registration correction adds a seventh decoder source check. `check_qsv_non_dvbridge_renderer.sh` separately compiles the mapped buffer, VAAPI importer and VAAPI renderer with DVBridge disabled and verifies that their QSV references resolve in a relocatable partial link. Its 365,674,496-byte peak and exact source hashes are recorded in `QSV_BL_NON_DVBRIDGE_SOURCE_RESULTS.json`. This is not a complete Kodi executable link or runtime test.
 
 ## Isolated FFmpeg build
 
