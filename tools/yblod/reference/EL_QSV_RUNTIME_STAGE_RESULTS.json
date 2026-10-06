@@ -1,0 +1,65 @@
+{
+  "schema": "yblod.el-qsv-isolated-runtime-stage.v1",
+  "candidate_binary_sha256": "aff416779620c4cba8cecb6e6c71a6fb3b228e4bab7e397aaeeba4556166067f",
+  "retained_running_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "runtime_archive_sha256": "939ce6a43c6b6d47c26a12e079a7839f4a52aa5189c360908746434c524e7285",
+  "archive_bytes": 42168320,
+  "library_payload_bytes": 42098944,
+  "library_count": 9,
+  "archive_allowlist_and_relative_links_verified": true,
+  "core_runtime_overlay": false,
+  "driver_overlay": false,
+  "kodi_restarted": false,
+  "kodi_runtime_or_configuration_changed": false,
+  "existing_target_dependencies_unchanged": 50,
+  "current_kodi_binary_and_pid_unchanged": true,
+  "user_playback_idle_before_after": true,
+  "poststage_storage_available_bytes": 479735808,
+  "package_container": {
+    "exit_code": 0,
+    "oom_killed": false,
+    "memory_limit_bytes": 536870912,
+    "extra_swap_limit_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "peak_memory_measured": false,
+    "memory_events_measured": false
+  },
+  "loader_checks": {
+    "checks": [
+      "system-loader --list candidate",
+      "ldd -r candidate",
+      "ldd -r libvpl",
+      "ldd -r libmfx-gen"
+    ],
+    "all_exit_codes": 0,
+    "unresolved_symbols": 0,
+    "unexpected_new_family_paths": 0,
+    "existing_driver_unchanged": true,
+    "resources": {
+      "memory_limit_bytes": 536870912,
+      "extra_swap_limit_bytes": 0,
+      "cpu_limit": 1,
+      "peak_memory_bytes": 14344192,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "unit_success": true
+    }
+  },
+  "poststage_identity_check": {
+    "candidate_hash_verified": true,
+    "existing_dependency_hashes_unchanged": true,
+    "resources": {
+      "memory_limit_bytes": 536870912,
+      "extra_swap_limit_bytes": 0,
+      "cpu_limit": 1,
+      "peak_memory_bytes": 8650752,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "unit_success": true
+    }
+  },
+  "scope": "Isolated code staging and loader/relocation checks only. Existing Kodi remains running the retained binary. No hardware decode, mapped GPU identity, sample equality, playback or performance qualification. Transfer/extraction peak memory was not measured."
+}
