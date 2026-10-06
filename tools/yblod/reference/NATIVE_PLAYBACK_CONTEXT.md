@@ -1,5 +1,47 @@
 # Experimental native playback context
 
+## ABI2: explicit Kodi source ownership
+
+`create_info.version` is now2; version1 callers are rejected. The default
+`base_storage=YB_NATIVE_BASE_HWFRAMES` keeps the original strict AVHWFramesContext
+and cloned-frame contract unchanged. EL still uses that strict route.
+
+The separate Kodi BL route accepts an explicit **nonowning property snapshot**,
+not a fabricated hardware frame. It manually copies actual public PTS/timebase,
+chroma/colour hints, format/logical dimensions/surface ID and deep-copies actual
+expanded Dolby side-data bytes. It does not use `av_frame_copy_props`, copy
+private FFmpeg ownership fields or retain the decoder's custom buf[0] callback.
+
+Storage instead remains protected by a genuine acquired render-picture
+`AVBufferRef` lease. The producer declares actual VA display/P010/allocation
+geometry and pool generation. Its identity-matched validation callback checks
+the real pool/surface under the renderer's serialized lifetime protocol; its
+quarantine callback marks that same pool before uncertain work returns. The
+snapshot is freed before the render lease. Quarantine retains the lease and
+all resources until process restart; a pool generation is not a guessed counter.
+
+If an owner permanently abandons a retry—including a `PENDING` destroy—it must
+call `yb_native_playback_quarantine_retained()` before deciding about decoder
+teardown or storage reuse. This host-only API marks quarantine without EGL/VA
+calls and retains resources; it does not authorize teardown or recovery.
+
+[The ABI2 host checkpoint](results/native-playback-kodi-snapshot-host-20261006t.json)
+records34 actual-helper synthetic admission/copy/lifetime checks and the strict
+SDK archive/link gate. It is not GPU or real Kodi pool-recovery evidence.
+`native_playback_custom_context_runner.c` separately exercises one strict and one
+custom BL fixture backed by genuine FFmpeg VA allocations. Its synthetic owner
+is **not Kodi's allocator/pool implementation**: even an exact32768-float-bit
+result proves the engine ABI routes, not actual Kodi lock/recovery safety or
+full-film playback performance. Historical ABI1 GPU reports remain unchanged.
+
+[The separate ABI2 synthetic GPU checkpoint](results/native-playback-custom-context-synthetic-20261006u.json)
+now records32768 exact RGBA float-bit comparisons across those two fixtures,
+including guide-sensitive MMR and nonzero enhancement residual,12 exact context
+restores, association rejection and strict/custom owner lifetime checks. Peak
+memory was82,415,616bytes under512MiB/no swap, all memory-event counters stayed
+zero and Kodi/runtime/artifact identities were unchanged. This small ABI fixture
+is not evidence that Kodi's actual pool teardown/recovery lease is safe.
+
 `native_playback_context.c/.h` is real orchestration code, not a capability
 placeholder. On the renderer thread it owns a dedicated desktop GL context on
 the borrowed GLES EGLDisplay, restores the exact client API/context/read/draw
@@ -12,7 +54,7 @@ the decoder surface IDs, allocation/logical dimensions, BL/EL chroma hints and
 exact BL best-effort / EL PTS using explicit decoder packet time bases. Copied
 expanded metadata must be byte-equal to actual BL side data, bounded to1MiB;
 its actual C converter and signed64 GPU width guard still decide admission.
-Decoder frames are cloned on accepted submission, retaining real pool/device
+In the default strict route decoder frames are cloned on accepted submission, retaining real pool/device
 references until consumer release—not reconstructed from filenames/timestamps.
 
 The actual chain is VAAPI P010 EL scaling, per-layer DMA-BUF imports into

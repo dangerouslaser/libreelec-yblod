@@ -23,6 +23,10 @@ struct yb_native_playback_context {
     yb_vaapi_p010_import *base_import,*el_import;
     yb_egl_output_bridge *bridge;
     AVFrame *base,*el;
+    AVBufferRef *base_render_guard;
+    uint32_t base_allocation_width,base_allocation_height;
+    void *base_owner_identity;
+    void (*base_mark_quarantine)(void *);
     yb_playback_metadata metadata;
     yb_gpu_preparation_output prepared;
     yb_gpu_backend_output reconstructed;
@@ -54,26 +58,46 @@ static int correct_consumer(const yb_native_playback_context *p,const yb_egl_bin
     return b->display==p->consumer.display && b->context==p->consumer.context &&
         b->api==p->consumer.api && b->api==EGL_OPENGL_ES_API;
 }
+static void quarantine(yb_native_playback_context *p)
+{
+    if (p->base_render_guard && p->base_mark_quarantine)
+        p->base_mark_quarantine(p->base_owner_identity);
+    p->quarantined=1;
+}
+int yb_native_playback_quarantine_retained(yb_native_playback_context *p)
+{
+    if (!p) return YB_NATIVE_PLAYBACK_ARGUMENT;
+    quarantine(p); return YB_NATIVE_PLAYBACK_QUARANTINED;
+}
 static int finish_call(yb_native_playback_context *p,const yb_egl_binding *saved,int status)
 {
-    if (!restore(saved)) { p->quarantined=1; return YB_NATIVE_PLAYBACK_QUARANTINED; }
+    if (!restore(saved)) { quarantine(p); return YB_NATIVE_PLAYBACK_QUARANTINED; }
     return status;
 }
 static int nonzero(const uint8_t token[32])
 { unsigned value=0; for (unsigned i=0;i<32;i++) value |= token[i]; return value!=0; }
 static int shader_valid(yb_playback_shader shader)
 { return shader.bytes && shader.size && shader.size<=65536U; }
+static void release_decoded_refs(yb_native_playback_context *p)
+{
+    /* Custom BL property snapshot owns no decoded buffers. Free snapshots and
+     * strict decoded frames before dropping the actual render-picture lease. */
+    av_frame_free(&p->base); av_frame_free(&p->el);
+    av_buffer_unref(&p->base_render_guard);
+    p->base_owner_identity=NULL; p->base_mark_quarantine=NULL;
+    p->base_allocation_width=0; p->base_allocation_height=0;
+}
 static int clear_frame(yb_native_playback_context *p)
 {
     if (yb_vaapi_p010_import_destroy(&p->base_import) ||
         yb_vaapi_p010_import_destroy(&p->el_import)) return 0;
-    av_frame_free(&p->base); av_frame_free(&p->el);
+    release_decoded_refs(p);
     p->state=IDLE; return 1;
 }
 int yb_native_playback_create(const yb_native_playback_create_info *info,
     yb_native_playback_context **out)
 {
-    if (!info || !out || *out || info->version!=1 || !info->egl_display || !info->va_display ||
+    if (!info || !out || *out || info->version!=2 || !info->egl_display || !info->va_display ||
         yb_vaapi_el_scale_validate(&info->enhancement_scaler) ||
         !shader_valid(info->preparation) || !shader_valid(info->composer) || !shader_valid(info->ycc_expansion) ||
         !nonzero(info->guide_contract_id) || !nonzero(info->phase_contract_id) ||
@@ -142,11 +166,56 @@ static int frame_contract(const yb_native_playback_context *p,const AVFrame *fra
         ((const AVVAAPIDeviceContext *)device->hwctx)->display!=p->settings.va_display) return 0;
     *allocated_w=(uint32_t)frames->width; *allocated_h=(uint32_t)frames->height; return 1;
 }
+static int base_contract(const yb_native_playback_context *p,const yb_native_playback_frame *f,
+    uint32_t *allocated_w,uint32_t *allocated_h)
+{
+    const yb_native_kodi_base_surface *k=&f->kodi_base;
+    if (f->base_storage==YB_NATIVE_BASE_HWFRAMES) {
+        if (k->version || k->fourcc || k->allocation_width || k->allocation_height ||
+            k->va_display || k->generation || k->owner_identity || k->render_guard ||
+            k->validate || k->mark_quarantine) return 0;
+        return frame_contract(p,f->base_frame,f->base_surface,f->base_width,f->base_height,
+            allocated_w,allocated_h);
+    }
+    const AVFrame *frame=f->base_frame;
+    if (f->base_storage!=YB_NATIVE_BASE_KODI_SURFACE || k->version!=1 ||
+        k->fourcc!=VA_FOURCC_P010 || k->va_display!=p->settings.va_display ||
+        !k->generation || !k->owner_identity || !k->render_guard || !k->validate || !k->mark_quarantine ||
+        av_buffer_get_opaque(k->render_guard)!=k->owner_identity ||
+        !frame || frame->hw_frames_ctx || frame->opaque_ref || frame->opaque ||
+        frame->nb_extended_buf || frame->extended_buf ||
+        frame->format!=AV_PIX_FMT_VAAPI || !f->base_width || !f->base_height ||
+        f->base_width>8192 || f->base_height>8192 ||
+        frame->width!=(int)f->base_width || frame->height!=(int)f->base_height ||
+        f->base_surface==VA_INVALID_ID ||
+        (uintptr_t)frame->data[3]!=(uintptr_t)f->base_surface ||
+        k->allocation_width<f->base_width || k->allocation_height<f->base_height ||
+        k->allocation_width>8192 || k->allocation_height>8192) return 0;
+    for (unsigned i=0;i<AV_NUM_DATA_POINTERS;i++) if (frame->buf[i]) return 0;
+    if (k->validate(k->owner_identity,k->va_display,f->base_surface,k->generation,
+        k->allocation_width,k->allocation_height)!=1) return 0;
+    *allocated_w=k->allocation_width; *allocated_h=k->allocation_height; return 1;
+}
 static int timebase_matches(AVRational frame,int32_t n,int32_t d)
 {
     if (n<=0 || d<=0) return 0;
     if (!frame.num && frame.den>=0) return 1;
     return frame.num>0 && frame.den>0 && (int64_t)frame.num*d==(int64_t)n*frame.den;
+}
+static AVFrame *copy_kodi_properties(const AVFrame *source)
+{
+    AVFrameSideData *side=av_frame_get_side_data(source,AV_FRAME_DATA_DOVI_METADATA);
+    if (!side || !side->data || !side->size || side->size>1024U*1024U) return NULL;
+    AVFrame *copy=av_frame_alloc(); if (!copy) return NULL;
+    copy->format=source->format; copy->width=source->width; copy->height=source->height;
+    copy->data[3]=source->data[3]; copy->pts=source->pts;
+    copy->best_effort_timestamp=source->best_effort_timestamp; copy->time_base=source->time_base;
+    copy->chroma_location=source->chroma_location; copy->flags=source->flags;
+    copy->color_range=source->color_range; copy->color_primaries=source->color_primaries;
+    copy->color_trc=source->color_trc; copy->colorspace=source->colorspace;
+    AVFrameSideData *out=av_frame_new_side_data(copy,AV_FRAME_DATA_DOVI_METADATA,side->size);
+    if (!out) { av_frame_free(&copy); return NULL; }
+    memcpy(out->data,side->data,side->size); return copy;
 }
 int yb_native_playback_submit(yb_native_playback_context *p,
     const yb_native_playback_frame *frame,uint64_t timeout)
@@ -159,7 +228,7 @@ int yb_native_playback_submit(yb_native_playback_context *p,
     if (!snapshot(&saved) || !correct_consumer(p,&saved)) return YB_NATIVE_PLAYBACK_ARGUMENT;
     const yb_playback_frame_descriptor *d=&frame->association;
     uint32_t bw=0,bh=0,ew=0,eh=0;
-    if (!frame_contract(p,frame->base_frame,frame->base_surface,frame->base_width,frame->base_height,&bw,&bh) ||
+    if (!base_contract(p,frame,&bw,&bh) ||
         !frame_contract(p,frame->enhancement_frame,frame->enhancement_surface,frame->enhancement_width,frame->enhancement_height,&ew,&eh) ||
         frame->base_width!=p->settings.enhancement_scaler.output_width ||
         frame->base_height!=p->settings.enhancement_scaler.output_height ||
@@ -183,13 +252,22 @@ int yb_native_playback_submit(yb_native_playback_context *p,
         memcmp(side->data,frame->expanded_dovi_side_data,side->size)) return YB_NATIVE_PLAYBACK_FALLBACK;
     yb_playback_metadata metadata;
     if (yb_playback_metadata_init(d,side->data,side->size,NULL,&metadata)) return YB_NATIVE_PLAYBACK_FALLBACK;
-    p->base=av_frame_clone(frame->base_frame); p->el=av_frame_clone(frame->enhancement_frame);
-    if (!p->base || !p->el) { av_frame_free(&p->base); av_frame_free(&p->el); return YB_NATIVE_PLAYBACK_ERROR; }
+    if (frame->base_storage==YB_NATIVE_BASE_KODI_SURFACE) {
+        p->base=copy_kodi_properties(frame->base_frame);
+        p->base_render_guard=av_buffer_ref(frame->kodi_base.render_guard);
+        p->base_owner_identity=frame->kodi_base.owner_identity;
+        p->base_mark_quarantine=frame->kodi_base.mark_quarantine;
+    } else p->base=av_frame_clone(frame->base_frame);
+    p->el=av_frame_clone(frame->enhancement_frame);
+    if (!p->base || !p->el || (frame->base_storage==YB_NATIVE_BASE_KODI_SURFACE && !p->base_render_guard)) {
+        release_decoded_refs(p); return YB_NATIVE_PLAYBACK_ERROR;
+    }
+    p->base_allocation_width=bw; p->base_allocation_height=bh;
     p->metadata=metadata;
     int status=yb_vaapi_el_scaler_submit(p->scaler,frame->enhancement_surface,timeout);
     if (status!=YB_VPP_OK) {
-        if (status==YB_VPP_QUARANTINED) { p->quarantined=1; return YB_NATIVE_PLAYBACK_QUARANTINED; }
-        av_frame_free(&p->base); av_frame_free(&p->el); return YB_NATIVE_PLAYBACK_FALLBACK;
+        if (status==YB_VPP_QUARANTINED) { quarantine(p); return YB_NATIVE_PLAYBACK_QUARANTINED; }
+        release_decoded_refs(p); return YB_NATIVE_PLAYBACK_FALLBACK;
     }
     p->state=VA_PENDING; return YB_NATIVE_PLAYBACK_OK;
 }
@@ -204,7 +282,7 @@ static int gpu_status(yb_native_playback_context *p,int status,int before_dispat
          * Prior stage is finished; no borrower can still access imports. */
         if (clear_frame(p)) return YB_NATIVE_PLAYBACK_FALLBACK;
     }
-    p->quarantined=1; return YB_NATIVE_PLAYBACK_QUARANTINED;
+    quarantine(p); return YB_NATIVE_PLAYBACK_QUARANTINED;
 }
 int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_native_playback_output *out)
 {
@@ -214,15 +292,15 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
     yb_egl_binding saved;
     if (!snapshot(&saved) || !correct_consumer(p,&saved)) return YB_NATIVE_PLAYBACK_ARGUMENT;
     int status=YB_NATIVE_PLAYBACK_OK;
-    if (!bind_desktop(p)) { p->quarantined=1; return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED); }
+    if (!bind_desktop(p)) { quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED); }
     if (p->state==VA_PENDING) {
         VASurfaceID scaled=VA_INVALID_ID;
         int va=yb_vaapi_el_scaler_finish(p->scaler,timeout,&scaled);
         if (va==YB_VPP_PENDING) return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
         if (va!=YB_VPP_OK) goto quarantine;
-        uint32_t aw=0,ah=0;
+        uint32_t aw=p->base_allocation_width,ah=p->base_allocation_height;
         VASurfaceID base=(VASurfaceID)(uintptr_t)p->base->data[3];
-        if (!frame_contract(p,p->base,base,p->metadata.frame.width,p->metadata.frame.height,&aw,&ah)) goto quarantine;
+        if (!aw || !ah) goto quarantine;
         yb_vaapi_p010_import_info info={p->settings.egl_display,(uintptr_t)p->desktop,
             p->settings.va_display,base,p->metadata.frame.width,p->metadata.frame.height,aw,ah,timeout};
         int imported=yb_vaapi_p010_import_create(&info,&p->base_import);
@@ -298,7 +376,7 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
         return status;
     }
 quarantine:
-    p->quarantined=1; return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
+    quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
 }
 int yb_native_playback_release(yb_native_playback_context *p,uint64_t timeout)
 {
@@ -312,7 +390,7 @@ int yb_native_playback_release(yb_native_playback_context *p,uint64_t timeout)
     int status=yb_egl_output_bridge_release_timed(&p->bridge,timeout);
     if (status==YB_EGL_BRIDGE_CONSUMER) return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
     if (status || !bind_desktop(p) || !clear_frame(p)) {
-        p->quarantined=1; return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
+        quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
     }
     return finish_call(p,&saved,YB_NATIVE_PLAYBACK_OK);
 }
@@ -329,10 +407,10 @@ int yb_native_playback_destroy(yb_native_playback_context **handle)
     if (!bind_desktop(p) || !clear_frame(p) || yb_gpu_preparation_destroy(&p->preparation) ||
         yb_gpu_backend_destroy(&p->composer) || yb_gpu_ycc_destroy(&p->ycc) ||
         yb_vaapi_el_scaler_destroy(&p->scaler)) {
-        p->quarantined=1; return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
+        quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
     }
     if (!restore(&saved) || !eglDestroyContext((EGLDisplay)p->settings.egl_display,p->desktop)) {
-        p->quarantined=1; return YB_NATIVE_PLAYBACK_QUARANTINED;
+        quarantine(p); return YB_NATIVE_PLAYBACK_QUARANTINED;
     }
     free(p); *handle=NULL; return 0;
 }
@@ -345,7 +423,7 @@ int yb_native_playback_abandon_after_display_teardown(yb_native_playback_context
      * after forced vaTerminate could invoke callbacks on an invalid display.
      * Initially retain a quarantined decoded transaction until process exit;
      * host-only abandonment is safe solely when no decoded refs were acquired. */
-    if (p->base || p->el) return YB_NATIVE_PLAYBACK_QUARANTINED;
+    if (p->base || p->el || p->base_render_guard) return YB_NATIVE_PLAYBACK_QUARANTINED;
     if (p->desktop!=EGL_NO_CONTEXT &&
         (uintptr_t)eglGetCurrentContext()==(uintptr_t)p->desktop) return YB_NATIVE_PLAYBACK_ARGUMENT;
     if ((p->preparation && yb_gpu_preparation_abandon_destroyed_context(&p->preparation,1)) ||

@@ -17,6 +17,31 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
+/* Public fixture owner is a genuine retained FFmpeg VA allocation, not Kodi's
+ * allocator/pool implementation. This exercises the explicit custom ABI only. */
+struct fixture_owner { AVFrame *storage; VADisplay display; uint64_t generation; uint32_t width,height; int quarantined; };
+static unsigned owners_released;
+static int owner_validate(void *opaque,VADisplay display,VASurfaceID surface,uint64_t generation,uint32_t w,uint32_t h)
+{
+ struct fixture_owner *o=opaque;
+ return o && o->storage && !o->quarantined && o->display==display && o->generation==generation &&
+  o->width==w && o->height==h && (uintptr_t)o->storage->data[3]==(uintptr_t)surface;
+}
+static void owner_quarantine(void *opaque) { if(opaque)((struct fixture_owner *)opaque)->quarantined=1; }
+static void owner_free(void *opaque,uint8_t *data)
+{ (void)data;struct fixture_owner *o=opaque;if(o){av_frame_free(&o->storage);free(o);owners_released++;} }
+static AVFrame *property_snapshot(const AVFrame *source)
+{
+ AVFrameSideData *side=av_frame_get_side_data(source,AV_FRAME_DATA_DOVI_METADATA);
+ if(!side||!side->data||!side->size||side->size>1024U*1024U)return NULL;
+ AVFrame *copy=av_frame_alloc();if(!copy)return NULL;
+ copy->format=source->format;copy->width=source->width;copy->height=source->height;copy->data[3]=source->data[3];
+ copy->pts=source->pts;copy->best_effort_timestamp=source->best_effort_timestamp;copy->time_base=source->time_base;
+ copy->chroma_location=source->chroma_location;copy->flags=source->flags;copy->color_range=source->color_range;
+ copy->color_primaries=source->color_primaries;copy->color_trc=source->color_trc;copy->colorspace=source->colorspace;
+ AVFrameSideData *out=av_frame_new_side_data(copy,AV_FRAME_DATA_DOVI_METADATA,side->size);
+ if(!out){av_frame_free(&copy);return NULL;}memcpy(out->data,side->data,side->size);return copy;
+}
 static int extension(const char *all,const char *wanted)
 {
     if(!all) return 0;
@@ -162,7 +187,7 @@ static int restored(EGLDisplay display,EGLContext context){
 static int execute(const char *node,char *prep,char *composer,char *ycc){
  int ok=0,fd=-1,initialized=0,current=0;EGLDisplay display=EGL_NO_DISPLAY;EGLContext context=EGL_NO_CONTEXT;
  struct stat requested;struct gl_api gl={0};GLuint fbo=0;AVBufferRef *device=NULL;AVFrame *base=NULL,*el=NULL;
- yb_native_playback_context *playback=NULL;
+ yb_native_playback_context *playback=NULL;AVFrame *snapshot=NULL;AVBufferRef *owner_ref=NULL;
     fd=open(node,O_RDWR|O_CLOEXEC|O_NOFOLLOW);
     if(fd<0||fstat(fd,&requested)||!S_ISCHR(requested.st_mode)||major(requested.st_rdev)!=226||minor(requested.st_rdev)!=(unsigned)atoi(node+strlen("/dev/dri/renderD"))) goto cleanup;
     const char *client=eglQueryString(EGL_NO_DISPLAY,EGL_EXTENSIONS);
@@ -222,6 +247,18 @@ static int execute(const char *node,char *prep,char *composer,char *ycc){
  /* Deliberately copied bytes rather than side-data pointer identity. */
  frame.expanded_dovi_side_data=&metadata;frame.expanded_dovi_side_data_bytes=sizeof(metadata);
  if(!base->buf[0]||!el->buf[0])goto cleanup;
+ if(fixture==1){
+  const AVHWFramesContext *pool=(const AVHWFramesContext *)base->hw_frames_ctx->data;
+  struct fixture_owner *owner=calloc(1,sizeof(*owner));if(!owner)goto cleanup;
+  owner->storage=av_frame_clone(base);owner->display=va;owner->generation=9;
+  owner->width=(uint32_t)pool->width;owner->height=(uint32_t)pool->height;
+  if(!owner->storage){free(owner);goto cleanup;}
+  owner_ref=av_buffer_create(NULL,0,owner_free,owner,0);
+  if(!owner_ref){av_frame_free(&owner->storage);free(owner);goto cleanup;}
+  snapshot=property_snapshot(base);if(!snapshot)goto cleanup;
+  frame.base_frame=snapshot;frame.base_storage=YB_NATIVE_BASE_KODI_SURFACE;
+  frame.kodi_base=(yb_native_kodi_base_surface){1,VA_FOURCC_P010,owner->width,owner->height,va,9,owner,owner_ref,owner_validate,owner_quarantine};
+ }
  int base_refs=av_buffer_get_ref_count(base->buf[0]),el_refs=av_buffer_get_ref_count(el->buf[0]);
  /* Association rejection must leave decoded references untouched. */
  frame.association.el_pts++;
@@ -229,7 +266,8 @@ static int execute(const char *node,char *prep,char *composer,char *ycc){
     av_buffer_get_ref_count(base->buf[0])!=base_refs||av_buffer_get_ref_count(el->buf[0])!=el_refs)goto cleanup;
  frame.association=association;
  if(yb_native_playback_submit(playback,&frame,UINT64_C(5000000000))!=YB_NATIVE_PLAYBACK_OK||!restored(display,context))goto cleanup;
- if(av_buffer_get_ref_count(base->buf[0])!=base_refs+1||av_buffer_get_ref_count(el->buf[0])!=el_refs+1)goto cleanup;
+ if(av_buffer_get_ref_count(base->buf[0])!=base_refs+(fixture?0:1)||av_buffer_get_ref_count(el->buf[0])!=el_refs+1||
+    (fixture && av_buffer_get_ref_count(owner_ref)!=2))goto cleanup;
  if(yb_native_playback_submit(playback,&frame,UINT64_C(5000000000))!=YB_NATIVE_PLAYBACK_PENDING||!restored(display,context))goto cleanup;
  yb_native_playback_output output={0};
  if(yb_native_playback_finish(playback,UINT64_C(5000000000),&output)!=YB_NATIVE_PLAYBACK_OK||!restored(display,context))goto cleanup;
@@ -242,12 +280,17 @@ static int execute(const char *node,char *prep,char *composer,char *ycc){
  gl.BindFramebuffer(GL_FRAMEBUFFER,0);gl.DeleteFramebuffers(1,&fbo);fbo=0;
  if(yb_native_playback_release(playback,UINT64_C(5000000000))!=YB_NATIVE_PLAYBACK_OK||!restored(display,context))goto cleanup;
  if(av_buffer_get_ref_count(base->buf[0])!=base_refs||av_buffer_get_ref_count(el->buf[0])!=el_refs)goto cleanup;
+ if(fixture && av_buffer_get_ref_count(owner_ref)!=1)goto cleanup;
+ av_frame_free(&snapshot);av_buffer_unref(&owner_ref);
  av_frame_free(&el);
  }
  if(yb_native_playback_destroy(&playback)!=YB_NATIVE_PLAYBACK_OK||playback||!restored(display,context))goto cleanup;
+ if(owners_released!=1)goto cleanup;
  ok=1;
 cleanup:
- if(playback&&yb_native_playback_destroy(&playback)!=YB_NATIVE_PLAYBACK_OK)return 0;
+ if(playback&&yb_native_playback_destroy(&playback)!=YB_NATIVE_PLAYBACK_OK){
+  (void)yb_native_playback_quarantine_retained(playback);return 0;
+ }
  if(current&&!restored(display,context))return 0;
  if(current&&fbo&&gl.DeleteFramebuffers)gl.DeleteFramebuffers(1,&fbo);
  if(current&&!eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT))ok=0;
@@ -256,7 +299,7 @@ cleanup:
  /* Quarantine retains decoder/device refs until this failing diagnostic exits.
   * Do not falsely assert device teardown: retained cloned AVFrames themselves
   * keep FFmpeg's VA device alive. No later hardware work is attempted here. */
- if(!playback){av_frame_free(&base);av_frame_free(&el);av_buffer_unref(&device);}
+ if(!playback){av_frame_free(&snapshot);av_buffer_unref(&owner_ref);av_frame_free(&base);av_frame_free(&el);av_buffer_unref(&device);}
  else ok=0;
  if(!eglReleaseThread())ok=0;
  if(fd>=0&&close(fd))ok=0;
@@ -265,7 +308,7 @@ cleanup:
 int main(int argc,char **argv){
  if(argc==2&&!strcmp(argv[1],"--validate")){
   int valid=prepare_cpu(0)&&prepare_cpu(1)&&guide_influenced_samples&&nonzero_residual_samples;
-  printf("{\"schema\":\"yblod.native-playback-context-synthetic-preflight.v1\",\"status\":\"%s\",\"gpu_attempted\":false,\"rgba_float_bits_prepared\":%u,\"guide_influenced_samples\":%u,\"nonzero_residual_samples\":%u}\n",valid?"validated":"failed",valid?2U*WIDTH*HEIGHT*4U:0U,guide_influenced_samples,nonzero_residual_samples);
+  printf("{\"schema\":\"yblod.native-playback-custom-context-synthetic-preflight.v1\",\"status\":\"%s\",\"gpu_attempted\":false,\"rgba_float_bits_prepared\":%u,\"guide_influenced_samples\":%u,\"nonzero_residual_samples\":%u}\n",valid?"validated":"failed",valid?2U*WIDTH*HEIGHT*4U:0U,guide_influenced_samples,nonzero_residual_samples);
   return valid?0:1;
  }
  if(argc!=5||!node_valid(argv[1]))return 2;
@@ -273,6 +316,6 @@ int main(int argc,char **argv){
  char *prep=shader_read(argv[2]),*composer=shader_read(argv[3]),*ycc=shader_read(argv[4]);
  if(!prep||!composer||!ycc){free(prep);free(composer);free(ycc);return 2;}
  int ok=execute(argv[1],prep,composer,ycc);free(prep);free(composer);free(ycc);
- printf("{\"schema\":\"yblod.native-playback-context-synthetic-probe.v1\",\"complete\":%s,\"native_cpu_oracle_first\":true,\"rgba_float_bits_checked\":%u,\"guide_influenced_samples\":%u,\"nonzero_residual_samples\":%u,\"fixtures\":2,\"actual_ffmpeg_va_frames\":true,\"actual_expanded_dovi_metadata\":true,\"decoder_clone_lifetime_checked\":%s,\"association_rejection_checked\":%s,\"context_restore_checks\":%u,\"input_scope\":\"public64x64BL32x32constantEL512and513; constant preservation, not scaler interpolation accuracy\"}\n",ok?"true":"false",ok?2U*WIDTH*HEIGHT*4U:0U,guide_influenced_samples,nonzero_residual_samples,ok?"true":"false",ok?"true":"false",ok?12U:0U);
+ printf("{\"schema\":\"yblod.native-playback-custom-context-synthetic-probe.v1\",\"complete\":%s,\"native_cpu_oracle_first\":true,\"rgba_float_bits_checked\":%u,\"guide_influenced_samples\":%u,\"nonzero_residual_samples\":%u,\"fixtures\":2,\"actual_ffmpeg_va_frames\":true,\"actual_expanded_dovi_metadata\":true,\"strict_clone_and_custom_owner_lifetime_checked\":%s,\"association_rejection_checked\":%s,\"context_restore_checks\":%u,\"input_scope\":\"public64x64BL32x32constantEL512and513; one strict HWFrames BL and one property-only custom BL owner; actual FFmpeg fixture owner, not Kodi pool; constant preservation, not scaler interpolation accuracy\"}\n",ok?"true":"false",ok?2U*WIDTH*HEIGHT*4U:0U,guide_influenced_samples,nonzero_residual_samples,ok?"true":"false",ok?"true":"false",ok?12U:0U);
  return ok?0:1;
 }

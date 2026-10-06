@@ -1,0 +1,25 @@
+{
+  "schema": "yblod.native-playback-kodi-snapshot-host-checkpoint.v1",
+  "status": "complete",
+  "scope": "Synthetic host replay of actual ABI2 admission, public-property/deep-DOVI copy and owner lifetime helpers; no actual Kodi decoder pool or GPU execution",
+  "gpu_attempted": false,
+  "hardware_calls": false,
+  "create_abi_version": 2,
+  "strict_sdk_compile": true,
+  "archive_build": "Incremental actual 14-source core/playback CMake archives, followed by force-whole-archive SDK smoke link; no stubs",
+  "limits": {"memory_bytes": 536870912, "memory_swap_bytes": 536870912, "additional_swap_bytes": 0, "cpus": 1, "network": "none"},
+  "resource_counters_captured": false,
+  "runtime": "Matching LibreELEC SDK ld-linux-x86-64.so.2 and SDK library path in capped Docker",
+  "result": {"schema": "yblod.native-playback-kodi-snapshot-host.v1", "checks_passed": 34, "gpu_attempted": false},
+  "source_tests_passed": 13,
+  "tested_source_sha256": {
+    "engine/experimental/native_playback_context.c": "525bea7ffaa9e6010119b412583d94f250378c7b7a5a005fa4e7eea786367ec7",
+    "engine/experimental/native_playback_context.h": "3e7e83ff4a6b191a7bc5be42eae0742ba54ec14ce14b2dcee71522c969fc41fb",
+    "engine/experimental/native_playback_kodi_snapshot_probe.c": "75d39deff2d241e27a22dbf2f7aca2c9c2c91a138ae4b96d9dcbb256c18c7798",
+    "engine/experimental/native_playback_context_runner.c": "4f63eb122d0bba9c0450e8630cc12565201a0e5d23f1d51c830307089cc69baa"
+  },
+  "binary_sha256": "df81a4d124f19c23d72006a0cc7021709b4d515618284b773f1881e8eeafaf16",
+  "playback_archive_sha256": "aebea0655fe6f1849941ef019efa36edb88edbb5671566d33eb22964eb2f1907",
+  "core_archive_sha256": "13560d7c55ebd50b0856fa8e7d2c8ed6711d09958564c6113c82dce7a2d8019e",
+  "limitations": ["No custom-route GPU or full-film playback proof", "Fixture validates callbacks, not Kodi pool locking/recovery implementation", "Historical ABI1 GPU reports remain historical; not repinned", "Synthetic forced helper cleanup after quarantine is safe only because this probe submitted no hardware work"]
+}

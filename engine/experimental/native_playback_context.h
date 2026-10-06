@@ -10,6 +10,20 @@ extern "C" {
 #endif
 typedef struct yb_native_playback_context yb_native_playback_context;
 typedef struct { const char *bytes; size_t size; } yb_playback_shader;
+/* Explicit nonowning property snapshot of Kodi's decoded BL. No decoder buffer
+ * refs or fabricated HWFramesContext. The genuine render-picture token owns
+ * storage; its callbacks validate an immutable pool generation under Gfx and
+ * mark that pool quarantined before any uncertain work returns to its owner. */
+typedef struct {
+    uint32_t version,fourcc,allocation_width,allocation_height;
+    VADisplay va_display;
+    uint64_t generation;
+    void *owner_identity;
+    AVBufferRef *render_guard;
+    int (*validate)(void *,VADisplay,VASurfaceID,uint64_t,uint32_t,uint32_t);
+    void (*mark_quarantine)(void *);
+} yb_native_kodi_base_surface;
+enum { YB_NATIVE_BASE_HWFRAMES=0,YB_NATIVE_BASE_KODI_SURFACE=1 };
 typedef struct {
     uint32_t version;
     uintptr_t egl_display; /* borrowed, same as current GLES renderer */
@@ -32,6 +46,10 @@ typedef struct {
     uint32_t base_width,base_height,enhancement_width,enhancement_height;
     const void *expanded_dovi_side_data;
     size_t expanded_dovi_side_data_bytes;
+    /* Zero-initialized default preserves strict FFmpeg HWFrames admission.
+     * Custom route is BL only; EL still requires a genuine HWFramesContext. */
+    uint32_t base_storage;
+    yb_native_kodi_base_surface kodi_base;
 } yb_native_playback_frame;
 typedef struct {
     uint32_t texture,width,height;
@@ -43,7 +61,7 @@ typedef struct {
 enum { YB_NATIVE_PLAYBACK_OK=0,YB_NATIVE_PLAYBACK_ARGUMENT=1,
        YB_NATIVE_PLAYBACK_FALLBACK=2,YB_NATIVE_PLAYBACK_PENDING=3,
        YB_NATIVE_PLAYBACK_ERROR=4,YB_NATIVE_PLAYBACK_QUARANTINED=5 };
-/* Proposed production orchestration ABI; implementation is in development.
+/* Production orchestration ABI version2; create rejects version1 callers.
  * All calls on same renderer thread with the same GLES consumer current.
  * Owns a dedicated desktop GL context, never terminates either borrowed display.
  * Saves/restores exact client API/context/draw/read binding on EVERY operation.
@@ -51,7 +69,8 @@ enum { YB_NATIVE_PLAYBACK_OK=0,YB_NATIVE_PLAYBACK_ARGUMENT=1,
  * of settings, and rejects capability failures before accepting decoder work. */
 int yb_native_playback_create(const yb_native_playback_create_info *,
     yb_native_playback_context **output);
-/* Clones both actual AVFrames and holds decoded storage through release.
+/* Strict route clones actual HWFrames. Custom Kodi BL copies only declared
+ * public properties and DOVI bytes; a genuine render-picture lease owns storage.
  * BL best_effort_timestamp and EL pts must match descriptor and each other
  * using the explicit actual decoder packet time bases; no double Kodi doviPts.
  * A present AVFrame.time_base must be consistent; an absent redundant frame
@@ -77,6 +96,11 @@ int yb_native_playback_finish(yb_native_playback_context *,
  * Caller has to retain decoded refs until this returns OK (conservative lifetime). */
 int yb_native_playback_release(yb_native_playback_context *,uint64_t consumer_timeout_ns);
 int yb_native_playback_destroy(yb_native_playback_context **);
+/* Owner permanently abandons normal retries (including PENDING destroy).
+ * Host-only: no EGL/VA calls; marks the actual pool lease quarantined and
+ * retains EVERY resource. Must be called before owner teardown/reuse decisions.
+ * This is not recovery or permission to destroy the borrowed displays. */
+int yb_native_playback_quarantine_retained(yb_native_playback_context *);
 /* Quarantine: only after owner completes BOTH borrowed VA/EGL displays/device
  * teardown and invalidates all storage/contexts; host-only abandonment.
  * This initially REJECTS if decoded AVFrame clones remain: their pool/device

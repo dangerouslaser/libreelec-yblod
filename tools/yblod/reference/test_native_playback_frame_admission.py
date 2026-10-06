@@ -1,4 +1,9 @@
-"""Host source guard for retained decoder storage; no hardware execution."""
+"""Strict HWFrames source guard and historical ABI1 host replay audit.
+
+Saved runtime evidence is not repinned to the current ABI2/custom-source code;
+the custom Kodi snapshot has a separate admission probe and checkpoint.
+No hardware execution here.
+"""
 from pathlib import Path
 import json
 import unittest
