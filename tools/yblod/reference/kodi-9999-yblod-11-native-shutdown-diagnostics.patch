@@ -1,0 +1,127 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -148,8 +148,17 @@
+ CDVBridgeGLES::~CDVBridgeGLES()
+ {
+ #ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  if (NativeTimingRequested())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: renderer destroy begin native_present={} cleanup_retained={}",
++        m_native != nullptr, nativeCleanupRetained.load());
+   if (!ReleaseNative())
++  {
++    if (NativeTimingRequested())
++      CLog::Log(LOGWARNING, "DVBridge native shutdown: renderer destroy retained; no uncertain resources freed");
+     return;
++  }
++  if (NativeTimingRequested())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: renderer native release complete");
+ #endif
+   Summary("closed");
+   CDVPlaybackInfo::presented.store(0);
+@@ -490,6 +499,9 @@
+   if (!m_native)
+     return true;
+   const int status = yb_native_playback_destroy(&m_native);
++  if (NativeTimingRequested())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: native destroy status={} handle_retained={}",
++        status, m_native != nullptr);
+   if (status == YB_NATIVE_PLAYBACK_OK)
+     return true;
+   yb_native_playback_quarantine_retained(m_native);
+diff --git a/xbmc/utils/EGLUtils.cpp b/xbmc/utils/EGLUtils.cpp
+--- a/xbmc/utils/EGLUtils.cpp
++++ b/xbmc/utils/EGLUtils.cpp
+@@ -17,6 +17,8 @@
+ #include "utils/Geometry.h"
+ #include "utils/Map.h"
+ 
++#include <cstdlib>
++#include <cstring>
+ #include <string_view>
+ 
+ #include <EGL/egl.h>
+@@ -26,6 +28,12 @@
+ namespace
+ {
+ 
++bool NativeEGLShutdownDiagnostics()
++{
++  const char* value = std::getenv("DVBRIDGE_NATIVE_DIAGNOSTICS");
++  return value && std::strcmp(value, "1") == 0;
++}
++
+ #define X(VAL) std::make_pair(VAL, #VAL)
+ constexpr auto eglAttributes = make_map<EGLint, std::string_view>({
+     // please keep attributes in accordance to:
+@@ -536,12 +544,20 @@
+ 
+ void CEGLContextUtils::Destroy()
+ {
++  if (NativeEGLShutdownDiagnostics())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: EGL destroy begin display_present={} context_present={} upload_present={} surface_present={}",
++        m_eglDisplay != EGL_NO_DISPLAY, m_eglContext != EGL_NO_CONTEXT,
++        m_eglUploadContext != EGL_NO_CONTEXT, m_eglSurface != EGL_NO_SURFACE);
+   DestroyContext();
+   DestroySurface();
+ 
+   if (m_eglDisplay != EGL_NO_DISPLAY)
+   {
+-    eglTerminate(m_eglDisplay);
++    if (NativeEGLShutdownDiagnostics())
++      CLog::Log(LOGINFO, "DVBridge native shutdown: EGL terminate begin");
++    const EGLBoolean result = eglTerminate(m_eglDisplay);
++    if (NativeEGLShutdownDiagnostics())
++      CLog::Log(LOGINFO, "DVBridge native shutdown: EGL terminate result={}", result == EGL_TRUE);
+     m_eglDisplay = EGL_NO_DISPLAY;
+   }
+ }
+@@ -551,13 +567,21 @@
+   if (m_eglContext != EGL_NO_CONTEXT)
+   {
+     eglMakeCurrent(m_eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+-    eglDestroyContext(m_eglDisplay, m_eglContext);
++    if (NativeEGLShutdownDiagnostics())
++      CLog::Log(LOGINFO, "DVBridge native shutdown: EGL main context destroy begin");
++    const EGLBoolean result = eglDestroyContext(m_eglDisplay, m_eglContext);
++    if (NativeEGLShutdownDiagnostics())
++      CLog::Log(LOGINFO, "DVBridge native shutdown: EGL main context destroy result={}", result == EGL_TRUE);
+     m_eglContext = EGL_NO_CONTEXT;
+   }
+ 
+   if (m_eglUploadContext)
+   {
+-    eglDestroyContext(m_eglDisplay, m_eglUploadContext);
++    if (NativeEGLShutdownDiagnostics())
++      CLog::Log(LOGINFO, "DVBridge native shutdown: EGL upload context destroy begin");
++    const EGLBoolean result = eglDestroyContext(m_eglDisplay, m_eglUploadContext);
++    if (NativeEGLShutdownDiagnostics())
++      CLog::Log(LOGINFO, "DVBridge native shutdown: EGL upload context destroy result={}", result == EGL_TRUE);
+     m_eglUploadContext = EGL_NO_CONTEXT;
+   }
+ }
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -1046,9 +1046,20 @@
+ 
+ bool CWinSystemGbmGLESContext::DestroyWindowSystem()
+ {
++  if (DVBRIDGE::DiagnosticsEnabled())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: window destroy begin captured={} bridge_present={}",
++        m_dvState.Captured(), m_dvBridge != nullptr);
+   if (!EndDVBridge())
++  {
++    if (DVBRIDGE::DiagnosticsEnabled())
++      CLog::Log(LOGWARNING, "DVBridge native shutdown: output restore failed; explicit bridge reset/base teardown skipped");
+     return false;
++  }
++  if (DVBRIDGE::DiagnosticsEnabled())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: output restore complete; explicit bridge reset begin");
+   m_dvBridge.reset();
++  if (DVBRIDGE::DiagnosticsEnabled())
++    CLog::Log(LOGINFO, "DVBridge native shutdown: explicit bridge reset complete; base teardown begin");
+   return CWinSystemGbmEGLContext::DestroyWindowSystem();
+ }
+ #endif
+
