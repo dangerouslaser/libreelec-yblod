@@ -19,7 +19,7 @@ if test -n "${PRIVATE_PROGRESS_PATH:-}"; then
   test ! -e "$PRIVATE_PROGRESS_PATH" && test ! -L "$PRIVATE_PROGRESS_PATH"
 fi
 test "$#" = 4
-case "$4" in derived36|derived0|direct36) ;; *) exit 2 ;; esac
+case "$4" in derived36|derived0|direct36|derived36-elheaders) ;; *) exit 2 ;; esac
 test -n "${PRIVATE_AU_IDENTITY_PATH:-}"
 test ! -e "$PRIVATE_AU_IDENTITY_PATH" && test ! -L "$PRIVATE_AU_IDENTITY_PATH"
 task_libs="$task_sdk/x86_64-libreelec-linux-gnu/sysroot/usr/lib"

@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "scope": "Controlled header-removal initialization diagnostic compile and CPU guards only, not decoder/output quality qualification",
+  "probe_binary_sha256": "9f7b6707ea51d98a00b14aeffbf96c18d77e26de13b687761c7795f393694941",
+  "cpu_test_binary_sha256": "d770d5b62f68ae1030ad04626c2c461d9eb075414ad3828a6f355941502ddd15",
+  "strict_sdk_compile_passed": true,
+  "cpu_exact_payload_bounds_tests_passed": true,
+  "actual_private_intercepted_first_au_identity_guard_passed": true,
+  "actual_private_el_nal_sequence_unchanged_after_prefix_conversion": true,
+  "actual_private_native_parser_dimensions_before_after": [1920, 1080],
+  "actual_private_inband_vps_sps_pps_present": true,
+  "normalization": "Initialize existing hevc_mp4toannexb length parser, clear only copied converter extradata to prevent BL parameter injection, compare each original NAL payload literally, then clear copied decoder extradata",
+  "resources_compile_tests": {"memory_cap_bytes": 536870912, "peak_bytes": 27860992, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true, "terminal_gates_enforced": true},
+  "resources_private_header_parser": {"memory_cap_bytes": 536870912, "peak_bytes": 22790144, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "limits": ["Diagnostic only; no production helper modifications", "No GPU or hardware decode in these tests", "No private AU/header hashes or bytes exported", "Requires actual negotiated MFX dimensions and exact later sample/output qualification before any adoption"]
+}
