@@ -1,0 +1,250 @@
+{
+  "schema": "yblod.efficiency-control.v1",
+  "scope": "Two separate before-instrumentation controls; no after-run or optimization-gain claim",
+  "movie": "1917",
+  "input_profile": 7,
+  "baseline_candidate_executable_sha256": "b06db596c9cec559d5ea8634b6bdedcec0cf43bd376cb9be73529dada60c5931",
+  "health_selection": "Use first completed~10second health marker as warmup boundary; exclude its renderer interval from steady range/weighted average. Counter deltas end at final~70second marker.",
+  "controls": [
+    {
+      "id": "health_only",
+      "window": "Exclude the first completed10second health interval; deltas from that boundary to final~70second health marker",
+      "observed_seconds": 76.02016162099608,
+      "health_pts_start_s": 10.511,
+      "health_pts_end_s": 70.654,
+      "health_wall_interval_seconds": 60.14,
+      "drop_start": 5,
+      "drop_end": 13,
+      "drop_delta": 8,
+      "skip_start": 2,
+      "skip_end": 13,
+      "skip_delta": 11,
+      "render_avg_pct_range": [
+        57.9,
+        65.9
+      ],
+      "render_avg_pct_interval_wall_weighted": 61.06225473894247,
+      "kodi_identity_unchanged": true,
+      "failure_marker": false,
+      "health_rows": [
+        {
+          "pts_s": 10.511,
+          "interval_ms": 10011,
+          "drop_total": 5,
+          "skip_total": 2,
+          "render_avg_pct": 53.7
+        },
+        {
+          "pts_s": 20.562,
+          "interval_ms": 10050,
+          "drop_total": 7,
+          "skip_total": 5,
+          "render_avg_pct": 58
+        },
+        {
+          "pts_s": 30.572,
+          "interval_ms": 10010,
+          "drop_total": 9,
+          "skip_total": 6,
+          "render_avg_pct": 60.3
+        },
+        {
+          "pts_s": 40.582,
+          "interval_ms": 10052,
+          "drop_total": 11,
+          "skip_total": 9,
+          "render_avg_pct": 57.9
+        },
+        {
+          "pts_s": 50.634,
+          "interval_ms": 10008,
+          "drop_total": 12,
+          "skip_total": 9,
+          "render_avg_pct": 65.9
+        },
+        {
+          "pts_s": 60.727,
+          "interval_ms": 10010,
+          "drop_total": 12,
+          "skip_total": 10,
+          "render_avg_pct": 65.1
+        },
+        {
+          "pts_s": 70.654,
+          "interval_ms": 10010,
+          "drop_total": 13,
+          "skip_total": 13,
+          "render_avg_pct": 59.2
+        }
+      ]
+    },
+    {
+      "id": "gpu_sampled",
+      "window": "Exclude the first completed10second health interval; deltas from that boundary to final~70second health marker",
+      "observed_seconds": 76.39088170799369,
+      "health_pts_start_s": 10.511,
+      "health_pts_end_s": 70.612,
+      "health_wall_interval_seconds": 60.1,
+      "drop_start": 1,
+      "drop_end": 2,
+      "drop_delta": 1,
+      "skip_start": 2,
+      "skip_end": 9,
+      "skip_delta": 7,
+      "render_avg_pct_range": [
+        58.3,
+        68.2
+      ],
+      "render_avg_pct_interval_wall_weighted": 63.98306655574043,
+      "kodi_identity_unchanged": true,
+      "failure_marker": false,
+      "health_rows": [
+        {
+          "pts_s": 10.511,
+          "interval_ms": 10016,
+          "drop_total": 1,
+          "skip_total": 2,
+          "render_avg_pct": 65.2
+        },
+        {
+          "pts_s": 20.521,
+          "interval_ms": 10010,
+          "drop_total": 1,
+          "skip_total": 4,
+          "render_avg_pct": 61.3
+        },
+        {
+          "pts_s": 30.531,
+          "interval_ms": 10010,
+          "drop_total": 1,
+          "skip_total": 5,
+          "render_avg_pct": 65.7
+        },
+        {
+          "pts_s": 40.582,
+          "interval_ms": 10052,
+          "drop_total": 1,
+          "skip_total": 7,
+          "render_avg_pct": 63.6
+        },
+        {
+          "pts_s": 50.634,
+          "interval_ms": 10008,
+          "drop_total": 1,
+          "skip_total": 7,
+          "render_avg_pct": 68.2
+        },
+        {
+          "pts_s": 60.644,
+          "interval_ms": 10011,
+          "drop_total": 2,
+          "skip_total": 7,
+          "render_avg_pct": 66.8
+        },
+        {
+          "pts_s": 70.612,
+          "interval_ms": 10009,
+          "drop_total": 2,
+          "skip_total": 9,
+          "render_avg_pct": 58.3
+        }
+      ]
+    }
+  ],
+  "gpu_summary": {
+    "sample_start_index": 4,
+    "sample_end_index": 34,
+    "interval_count": 30,
+    "elapsed_seconds": 60.309084027,
+    "relative_to_first_gpu_sample_start_s": 8.036102354,
+    "relative_to_first_gpu_sample_end_s": 68.345186381,
+    "approximately_observer_seconds": [
+      10,
+      70
+    ],
+    "observer_start_monotonic_not_recorded": true,
+    "engine": {
+      "drm-engine-render": {
+        "weighted_busy_percent": 64.2901091527798,
+        "capacity": 1
+      },
+      "drm-engine-copy": {
+        "weighted_busy_percent": 0,
+        "capacity": 1
+      },
+      "drm-engine-video": {
+        "weighted_busy_percent": 5.8622245803255755,
+        "capacity": 2
+      },
+      "drm-engine-video-enhance": {
+        "weighted_busy_percent": 7.6005826152953055,
+        "capacity": 1
+      }
+    },
+    "frequency_sample_ranges_mhz": {
+      "gt_act_freq_mhz": [
+        0,
+        1300
+      ],
+      "gt_cur_freq_mhz": [
+        1200,
+        1300
+      ]
+    },
+    "frequency_not_used_as_utilization_denominator": true,
+    "unavailable_intervals": 0,
+    "capacity_consistent": true,
+    "elapsed_nanoseconds": 60309084027,
+    "engine_busy_nanoseconds_aggregate": {
+      "drm-engine-render": 38772775950,
+      "drm-engine-copy": 0,
+      "drm-engine-video": 7070907896,
+      "drm-engine-video-enhance": 4583841756
+    },
+    "formula": "100 * aggregate client busy nanoseconds / elapsed nanoseconds / engine capacity; equivalent to wall-time-weighted interval percentage",
+    "gpu_process_identity_consistent": true,
+    "service_pid_is_not_gpu_child_pid": true,
+    "raw_process_client_identifiers_omitted": true,
+    "unit_validation_in_historical_capture_not_recorded": true,
+    "new_observer_guards_not_retroactive_capture_evidence": true,
+    "frequency_scope": "Instantaneous samples, not sustained clocks; actual-frequency zero samples retained honestly. Frequency does not normalize utilization."
+  },
+  "collector_review": {
+    "updated_collector_main_guards_reviewed_read_only": true,
+    "guards": [
+      "Exactly one Kodi binary process and nonempty DRM clients",
+      "Nanosecond engine units and nonnegative capacity syntax",
+      "Unchanged engine/client key sets and nonregressing counters",
+      "Failure markers outside normal log whitelist",
+      "Log-rotation/truncation failure and partial-line carry",
+      "Actual active video player ID used for optional stop"
+    ],
+    "remaining_limits": [
+      "Snapshot timestamp precedes sequential fdinfo/frequency reads; not simultaneous hardware timing",
+      "Observer-start monotonic anchor absent in these historical JSONs; ordinal GPU window approximately10→70seconds, not exact health alignment",
+      "A stable client with no recognized engine counters or partial fdinfo-read exception can still give incomplete metrics",
+      "No retrospective claim that these older captures passed newly added collector guards"
+    ]
+  },
+  "historical_context": {
+    "separate_prior_report": "native-kodi-owned-source-playback-checkpoint-20261006.json",
+    "historical_not_matched": true,
+    "prior_observed_render_range_pct": [
+      66.1,
+      74.2
+    ],
+    "prior_final_drop_total": 2,
+    "prior_final_skip_total": 5,
+    "not_baseline_for_gain_inference": true
+  },
+  "limitations": {
+    "raw_film_pixels_metadata_paths_or_hashes_published": false,
+    "raw_log_lines_published": false,
+    "hdmi_flips_measured": false,
+    "colour_accuracy_measured": false,
+    "optimization_gain_claim": false,
+    "matched_after_run_present": false,
+    "drop_skip_variation_already_present_between_controls": true,
+    "observation_windows_not_total_playback_lengths": true
+  }
+}
