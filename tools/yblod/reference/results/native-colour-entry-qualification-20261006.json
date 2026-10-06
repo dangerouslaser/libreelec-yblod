@@ -1,0 +1,28 @@
+{
+  "schema": "yblod.native-colour-entry-synthetic-qualification.v1",
+  "scope": "synthetic inherited RGB stage; not transport/display/SK4/Dolby conformance",
+  "probe_sha256": "2f1569a0071809160f8644bb6fa49cf401a928b339ced5fdffe512259d43eb35",
+  "corrected_probe_sha256": "d52770e06a5826c5e9784e75255c40e1d31dd3e0abf05fe3056d7fdc2a72bbb7",
+  "runs": [
+    {"source_size": [64, 64], "output_size": [3840, 2160], "float_components_bit_compared": 33177600, "peak_memory_bytes": 300564480, "probe_exit": 0, "cleanup_complete": true, "invalid_entry_checks": 2},
+    {"source_size": [1920, 1080], "output_size": [3840, 2160], "float_components_bit_compared": 33177600, "peak_memory_bytes": 359559168, "probe_exit": 0, "cleanup_complete": true, "invalid_entry_checks": 2},
+    {"source_size": [3840, 2160], "output_size": [3840, 2160], "float_components_bit_compared": 33177600, "peak_memory_bytes": 484073472, "probe_exit": 0, "cleanup_complete": true, "invalid_entry_checks": 2}
+  ],
+  "memory_limit_bytes": 536870912,
+  "memory_limit_or_oom_events": 0,
+  "swap_bytes": 0,
+  "artifact_and_kodi_identity_stable": true,
+  "players_idle_before_and_after": true,
+  "active_area_margins_equal": true,
+  "complete_packet_content_equality_qualified": true,
+  "corrected_full_packet_run": {
+    "source_size": [3840, 2160], "output_size": [3840, 2160],
+    "float_components_bit_compared": 33177600, "packet_words_bit_compared": 128,
+    "peak_memory_bytes": 507576320, "probe_exit": 0, "external_guard_exit": 0,
+    "cleanup_complete": true, "invalid_entry_checks": 2,
+    "memory_limit_or_oom_events": 0, "swap_bytes": 0
+  },
+  "packet_test_correction": "Initial probe compared only count words. Corrected source compares count*128 words; a fresh guarded 4K run matched all 128 packet words and the complete RGB float image.",
+  "excluded_attempt": "Earlier 4K probe exited zero and matched pixels, but external guard exited one without established cause; excluded from qualified runs.",
+  "performance_claim": false
+}

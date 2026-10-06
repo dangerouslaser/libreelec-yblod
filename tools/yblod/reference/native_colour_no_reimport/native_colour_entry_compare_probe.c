@@ -70,7 +70,7 @@ static int context(const char *node,EGLDisplay *display,EGLContext *ctx)
     return *ctx!=EGL_NO_CONTEXT&&eglMakeCurrent(*display,EGL_NO_SURFACE,EGL_NO_SURFACE,*ctx);
 }
 static int compare(pl_gpu gpu,unsigned width,unsigned height,const char *checkpoint,
-                   unsigned long long *compared,unsigned *failure_checks)
+                   unsigned long long *compared,unsigned *failure_checks,unsigned *packet_words)
 {
     int okay=0; const char *phase="row-allocation"; FILE *file=NULL; struct dvbridge_renderer *renderer=NULL;
     pl_tex tex[5]={0}; float *row=calloc(3840U*4U,sizeof(float));
@@ -133,11 +133,14 @@ static int compare(pl_gpu gpu,unsigned width,unsigned height,const char *checkpo
         const struct dvbridge_candidate *candidate=dvbridge_render_candidate(renderer);
         unsigned current_count=0,current_margins[4];
         const uint32_t *current=dvbridge_packets(candidate,&current_count);
-        if(!current||!dvbridge_active_area(candidate,current_margins))goto done;
+        if(!current||!current_count||current_count>4||!dvbridge_active_area(candidate,current_margins))goto done;
         if(!route) {
-            count=current_count;packets=malloc((size_t)count*sizeof(*packets));if(!packets)goto done;
-            memcpy(packets,current,(size_t)count*sizeof(*packets));memcpy(margins,current_margins,sizeof(margins));
-        } else if(current_count!=count||memcmp(packets,current,(size_t)count*sizeof(*packets))||memcmp(margins,current_margins,sizeof(margins)))goto done;
+            count=current_count;packets=malloc((size_t)count*128U*sizeof(*packets));if(!packets)goto done;
+            memcpy(packets,current,(size_t)count*128U*sizeof(*packets));memcpy(margins,current_margins,sizeof(margins));
+        } else {
+            if(current_count!=count||memcmp(packets,current,(size_t)count*128U*sizeof(*packets))||memcmp(margins,current_margins,sizeof(margins)))goto done;
+            *packet_words=count*128U;
+        }
         phase=route?"output-new":"output-old";
         pl_gpu_finish(gpu);
         GLuint texture=pl_opengl_unwrap(gpu,dvbridge_render_texture(renderer),NULL,NULL,NULL);
@@ -195,14 +198,14 @@ int main(int argc,char **argv)
         width=(unsigned)w;height=(unsigned)h;
     }
     EGLDisplay display=EGL_NO_DISPLAY;EGLContext ctx=EGL_NO_CONTEXT;
-    pl_opengl gl=NULL;pl_log log=NULL;int okay=0,cleanup=1;unsigned long long compared=0;unsigned failures=0;
+    pl_opengl gl=NULL;pl_log log=NULL;int okay=0,cleanup=1;unsigned long long compared=0;unsigned failures=0,packet_words=0;
     if(!context(argv[1],&display,&ctx))goto done;
     log=pl_log_create(PL_API_VER,pl_log_params(.log_cb=gpu_log,.log_level=PL_LOG_DEBUG));
     if(!log)goto done;
     gl=pl_opengl_create(log,pl_opengl_params(.get_proc_addr=(pl_voidfunc_t(*)(const char*))eglGetProcAddress,
         .egl_display=display,.egl_context=ctx,.allow_software=false));
     if(!gl)goto done;
-    okay=compare(gl->gpu,width,height,argv[2],&compared,&failures);
+    okay=compare(gl->gpu,width,height,argv[2],&compared,&failures,&packet_words);
 done:
     pl_opengl_destroy(&gl);
     pl_log_destroy(&log);
@@ -211,7 +214,7 @@ done:
         if(ctx!=EGL_NO_CONTEXT&&!eglDestroyContext(display,ctx))cleanup=0;
         if(!eglTerminate(display))cleanup=0;
     }
-    printf("{\"complete\":%s,\"cleanup_complete\":%s,\"rgb_float_values_bit_compared\":%llu,\"failure_checks\":%u,\"synthetic_source_size\":[%u,%u],\"full_output_size\":[3840,2160]}\n",
-        okay?"true":"false",cleanup?"true":"false",compared,failures,width,height);
+    printf("{\"complete\":%s,\"cleanup_complete\":%s,\"rgb_float_values_bit_compared\":%llu,\"packet_words_bit_compared\":%u,\"failure_checks\":%u,\"synthetic_source_size\":[%u,%u],\"full_output_size\":[3840,2160]}\n",
+        okay?"true":"false",cleanup?"true":"false",compared,packet_words,failures,width,height);
     return okay&&cleanup?0:1;
 }

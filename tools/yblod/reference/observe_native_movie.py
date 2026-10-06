@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 import subprocess
@@ -70,6 +71,10 @@ def gpu_snapshot():
                 continue
             snapshot['pid'] = int(proc.name)
             pids.append(int(proc.name))
+            stat = (proc / 'stat').read_text().rsplit(')', 1)[1].split()
+            snapshot['process_cpu_ticks'] = int(stat[11]) + int(stat[12])
+            snapshot['process_start_ticks'] = int(stat[19])
+            snapshot['clock_ticks_per_second'] = int(os.sysconf('SC_CLK_TCK'))
             for fd in (proc / 'fdinfo').iterdir():
                 fields = {}
                 for line in fd.read_text().splitlines():
@@ -239,6 +244,7 @@ while time.monotonic() - started < args.seconds:
         if any(marker in line for marker in (
             'DVBridge native reconstruction:', 'DVBridge playback health:', 'DVBridge native timing:',
             'DVBridge native composer:',
+            'DVBridge native colour handoff:',
             'DVBridge stream candidate:', 'DVBridge first frame:')):
             lines.append(line)
             print(line, flush=True)
