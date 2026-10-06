@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "CPU-only actual probe admission predicates against original SDK libraries; no decoder, GPU or media calls executed",
+  "container_image_id": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "probe_source_sha256": "c66c574c7a9e114004dfdf202a90909ba28317ef3bdb3573e5a15a115f7748a8",
+  "fixture_source_sha256": "25ac52b3ac073d7d857199172f1876aa1781c7e6c20ce55c2afdb82f7f2addcd",
+  "fixture_binary_sha256": "9973676f9b13715fb8bcbb229a1cbb822b1604a5427773aa6798aaf9011f5576",
+  "strict_sdk_compilation_passed": true,
+  "cpu_admission_predicates_passed": true,
+  "nonzero_coded_padding_excluded_from_active_samples": true,
+  "exit_code": 0,
+  "resources": {"memory_cap_bytes": 536870912, "peak_bytes": 68988928, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "limits": ["CPU fixture includes full probe source with main renamed but does not call either decoder", "Geometry, alignment, property, timestamp and hardware-format selection predicates only", "No actual decoder source association, Dolby instruction sequence, GPU ownership or raw-media equality qualification", "Candidate isolated FFmpeg runtime and separate hardware controller remain required"]
+}
