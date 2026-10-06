@@ -29,8 +29,10 @@ The current integer 1917 baseline remained at normal speed without a stall or
 failure marker. Its logged approximately 10-to-70-second counter window added
 four drops and six skips. The observer ran 76.40 seconds; those counters must
 not be presented as a complete 76-second count. Candidate playback results
-remain pending.
+are now available in the separate completed same-binary ABBA playback report,
+FP32_PLAYBACK_COMPARISON.md. This older baseline is not pooled into those controls.
 
-Outstanding: complete candidate playback comparison, investigate timing jitter,
-and preserve the unresolved old-build service-shutdown heap-abort caveat.
+Outstanding: investigate standalone timing jitter and preserve the unresolved
+service-shutdown heap-abort caveat. Actual playback composer improvement is
+documented separately; it does not retroactively fix these standalone timings.
 Successful player stop does not qualify full service shutdown.

@@ -1,0 +1,112 @@
+{
+  "schema": "yblod.fp32-playback-comparison-summary.v1",
+  "status": "four-run-ABBA-complete",
+  "same_binary_sha256": "69b1bca198a2a8be59df8e46a5c4d6b4308e693e642550ec1f686b03697ed99e",
+  "difference": "DVBRIDGE_NATIVE_FP32=0 integer versus =1 hybrid libplacebo BL reshape plus unchanged native enhancement correction",
+  "media": "1917",
+  "accuracy_reference": "native integer CPU composer, not licensed hardware or HDMI captures",
+  "accuracy_unique_codes": 24883200,
+  "accuracy_exact_percent": 99.91478587962963,
+  "accuracy_max_abs_12bit_codes": 1,
+  "accuracy_luma_exact": true,
+  "integer_gpu_reference": {"unique_frames": 2, "compared_codes": 24883200, "changed_codes_against_cpu": 0, "exact_percent": 100.0},
+  "public_synthetic_matrix": {
+    "cases": 12, "mmr_orders": [1, 2, 3], "output_depths": [10, 12],
+    "nlq_variants": ["default", "small"], "codes_per_case": 6144,
+    "compared_codes": 73728, "changed_codes": 2, "codes_over_one": 0,
+    "max_abs_output_codes": 1, "all_cleanup_succeeded": true,
+    "all_runs_accepted_fp32": 5, "all_runs_accepted_integer": 0,
+    "all_runs_cache_hits": 4, "all_runs_cache_misses": 1,
+    "nonexact_cases": ["public-default-o1-d12", "public-small-o1-d12"],
+    "all_other_cases_exact": true
+  },
+  "gpu_topology_change": {
+    "sequence": "MMR order3 -> order1 -> order3", "same_wrapper_handle": true,
+    "same_input_textures": true, "compared_codes_in_three_sequence_outputs": 18432,
+    "reference_changed_codes": 3, "reference_codes_over_one": 0,
+    "max_abs_output_codes": 1,
+    "alternate_changed_codes_per_plane": [4096, 1024, 1024],
+    "restoration_mismatches_per_plane": [0, 0, 0],
+    "accepted_fp32": 7, "accepted_integer": 0, "cache_hits": 5,
+    "cache_misses": 2, "shader_compile_failed": 0, "generate_failed": 0,
+    "cleanup_succeeded": true,
+    "same_topology_order3_to_order3_run_not_used_as_topology_change_evidence": true
+  },
+  "timing_scope": "incremental helper wall time per released transaction; not exclusive GPU time or full end-to-end budget",
+  "weighted_composer_comparison": {
+    "weight": "number of released transactions in each measured stage window, not unique video frames",
+    "integer_ms_per_release": 16.62309523809524,
+    "fp32_ms_per_release": 9.244666666666667,
+    "reduction_percent": 44.386610710858385,
+    "integer_total_measured_releases": 2520,
+    "fp32_total_measured_releases": 3240
+  },
+  "runs": [
+    {
+      "label": "same-binary-integer-A1", "fp32": false,
+      "health_source_start_s": 10.385, "health_source_end_s": 70.487,
+      "first_drop_total": 1, "last_drop_total": 10, "drop_delta": 9,
+      "first_skip_total": 6, "last_skip_total": 18, "skip_delta": 12,
+      "stage_start_released": 120, "stage_end_released": 1320,
+      "composer_wait_ms_per_release": 16.8423,
+      "weighted_render_avg_percent": 61.12902319394796,
+      "whole_service_memory_before_current_bytes": 801005568,
+      "whole_service_memory_after_current_bytes": 1759858688,
+      "whole_service_lifetime_peak_after_bytes": 1901154304,
+      "service_identity_unchanged": true, "failure_marker": false
+    },
+    {
+      "label": "same-binary-fp32-B1", "fp32": true,
+      "health_source_start_s": 10.135, "health_source_end_s": 70.195,
+      "first_drop_total": 0, "last_drop_total": 0, "drop_delta": 0,
+      "first_skip_total": 0, "last_skip_total": 0, "skip_delta": 0,
+      "stage_start_released": 120, "stage_end_released": 1800,
+      "composer_wait_ms_per_release": 9.228714285714286,
+      "composer_wait_reduction_vs_A1_percent": 45.20514249411133,
+      "weighted_render_avg_percent": 61.7166930313879,
+      "last_route": {"accepted_fp32": 1800, "accepted_integer": 0, "cache_hits": 1799, "cache_misses": 1, "shader_compile_failed": 0, "generate_failed": 0},
+      "whole_service_memory_before_current_bytes": 837406720,
+      "whole_service_memory_after_current_bytes": 1725489152,
+      "whole_service_lifetime_peak_after_bytes": 1857765376,
+      "service_identity_unchanged": true, "failure_marker": false
+    },
+    {
+      "label": "same-binary-fp32-B2", "fp32": true,
+      "health_source_start_s": 10.469, "health_source_end_s": 70.529,
+      "first_drop_total": 0, "last_drop_total": 0, "drop_delta": 0,
+      "first_skip_total": 1, "last_skip_total": 1, "skip_delta": 0,
+      "startup_note": "one skip occurred before the measured approximately 10-to-70-second window; not a whole-run zero-skip claim",
+      "stage_start_released": 120, "stage_end_released": 1680,
+      "composer_wait_ms_per_release": 9.261846153846156,
+      "composer_wait_reduction_vs_A1_percent": 45.00842430163246,
+      "weighted_render_avg_percent": 61.5166672216857,
+      "last_route": {"accepted_fp32": 1680, "accepted_integer": 0, "cache_hits": 1679, "cache_misses": 1, "shader_compile_failed": 0, "generate_failed": 0},
+      "whole_service_memory_before_current_bytes": 790949888,
+      "whole_service_memory_after_current_bytes": 1741045760,
+      "whole_service_lifetime_peak_after_bytes": 1888550912,
+      "service_identity_unchanged": true, "failure_marker": false
+    },
+    {
+      "label": "same-binary-integer-A2", "fp32": false,
+      "health_source_start_s": 10.385, "health_source_end_s": 70.487,
+      "first_drop_total": 1, "last_drop_total": 4, "drop_delta": 3,
+      "first_skip_total": 1, "last_skip_total": 5, "skip_delta": 4,
+      "stage_start_released": 120, "stage_end_released": 1440,
+      "composer_wait_ms_per_release": 16.423818181818184,
+      "weighted_render_avg_percent": 66.04943926788685,
+      "whole_service_memory_before_current_bytes": 920842240,
+      "whole_service_memory_after_current_bytes": 1801424896,
+      "whole_service_lifetime_peak_after_bytes": 1879580672,
+      "service_identity_unchanged": true, "failure_marker": false
+    }
+  ],
+  "normal_speed_all_runs": true,
+  "stalled_any_run": false,
+  "memory_scope": "whole Kodi service snapshots, not engine allocations or per-run peak; B2 shares B1 service process and lifetime peak history",
+  "released_transactions_are_not_unique_video_frames_or_hdmi_flips": true,
+  "rounding_uncertainty_ms_per_release_max": 0.0006,
+  "roadblocks": [
+    "service-shutdown heap corruption reproduced; successful player stops do not fix it",
+    "accuracy covers two real frames rather than full video or Dolby conformance"
+  ]
+}

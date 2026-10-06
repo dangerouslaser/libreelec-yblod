@@ -1,6 +1,6 @@
 {
   "schema": "yblod.fp32-wrapper-validation-summary.v1",
-  "status": "accuracy-qualified-on-two-frames-playback-candidate-pending",
+  "status": "accuracy-qualified-on-two-frames-playback-comparison-completed-in-FP32_PLAYBACK_COMPARISON",
   "reference": "our native integer CPU composer, not licensed Dolby hardware",
   "private_pixels_rpu_and_input_hashes_published": false,
   "accuracy": {
@@ -46,10 +46,9 @@
     "failure_marker": false,
     "service_identity_unchanged": true,
     "released_frames_are_not_display_flips_or_unique_playback_fps": true,
-    "candidate_comparison": null
+    "candidate_comparison": "See completed same-binary ABBA comparison in FP32_PLAYBACK_COMPARISON.json; this old baseline is not pooled into those controls"
   },
   "roadblocks": [
-    "candidate playback build and controlled before-after runs pending",
     "standalone jitter requires characterization before declaring speedup",
     "old b06 service-shutdown heap abort is not fixed or qualified by successful player stop",
     "two real frames do not establish complete Dolby conformance or hardware-output equivalence"
