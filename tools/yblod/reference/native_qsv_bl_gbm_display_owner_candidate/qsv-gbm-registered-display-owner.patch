@@ -1,0 +1,17 @@
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -359,11 +359,12 @@
+ #if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
+ bool CDVDVideoCodecFFmpeg::OpenDVQsvDevice()
+ {
+-  auto* window = dynamic_cast<VAAPI::IVaapiWinSystem*>(CServiceBroker::GetWinSystem());
++  // GBM registers a separate VAAPI proxy, not an IVaapiWinSystem window.
++  auto* window = VAAPI::CDecoder::m_pWinSystem;
+   VAAPI::CVAAPIContext* displayOwner = nullptr;
+   if (!window || !VAAPI::CVAAPIContext::EnsureContext(&displayOwner, nullptr))
+     return false;
+-  if (!displayOwner || displayOwner->GetDisplay() != window->GetVADisplay())
++  if (!displayOwner || !displayOwner->GetDisplay())
+   {
+     if (displayOwner)
+       displayOwner->Release(nullptr);

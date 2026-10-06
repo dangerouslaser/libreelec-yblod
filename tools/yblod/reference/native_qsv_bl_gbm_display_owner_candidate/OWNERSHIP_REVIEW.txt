@@ -1,0 +1,44 @@
+SOURCE ONLY: no SDK edit, compilation, deployment or playback performed.
+
+Concrete failure: actual GBM windows do not derive IVaapiWinSystem. GBM instead
+registers a separate CVaapiProxy implementing that interface. The old cast of
+CServiceBroker::GetWinSystem therefore yielded null and stopped OpenDVQsvDevice
+before EnsureContext, QSV initialization or the configured-async log. This matches
+the observed codec-selection row followed by no async/mapped output rows.
+
+Minimal correction uses existing public VAAPI::CDecoder::m_pWinSystem, the actual
+registered proxy, solely to reject absent registration before EnsureContext.
+It validates the acquired CVAAPIContext's nonnull GetDisplay rather than obtaining
+or inventing another window/display handle. No new API or unchecked null proxy.
+GBM WinSystemGbmGLESContext.cpp105–111 constructs the proxy from the actual render
+node FD, configures it for EGL, registers the renderer, then registers VAAPI when
+general support succeeds. OptionalsReg.cpp70 delegates to CDecoder::Register;
+VAAPI.cpp1469 records that proxy. EnsureContext/CreateContext uses its display
+(VAAPI.cpp179), and that owned context is the authoritative existing Kodi VA owner.
+No independent VA display/FD, driver or physical-device selection is introduced.
+
+Ownership paths (unchanged except reaching the correct owner):
+- Missing registered proxy: return before EnsureContext; no acquired reference.
+- EnsureContext false: its failure path deletes the failed context and nulls the
+  output; no caller reference increment and no caller Release required.
+- EnsureContext true: exactly one reference acquired (including nullptr decoder,
+  already used by CDecoder::Register). Invalid/null display or VAAPI AVBuffer
+  allocation failure releases that reference exactly once immediately.
+- After VAAPI AVBuffer allocation, user_opaque/free owns that reference. The
+  callback releases it once on final AVHWDeviceContext destruction. External
+  VAAPI init does not own/terminate the display: hwcontext_vaapi.c device_uninit
+  frees format metadata only. The separate vaapi_device_free that calls
+  vaTerminate belongs to FFmpeg-created devices, not this custom callback.
+- VAAPI init, QSV derivation, av_buffer_ref, pool allocation or pool reset failure
+  returns to the existing caller's Dispose branch. Dispose frees codec/frames,
+  pool, QSV device and VAAPI device; any derived/mapped ownership references delay
+  the single callback until the last reference. No second manual Release after
+  ownership transfer and no manual vaTerminate/FD close.
+- Success derives QSV from this exact VAAPI owner and passes the same device to
+  CQsvMappedBuffer and FEL device association. Existing genuine HWFRAMES/device/
+  display/P010/crop/metadata guards remain unchanged; no gate waiver.
+
+Baseline source be1387b8b9213bc8e35073c2ebae2bac04e785d488716f34b654d2aa85d53f2d
+Corrected source8edd86f3ade2a1ebc4d21faf5fa03103ce38c9c5e2abd6d5811f4eb9e7db44ac
+The patch touches only OpenDVQsvDevice; it does not overlap the separately owned
+timing hooks. Default BL-QSV OFF unchanged. Runtime proof still required.
