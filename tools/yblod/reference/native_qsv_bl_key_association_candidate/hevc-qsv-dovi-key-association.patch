@@ -1,0 +1,58 @@
+--- a/libavcodec/qsv_dovi.h
++++ b/libavcodec/qsv_dovi.h
+@@ -19,6 +19,7 @@
+ typedef struct QSVDOVIEntry {
+     uint64_t token;
+     int64_t pts, duration;
++    int key_frame;
+     AVBufferRef *metadata, *rpu;
+ } QSVDOVIEntry;
+ 
+@@ -113,7 +114,7 @@
+ }
+ 
+ /* Restricted complete, single layer-zero picture. UNSPEC63 is opaque EL. */
+-static int qsv_dovi_admit(QSVDOVIContext *s, const AVPacket *pkt, H2645NAL **rpu)
++static int qsv_dovi_admit(QSVDOVIContext *s, const AVPacket *pkt, H2645NAL **rpu, int *key_frame)
+ {
+     int first = 0, seen_vcl = 0, trailer = 0, ended = 0, nal_count, ret;
+     int picture_type = -1, picture_temporal = -1;
+@@ -171,6 +172,7 @@
+     }
+     if (first != 1)
+         return AVERROR_INVALIDDATA;
++    *key_frame = picture_type >= 16 && picture_type <= 23;
+     /* Exactly the native backwards selection, including its i > 0 bound. */
+     for (int i = s->nals.nb_nals - 1; i > 0; i--) {
+         H2645NAL *nal = &s->nals.nals[i];
+@@ -208,7 +210,7 @@
+                0 : AVERROR_INVALIDDATA;
+     if (s->count == QSV_DOVI_MAX || s->next >= INT64_MAX)
+         return AVERROR(ENOSPC);
+-    ret = qsv_dovi_admit(s, pkt, &rpu);
++    ret = qsv_dovi_admit(s, pkt, &rpu, &entry.key_frame);
+     if (ret < 0)
+         return ret;
+     ret = qsv_dovi_clone(&s->active, &candidate);
+@@ -301,6 +303,8 @@
+     }
+     frame->pts = entry->pts;
+     frame->duration = entry->duration;
++    frame->flags = (frame->flags & ~AV_FRAME_FLAG_KEY) |
++                   (entry->key_frame ? AV_FRAME_FLAG_KEY : 0);
+     qsv_dovi_entry_unref(entry);
+     for (unsigned i = entry - s->entries; i + 1 < s->count; i++)
+         s->entries[i] = s->entries[i + 1];
+--- a/libavcodec/qsvdec.c
++++ b/libavcodec/qsvdec.c
+@@ -1148,7 +1148,9 @@
+ #endif
+         frame->pict_type = ff_qsv_map_pictype(aframe.frame->dec_info.FrameType);
+ 
+-        if (avctx->codec_id == AV_CODEC_ID_H264 ||
++        if (q->dovi_metadata) {
++            /* KEY was restored from this picture's accepted HEVC AU token. */
++        } else if (avctx->codec_id == AV_CODEC_ID_H264 ||
+             avctx->codec_id == AV_CODEC_ID_HEVC ||
+             avctx->codec_id == AV_CODEC_ID_VVC) {
+             if (aframe.frame->dec_info.FrameType & MFX_FRAMETYPE_IDR)

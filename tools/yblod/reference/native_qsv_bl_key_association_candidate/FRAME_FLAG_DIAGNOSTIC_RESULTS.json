@@ -1,0 +1,63 @@
+{
+  "schema": "yblod.qsv-bl-frame-flag-diagnostic.v1",
+  "qualified": false,
+  "scope": "failed finite-window diagnostic; not picture accuracy or playback qualification",
+  "submitted_packets": [
+    23,
+    23
+  ],
+  "decoded_frames": [
+    20,
+    20
+  ],
+  "paired_frames": 19,
+  "rejection": {
+    "reason": 10,
+    "reference_flags": 2,
+    "candidate_flags": 0,
+    "xor": 2,
+    "only_changed_flag": "KEY",
+    "metadata_equal": true,
+    "raw_rpu_equal": true,
+    "other_compared_properties_equal": true,
+    "duration_reference": 41000,
+    "duration_candidate": 41000
+  },
+  "geometry": {
+    "reference": {
+      "width": 3840,
+      "height": 2160,
+      "crops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "pool_width": 3840,
+      "pool_height": 2160
+    },
+    "candidate": {
+      "width": 3840,
+      "height": 2160,
+      "crops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "pool_width": 3840,
+      "pool_height": 2176
+    },
+    "both_p010": true,
+    "typed_mapped_buffer_admission_proven": false
+  },
+  "resources": {
+    "memory_limit_bytes": 1610612736,
+    "peak_memory_bytes": 456081408,
+    "memory_events_all_zero": true,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "elapsed_seconds": 4.346220540988725
+  },
+  "strict_gate_changed": false
+}
