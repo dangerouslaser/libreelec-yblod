@@ -209,6 +209,8 @@
   "same_input_unchanged": true,
   "same_ffmpeg_binary": true,
   "scopes": [
+    "GPU engine activity percentages are deduplicated client engine busy time divided by sampled wall time: one-engine-equivalent activity, not normalized by engine-class capacity and not evidence that the whole video engine class was saturated.",
+    "Historical FFmpeg client engine capacities were not collected. A later idle Kodi client on Ollie reported video capacity2; no retrospectively verified capacity-normalized benchmark percentages are claimed.",
     "Maximum-throughput base video decode to resident wrapped-frame null sink; no audio/subtitles, enhancement-layer reconstruction, Dolby composition, display or encode.",
     "Disposable minimal FFmpeg9.0.2 container is separate from Kodi patched FFmpeg9.0.2 and the full DV pipeline.",
     "Both APIs use the same Intel render node; QSV derives from VAAPI and uses async_depth4.",
