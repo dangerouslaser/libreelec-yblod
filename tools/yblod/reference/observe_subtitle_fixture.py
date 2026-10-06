@@ -36,8 +36,10 @@ def validate_fixture(record, movie_id):
     if not isinstance(record,dict) or type(record.get('movie_id')) is not int or record['movie_id']!=movie_id or type(record.get('player_id')) is not int or record['player_id']<0:
         raise ValueError('Missing subtitle fixture identity')
     before = record.get('before',{})
-    if not isinstance(before,dict) or type(before.get('enabled')) is not bool or (before.get('index') is not None and (type(before['index']) is not int or before['index']<0)) or (before['enabled'] and before.get('index') is None):
-        raise ValueError('Invalid original subtitle fixture')
+    for key in ('before','disabled','disabled_at_end','restored'):
+        state = record.get(key)
+        if not isinstance(state,dict) or set(state)!={'enabled','index'} or type(state['enabled']) is not bool or (state['index'] is not None and (type(state['index']) is not int or state['index']<0)) or (state['enabled'] and state['index'] is None):
+            raise ValueError('Invalid subtitle fixture scalar state')
     disabled = dict(enabled=False,index=before.get('index'))
     if record.get('requested_enabled') is not False or record.get('disabled')!=disabled or record.get('disabled_at_end')!=disabled or record.get('restored')!=before:
         raise ValueError('Subtitle fixture disable/restore proof failed')

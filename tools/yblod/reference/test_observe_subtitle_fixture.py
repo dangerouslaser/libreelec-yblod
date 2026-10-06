@@ -93,6 +93,22 @@ class SubtitleFixtureTests(unittest.TestCase):
             changed=base.copy();changed[field]=value
             with self.subTest(field=field,value=value),self.assertRaises(ValueError):fixture.validate_fixture(changed,1)
 
+    def test_all_state_types_and_keys_strict(self):
+        base=dict(movie_id=1,player_id=1,before=dict(enabled=True,index=1),
+                  requested_enabled=False,disabled=dict(enabled=False,index=1),
+                  disabled_at_end=dict(enabled=False,index=1),restored=dict(enabled=True,index=1))
+        fixture.validate_fixture(base,1)
+        for field in ('before','disabled','disabled_at_end','restored'):
+            for mutation in ('enabled_integer','index_boolean','extra','missing','not_dict'):
+                changed=base.copy();state=base[field].copy()
+                if mutation=='enabled_integer':state['enabled']=int(state['enabled'])
+                if mutation=='index_boolean':state['index']=True
+                if mutation=='extra':state['unexpected']='value'
+                if mutation=='missing':del state['index']
+                if mutation=='not_dict':state=[]
+                changed[field]=state
+                with self.subTest(field=field,mutation=mutation),self.assertRaises(ValueError):fixture.validate_fixture(changed,1)
+
     def test_default_no_rpc(self):
         with patch.object(fixture,'subtitle_state') as state:
             with fixture.subtitles_off_fixture(False,lambda *_:self.fail('new RPC'),lambda _:None,3391) as record:self.assertIsNone(record)
