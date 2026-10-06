@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
   "scope": "SDK compile and CPU-only diagnostic contracts; no GPU/media/Kodi/playback qualification",
-  "probe_binary_sha256": "fef944531b72ac2e41315b25ad41af591381d62c9adb7f98c3b89718034a9dd1",
-  "cpu_test_binary_sha256": "db55f83e6d9fe982dc7618f63fb02901ea4b1f5be62a291f5a8f569684972d18",
-  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 25825280},
+  "probe_binary_sha256": "c710cf76ea3b96c5fdaf4fa612f2aca5e52ea1179ae3c51584159082c550b042",
+  "cpu_test_binary_sha256": "beba39458191c6ccda9fd4642acff642a3f5750c13eb127a2fb070c8e9173cbe",
+  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 25468928},
   "cpu_contracts": {
     "passed": true,
-    "combined_compile_and_cpu_test_memory_peak_bytes": 27181056,
+    "combined_compile_and_cpu_test_memory_peak_bytes": 26202112,
+    "preroll_target_retention_contract_passed": true,
     "failure_json_parser_passed": true,
     "coverage": ["visible1080 versus coded1088 bottom8 geometry", "coded padding ignored by actual active-plane comparator", "U/V separation and literal low-bit difference detected", "even crop and overflow rejection", "plane storage bounds and strides", "duration/timebase/best-effort/chroma/colour differences", "stat identity changes", "Kodi ordinary-MKV timestamp truncation", "actual loaded SDK avutil canonical-map identity accepted, incorrect and absent library identities rejected", "QSV runtime gate fails without loaded implementation and driver", "valid scalar failure-stage JSON with route counts and safe frame properties"]
   },

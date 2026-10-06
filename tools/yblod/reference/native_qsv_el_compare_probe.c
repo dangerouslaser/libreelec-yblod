@@ -171,6 +171,14 @@ static int kodi_timestamp(int64_t raw, AVRational tb, int64_t start, int64_t *ou
     return 1;
 }
 
+/* Preroll/anchor wait is not an exact pair or permission to advance target. */
+static int take_action(int result)
+{
+    if (result == 1) return 1;
+    if (result == 0 || result == 2) return 0;
+    return -1;
+}
+
 static int download(AVFrame *hardware, AVBufferRef *device, int qsv,
                     int64_t pts, AVFrame **result)
 {
@@ -277,10 +285,11 @@ static int route(const char *path, AVBufferRef *device, int qsv, int64_t seek_us
             failure_stage = "helper_take";
             int take = dvbridge_fel_take(helper, pts[next], &frame);
             if (take == 2)
-                failure_stage = "helper_take_preroll_not_exact";
-            if (take < 0 || take == 2)
+                failure_stage = "helper_wait_for_anchor";
+            int action = take_action(take);
+            if (action < 0)
                 goto done;
-            if (!take)
+            if (!action)
                 break;
             int valid = download(frame, device, qsv, pts[next], &output[next]);
             av_frame_free(&frame);

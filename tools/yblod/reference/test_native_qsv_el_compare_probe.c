@@ -84,6 +84,14 @@ int main(void)
     assert(converted == AV_NOPTS_VALUE);
     assert(!kodi_timestamp(1, (AVRational){1, 0}, 0, &converted));
     assert(!kodi_timestamp(INT64_MAX, (AVRational){INT_MAX, 1}, 0, &converted));
+    int target = 0;
+    const int takes[] = {2, 0, 1};
+    for (unsigned step = 0; step < 3; ++step) {
+        int action = take_action(takes[step]);
+        assert(action >= 0 && target == 0);
+        if (action == 1) ++target;
+    }
+    assert(target == 1 && take_action(-1) == -1 && take_action(3) == -1);
     const char *avutil = getenv("EXPECTED_CPU_AVUTIL");
     assert(avutil && setenv("EXPECTED_CPU_MAP", avutil, 1) == 0);
     assert(loaded_exact("EXPECTED_CPU_MAP", "libavutil.so."));
