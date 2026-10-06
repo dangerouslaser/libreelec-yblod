@@ -1,0 +1,20 @@
+{
+  "schema": "yblod.qsv-mapped-buffer-foundation.v1",
+  "status": "source_and_cpu_ownership_passed_unintegrated",
+  "strict_sdk_production_object_compile": true,
+  "actual_kodi_CVideoBuffer_refcount_code": true,
+  "actual_sdk_FFmpeg_frame_buffer_library": true,
+  "hardware_mapping_mocked": true,
+  "real_hardware_device_session_ownership_qualified": false,
+  "exit_code": 0,
+  "source_sha256": {"QsvMappedBuffer.h": "4fe931e70126eb53615427ad383670cabdae703d07881c11f7c13a295b111df0", "QsvMappedBuffer.cpp": "0e26052ce5d8be49492ad9554368257c70e994bbdb14bd3c615997367c49ffb7", "test_qsv_mapped_buffer_private.cpp": "f7aae23f1f21390323136b9bc7dd048a04844f17bdf90de4bb631c8333d9ebea"},
+  "memory_peak_bytes": 275374080,
+  "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+  "swap_bytes": 0,
+  "limits": {"memory_bytes": 536870912, "extra_swap_bytes": 0, "cpus": 1, "network": "none", "gpu_access": false},
+  "coverage": ["mapping_failure", "missing_mapped_frame_context", "metadata_presence_required", "display_mismatch", "reset_during_mapping", "in_use_generation_retirement", "32_slot_capacity", "source_frame_freed_before_consumer_reset_and_last_release", "mapped_mock_device_buffer_reference_retention", "terminal_quarantine_retains_frames_and_pool"],
+  "limitations": ["Hardware map mocked; synthetic VA device context borrowed", "Metadata presence and size do not establish semantic validity or association provenance", "Real coded padding and crop untested", "Quarantined decoder must not allocate replacement pools", "No decoder or renderer integration, hardware map, pixels or playback qualification"],
+  "setup_failures": ["Initial fixture link expected unavailable static libavutil; installed SDK shared library used instead", "Initial SDK loader path used lib rather than usr/lib; corrected before passing run"],
+  "reproduction_helper": "check_qsv_bl_mapped_buffer.sh",
+  "actual_sdk_source_modified": false
+}
