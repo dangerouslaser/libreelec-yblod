@@ -1,0 +1,47 @@
+{
+  "schema": "yblod-el-qsv-header-target-loader-attempts-v1",
+  "candidate_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "scope": "Failed outer admission attempts retained. Code-only checks; no Kodi entry point, restart or playback. Neither attempt is a complete owned-unit qualification.",
+  "attempts": [
+    {
+      "attempt": 1,
+      "pass": false,
+      "inner_loader_pass": true,
+      "inner_elapsed_seconds": 0.16390981400036253,
+      "unresolved_dependencies": 0,
+      "undefined_symbols": 0,
+      "isolated_ffmpeg_resolution_verified": true,
+      "outer_error_type": "AssertionError",
+      "owned_generation_and_terminal_observation_qualified": false,
+      "terminal_readonly_observation": "Transient unit unloaded; MainPID zero and inactive.",
+      "peak_memory_bytes": 18124800,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0
+    },
+    {
+      "attempt": 2,
+      "pass": false,
+      "inner_loader_pass": false,
+      "loader_work_started": false,
+      "inner_error_type": "TimeoutError",
+      "inner_elapsed_seconds": 10.017121984972619,
+      "outer_error_type": "AssertionError",
+      "ready_exists": true,
+      "ack_exists": false,
+      "owned_generation_and_terminal_observation_qualified": false,
+      "terminal_readonly_observation": "Failed unit; MainPID zero. Startup admission timed out without ACK.",
+      "diagnostic_limit": "Pre-failure argv was not retained. A reachable pre-exec sampling hazard was identified in source; it is not proven to be the observed argv rejection cause.",
+      "peak_memory_bytes": 8499200,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0
+    }
+  ],
+  "limits": {"memory_bytes": 536870912, "swap_bytes": 0, "cpu": 1, "private_network": true},
+  "retained_kodi_idle_and_binary_unchanged_after_attempt1": true,
+  "runtime_and_driver_fingerprints_unchanged_after_attempt1": true,
+  "retained_kodi_idle_and_binary_unchanged_after_attempt2": true,
+  "runtime_and_driver_fingerprints_unchanged_after_attempt2": true,
+  "limitation": "No quality or performance claim. Private logs and failed-source versions are retained."
+}
