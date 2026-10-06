@@ -1,0 +1,40 @@
+{
+  "schema": "yblod-qsv-el-foundation-tests-v1",
+  "status": "source_and_cpu_contract_tests_passed_hardware_not_qualified",
+  "runtime_option": "DVBRIDGE_FEL_QSV",
+  "default_enabled": false,
+  "qsv_async_depth": 1,
+  "public_reproduction": {
+    "helper": "check_qsv_el_foundation.py",
+    "all_five_checks_passed": true,
+    "actual_source_patch_dry_run": true,
+    "actual_kodi_source_modified": false,
+    "controller_peak_memory_display": "3.0M",
+    "container_peak_memory_measured": false,
+    "gpu_passthrough": false
+  },
+  "resource_limits": {"memory_bytes": 536870912, "extra_swap_bytes": 0, "cpus": 1},
+  "token_test": {
+    "exit_code": 0,
+    "initial_peak_memory_bytes": 524288,
+    "final_run_peak_memory_display": "1.9M",
+    "peak_swap_bytes": 0,
+    "coverage": ["strict_option_values", "EAGAIN_retry", "reordered_output", "large_and_negative_original_timestamps", "duplicate_and_unknown_tokens", "bounded_capacity", "monotonic_reset", "overflow"]
+  },
+  "sdk_syntax_check": {"exit_code": 0, "compiler": "LibreELEC_x86_64_cross_compiler", "ffmpeg_headers": "9.0.2", "warnings_as_errors": true, "peak_memory_measured": false},
+  "receive_contract_mock_test": {
+    "exit_code": 0,
+    "real_ffmpeg_frame_refcounting": true,
+    "decoder_and_hw_mapping_mocked": true,
+    "peak_memory_measured": false,
+    "coverage": ["source_owner_lifetime", "consumer_ref_outlives_queue_reset", "1920x1088_coded_extent_and_8_pixel_crop", "exact_original_PTS_and_duration", "unknown_or_duplicate_output_rejected", "mapping_failure_rejected", "unmatched_tokens_at_EOF_rejected"]
+  },
+  "limitations": [
+    "QSV packet timestamps are temporary exact 90kHz identity tokens. Packet duration retains original units during submission; MFX consumes the bitstream timestamp, not packet duration. Returned PTS, best-effort timestamp, duration and time base are restored; EL DTS remains unknown as in the existing path.",
+    "No GPU access, actual hardware decode, MFX timestamp propagation, zero-copy map success, pixel equality or playback performance tested.",
+    "Initial host SDK-wrapper check failed before compilation because its hardcoded /build path was unavailable; the exact SDK check passed inside the expected read-only /build mount.",
+    "Initial mock-test linkage and noexec temporary-mount setup failed; corrected CPU-only mock execution passed.",
+    "Initial public reproduction used the SDK image's unprivileged UID against a root-owned private scratch directory and failed before compilation; explicit container UID0 with read-only mounts resolved the setup, and all five reproduction checks passed.",
+    "Actual Kodi source, base-layer decoder, renderer math, scaling, output and VM runtime were not changed."
+  ]
+}
