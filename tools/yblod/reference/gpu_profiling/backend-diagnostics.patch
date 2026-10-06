@@ -1,0 +1,234 @@
+--- a/native_gpu_composer_backend.c
++++ b/native_gpu_composer_backend.c
+@@ -84,6 +84,7 @@
+ 
+ #ifndef YB_GPU_BACKEND_HOST_ONLY
+ #include <GL/glcorearb.h>
++#include "native_gpu_diag_timer.h"
+ #define GL_PROCS(X) \
+  X(GetString,PFNGLGETSTRINGPROC) X(GetStringi,PFNGLGETSTRINGIPROC) \
+  X(GetIntegerv,PFNGLGETINTEGERVPROC) X(GetIntegeri_v,PFNGLGETINTEGERI_VPROC) X(GetError,PFNGLGETERRORPROC) \
+@@ -109,6 +110,7 @@
+     uintptr_t context;
+     GLuint program,buffers[2],outputs[3];
+     GLsync fence;
++    yb_diag_timer diagnostic_timer;
+     uint32_t width,height,output_depth;
+     uint8_t frame_id[32];
+     int pending,valid,failed,closing;
+@@ -232,6 +234,10 @@
+     g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,1,b->buffers[1]);
+     g->UseProgram(b->program);g->Uniform3ui(0,p->width,p->height,0);
+     for(unsigned c=0;c<3;c++)g->BindImageTexture(c,resize?fresh[c]:b->outputs[c],0,GL_FALSE,0,GL_WRITE_ONLY,GL_R16UI);
++    if(!yb_diag_timer_begin(&b->diagnostic_timer,b->owner.get_proc,b->owner.opaque,YB_DIAG_TIMER_COMPOSER)){
++        if(resize)g->DeleteTextures(3,fresh);
++        return YB_GPU_BACKEND_GL_FAILURE;
++    }
+     for(uint32_t c=0;c<3;c++){
+         int64_t words[BACKEND_WORDS];pack_metadata(p,c,words);
+         g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[0]);g->BufferSubData(GL_SHADER_STORAGE_BUFFER,0,(GLsizeiptr)sizeof(words),words);
+@@ -240,6 +246,7 @@
+         g->DispatchCompute((width+7U)/8U,(height+7U)/8U,1);
+     }
+     g->MemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT);
++    if(!yb_diag_timer_end(&b->diagnostic_timer))b->failed=1;
+     b->fence=g->FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+     /* Even if a GL error occurs after queueing, retain pending work so caller
+      * cannot recycle borrowed inputs before completion. */
+@@ -261,6 +268,7 @@
+     if((waited!=GL_ALREADY_SIGNALED&&waited!=GL_CONDITION_SATISFIED)||g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+     g->DeleteSync(b->fence);b->fence=NULL;b->pending=0;
+     if(b->failed)return YB_GPU_BACKEND_GL_FAILURE;
++    if(!yb_diag_timer_collect(&b->diagnostic_timer))return YB_GPU_BACKEND_GL_FAILURE;
+     uint32_t error=UINT32_MAX;
+     g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[1]);g->GetBufferSubData(GL_SHADER_STORAGE_BUFFER,0,4,&error);
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+@@ -277,6 +285,7 @@
+     struct backend_gl *g=&b->gl;
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+     b->closing=1;b->valid=0;
++    if(!yb_diag_timer_destroy(&b->diagnostic_timer))return YB_GPU_BACKEND_GL_FAILURE;
+     for(unsigned i=0;i<3;i++)if(b->outputs[i]){
+         g->DeleteTextures(1,&b->outputs[i]);
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+--- a/native_gpu_composer_backend_libplacebo.c
++++ b/native_gpu_composer_backend_libplacebo.c
+@@ -84,6 +84,7 @@
+ 
+ #ifndef YB_GPU_BACKEND_HOST_ONLY
+ #include <GL/glcorearb.h>
++#include "native_gpu_diag_timer.h"
+ #include <math.h>
+ #include <stdio.h>
+ #define GL_PROCS(X) \
+@@ -113,6 +114,7 @@
+     uintptr_t context;
+     GLuint program,buffers[2],outputs[3];
+     GLsync fence;
++    yb_diag_timer diagnostic_timer;
+     uint32_t width,height,output_depth;
+     uint8_t frame_id[32];
+     int pending,valid,failed,closing;
+@@ -344,6 +346,10 @@
+     g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,1,b->buffers[1]);
+     g->UseProgram(b->program);g->Uniform3ui(0,p->width,p->height,0);
+     for(unsigned c=0;c<3;c++)g->BindImageTexture(c,resize?fresh[c]:b->outputs[c],0,GL_FALSE,0,GL_WRITE_ONLY,GL_R16UI);
++    if(!yb_diag_timer_begin(&b->diagnostic_timer,b->owner.get_proc,b->owner.opaque,YB_DIAG_TIMER_COMPOSER)){
++        if(resize)g->DeleteTextures(3,fresh);
++        return YB_GPU_BACKEND_GL_FAILURE;
++    }
+     for(uint32_t c=0;c<3;c++){
+         int64_t words[BACKEND_WORDS];pack_metadata(p,c,words);
+         fp_upload(b,c,words);
+@@ -353,6 +359,7 @@
+         g->DispatchCompute((width+7U)/8U,(height+7U)/8U,1);
+     }
+     g->MemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT);
++    if(!yb_diag_timer_end(&b->diagnostic_timer))b->failed=1;
+     b->fence=g->FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+     /* Even if a GL error occurs after queueing, retain pending work so caller
+      * cannot recycle borrowed inputs before completion. */
+@@ -374,6 +381,7 @@
+     if((waited!=GL_ALREADY_SIGNALED&&waited!=GL_CONDITION_SATISFIED)||g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+     g->DeleteSync(b->fence);b->fence=NULL;b->pending=0;
+     if(b->failed)return YB_GPU_BACKEND_GL_FAILURE;
++    if(!yb_diag_timer_collect(&b->diagnostic_timer))return YB_GPU_BACKEND_GL_FAILURE;
+     uint32_t error=UINT32_MAX;
+     g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[1]);g->GetBufferSubData(GL_SHADER_STORAGE_BUFFER,0,4,&error);
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+@@ -390,6 +398,7 @@
+     struct backend_gl *g=&b->gl;
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+     b->closing=1;b->valid=0;
++    if(!yb_diag_timer_destroy(&b->diagnostic_timer))return YB_GPU_BACKEND_GL_FAILURE;
+     for(unsigned i=0;i<3;i++)if(b->outputs[i]){
+         g->DeleteTextures(1,&b->outputs[i]);
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+--- a/native_gpu_composer_fp32_compare_probe.c
++++ b/native_gpu_composer_fp32_compare_probe.c
+@@ -123,6 +123,7 @@
+  uint8_t frame[32],provenance[32];uint64_t counts[3];
+ };
+ struct measurement { uint64_t wall,cpu,preparation_wall,preparation_cpu; };
++int yb_gpu_diag_timer_report(unsigned stage,unsigned warmups,unsigned samples);
+ static int allocate_stages(struct stages *s)
+ {
+  s->mapped=malloc(CHUNK*sizeof(*s->mapped));s->out=malloc(CHUNK*sizeof(*s->out));
+@@ -513,7 +514,8 @@
+                yb_gpu_backend_destroy(&backend)!=YB_GPU_BACKEND_BUSY||backend!=held)goto cleanup;
+         }
+         operation="one frame backend completion";
+-        if(yb_gpu_backend_finish(backend,UINT64_C(5000000000),&image_output)!=YB_GPU_BACKEND_OK)goto cleanup;
++        int finish_status=yb_gpu_backend_finish(backend,UINT64_C(5000000000),&image_output);
++        if(finish_status!=YB_GPU_BACKEND_OK){fprintf(stderr,"composer diagnostic finish failed: pass=%u status=%d\n",pass,finish_status);goto cleanup;}
+         if(memcmp(image_output.frame_id,w->frame,32)||image_output.width!=width||image_output.height!=height||
+            image_output.output_depth!=(uint32_t)f->output_depth)goto cleanup;
+         if(pass>=timed_start){
+@@ -602,6 +604,7 @@
+            bound ? "true" : "false",(unsigned)observed_gl_error,(unsigned)observed_egl_error,cleanup_ok ? "true" : "false");
+     if(!teardown_clock||clock_gettime(CLOCK_MONOTONIC,&teardown_end)||!ns(&teardown_begin,&teardown_end,&teardown_ns))cleanup_ok=0;
+     if(ok&&cleanup_ok){
++        if(!yb_gpu_diag_timer_report(1,warmups,samples))return 0;
+         int exact=differences[0].changed==0&&differences[1].changed==0&&differences[2].changed==0;
+         printf(",\"comparison_reference\":\"native-integer-CPU-composer-not-licensed-hardware\",\"output_depth\":%d,\"difference_units\":\"native-output-code-values\",\"full_frame_reconstructed_exact\":%s,\"all_output_codes_compared\":true,\"difference_metrics\":[",f->output_depth,exact?"true":"false");
+         for(unsigned c=0;c<3;c++){
+--- a/native_gpu_ycc_backend.c
++++ b/native_gpu_ycc_backend.c
+@@ -13,6 +13,8 @@
+ }
+ #ifndef YB_GPU_YCC_HOST_ONLY
+ #include <GL/glcorearb.h>
++#include "native_gpu_diag_timer.h"
++#include "native_gpu_diag_workgroup.h"
+ #define GL_PROCS(X) \
+  X(GetString,PFNGLGETSTRINGPROC) X(GetStringi,PFNGLGETSTRINGIPROC) \
+  X(GetIntegerv,PFNGLGETINTEGERVPROC) X(GetIntegeri_v,PFNGLGETINTEGERI_VPROC) X(GetError,PFNGLGETERRORPROC) \
+@@ -38,12 +40,20 @@
+     uintptr_t context;
+     GLuint program,buffers[1],outputs[1];
+     GLsync fence;
++    yb_diag_timer diagnostic_timer;
+     uint32_t width,height,output_depth;
++    uint32_t linked_group[3];
+     uint8_t frame_id[32];
+     int pending,valid,failed,closing;
+ };
+ static int same_context(const yb_gpu_ycc_backend *b)
+ {return b&&b->owner.current_context&&b->owner.current_context(b->owner.opaque)==b->context;}
++/* Private standalone report helper; public backend ABI remains unchanged. */
++int yb_gpu_ycc_diag_linked_group(const yb_gpu_ycc_backend *b,uint32_t group[3])
++{
++ if(!group||!same_context(b))return 0;
++ memcpy(group,b->linked_group,sizeof(b->linked_group));return 1;
++}
+ static int software_renderer(const char *name)
+ {
+     if(!name)return 1;
+@@ -75,10 +85,11 @@
+     g->GetIntegerv(GL_MAJOR_VERSION,&major);g->GetIntegerv(GL_MINOR_VERSION,&minor);g->GetIntegerv(GL_NUM_EXTENSIONS,&extensions);
+     if(major<4||(major==4&&minor<3)||extensions<0||extensions>8192||
+        software_renderer((const char *)g->GetString(GL_RENDERER))){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
+-    GLint units=0,images=0,invocations=0,sx=0,sy=0;
++    GLint units=0,images=0,invocations=0,sx=0,sy=0,sz=0;
+     g->GetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS,&units);g->GetIntegerv(GL_MAX_COMPUTE_IMAGE_UNIFORMS,&images);
+     g->GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,&invocations);
+     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,0,&sx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,1,&sy);
++    g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,2,&sz);
+     if(units<3||images<1||invocations<64||sx<8||sy<8||g->GetError()!=GL_NO_ERROR){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
+     GLuint shader=g->CreateShader(GL_COMPUTE_SHADER);
+     if(!shader){free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+@@ -90,10 +101,11 @@
+     g->DeleteShader(shader);
+     GLint linked=0,group[3]={0,0,0};
+     if(b->program){g->GetProgramiv(b->program,GL_LINK_STATUS,&linked);if(linked)g->GetProgramiv(b->program,GL_COMPUTE_WORK_GROUP_SIZE,group);}
+-    if(!compiled||!linked||group[0]!=8||group[1]!=8||group[2]!=1||g->GetError()!=GL_NO_ERROR){
++    if(!compiled||!linked||!yb_diag_workgroup_allowed(group[0],group[1],group[2],sx,sy,sz,invocations)||g->GetError()!=GL_NO_ERROR){
+         if(b->program)g->DeleteProgram(b->program);
+         free(b);return YB_GPU_BACKEND_GL_FAILURE;
+     }
++    for(unsigned i=0;i<3;i++)b->linked_group[i]=(uint32_t)group[i];
+     g->GenBuffers(1,b->buffers);
+     for(unsigned i=0;i<1;i++){
+         if(!b->buffers[i]){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+@@ -136,7 +148,9 @@
+     GLint limit=0,gx=0,gy=0;
+     g->GetIntegerv(GL_MAX_TEXTURE_SIZE,&limit);
+     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,0,&gx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,1,&gy);
+-    if(limit<(GLint)p->width||limit<(GLint)p->height||gx<(GLint)((p->width+7U)/8U)||gy<(GLint)((p->height+7U)/8U))return YB_GPU_BACKEND_UNSUPPORTED;
++    const uint32_t groups_x=yb_diag_group_count(p->width,b->linked_group[0]);
++    const uint32_t groups_y=yb_diag_group_count(p->height,b->linked_group[1]);
++    if(limit<(GLint)p->width||limit<(GLint)p->height||gx<(GLint)groups_x||gy<(GLint)groups_y)return YB_GPU_BACKEND_UNSUPPORTED;
+     for(unsigned slot=0;slot<3;slot++)if(!validate_texture(b,p,slot))return YB_GPU_BACKEND_UNSUPPORTED;
+     int resize=b->width!=p->width||b->height!=p->height;
+     GLuint fresh[1]={0};
+@@ -158,8 +172,13 @@
+     g->UseProgram(b->program);g->Uniform2i(0,(GLint)p->width,(GLint)p->height);
+     g->Uniform1ui(1,p->sampling_contract);g->Uniform1ui(2,p->output_depth);
+     g->BindImageTexture(0,resize?fresh[0]:b->outputs[0],0,GL_FALSE,0,GL_WRITE_ONLY,GL_RGBA32F);
+-    g->DispatchCompute((p->width+7U)/8U,(p->height+7U)/8U,1);
++    if(!yb_diag_timer_begin(&b->diagnostic_timer,b->owner.get_proc,b->owner.opaque,YB_DIAG_TIMER_YCC)){
++        if(resize)g->DeleteTextures(1,fresh);
++        return YB_GPU_BACKEND_GL_FAILURE;
++    }
++    g->DispatchCompute(groups_x,groups_y,b->linked_group[2]);
+     g->MemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT);
++    if(!yb_diag_timer_end(&b->diagnostic_timer))b->failed=1;
+     b->fence=g->FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+     /* Even if a GL error occurs after queueing, retain pending work so caller
+      * cannot recycle borrowed inputs before completion. */
+@@ -181,6 +200,7 @@
+     if((waited!=GL_ALREADY_SIGNALED&&waited!=GL_CONDITION_SATISFIED)||g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+     g->DeleteSync(b->fence);b->fence=NULL;b->pending=0;
+     if(b->failed)return YB_GPU_BACKEND_GL_FAILURE;
++    if(!yb_diag_timer_collect(&b->diagnostic_timer))return YB_GPU_BACKEND_GL_FAILURE;
+     uint32_t error=UINT32_MAX;
+     g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[0]);g->GetBufferSubData(GL_SHADER_STORAGE_BUFFER,0,4,&error);
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+@@ -197,6 +217,7 @@
+     struct backend_gl *g=&b->gl;
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+     b->closing=1;b->valid=0;
++    if(!yb_diag_timer_destroy(&b->diagnostic_timer))return YB_GPU_BACKEND_GL_FAILURE;
+     for(unsigned i=0;i<1;i++)if(b->outputs[i]){
+         g->DeleteTextures(1,&b->outputs[i]);
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
