@@ -1,0 +1,32 @@
+{
+  "schema": "yblod.el-qsv-candidate-off-capture-attempt.v1",
+  "attempt": 2,
+  "candidate_sha256": "aff416779620c4cba8cecb6e6c71a6fb3b228e4bab7e397aaeeba4556166067f",
+  "pass": false,
+  "capture_error_type": "ValueError",
+  "qualification_stage": "actual runtime library admission",
+  "rejected_library_family": "libswresample.so.7.1.102",
+  "rejected_library_path_owned": false,
+  "rejected_library_hash_matches": false,
+  "actual_mapped_family_names": ["libavcodec.so.63.1.102", "libavfilter.so.12.1.102", "libavformat.so.63.1.102", "libavutil.so.61.1.102", "libswresample.so.7.1.102", "libswscale.so.10.1.102"],
+  "cause": "The standard Kodi launcher sources the system profile, whose BusyBox profile resets LD_LIBRARY_PATH to the system library directory. Service environment alone therefore did not select the isolated candidate runtime. The actual-library admission guard rejected it.",
+  "restoration": {
+    "original_top_source_and_layer_count_restored": true,
+    "original_override_restored": true,
+    "retained_binary_restored": true,
+    "original_runtime_maps_restored": true,
+    "restored_idle": true
+  },
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1.0,
+    "peak_memory_bytes": 19783680,
+    "all_memory_events_zero": true,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "elapsed_seconds": 48.74015786900418,
+    "controller_exit_code": 1
+  },
+  "scope": "Failed runtime admission, not output equality, QSV1, playback performance, or clean display restoration qualification. Original system launcher and profile were not modified. Private library maps and frames remain on target."
+}
