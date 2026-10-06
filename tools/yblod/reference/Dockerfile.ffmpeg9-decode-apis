@@ -1,0 +1,20 @@
+ARG BUILD_BASE=intel-dv-buildcheck:20260925
+FROM ${BUILD_BASE}
+USER root
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    libvpl-dev libvpl2 libmfx-gen1.2 intel-media-va-driver time ca-certificates
+COPY ffmpeg-9.0.2.tar.xz /tmp/ffmpeg-9.0.2.tar.xz
+RUN echo '8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e  /tmp/ffmpeg-9.0.2.tar.xz' | sha256sum -c - && \
+    mkdir /opt/ffmpeg-source && tar -xf /tmp/ffmpeg-9.0.2.tar.xz -C /opt/ffmpeg-source --strip-components=1
+WORKDIR /opt/ffmpeg-source
+RUN nasm -v && ./configure --prefix=/opt/ffmpeg9 \
+    --disable-everything --disable-autodetect --disable-doc --disable-debug \
+    --disable-network --disable-ffplay --disable-shared --enable-static \
+    --enable-pthreads --enable-vaapi --enable-libvpl \
+    --enable-ffmpeg --enable-ffprobe --enable-demuxer=matroska,mov \
+    --enable-parser=hevc --enable-decoder=hevc,hevc_qsv --enable-hwaccel=hevc_vaapi \
+    --enable-encoder=wrapped_avframe --enable-muxer=null --enable-protocol=file \
+    --enable-filter=null,format && make -j1 && make install
+WORKDIR /opt/ffmpeg9
+ENV LIBVA_DRIVER_NAME=iHD
+ENTRYPOINT ["/opt/ffmpeg9/bin/ffmpeg"]
