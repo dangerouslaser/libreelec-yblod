@@ -1,0 +1,10 @@
+/* Preserve reviewed hybrid implementation and prevent canonical ABI collision. */
+#define yb_gpu_backend_abi_version yb_fp_backend_abi_version
+#define yb_gpu_backend_validate_plan yb_fp_backend_validate_plan
+#define yb_gpu_backend_pack_metadata yb_fp_backend_pack_metadata
+#define yb_gpu_backend_create yb_fp_backend_create
+#define yb_gpu_backend_submit yb_fp_backend_submit
+#define yb_gpu_backend_finish yb_fp_backend_finish
+#define yb_gpu_backend_destroy yb_fp_backend_destroy
+#define yb_gpu_backend_abandon_destroyed_context yb_fp_backend_abandon_destroyed_context
+#include "native_gpu_composer_backend_libplacebo.c"

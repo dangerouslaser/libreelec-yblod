@@ -1,0 +1,23 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -81,6 +81,19 @@ void LogNativeTimings(yb_native_playback_context* context)
+       perFrameMs(YB_NATIVE_TIMING_COMPOSER_WAIT), perFrameMs(YB_NATIVE_TIMING_YCC_SUBMIT),
+       perFrameMs(YB_NATIVE_TIMING_YCC_WAIT), perFrameMs(YB_NATIVE_TIMING_BRIDGE),
+       perFrameMs(YB_NATIVE_TIMING_RELEASE));
++  yb_gpu_fp32_stats composer{};
++  if (yb_native_playback_fp32_get_stats(context, &composer) == YB_NATIVE_PLAYBACK_OK)
++  {
++    // Accepted submits are not unique displayed frames. Route selection is
++    // the latest accepted submit, not merely an environment-variable request.
++    CLog::Log(LOGINFO,
++        "DVBridge native composer: released_frames={} fp32_selected={} "
++        "accepted_fp32={} accepted_integer={} cache_hits={} cache_misses={} "
++        "shader_compile_failed={} generate_failed={}",
++        stats.completed_frames, yb_native_playback_fp32_selected(context),
++        composer.accepted_fp32, composer.accepted_integer, composer.cache_hits,
++        composer.cache_misses, composer.shader_compile_failed, composer.generate_failed);
++  }
+ }
+ #endif
+ void BackendLog(void*, pl_log_level level, const char* message)

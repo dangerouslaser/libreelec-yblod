@@ -1,4 +1,5 @@
-# Explicit opt-in integration library; no Kodi source or runtime route selection.
+# Explicit opt-in integration library; Kodi integration remains external.
+# Integer composer is default; DVBRIDGE_NATIVE_FP32=1 selects experimental hybrid.
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(FATAL_ERROR "Experimental playback currently requires Linux VAAPI/EGL")
 endif()
@@ -11,12 +12,16 @@ endif()
 math(EXPR YBLOD_AVUTIL_ABI_NEXT "${YBLOD_AVUTIL_ABI_MAJOR} + 1")
 pkg_check_modules(YbNativeEgl REQUIRED IMPORTED_TARGET egl)
 pkg_check_modules(YbNativeVa REQUIRED IMPORTED_TARGET libva)
+pkg_check_modules(YbNativePlacebo REQUIRED IMPORTED_TARGET libplacebo)
 set(YB_NATIVE_PLAYBACK_SOURCES
   experimental/native_dovi_adapter.c
   experimental/native_dovi_colour_adapter.c
   experimental/native_playback_metadata.c
   experimental/native_gpu_guard.c
   experimental/native_gpu_composer_backend.c
+  experimental/native_gpu_composer_fp32.c
+  experimental/native_gpu_composer_fp32_backend.c
+  experimental/native_libplacebo_reshape.c
   experimental/native_gpu_preparation.c
   experimental/native_gpu_ycc_backend.c
   experimental/native_vaapi_el_scaler.c
@@ -34,7 +39,8 @@ target_include_directories(yblod_playback_native PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/experimental>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/yblod>)
 target_link_libraries(yblod_playback_native PUBLIC yblod_native
-  PkgConfig::YbNativeAvutil PkgConfig::YbNativeEgl PkgConfig::YbNativeVa)
+  PkgConfig::YbNativeAvutil PkgConfig::YbNativeEgl PkgConfig::YbNativeVa
+  PkgConfig::YbNativePlacebo m)
 install(TARGETS yblod_playback_native EXPORT YblodNativeTargets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES
@@ -43,7 +49,8 @@ install(FILES
   experimental/native_gpu_composer_backend.h experimental/native_gpu_preparation.h
   experimental/native_gpu_ycc_backend.h experimental/native_vaapi_el_scaler.h
   experimental/native_vaapi_gl_import.h experimental/native_egl_output_bridge.h
-  experimental/native_playback_context.h
+  experimental/native_playback_context.h experimental/native_gpu_composer_fp32.h
+  experimental/native_libplacebo_reshape.h
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/yblod)
 install(FILES experimental/native_gpu_preparation_probe.comp
   experimental/native_gpu_composer_backend.comp experimental/native_gpu_reconstructed_ycc.comp

@@ -2,6 +2,7 @@
 #define YB_NATIVE_PLAYBACK_CONTEXT_H
 #include "native_playback_metadata.h"
 #include "native_vaapi_el_scaler.h"
+#include "native_gpu_composer_fp32.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <libavutil/frame.h>
@@ -9,6 +10,9 @@
 extern "C" {
 #endif
 typedef struct yb_native_playback_context yb_native_playback_context;
+/* CPU-only, same-owner-thread route diagnostics. Zero counters when disabled. */
+int yb_native_playback_fp32_selected(const yb_native_playback_context *);
+int yb_native_playback_fp32_get_stats(const yb_native_playback_context *,yb_gpu_fp32_stats *);
 enum {
     YB_NATIVE_TIMING_SCALER_SUBMIT=0,YB_NATIVE_TIMING_VA_WAIT,
     YB_NATIVE_TIMING_IMPORT,YB_NATIVE_TIMING_PREPARATION_SUBMIT,

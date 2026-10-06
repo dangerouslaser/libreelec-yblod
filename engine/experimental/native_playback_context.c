@@ -5,6 +5,7 @@
 #include "native_vaapi_gl_import.h"
 #include "native_gpu_preparation.h"
 #include "native_gpu_composer_backend.h"
+#include "native_gpu_composer_fp32.h"
 #include "native_gpu_ycc_backend.h"
 #include "native_egl_output_bridge.h"
 #include <EGL/egl.h>
@@ -23,6 +24,7 @@ struct yb_native_playback_context {
     struct yb_vaapi_el_scaler *scaler;
     yb_gpu_preparation *preparation;
     yb_gpu_composer_backend *composer;
+    yb_gpu_fp32 *fp32;
     yb_gpu_ycc_backend *ycc;
     yb_vaapi_p010_import *base_import,*el_import;
     yb_egl_output_bridge *bridge;
@@ -202,7 +204,10 @@ int yb_native_playback_create(const yb_native_playback_create_info *info,
         info->preparation.bytes,info->preparation.size};
     if (yb_gpu_preparation_create(&gpu,&p->preparation)) goto fail;
     gpu.shader_source=info->composer.bytes; gpu.shader_bytes=info->composer.size;
-    if (yb_gpu_backend_create(&gpu,&p->composer)) goto fail;
+    const char *fp32=getenv("DVBRIDGE_NATIVE_FP32");
+    if (fp32 && !strcmp(fp32,"1")) {
+        if (yb_gpu_fp32_create(&gpu,&p->fp32)) goto fail;
+    } else if (yb_gpu_backend_create(&gpu,&p->composer)) goto fail;
     gpu.shader_source=info->ycc_expansion.bytes; gpu.shader_bytes=info->ycc_expansion.size;
     if (yb_gpu_ycc_create(&gpu,&p->ycc)) goto fail;
     if (yb_vaapi_el_scaler_create(info->va_display,&info->enhancement_scaler,&p->scaler)) goto fail;
@@ -217,6 +222,7 @@ fail:
     if (!p->quarantined &&
         ((p->preparation && yb_gpu_preparation_destroy(&p->preparation)) ||
          (p->composer && yb_gpu_backend_destroy(&p->composer)) ||
+         (p->fp32 && yb_gpu_fp32_destroy(&p->fp32)) ||
          (p->ycc && yb_gpu_ycc_destroy(&p->ycc)) ||
          (p->scaler && yb_vaapi_el_scaler_destroy(&p->scaler)))) p->quarantined=1;
     if (!restore(&saved)) p->quarantined=1;
@@ -435,14 +441,14 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
         memcpy(plan.enhancement_scale_contract_id,p->settings.enhancement_scale_contract_id,32);
         plan.mapping=p->metadata.integer.mapping; memcpy(plan.nlq,p->metadata.integer.nlq,sizeof(plan.nlq));
         YB_TIMED_CALL(p,YB_NATIVE_TIMING_COMPOSER_SUBMIT,status,
-            yb_gpu_backend_submit(p->composer,&plan),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
+            (p->fp32 ? yb_gpu_fp32_submit(p->fp32,&plan) : yb_gpu_backend_submit(p->composer,&plan)),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
         status=gpu_status(p,status,1);
         if (status) return finish_call(p,&saved,status);
         p->state=COMPOSER_PENDING;
     }
     if (p->state==COMPOSER_PENDING) {
         YB_TIMED_CALL(p,YB_NATIVE_TIMING_COMPOSER_WAIT,status,
-            yb_gpu_backend_finish(p->composer,timeout,&p->reconstructed),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
+            (p->fp32 ? yb_gpu_fp32_finish(p->fp32,timeout,&p->reconstructed) : yb_gpu_backend_finish(p->composer,timeout,&p->reconstructed)),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
         status=gpu_status(p,status,0);
         if (status) return finish_call(p,&saved,status);
         if (memcmp(p->reconstructed.frame_id,p->metadata.frame.frame_id,32)) goto quarantine;
@@ -515,7 +521,7 @@ int yb_native_playback_destroy(yb_native_playback_context **handle)
     if (!snapshot(&saved) || !correct_consumer(p,&saved)) return YB_NATIVE_PLAYBACK_ARGUMENT;
     p->closing=1;
     if (!bind_desktop(p) || !clear_frame(p) || yb_gpu_preparation_destroy(&p->preparation) ||
-        yb_gpu_backend_destroy(&p->composer) || yb_gpu_ycc_destroy(&p->ycc) ||
+        (p->fp32 ? yb_gpu_fp32_destroy(&p->fp32) : yb_gpu_backend_destroy(&p->composer)) || yb_gpu_ycc_destroy(&p->ycc) ||
         yb_vaapi_el_scaler_destroy(&p->scaler)) {
         quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
     }
@@ -538,10 +544,21 @@ int yb_native_playback_abandon_after_display_teardown(yb_native_playback_context
         (uintptr_t)eglGetCurrentContext()==(uintptr_t)p->desktop) return YB_NATIVE_PLAYBACK_ARGUMENT;
     if ((p->preparation && yb_gpu_preparation_abandon_destroyed_context(&p->preparation,1)) ||
         (p->composer && yb_gpu_backend_abandon_destroyed_context(&p->composer,1)) ||
+        (p->fp32 && yb_gpu_fp32_abandon_destroyed_context(&p->fp32,1)) ||
         (p->ycc && yb_gpu_ycc_abandon_destroyed_context(&p->ycc,1)) ||
         (p->base_import && yb_vaapi_p010_import_abandon_destroyed_display(&p->base_import,1)) ||
         (p->el_import && yb_vaapi_p010_import_abandon_destroyed_display(&p->el_import,1)) ||
         (p->scaler && yb_vaapi_el_scaler_abandon_after_display_teardown(&p->scaler,1))) return YB_NATIVE_PLAYBACK_ERROR;
     if (yb_egl_output_bridge_abandon_destroyed_display(&p->bridge,1)) return YB_NATIVE_PLAYBACK_ERROR;
     av_frame_free(&p->base); av_frame_free(&p->el); free(p); *handle=NULL; return 0;
+}
+
+/* CPU-only diagnostic: actual latest accepted composer route, not just env. */
+int yb_native_playback_fp32_selected(const yb_native_playback_context *p)
+{ return p && p->fp32 && yb_gpu_fp32_selected(p->fp32); }
+int yb_native_playback_fp32_get_stats(const yb_native_playback_context *p,yb_gpu_fp32_stats *out)
+{
+    if(!p||!out)return YB_NATIVE_PLAYBACK_ARGUMENT;
+    if(!p->fp32){memset(out,0,sizeof(*out));return YB_NATIVE_PLAYBACK_OK;}
+    return yb_gpu_fp32_get_stats(p->fp32,out)?YB_NATIVE_PLAYBACK_ARGUMENT:YB_NATIVE_PLAYBACK_OK;
 }
