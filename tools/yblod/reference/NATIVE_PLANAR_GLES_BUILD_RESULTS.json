@@ -1,0 +1,25 @@
+{
+  "schema": "yblod.native-planar-gles-build-results.v1",
+  "scope": "Complete Kodi SDK rebuild with the explicit GLES integer sampler precision fix; not movie playback qualification",
+  "precision_fix_source_commit": "d7f6b98b4a",
+  "binary_sha256": "821f11d2524d69b76f97c44810b6ac58494e91a1d9c82fcb9c48d5c02c3634dc",
+  "renderer_source_sha256": "5d41abb5d1522b051fe5286d2f3d0c3f74e54b05dc710298729e23b19473800c",
+  "exit_code": 0,
+  "serial_ninja": true,
+  "serial_lto": true,
+  "lto_partitions": 430,
+  "resources": {
+    "memory_max_bytes": 4294967296,
+    "cpu_quota_cores": 1,
+    "memory_peak_bytes": 2325073920,
+    "memory_limit_events": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0
+  },
+  "strict_sdk_checks_passed": true,
+  "public_tests_passed": 9,
+  "mac_and_ollie_archive_hashes_match": true,
+  "movie_playback_qualified": false
+}
