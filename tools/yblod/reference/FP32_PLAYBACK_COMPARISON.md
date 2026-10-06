@@ -48,3 +48,19 @@ and cumulative high-water history. No claim of a memory reduction is made.
 
 The service-shutdown heap corruption was reproduced and remains a separate
 roadblock. Successful player stop does not qualify service shutdown.
+
+## Reproduction tools
+
+The actual wrapper comparison and sequence probe sources are in
+`engine/experimental/native_gpu_composer_fp32_*_probe.c`. The SDK recipe is
+`tools/yblod/reference/build_fp32_wrapper_diagnostic.sh`; run it inside an
+externally memory/CPU-limited container, supplying engine, probe-source, and
+fresh output directories.
+
+`observe_native_1917.py` is the exact lab playback observer. It assumes the
+test VM's local Kodi JSON-RPC configuration and movie ID 51 identifies 1917;
+verify/adapt that ID before using it with another library. It starts playback,
+requires a pinned binary SHA and fresh report path, and can stop playback on
+completion. Treat its raw reports as private; the published parser extracts
+the scalar performance evidence. Parser tests are in
+`test_playback_comparison.py`.
