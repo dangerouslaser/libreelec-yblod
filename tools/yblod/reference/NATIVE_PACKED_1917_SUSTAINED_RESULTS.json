@@ -1,0 +1,146 @@
+{
+  "schema": "yblod.native-packed-sustained-scalar-results.v1",
+  "content": "1917",
+  "movie_id": 51,
+  "seek_seconds": 1200,
+  "seconds_per_case": 600,
+  "matrix": [
+    0,
+    1,
+    1,
+    0
+  ],
+  "same_installed_binary": true,
+  "binary_sha256": "ef4eb9a9600662b2215d0c468625056eed19adbd284d76a3e696242fadfb281c",
+  "mixed_routes_allowed": false,
+  "before": {
+    "whole_kodi_cpu_percent_one_core": 20.02170078453875,
+    "cpu_elapsed_seconds": 1197.0012067359999,
+    "gpu_elapsed_seconds": 1197.0012067359999,
+    "gpu_engine_busy_percent": {
+      "drm-engine-copy": 0.0,
+      "drm-engine-render": 56.9873115864324,
+      "drm-engine-video": 6.663372055738562,
+      "drm-engine-video-enhance": 9.440889821836576
+    },
+    "helper_wall_ms_per_release": {
+      "scaler_submit": 0.16709745762711867,
+      "va_wait": 4.061254237288136,
+      "imports": 0.23328389830508475,
+      "prep_submit": 0.08338135593220342,
+      "prep_wait": 2.0151906779661015,
+      "composer_submit": 0.09915677966101695,
+      "composer_wait": 6.897296610169492,
+      "ycc_submit": 0.0653813559322034,
+      "ycc_wait": 5.097182203389831,
+      "bridge": 0.04430508474576271,
+      "consumer_release": 6.901334745762712
+    },
+    "released_operation_count_delta": 28320,
+    "colour_handoff_ms_per_call": {
+      "wall_ms_per_call": 0.18933898305084745,
+      "thread_cpu_ms_per_call": 0.18833898305084745
+    },
+    "colour_handoff_call_count_delta": 28320,
+    "health_case_totals": [
+      {
+        "order": 1,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      },
+      {
+        "order": 4,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      }
+    ],
+    "renderer_preparation_routes": {
+      "prepared": 25920,
+      "direct": 0,
+      "composed": 25920,
+      "direct_percent": 0.0
+    }
+  },
+  "after": {
+    "whole_kodi_cpu_percent_one_core": 17.1633715176857,
+    "cpu_elapsed_seconds": 1198.1328947410002,
+    "gpu_elapsed_seconds": 1198.1328947410002,
+    "gpu_engine_busy_percent": {
+      "drm-engine-copy": 0.0,
+      "drm-engine-render": 40.61049835829615,
+      "drm-engine-video": 6.652046811362173,
+      "drm-engine-video-enhance": 9.439199786635314
+    },
+    "helper_wall_ms_per_release": {
+      "scaler_submit": 0.16265126050420167,
+      "va_wait": 4.06268487394958,
+      "imports": 0.2279201680672269,
+      "prep_submit": 0.08086974789915967,
+      "prep_wait": 2.001747899159664,
+      "composer_submit": 0.09614285714285714,
+      "composer_wait": 6.870302521008403,
+      "ycc_submit": 0.06491176470588235,
+      "ycc_wait": 5.071655462184873,
+      "bridge": 0.04378991596638655,
+      "consumer_release": 3.917676470588235
+    },
+    "released_operation_count_delta": 28560,
+    "colour_handoff_ms_per_call": {
+      "wall_ms_per_call": 0.20068067226890757,
+      "thread_cpu_ms_per_call": 0.20068487394957985
+    },
+    "colour_handoff_call_count_delta": 28560,
+    "health_case_totals": [
+      {
+        "order": 2,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      },
+      {
+        "order": 3,
+        "raw_maximum_drop_total": 0,
+        "raw_maximum_skip_total": 0,
+        "pre_steady_drop_total": 0,
+        "pre_steady_skip_total": 0,
+        "steady_drop_delta": 0,
+        "steady_skip_delta": 0,
+        "steady_stalled": false
+      }
+    ],
+    "renderer_preparation_routes": {
+      "prepared": 25920,
+      "direct": 25920,
+      "composed": 0,
+      "direct_percent": 100.0
+    }
+  },
+  "lifecycle": {
+    "normal_process_exit_cases": 4,
+    "dv_display_restoration_failure_cases": 4,
+    "successful_dv_display_restoration_claimed": false,
+    "known_preexisting_issue": "EGL surface destroyed before final DV restore"
+  },
+  "scopes": [
+    "Same candidate binary, source title, starting position and reconstruction settings; only native packed-output flag changes.",
+    "Two 600-second cases per condition in ABBA order; GPU and CPU are time-weighted pooled measurements.",
+    "CPU is all Kodi threads normalized to one CPU core, not whole-system percent.",
+    "GPU is Kodi DRM client activity; helper wall timing is not exclusive GPU cost or presentation latency.",
+    "Playback counters do not establish pixel accuracy; matched-frame preservation was separately qualified.",
+    "Normal service process exit does not prove DV display restoration; the preexisting restoration failure remains unresolved."
+  ]
+}
