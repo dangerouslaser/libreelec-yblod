@@ -87,7 +87,13 @@ def snapshot(input_path, binary, runtime_files, driver_path, node):
         driver=fingerprint(driver_path))
 
 
-def mapped_libraries(pid, runtime_files, driver_path):
+def is_mapped_code(path, permissions):
+    """Classify code without opening an untrusted mapped path (not loader cache)."""
+    name = Path(path).name
+    return 'x' in permissions or ('.so' in name and name != 'ld.so.cache')
+
+
+def mapped_libraries(pid, runtime_files, driver_path, verified_probe=None):
     allowed = {str(Path(path).resolve(strict=True)) for path in runtime_files.values()}
     allowed.add(str(Path(driver_path).resolve(strict=True)))
     observed = set()
@@ -96,7 +102,12 @@ def mapped_libraries(pid, runtime_files, driver_path):
         if len(parts) != 6 or not parts[5].startswith('/'):
             continue
         path = parts[5]
-        if '.so' not in Path(path).name:
+        clean_path = path[:-10] if path.endswith(' (deleted)') else path
+        if not is_mapped_code(clean_path, parts[1]):
+            continue
+        if verified_probe is not None and clean_path == str(Path(verified_probe).resolve(strict=True)):
+            if path.endswith(' (deleted)'):
+                raise ValueError('Deleted verified probe mapping')
             continue
         if path.endswith(' (deleted)') or str(Path(path).resolve(strict=True)) not in allowed:
             raise ValueError('Mapped library outside the exact isolated closure/current driver')

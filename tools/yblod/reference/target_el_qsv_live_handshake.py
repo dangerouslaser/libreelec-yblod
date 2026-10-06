@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import stat
 
-from collect_el_qsv_target_identity import fingerprint, mapped_libraries, process_gpu_client
+from collect_el_qsv_target_identity import fingerprint, mapped_libraries, process_gpu_client, is_mapped_code
 
 
 def process_record(pid):
@@ -54,7 +54,8 @@ def audit_mapped_code(child,binary,expected_sha,private_output,expected_code_roo
         if len(fields)!=6 or not fields[5].startswith('/'):continue
         deleted=fields[5].endswith(' (deleted)')
         path=Path(fields[5][:-10] if deleted else fields[5])
-        if '.so' not in path.name:continue
+        if not is_mapped_code(path,fields[1]):continue
+        if path==Path(binary).resolve(strict=True) and not deleted:continue
         canonical=path.resolve(strict=not deleted)
         under_root=canonical.is_relative_to(root)
         identity=None
@@ -99,7 +100,7 @@ def acknowledge_unit_child(ready,ack,nonce,unit_pid,unit_start_ticks,loader,bina
         if expected_code_root is None:raise ValueError('Expected code root required for private audit')
         audit_mapped_code(child,binary,expected_binary_sha,private_library_audit,expected_code_root)
     clients=process_gpu_client(child['pid'],node)
-    libraries=mapped_libraries(child['pid'],runtime_files,driver)
+    libraries=mapped_libraries(child['pid'],runtime_files,driver,verified_probe=binary)
     if not clients or libraries is not True:raise ValueError('Actual live GPU client and complete mapped closure required')
     # Recheck process generations and checkpoint after inspecting live maps/fdinfo.
     identity=lambda value:tuple(getattr(value,key) for key in ('st_dev','st_ino','st_mode','st_uid','st_size','st_mtime_ns','st_ctime_ns'))
