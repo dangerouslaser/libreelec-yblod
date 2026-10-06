@@ -1,0 +1,42 @@
+{
+  "schema": "yblod.native-planar-comparator-host-results.v1",
+  "complete": true,
+  "source_commit": "b3e562165495c588aef6999155edee3b8d7a4f1b",
+  "suite": "test_compare_renderer_frames",
+  "tests_run": 10,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "python_version": "3.12.3",
+  "numpy_version": "1.26.4",
+  "dependencies": "Existing host packages mounted read-only; no installation",
+  "resource_limits": {
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 42864640,
+    "swap_limit_bytes": 0,
+    "swap_current_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "gpu_devices": false,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    },
+    "exit_code": 0,
+    "oom_killed": false
+  },
+  "qualification": {
+    "synthetic_host_comparator_logic": true,
+    "vm_python_numpy_compatibility": false,
+    "actual_capture_comparison": false,
+    "engine_pixel_accuracy": false,
+    "gpu_execution": false,
+    "playback": false,
+    "physical_hdmi_output": false
+  }
+}
