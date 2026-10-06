@@ -1,0 +1,48 @@
+{
+  "schema": "yblod.native-immutable-instruction-results.v1",
+  "complete": true,
+  "default_enabled": false,
+  "host_probe": {
+    "strict_sdk_objects": 2,
+    "alignment_cases": 65536,
+    "all_419_integer_words_exact": true,
+    "fp32_uniforms_bitwise_equal": true,
+    "pending_reuse_rejected": true,
+    "resize_and_coefficient_update": true,
+    "failed_fence_retained": true,
+    "peak_bytes": 66830336,
+    "exit_code": 0
+  },
+  "gpu_probe": {
+    "hardware": "Intel UHD 770 (Raptor Lake-S)",
+    "renderer": "Mesa Intel(R) Graphics (RPL-S)",
+    "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+    "fixture_dimensions": [[4, 4], [8, 6], [16, 12]],
+    "fixture_mapping": "single linear polynomial segment per component; coefficient updates; zero NLQ residual",
+    "nlq_lut_enabled_both_routes": true,
+    "integer_output_values_compared": 384,
+    "integer_output_differences": 0,
+    "accepted_frames_each": 3,
+    "legacy_metadata_uploads": 9,
+    "immutable_metadata_uploads": 3,
+    "immutable_range_bindings": 9,
+    "dispatches_each": 9,
+    "peak_bytes": 57311232,
+    "exit_code": 0
+  },
+  "resource_limits_each": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_quota": 100000,
+    "cpu_period": 100000,
+    "network": "none",
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0
+  },
+  "qualification_limits": [
+    "Synthetic host and tiny GPU checks only; no movie, HDMI, display, playback or performance qualification.",
+    "GPU fixture exercises linear polynomial mapping and zero residual, not every MMR/NLQ topology.",
+    "Host probe checks all canonical metadata words and identical FP32 uniforms, including update/resize and pending/fence handling.",
+    "Early scratch link-dependency failures and a rejected misencoded guide fixture preceded the passing runs; production arithmetic was not changed."
+  ]
+}
