@@ -1,0 +1,42 @@
+{
+  "schema": "yblod-el-qsv-header-target-loader-v1",
+  "attempt": 3,
+  "pass": true,
+  "candidate_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "scope": "Code-only target loader and relocation admission. No Kodi entry-point execution, hardware decoder or Dolby output qualification.",
+  "loader": {
+    "elapsed_seconds": 0.2953411570051685,
+    "unresolved_dependencies": 0,
+    "undefined_symbols": 0,
+    "six_isolated_ffmpeg_family_paths_verified": true
+  },
+  "ownership": {
+    "source_pins_verified": true,
+    "complete_atomic_ready_verified": true,
+    "full_argv_pid_start_ticks_cgroup_and_invocation_verified_before_ack": true,
+    "main_exit_status": 0,
+    "result_success": true,
+    "retained_completed_unit_observed": true,
+    "only_exact_owned_unit_stopped": true,
+    "cleanup_terminal": true
+  },
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "cpu_limit": 1,
+    "swap_limit_bytes": 0,
+    "peak_memory_bytes": 14716928,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "private_network": true
+  },
+  "post_run": {
+    "retained_19379_idle_binary_unchanged": true,
+    "original_override_bytes_unchanged": true,
+    "isolated_runtime_artifacts_unchanged": true,
+    "existing_target_driver_unchanged": true,
+    "staged_candidate_unchanged": true
+  },
+  "previous_attempts": "EL_QSV_HEADER_TARGET_LOADER_ATTEMPTS.json",
+  "limitations": "Prior failed ownership observations remain published. Loaded-path tracing and relocation checks do not prove actual playback-time library mappings; capture must independently verify those."
+}
