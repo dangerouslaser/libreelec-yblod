@@ -2,9 +2,11 @@
 
 The opt-in packing candidate reduces GPU render-client activity by 30.74 percent
 and whole Kodi CPU by 16.24 percent on the matched Saving Private Ryan scene.
-It preserves every transmitted RGB byte on three matched frames while eliminating
+It preserves every transmitted RGB byte on three matched frames from each of two
+movies while eliminating
 a full-resolution RGB intermediate write/read and a separate packing draw during
-eligible playback. Production default remains disabled pending broader checks.
+eligible playback. Additional offset-disabled and FEL checks preserve the picture
+and metadata payload exactly. Production default remains disabled.
 
 ## Output preservation
 
@@ -38,10 +40,32 @@ Startup history changes these IDs. The comparison requires unchanged payloads,
 including scene-refresh signalling, and exact pixels everywhere else. It does
 not accept a pixel tolerance.
 
-These checks establish preservation for the captured frames on this Intel
-hardware, not universal equivalence, licensed Dolby accuracy, or conformance.
-Offset-disabled output, other metadata, additional scenes, and overlay transitions
-remain qualification targets before default adoption.
+### Additional frame coverage
+
+The broader sampled checks retain the same source-layer timestamps and source
+metadata for each composed-to-packed comparison. All preserve the full-raster
+picture and metadata payload exactly, without a pixel tolerance.
+
+| Content or mode | Matched frame comparisons | Picture and payload | Transmitted RGB bytes |
+| --- | ---: | --- | --- |
+| Saving Private Ryan | 3 | Exact | Identical |
+| 1917 | 3 | Exact | Identical |
+| Saving Private Ryan with colour offset disabled | 2 | Exact | Validated update ID and CRC differences only |
+| Numbered FEL test | 1 | Exact | Validated update ID and CRC differences only |
+
+The offset-disabled comparison disables the same setting in both routes; it does
+not compare offset-disabled output with offset-enabled output. The numbered FEL
+check uses one timestamp-matched frame; its burned-in frame number was not
+separately verified. Composed repeats also preserve picture and payload, including
+the repeat from the FEL test. Some separate playback starts change transport
+update IDs and their CRCs; only those validated changes are accepted.
+
+The [broader scalar frame results](NATIVE_PACKED_OUTPUT_BROAD_FRAME_RESULTS.json)
+retain the comparisons without raw film frames or source metadata. These checks
+establish preservation for the captured frames on this Intel hardware, not
+universal equivalence, licensed Dolby accuracy, or conformance. Longer playback,
+additional metadata and media, and other hardware remain qualification targets
+before default adoption.
 
 ## Matched playback results
 
@@ -80,6 +104,26 @@ checks above establish preservation for the captured frames.
 
 The [playback measurements](NATIVE_PACKED_OUTPUT_SPR_PLAYBACK_RESULTS.json) retain
 per-case route, health, lifecycle, timing, memory and counter records.
+
+## GUI and overlay routes
+
+A separate functional run with packing enabled verified that video controls and
+Kodi's render-debug overlay select composition, then return to packed output when
+closed. Each capture retained native reconstruction and enhancement-layer-only
+Quick Sync mode. The actual Kodi child process and executable remained unchanged;
+player stop and service shutdown were clean.
+
+| State | GUI window ID | Captured packed output |
+| --- | ---: | ---: |
+| Fullscreen playback | 12005 | 1 |
+| Video controls open | 12901 | 0 |
+| Video controls closed | 12005 | 1 |
+| Render-debug overlay visible | 12005 | 0 |
+| Render-debug overlay closed | 12005 | 1 |
+
+The [GUI route results](NATIVE_PACKED_OUTPUT_GUI_QA_RESULTS.json) record the route
+and lifecycle checks. This run verifies composition fallback and packed-route
+recovery, not pixel equivalence or performance while overlays are visible.
 
 ## Build and reproduction
 

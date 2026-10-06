@@ -1,0 +1,57 @@
+{
+  "schema": "yblod.native-packed-gui-qa-results.v1",
+  "status": "passed",
+  "candidate_binary_sha256": "ef4eb9a9600662b2215d0c468625056eed19adbd284d76a3e696242fadfb281c",
+  "same_child_process_and_executable": true,
+  "routes": [
+    {
+      "label": "packed-before-gui",
+      "native": 1,
+      "qsv_mode": 1,
+      "direct_packed": 1,
+      "window_before_id": 12005,
+      "window_after_id": 12005
+    },
+    {
+      "label": "gui-composed",
+      "native": 1,
+      "qsv_mode": 1,
+      "direct_packed": 0,
+      "window_before_id": 12901,
+      "window_after_id": 12901
+    },
+    {
+      "label": "packed-after-gui",
+      "native": 1,
+      "qsv_mode": 1,
+      "direct_packed": 1,
+      "window_before_id": 12005,
+      "window_after_id": 12005
+    },
+    {
+      "label": "debug-overlay-composed",
+      "native": 1,
+      "qsv_mode": 1,
+      "direct_packed": 0,
+      "window_before_id": 12005,
+      "window_after_id": 12005
+    },
+    {
+      "label": "packed-after-debug-overlay",
+      "native": 1,
+      "qsv_mode": 1,
+      "direct_packed": 1,
+      "window_before_id": 12005,
+      "window_after_id": 12005
+    }
+  ],
+  "player_stop_qualified": true,
+  "clean_service_shutdown": true,
+  "shutdown": {
+    "ActiveState": "inactive",
+    "Result": "success",
+    "ExecMainCode": "1",
+    "ExecMainStatus": "0"
+  },
+  "scope": "Functional GUI and render-debug overlay composition fallback and packed-route recovery. This is not a pixel-equivalence or performance measurement."
+}

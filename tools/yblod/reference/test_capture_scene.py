@@ -25,12 +25,28 @@ class Tests(unittest.TestCase):
         self.assertEqual(module.capture_targets(args), [(71250000, 0), (81250000, 0)])
         self.assertEqual(self.args('--seek-seconds', '0').target_seconds, [10, 20, 30])
 
+    def test_file_item_identity_and_library_flow(self):
+        args = self.args('--file', '/storage/numbered-test.mkv', '--seek-seconds', '0')
+        self.assertEqual(module.open_item(args), {'file': '/storage/numbered-test.mkv'})
+        with patch.object(module, 'rpc', return_value={'item': {'file': args.file}}) as rpc:
+            module.verify_file_item(args, 1)
+            rpc.assert_called_once_with('Player.GetItem', {'playerid': 1, 'properties': ['file']})
+        with patch.object(module, 'rpc', return_value={'item': {'file': '/storage/wrong.mkv'}}):
+            with self.assertRaises(RuntimeError):
+                module.verify_file_item(args, 1)
+        library = self.args('--movie-id', '51', '--expected-title', '1917')
+        self.assertEqual(module.open_item(library), {'movieid': 51})
+        with patch.object(module, 'rpc') as rpc:
+            module.verify_file_item(library, 1)
+            rpc.assert_not_called()
+
     def test_invalid_media_and_target_args(self):
         invalid = (('--movie-id', '0'), ('--expected-title', ''), ('--seek-seconds', 'nan'),
                    ('--seek-seconds', '-1'), ('--seek-seconds', '86401'),
                    ('--target-seconds', '1200'), ('--target-seconds', 'inf'),
                    ('--target-seconds', '1220', '--target-seconds', '1210'),
                    ('--baseline', '/unused/baseline', '--target-seconds', '1210'))
+        invalid += (('--file', 'relative.mkv'), ('--file', '/storage/test.mkv', '--movie-id', '51'))
         with contextlib.redirect_stderr(io.StringIO()):
             for extra in invalid:
                 with self.assertRaises(SystemExit):

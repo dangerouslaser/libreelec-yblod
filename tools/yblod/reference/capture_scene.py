@@ -60,7 +60,9 @@ def parse_args(argv=None):
     parser.add_argument('--binary-sha256', help='Expected installed Kodi executable digest; always recorded.')
     parser.add_argument('--expected-native', type=int, choices=(0, 1))
     parser.add_argument('--expected-direct-packed', type=int, choices=(0, 1))
-    parser.add_argument('--movie-id', type=int, default=3391)
+    media = parser.add_mutually_exclusive_group()
+    media.add_argument('--movie-id', type=int, default=3391)
+    media.add_argument('--file', help='Absolute local media path for a clip outside the movie library.')
     parser.add_argument('--expected-title', default='Saving Private Ryan')
     parser.add_argument('--seek-seconds', type=float, default=1200)
     parser.add_argument('--target-seconds', type=float, action='append',
@@ -68,6 +70,8 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if args.movie_id <= 0 or not args.expected_title.strip():
         parser.error('Positive movie ID and nonempty expected title required')
+    if args.file is not None and not Path(args.file).is_absolute():
+        parser.error('An absolute local media file path is required')
     if not math.isfinite(args.seek_seconds) or not 0 <= args.seek_seconds <= 86400:
         parser.error('Seek must be finite and between zero and 86400 seconds')
     if args.baseline and args.target_seconds:
@@ -80,6 +84,17 @@ def parse_args(argv=None):
         if args.target_seconds != sorted(set(args.target_seconds)):
             parser.error('Target times must be strictly increasing')
     return args
+
+
+def open_item(args):
+    return {'file': args.file} if args.file else {'movieid': args.movie_id}
+
+
+def verify_file_item(args, player):
+    if args.file:
+        item = rpc('Player.GetItem', {'playerid': player, 'properties': ['file']})['item']
+        if item.get('file') != args.file:
+            raise RuntimeError('Unexpected playing file identity')
 
 
 def capture_targets(args):
@@ -122,12 +137,14 @@ def main():
     identity = process_identity()
     if args.binary_sha256 and identity['binary_sha256'] != args.binary_sha256.lower():
         raise RuntimeError('Wrong Kodi binary')
-    title = rpc('VideoLibrary.GetMovieDetails', {'movieid': args.movie_id, 'properties': ['title']})['moviedetails']['title']
-    if title != args.expected_title:
-        raise RuntimeError('Unexpected movie identity')
+    title = None
+    if not args.file:
+        title = rpc('VideoLibrary.GetMovieDetails', {'movieid': args.movie_id, 'properties': ['title']})['moviedetails']['title']
+        if title != args.expected_title:
+            raise RuntimeError('Unexpected movie identity')
     existing = set(root.glob('frame-*'))
     request.write_text(f'{targets[0][0]:.17g} {targets[0][1]}\n')
-    rpc('Player.Open', {'item': {'movieid': args.movie_id}, 'options': {'resume': False}})
+    rpc('Player.Open', {'item': open_item(args), 'options': {'resume': False}})
     player = None
     for _ in range(30):
         players = rpc('Player.GetActivePlayers')
@@ -137,6 +154,7 @@ def main():
         time.sleep(1)
     if player is None:
         raise RuntimeError('No player')
+    verify_file_item(args, player)
     milliseconds = round(args.seek_seconds * 1000)
     rpc('Player.Seek', {'playerid': player, 'value': {'time': {'hours': milliseconds // 3600000,
                        'minutes': milliseconds // 60000 % 60, 'seconds': milliseconds // 1000 % 60,
@@ -181,9 +199,12 @@ def main():
     state = command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '-p', 'Result', '-p', 'MainPID')
     if set(state.splitlines()) != {'ActiveState=inactive', 'Result=success', 'MainPID=0'}:
         raise RuntimeError(state)
-    args.report.write_text(json.dumps({'frames': captured, 'shutdown': state,
-                                     'movie': dict(id=args.movie_id, title=title, seek_seconds=args.seek_seconds),
-                                     'identity_before': identity, 'identity_after': final_identity}, indent=2))
+    report = dict(frames=captured, shutdown=state, identity_before=identity, identity_after=final_identity)
+    if args.file:
+        report['file'] = dict(basename=Path(args.file).name, seek_seconds=args.seek_seconds)
+    else:
+        report['movie'] = dict(id=args.movie_id, title=title, seek_seconds=args.seek_seconds)
+    args.report.write_text(json.dumps(report, indent=2))
     print('PASS capture/player-stop/shutdown', flush=True)
 
 
