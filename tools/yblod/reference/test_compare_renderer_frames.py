@@ -59,6 +59,11 @@ class Tests(unittest.TestCase):
         self.assertEqual(result['planes']['P']['mean_absolute_codes'], 4)
         self.assertEqual(result['planes']['T']['at_least_four_percent'], 100)
 
+    def test_optional_planar_capture_evidence_is_preserved(self):
+        result = self.run_compare(packed(), packed(), dict(native_planar=1))
+        self.assertNotIn('native_planar', result['before'])
+        self.assertEqual(result['after']['native_planar'], 1)
+
     def test_metadata_rows_excluded(self):
         new = packed()
         new[:4] = 0

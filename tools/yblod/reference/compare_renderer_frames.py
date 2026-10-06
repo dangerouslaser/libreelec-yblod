@@ -24,6 +24,8 @@ def load_frame(folder):
     info = json.loads((folder / 'frame.json').read_text())
     if info.get('format') != 'RGBA8 DV tunnel bottom up':
         raise ValueError('Unsupported capture format')
+    if 'native_planar' in info and (type(info['native_planar']) is not int or info['native_planar'] not in (0, 1)):
+        raise ValueError('Invalid native planar route metadata')
     for name in ('pts', 'el_pts'):
         value = info.get(name)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
@@ -160,9 +162,11 @@ def compare(a, b, require_exact=False, require_picture_and_payload_preserved=Fal
         differing_tunnel_rgb_bytes=differing_rgb_bytes,
         preservation_scope='All oriented tunnel RGB bytes, including metadata rows; alpha is not transmitted.',
         before=dict(native=ia['native'], direct_packed=ia['direct_packed'],
-                    rows_flipped=fa, valid_leading_packets=ca),
+                    rows_flipped=fa, valid_leading_packets=ca,
+                    **({'native_planar': ia['native_planar']} if 'native_planar' in ia else {})),
         after=dict(native=ib['native'], direct_packed=ib['direct_packed'],
-                   rows_flipped=fb, valid_leading_packets=cb), planes=planes,
+                   rows_flipped=fb, valid_leading_packets=cb,
+                   **({'native_planar': ib['native_planar']} if 'native_planar' in ib else {})), planes=planes,
         scope='12-bit tunnel code differences between players, not Dolby conformance or display quality.',
         region='Full picture excluding first four metadata rows; letterbox bars remain included.')
 

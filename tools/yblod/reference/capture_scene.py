@@ -60,6 +60,7 @@ def parse_args(argv=None):
     parser.add_argument('--binary-sha256', help='Expected installed Kodi executable digest; always recorded.')
     parser.add_argument('--expected-native', type=int, choices=(0, 1))
     parser.add_argument('--expected-direct-packed', type=int, choices=(0, 1))
+    parser.add_argument('--expected-native-planar', type=int, choices=(0, 1))
     media = parser.add_mutually_exclusive_group()
     media.add_argument('--movie-id', type=int, default=3391)
     media.add_argument('--file', help='Absolute local media path for a clip outside the movie library.')
@@ -95,6 +96,14 @@ def verify_file_item(args, player):
         item = rpc('Player.GetItem', {'playerid': player, 'properties': ['file']})['item']
         if item.get('file') != args.file:
             raise RuntimeError('Unexpected playing file identity')
+
+
+def verify_capture_route(info, args):
+    for field, expected in (('native', args.expected_native),
+                            ('direct_packed', args.expected_direct_packed),
+                            ('native_planar', args.expected_native_planar)):
+        if expected is not None and (type(info.get(field)) is not int or info.get(field) != expected):
+            raise RuntimeError('Wrong captured rendering route: ' + field)
 
 
 def capture_targets(args):
@@ -172,10 +181,7 @@ def main():
                 info = json.loads((path / 'frame.json').read_text())
                 if exact and abs(info['pts'] - pts) > 1:
                     raise RuntimeError('Wrong exact source frame')
-                for field, expected in (('native', args.expected_native),
-                                        ('direct_packed', args.expected_direct_packed)):
-                    if expected is not None and info[field] != expected:
-                        raise RuntimeError('Wrong captured rendering route: ' + field)
+                verify_capture_route(info, args)
                 info['directory'] = str(path)
                 captured.append(info)
                 existing.add(path)

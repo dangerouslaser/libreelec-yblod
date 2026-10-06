@@ -40,6 +40,17 @@ class Tests(unittest.TestCase):
             module.verify_file_item(library, 1)
             rpc.assert_not_called()
 
+    def test_optional_planar_route_gate_is_strict_when_requested(self):
+        old = dict(native=1, direct_packed=1)
+        module.verify_capture_route(old, self.args())
+        for expected in (0, 1):
+            args = self.args('--expected-native', '1', '--expected-direct-packed', '1',
+                             '--expected-native-planar', str(expected))
+            module.verify_capture_route(dict(old, native_planar=expected), args)
+            for invalid in (old, dict(old, native_planar=1-expected), dict(old, native_planar=bool(expected))):
+                with self.assertRaises(RuntimeError):
+                    module.verify_capture_route(invalid, args)
+
     def test_invalid_media_and_target_args(self):
         invalid = (('--movie-id', '0'), ('--expected-title', ''), ('--seek-seconds', 'nan'),
                    ('--seek-seconds', '-1'), ('--seek-seconds', '86401'),
