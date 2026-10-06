@@ -1,0 +1,500 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -9,6 +9,13 @@
+ 
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "DVBridgeShaders.h"
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++#include "DVBridgeNativeShaders.h"
++extern "C"
++{
++#include "native_playback_context.h"
++}
++#endif
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
+ #include "utils/log.h"
+@@ -20,6 +27,7 @@
+ 
+ #include <EGL/egl.h>
+ #include <algorithm>
++#include <atomic>
+ #include <cmath>
+ #include <cstdio>
+ #include <cstdlib>
+@@ -35,6 +43,12 @@
+ 
+ namespace
+ {
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++// A failed in-flight context may still own decoded storage. Disable new native
++// attempts for this process; retain its allocation until process/display
++// teardown rather than recycling uncertain resources or repeatedly allocating.
++std::atomic<bool> nativeCleanupRetained{false};
++#endif
+ void BackendLog(void*, pl_log_level level, const char* message)
+ {
+   // Error-only callback: no debug shader dumps or GPU timing/readback queries.
+@@ -86,6 +100,9 @@
+ 
+ CDVBridgeGLES::~CDVBridgeGLES()
+ {
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  ReleaseNative();
++#endif
+   Summary("closed");
+   CDVPlaybackInfo::presented.store(0);
+   glDeleteFramebuffers(1, &m_framebuffer);
+@@ -103,6 +120,10 @@
+   if (m_gl)
+     return m_renderer && m_packer;
+   m_hdr10 = hdr10;
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  const char* native = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++  m_nativeRequested = !hdr10 && native && std::strcmp(native, "1") == 0;
++#endif
+   const char* capture = std::getenv("DVBRIDGE_CAPTURE_PAIRS");
+   m_capturePairs = capture && std::strcmp(capture, "1") == 0;
+   pl_opengl_params params{};
+@@ -158,7 +179,13 @@
+ 
+ void CDVBridgeGLES::Reset()
+ {
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  if (ReleaseNative())
++    m_nativeFailed = false;
++#endif
+   Summary("reset");
++  m_nativePrepared = false;
++  m_nativePresented = 0;
+   m_firstFrame = true;
+   CDVPlaybackInfo::presented.store(0);
+   m_pendingInfo = 0;
+@@ -287,9 +314,11 @@
+ }
+ 
+ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+-                          const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked)
++                          const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked,
++                          pl_tex reconstructed)
+ {
+   m_prepared = m_packed = false;
++  m_nativePrepared = false;
+   m_direct = false;
+   if (!m_renderer)
+     return Failure("renderer-unavailable");
+@@ -297,7 +326,7 @@
+     return Failure("metadata-unavailable");
+   SetIptOffset(m_renderer, m_packer);
+   const bool requestedConversion = DVBRIDGE::playbackDirectConversion.load();
+-  dvbridge_renderer_set_direct_conversion(m_renderer, requestedConversion && m_conversionUsable);
++  dvbridge_renderer_set_direct_conversion(m_renderer, !reconstructed && requestedConversion && m_conversionUsable);
+   dvbridge_gl_frame bl{}, el{};
+   if (!dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
+     return Failure("base-import");
+@@ -315,7 +344,7 @@
+   }
+   // The fast path produces the exact transport bytes directly. GUI/subtitle
+   // frames and non-fullscreen geometry retain the original 32F composition.
+-  if (!m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
++  if (!reconstructed && !m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
+       geometry.width == 3840 && geometry.height == 2160)
+   {
+     // Finish readback before rendering the real output; capture never replaces scanout.
+@@ -344,8 +373,11 @@
+     }
+   }
+   const auto renderRGB = m_hdr10 ? dvbridge_render_hdr10_rgb : dvbridge_render_rgb;
+-  m_prepared = m_direct || renderRGB(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
+-                                     base.pts, elPts, geometry);
++  m_prepared = reconstructed
++      ? (!m_hdr10 && dvbridge_render_reconstructed_rgb(m_renderer, &bl.frame, reconstructed,
++                                                     metadata.Data(), metadata.Size(), base.pts, elPts, geometry))
++      : (m_direct || renderRGB(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
++                              base.pts, elPts, geometry));
+   m_pendingInfo = 0;
+   if (m_prepared)
+   {
+@@ -371,6 +403,7 @@
+   dvbridge_gl_frame_release(&bl);
+   if (!m_prepared)
+     return Failure("render-prepare");
++  m_nativePrepared = reconstructed != nullptr;
+   const int conversionPath = dvbridge_renderer_used_direct_conversion(m_renderer) ? 1 : 0;
+   if (conversionPath != m_lastConversionPath)
+   {
+@@ -400,12 +433,177 @@
+ {
+   const auto texture = m_prepared ? dvbridge_render_texture(m_renderer) : nullptr;
+   return texture ? pl_opengl_unwrap(m_gl->gpu, texture, nullptr, nullptr, nullptr) : 0;
++}
++
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++bool CDVBridgeGLES::ReleaseNative()
++{
++  if (!m_native)
++    return true;
++  const int status = yb_native_playback_destroy(&m_native);
++  if (status == YB_NATIVE_PLAYBACK_OK)
++    return true;
++  // Never free an uncertain in-flight context or its retained decoder refs.
++  m_nativeFailed = true;
++  nativeCleanupRetained.store(true);
++  CLog::Log(LOGERROR, "DVBridge native reconstruction: cleanup retained status={}", status);
++  return false;
+ }
+ 
++bool CDVBridgeGLES::PrepareNative(const Layer& base, const AVFrame* enhancement,
++                                const CDVMetadataBuffer& metadata, dvbridge_geometry geometry)
++{
++  if (!base.decodedFrame || !enhancement || !base.vaDisplay ||
++      base.layout != DVBRIDGE_P010 || base.decodedSourcePts == AV_NOPTS_VALUE ||
++      enhancement->pts == AV_NOPTS_VALUE || !metadata.Data() ||
++      base.width <= 0 || base.height <= 0 || enhancement->width <= 0 || enhancement->height <= 0)
++    return false;
++  auto fail = [&](const char* stage, int status)
++  {
++    m_nativeFailed = true;
++    CLog::Log(LOGWARNING, "DVBridge native reconstruction: stage={} status={} fallback=release",
++              stage, status);
++    return false;
++  };
++  yb_dovi_integer_instructions instructions{};
++  const int metadataStatus = yb_dovi_to_integer_configs(metadata.Data(), metadata.Size(), &instructions);
++  if (metadataStatus != YB_DOVI_ADAPTER_OK)
++    return fail("metadata", metadataStatus);
++  if (base.decodedFrame->chroma_location != AVCHROMA_LOC_LEFT &&
++      base.decodedFrame->chroma_location != AVCHROMA_LOC_TOPLEFT)
++    return fail("undeclared-base-chroma-location", YB_NATIVE_PLAYBACK_FALLBACK);
++  // No implicit phase policy: this candidate selects cubic128 explicitly.
++  // The VA scaler separately declares top-left EL input and left output.
++  if (enhancement->chroma_location != AVCHROMA_LOC_TOPLEFT)
++    return fail("undeclared-enhancement-chroma-location", YB_NATIVE_PLAYBACK_FALLBACK);
++  if (!enhancement->hw_frames_ctx || !enhancement->hw_frames_ctx->data ||
++      enhancement->hw_frames_ctx->size < sizeof(AVHWFramesContext))
++    return fail("enhancement-hardware-reference", YB_NATIVE_PLAYBACK_FALLBACK);
++  const auto* frames = reinterpret_cast<const AVHWFramesContext*>(enhancement->hw_frames_ctx->data);
++  const auto* hardwareDevice = frames->device_ref && frames->device_ref->data &&
++          frames->device_ref->size >= sizeof(AVHWDeviceContext)
++      ? reinterpret_cast<const AVHWDeviceContext*>(frames->device_ref->data) : nullptr;
++  if (enhancement->format != AV_PIX_FMT_VAAPI || !frames ||
++      frames->format != AV_PIX_FMT_VAAPI || frames->sw_format != AV_PIX_FMT_P010 ||
++      !hardwareDevice || hardwareDevice->type != AV_HWDEVICE_TYPE_VAAPI ||
++      !hardwareDevice->hwctx)
++    return fail("enhancement-device-format", YB_NATIVE_PLAYBACK_FALLBACK);
++  const auto* device = static_cast<const AVVAAPIDeviceContext*>(hardwareDevice->hwctx);
++  if (device->display != base.vaDisplay)
++    return fail("enhancement-device-display", YB_NATIVE_PLAYBACK_FALLBACK);
++  yb_native_playback_create_info info{};
++  info.version = 1;
++  info.egl_display = reinterpret_cast<uintptr_t>(eglGetCurrentDisplay());
++  info.va_display = base.vaDisplay;
++  info.enhancement_scaler = {
++      static_cast<uint32_t>(enhancement->width), static_cast<uint32_t>(enhancement->height),
++      static_cast<uint32_t>(base.width), static_cast<uint32_t>(base.height),
++      YB_VPP_BILINEAR, 1, VA_SOURCE_RANGE_FULL,
++      VA_CHROMA_SITING_VERTICAL_TOP | VA_CHROMA_SITING_HORIZONTAL_LEFT,
++      VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT};
++  info.base_chroma_location = base.decodedFrame->chroma_location == AVCHROMA_LOC_LEFT ? 0u : 1u;
++  info.phase_filter = 2; // Explicit cubic128 experimental preparation contract.
++  info.preparation = {YBLOD_NATIVE::preparation, sizeof(YBLOD_NATIVE::preparation)-1};
++  info.composer = {YBLOD_NATIVE::composer, sizeof(YBLOD_NATIVE::composer)-1};
++  info.ycc_expansion = {YBLOD_NATIVE::ycc, sizeof(YBLOD_NATIVE::ycc)-1};
++  std::memcpy(info.guide_contract_id, "guide-quarter-round-each-pass-v1", 32);
++  std::memcpy(info.phase_contract_id, "phase-cubic128-left-explicit-v1", 31);
++  std::memcpy(info.enhancement_scale_contract_id, "va-bilinear-fast-top-left-v1", 28);
++  if (!m_native)
++  {
++    const int status = yb_native_playback_create(&info, &m_native);
++    if (status != YB_NATIVE_PLAYBACK_OK)
++      return fail("create", status);
++  }
++  yb_native_playback_frame request{};
++  auto& association = request.association;
++  association.version = 1;
++  association.width = association.el_scaled_width = static_cast<uint32_t>(base.width);
++  association.height = association.el_scaled_height = static_cast<uint32_t>(base.height);
++  association.guide_width = association.width/2;
++  association.guide_height = association.height/2;
++  association.bl_pts = base.decodedSourcePts;
++  association.el_pts = enhancement->pts;
++  association.bl_timebase_num = association.el_timebase_num = base.decodedPacketTimeBase.num;
++  association.bl_timebase_den = association.el_timebase_den = base.decodedPacketTimeBase.den;
++  const uintptr_t instance = reinterpret_cast<uintptr_t>(this);
++  if (++m_nativeSerial == 0)
++    return fail("frame-counter-wrap", YB_NATIVE_PLAYBACK_ARGUMENT);
++  std::memcpy(association.frame_id, &instance, sizeof(instance));
++  std::memcpy(association.frame_id+8, &m_nativeSerial, sizeof(m_nativeSerial));
++  std::memcpy(association.metadata_frame_id, association.frame_id, 32);
++  std::memcpy(association.el_frame_id, association.frame_id, 32);
++  std::memcpy(association.guide_frame_id, association.frame_id, 32);
++  std::memcpy(association.preparation_id, info.guide_contract_id, 32);
++  std::memcpy(association.guide_preparation_id, info.guide_contract_id, 32);
++  std::memcpy(association.enhancement_scale_id, info.enhancement_scale_contract_id, 32);
++  association.input_native_depth = 10;
++  association.spatial_filter_flag = instructions.spatial_resampling_filter_flag;
++  association.el_spatial_filter_flag = instructions.el_spatial_resampling_filter_flag;
++  association.colour_route = YB_PLAYBACK_COLOUR_INHERITED;
++  request.base_frame = base.decodedFrame;
++  request.enhancement_frame = enhancement;
++  request.base_surface = base.vaSurface;
++  request.enhancement_surface = static_cast<unsigned>(reinterpret_cast<uintptr_t>(enhancement->data[3]));
++  request.base_width = association.width;
++  request.base_height = association.height;
++  request.enhancement_width = static_cast<uint32_t>(enhancement->width);
++  request.enhancement_height = static_cast<uint32_t>(enhancement->height);
++  request.base_packet_timebase_num = request.enhancement_packet_timebase_num = base.decodedPacketTimeBase.num;
++  request.base_packet_timebase_den = request.enhancement_packet_timebase_den = base.decodedPacketTimeBase.den;
++  request.expanded_dovi_side_data = metadata.Data();
++  request.expanded_dovi_side_data_bytes = metadata.Size();
++  const int submitted = yb_native_playback_submit(m_native, &request, 1000000000);
++  if (submitted != YB_NATIVE_PLAYBACK_OK)
++    return fail("submit", submitted);
++  yb_native_playback_output output{};
++  const int finished = yb_native_playback_finish(m_native, 1000000000, &output);
++  if (finished != YB_NATIVE_PLAYBACK_OK)
++    return fail("finish", finished);
++  if (std::memcmp(output.frame_id, association.frame_id, 32) ||
++      output.width != association.width || output.height != association.height)
++    return fail("output-association", YB_NATIVE_PLAYBACK_ERROR);
++  pl_opengl_wrap_params wrap{};
++  wrap.texture = output.texture;
++  wrap.target = GL_TEXTURE_2D;
++  wrap.iformat = GL_RGBA32F;
++  wrap.width = base.width;
++  wrap.height = base.height;
++  pl_tex reconstructed = pl_opengl_wrap(m_gl->gpu, &wrap);
++  dvbridge_dmabuf imported{};
++  bool prepared = false;
++  if (reconstructed && dvbridge_dmabuf_import(&imported, enhancement))
++  {
++    Layer originalEnhancement{};
++    originalEnhancement.layout = imported.layout;
++    originalEnhancement.width = enhancement->width;
++    originalEnhancement.height = enhancement->height;
++    originalEnhancement.pts = static_cast<double>(enhancement->pts);
++    for (int p=0; p<3; ++p)
++      originalEnhancement.planes[p] = imported.planes[p];
++    prepared = Prepare(base, &originalEnhancement, metadata, geometry, false, reconstructed);
++  }
++  // Submit libplacebo's queued consumer commands before the context fences.
++  pl_gpu_flush(m_gl->gpu);
++  pl_tex_destroy(m_gl->gpu, &reconstructed);
++  dvbridge_dmabuf_release(&imported);
++  const int released = yb_native_playback_release(m_native, 1000000000);
++  if (released != YB_NATIVE_PLAYBACK_OK)
++    return fail("consumer-release", released);
++  return prepared || fail("colour-only-render", YB_NATIVE_PLAYBACK_ERROR);
++}
++#endif
++
+ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancement,
+                                   const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked)
+ {
+   m_prepared = m_packed = false;
++  m_nativePrepared = false;
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  if (m_nativeRequested && !m_nativeFailed && !nativeCleanupRetained.load() &&
++      PrepareNative(base, enhancement, metadata, geometry))
++    return true;
++#endif
+   // Quick Sync scaling on the Intel media engine (see dvbridge_vpp.c):
+   //  mode 1: the FEL enhancement layer is upscaled there (default);
+   //  mode 2: base layer colour is upsampled there too. Both layers then come back rotated by 180
+@@ -515,6 +713,7 @@
+ bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
+ {
+   m_prepared = m_packed = false;
++  m_nativePrepared = false;
+   m_direct = false;
+   m_pendingInfo = 0;
+   if (!m_renderer || !m_packer || m_hdr10)
+@@ -564,6 +763,13 @@
+ bool CDVBridgeGLES::Presented(bool success)
+ {
+   const bool committed = success && m_prepared && m_packed && dvbridge_render_commit(m_renderer);
++  if (committed && m_nativePrepared)
++  {
++    ++m_nativePresented;
++    if (m_nativePresented == 1 || m_nativePresented % 120 == 0)
++      CLog::Log(LOGINFO, "DVBridge native reconstruction: presented={} colour=inherited-release",
++                m_nativePresented);
++  }
+   // A held frame during paced recovery is not a new presentation attempt.
+   if (DVBRIDGE::DiagnosticsEnabled() && m_prepared)
+   {
+@@ -586,6 +792,7 @@
+   if (!committed)
+     dvbridge_renderer_reset(m_renderer);
+   m_prepared = m_packed = false;
++  m_nativePrepared = false;
+   m_direct = false;
+   return committed;
+ }
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -6,6 +6,8 @@
+ 
+ extern "C"
+ {
++#include <libavutil/frame.h>
++#include <libavutil/avutil.h>
+ #include "dvbridge_gl_frame.h"
+ #include "dvbridge_gl_pack.h"
+ #include "dvbridge_render.h"
+@@ -13,6 +15,8 @@
+ #include "dvbridge_vpp.h"
+ }
+ 
++struct yb_native_playback_context;
++
+ class CDVBridgeGLES
+ {
+ public:
+@@ -26,6 +30,13 @@
+     // Decoded VAAPI surface of this layer, when available (for Quick Sync processing).
+     void* vaDisplay = nullptr;
+     unsigned vaSurface = 0xffffffff; // VA_INVALID_SURFACE
++    // Borrowed for this call only. Native reconstruction clones the actual
++    // decoder frame before asynchronous VA/GL work; never retain this pointer.
++    const AVFrame* decodedFrame = nullptr;
++    int64_t decodedSourcePts = AV_NOPTS_VALUE;
++    // DVDVideoCodecFFmpeg submits BL/EL packet timestamps in AV_TIME_BASE
++    // units. Keep that producer declaration, not a conversion from pts double.
++    AVRational decodedPacketTimeBase{1, AV_TIME_BASE};
+   };
+ 
+   CDVBridgeGLES() = default;
+@@ -36,7 +47,8 @@
+   bool Initialize(bool allowSoftware = false, bool hdr10 = false);
+   void Reset();
+   bool Prepare(const Layer& base, const Layer* enhancement,
+-               const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false);
++               const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false,
++               pl_tex reconstructed = nullptr);
+   bool PrepareHardware(const Layer& base, const AVFrame* enhancement,
+                        const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false);
+   unsigned int GetPQTexture() const;
+@@ -52,6 +64,12 @@
+ 
+ private:
+   bool Failure(const char* stage);
++  bool PrepareNative(const Layer&, const AVFrame*, const CDVMetadataBuffer&, dvbridge_geometry);
++  bool ReleaseNative();
++  yb_native_playback_context* m_native = nullptr;
++  bool m_nativeRequested = false;
++  bool m_nativeFailed = false;
++  uint64_t m_nativeSerial = 0;
+   void Summary(const char* event);
+   void CapturePair(const pl_frame& frame, const CDVMetadataBuffer& metadata,
+                    double pts, double elPts, dvbridge_geometry geometry);
+@@ -76,6 +94,8 @@
+   bool m_conversionUsable = true;
+   int m_lastConversionPath = -1;
+   bool m_prepared = false;
++  bool m_nativePrepared = false;
++  uint64_t m_nativePresented = 0;
+   bool m_packed = false;
+   unsigned m_pendingInfo = 0;
+   unsigned int m_framebuffer = 0;
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -290,6 +290,7 @@
+ #endif
+   buf.doviPts = picture.doviSourcePts == AV_NOPTS_VALUE ? DVD_NOPTS_VALUE :
+                   static_cast<double>(picture.doviSourcePts);
++  buf.doviSourcePts = picture.doviSourcePts;
+   buf.m_srcPrimaries = picture.color_primaries;
+   buf.m_srcColSpace = picture.color_space;
+   buf.m_srcColTransfer = picture.color_transfer;
+@@ -313,6 +314,7 @@
+   buf.doviEnhancement.reset();
+ #endif
+   buf.doviPts = DVD_NOPTS_VALUE;
++  buf.doviSourcePts = AV_NOPTS_VALUE;
+   if (buf.videoBuffer)
+   {
+     buf.videoBuffer->Release();
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+@@ -209,6 +209,7 @@
+     std::shared_ptr<AVFrame> doviEnhancement;
+ #endif
+     double doviPts = DVD_NOPTS_VALUE;
++    int64_t doviSourcePts = AV_NOPTS_VALUE;
+   };
+ 
+   // YUV decoder textures
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -200,10 +200,12 @@
+   layer.width = m_sourceWidth;
+   layer.height = m_sourceHeight;
+   layer.pts = buffer.doviPts;
++  layer.decodedSourcePts = buffer.doviSourcePts;
+   if (auto* pic = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer); pic && pic->valid)
+   {
+     layer.vaDisplay = pic->vadsp;
+     layer.vaSurface = pic->procPic.videoSurface;
++    layer.decodedFrame = pic->avFrame;
+   }
+   for (int p = 0; p < 2; ++p)
+   {
+--- a/tools/dvbridge/CMakeLists.txt
++++ b/tools/dvbridge/CMakeLists.txt
+@@ -17,3 +17,7 @@
+ target_link_libraries(dvbridge_core PUBLIC PkgConfig::DVPlacebo PkgConfig::DVAvutil
+                                          PkgConfig::DVAvcodec PkgConfig::DVGles
+                                          PkgConfig::DVEgl PkgConfig::DVDrm PkgConfig::DVVa m)
++option(DVBRIDGE_NATIVE_RECONSTRUCTION "Build opt-in experimental native reconstruction" OFF)
++if(DVBRIDGE_NATIVE_RECONSTRUCTION)
++  include("${CMAKE_CURRENT_SOURCE_DIR}/kodi_native_engine.cmake")
++endif()
+--- /dev/null
++++ b/tools/dvbridge/kodi_native_engine.cmake
+@@ -0,0 +1,33 @@
++# Opt-in build wiring. Included from tools/dvbridge/CMakeLists.txt only when the
++# public standalone engine directory has been explicitly staged beside it.
++# This file never selects the runtime route or changes the default renderer.
++set(YB_NATIVE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../native_engine")
++set(YB_NATIVE_EXPERIMENTAL "${YB_NATIVE_ROOT}/experimental")
++foreach(required IN ITEMS native_playback_context.c native_vaapi_gl_import.c
++    native_gpu_preparation.c native_gpu_ycc_backend.c)
++  if(NOT EXISTS "${YB_NATIVE_EXPERIMENTAL}/${required}")
++    message(FATAL_ERROR "Incomplete native playback candidate: ${required}")
++  endif()
++endforeach()
++set(YBLOD_BUILD_EXPERIMENTAL_PLAYBACK ON)
++set(BUILD_TESTING OFF)
++add_subdirectory("${YB_NATIVE_ROOT}" "${CMAKE_CURRENT_BINARY_DIR}/native-engine")
++foreach(pair IN ITEMS PREPARATION COMPOSER YCC)
++  if(pair STREQUAL "PREPARATION")
++    set(shader native_gpu_preparation_probe.comp)
++  elseif(pair STREQUAL "COMPOSER")
++    set(shader native_gpu_composer_backend.comp)
++  else()
++    set(shader native_gpu_reconstructed_ycc.comp)
++  endif()
++  file(READ "${YB_NATIVE_EXPERIMENTAL}/${shader}" YB_NATIVE_${pair})
++  string(FIND "${YB_NATIVE_${pair}}" ")YB_NATIVE\"" delimiter_collision)
++  if(NOT delimiter_collision EQUAL -1)
++    message(FATAL_ERROR "Native shader contains the C++ embedding delimiter")
++  endif()
++endforeach()
++configure_file("${CMAKE_CURRENT_SOURCE_DIR}/DVBridgeNativeShaders.h.in"
++  "${CMAKE_CURRENT_BINARY_DIR}/DVBridgeNativeShaders.h" @ONLY)
++target_include_directories(dvbridge_core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
++target_link_libraries(dvbridge_core PUBLIC yblod_playback_native)
++target_compile_definitions(dvbridge_core PUBLIC HAVE_YBLOD_NATIVE_PLAYBACK=1)
+--- /dev/null
++++ b/tools/dvbridge/DVBridgeNativeShaders.h.in
+@@ -0,0 +1,9 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++// Generated at build time from public engine shaders; no runtime file lookup.
++namespace YBLOD_NATIVE
++{
++inline constexpr char preparation[] = R"YB_NATIVE(@YB_NATIVE_PREPARATION@)YB_NATIVE";
++inline constexpr char composer[] = R"YB_NATIVE(@YB_NATIVE_COMPOSER@)YB_NATIVE";
++inline constexpr char ycc[] = R"YB_NATIVE(@YB_NATIVE_YCC@)YB_NATIVE";
++}

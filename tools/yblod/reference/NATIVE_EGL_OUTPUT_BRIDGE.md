@@ -5,6 +5,25 @@ a desktop GL producer texture and a GLES consumer texture on the same borrowed
 EGLDisplay. It does not share texture names or require cross-API context sharing.
 The helper never terminates the display or destroys caller-owned contexts.
 
+The additive `release_timed` API performs one consumer wait with an explicit
+timeout of0–5seconds (0 polls). Timeout retains its image/texture/handle for
+retry. Existing default release remains unchanged. Injected tests use
+`create_with_timed_ops`; older injected callbacks have no bounded timed-wait
+contract and explicitly reject timed release. Flush queued libplacebo work
+with `pl_gpu_flush` before calling release so the fence covers submitted draws.
+Fatal host-only abandonment requires whole original EGLDisplay teardown;
+context destruction alone does not invalidate display-owned EGLImages.
+
+`EGL_OUTPUT_BRIDGE_RESULTS.json` remains the original historical source/binary
+cohort unchanged. The separately pinned `EGL_OUTPUT_BRIDGE_TIMED_RESULTS.json`
+captures the updated real helper/probe:64RGBA32F float bits and64RGBA16UI words
+matched on the VM, actual timed consumer release and exact binding restoration
+passed, peak48,140,288bytes/no swap/all memory events0. Kodi stayed active with
+the same process/start identity; selected source/binary/collector/runtime pins
+were stable. This remains two4x4 synthetic patterns, not Kodi playback or a
+zero-copy/format-universality guarantee. Host UBSan tests cover zero poll,
+timeout retention/retry and >5seconds atomic argument rejection.
+
 Create requires the caller's current GLES context, a desktop GL producer context
 on the same display, preserved EGL texture images and surfaceless capability.
 It saves the exact API/context/draw/read binding, fences the producer, creates

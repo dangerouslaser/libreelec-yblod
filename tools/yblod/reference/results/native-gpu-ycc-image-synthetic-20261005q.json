@@ -1,0 +1,50 @@
+{
+  "schema": "yblod.gpu-ycc-image-synthetic-checkpoint.v1",
+  "status": "complete",
+  "result": {
+    "schema": "yblod.gpu-ycc-image-synthetic-probe.v1",
+    "complete": true,
+    "cleanup_complete": true,
+    "native_cpu_oracle_first": true,
+    "float_bits_checked": 256,
+    "fixtures": 2,
+    "invalid_code_frame_rejections": 2,
+    "invalid_integer_filter_rejections": 4,
+    "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+    "gl_version": "4.6 (Core Profile) Mesa 26.2.4"
+  },
+  "binary_sha256": "4f91da11dae2a257a6ae891e72312b9016e0503fed8d16df4acfa07ff96fd4a7",
+  "shader_sha256": "5415f67c813a3e6bbb0c6198177576589f95177b340d10ccd7eaaaae87a18504",
+  "resources_before": {
+    "memory.max": "536870912",
+    "memory.peak": "48410624",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "resources_after": {
+    "memory.max": "536870912",
+    "memory.peak": "49651712",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "kodi_unchanged": true,
+  "runtime_unchanged": true,
+  "input_scope": "Public synthetic fixtures only; no movie frames or metadata.",
+  "provenance": {
+    "source_sha256": {
+      "engine/experimental/native_gpu_ycc_backend.c": "37b848e8c9d0f6290169094c3d7155a2482c95c5117e9b810674db2d7ce819ab",
+      "engine/experimental/native_gpu_ycc_backend.h": "45e290645955ca861b88955f12ef9edfebc72c0ba2fc10ae57dd6e42fff7ecda",
+      "engine/experimental/native_gpu_ycc_runner.c": "44b8f21499ebcc8909c06d6f2615e3a89990464b7acd7c1a17cbc5470a7eba00",
+      "engine/experimental/native_gpu_reconstructed_ycc.comp": "5415f67c813a3e6bbb0c6198177576589f95177b340d10ccd7eaaaae87a18504",
+      "engine/experimental/native_gpu_composer_backend.h": "02e8b8ec582e7163fc43290fe78c62aa5ce972fe3ac409b69b2de824806b1936",
+      "engine/include/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838"
+    }
+  },
+  "limitations": [
+    "Two small synthetic fixtures only; no full-frame colour or playback correctness/performance claim.",
+    "256actualGPUfloatbit patterns compared in native runner to independent integer-weighted oracle; output arrays are not serialized in this checkpoint.",
+    "Dedicated diagnostic desktopGL context, not live decoder or Kodi context integration."
+  ]
+}

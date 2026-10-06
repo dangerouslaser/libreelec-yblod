@@ -1,0 +1,102 @@
+{
+  "schema": "yblod.native-playback-context-synthetic-checkpoint.v1",
+  "status": "complete",
+  "result": {
+    "schema": "yblod.native-playback-context-synthetic-probe.v1",
+    "complete": true,
+    "native_cpu_oracle_first": true,
+    "rgba_float_bits_checked": 32768,
+    "guide_influenced_samples": 4096,
+    "nonzero_residual_samples": 6144,
+    "fixtures": 2,
+    "actual_ffmpeg_va_frames": true,
+    "actual_expanded_dovi_metadata": true,
+    "decoder_clone_lifetime_checked": true,
+    "association_rejection_checked": true,
+    "context_restore_checks": 12,
+    "input_scope": "public64x64BL32x32constantEL512and513; constant preservation, not scaler interpolation accuracy"
+  },
+  "cpu_preflight": {
+    "schema": "yblod.native-playback-context-synthetic-preflight.v1",
+    "status": "validated",
+    "gpu_attempted": false,
+    "rgba_float_bits_prepared": 32768,
+    "guide_influenced_samples": 4096,
+    "nonzero_residual_samples": 6144
+  },
+  "binary_sha256": "bde8d21afdccc9fadd814c49dab8264fef94214e6d40708ac4defce555bf9aab",
+  "shader_sha256": {
+    "native_gpu_reconstructed_ycc.comp": "5415f67c813a3e6bbb0c6198177576589f95177b340d10ccd7eaaaae87a18504",
+    "native_gpu_preparation_probe.comp": "413d5700301ec3a5cfae767f1f7fef02b42da97a626ae50d58cb21d8a9086be7",
+    "native_gpu_composer_image_probe.comp": "d221955cbce2bef951af504dc36394d25993a0c7f288bcf831fa7a5c2b2f4561"
+  },
+  "resources_before": {
+    "memory.max": "536870912",
+    "memory.peak": "54566912",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "resources_after": {
+    "memory.max": "536870912",
+    "memory.peak": "63389696",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "kodi_unchanged": true,
+  "runtime_unchanged": true,
+  "input_scope": "Public synthetic fixtures only; no movie frames or metadata.",
+  "provenance": {
+    "tested_source_sha256": {
+      "engine/src/native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+      "engine/src/native_colour.c": "2d90cef334b5c0c32a59a7ed8b6a161171f13cc3719821c1395bb534a57753cb",
+      "engine/src/native_y416.c": "1286a746b0a63b36b663a6894cd3d41a34a4d79b84611e148ae1944bbc989903",
+      "engine/include/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+      "engine/include/native_colour.h": "f44655c982da822c8db340155ea2b7694b5c399c4e195ed52e70aa39c088726d",
+      "engine/include/native_y416.h": "545bda41583e1c18b05193e008a4f636c9af78a3a9472874a4bf956e7c1cbd53",
+      "engine/experimental/native_dovi_adapter.c": "ead2024e8c885ee893ac26c12defbb267b927bcd3d3ec802d55bbe753999ed88",
+      "engine/experimental/native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+      "engine/experimental/native_dovi_colour_adapter.c": "025658e152bf46ab05a644cc912e9fbd101de61e20d0ca8ca8b6c4696c129d05",
+      "engine/experimental/native_dovi_colour_adapter.h": "5799e7ce33320f72108fbdfd0cd0bfe77e53ecbb27b9b7457286573793fc4dad",
+      "engine/experimental/native_playback_metadata.c": "4d8ce8bd35f44e6c65bfb49a0d937a8a804d0b54def00faef8f433e6ba06e073",
+      "engine/experimental/native_playback_metadata.h": "290dac228e8c32b39e4a4d539db780972df13e4679d7c6b7951df969e6fd6cd8",
+      "engine/experimental/native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+      "engine/experimental/native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+      "engine/experimental/native_gpu_composer_backend.c": "14c343ec893eea9866045ecb4dcd76e0cb73f8f3d3a174dbf2a68f3eac8f7f88",
+      "engine/experimental/native_gpu_composer_backend.h": "02e8b8ec582e7163fc43290fe78c62aa5ce972fe3ac409b69b2de824806b1936",
+      "engine/experimental/native_gpu_preparation.c": "e86b7d8d8599e26fe427193b9534eae774de0c174fd33d55e99edc56f34c99ec",
+      "engine/experimental/native_gpu_preparation.h": "6bb12d7266117935e7b5f077e7de3fb1432a80a78ffdba40f557df42e4945381",
+      "engine/experimental/native_gpu_ycc_backend.c": "37b848e8c9d0f6290169094c3d7155a2482c95c5117e9b810674db2d7ce819ab",
+      "engine/experimental/native_gpu_ycc_backend.h": "45e290645955ca861b88955f12ef9edfebc72c0ba2fc10ae57dd6e42fff7ecda",
+      "engine/experimental/native_vaapi_el_scaler.c": "deeb94e3a8d9076797b5d78485633330116f30010f1f0f8376e46949b529d033",
+      "engine/experimental/native_vaapi_el_scaler.h": "5911f83fbbe0b02c92bb94c23d233cb7aa02db1001a2a378e5d6ea8bab8af144",
+      "engine/experimental/native_vaapi_gl_import.c": "bc412c021b65855c9a48d904d3894f96f5ea3fc98217aedfa54e5415c4a06805",
+      "engine/experimental/native_vaapi_gl_import.h": "1667cdcaf1e342adfd214647375276f58adde0c3eeecdbc72bc9508fd28ce022",
+      "engine/experimental/native_egl_output_bridge.c": "a5252f754d700ed48b4a7fb55d11736296280a80fb52e3d4591007086c299bad",
+      "engine/experimental/native_egl_output_bridge.h": "46f185ba7a9b1d0547cf04d52425b74aa06d405080df5e5ab6c11e237fd6710f",
+      "engine/experimental/native_playback_context.c": "e323061a5728f72e8d13b097af6a8caa55587848da25cc115abec3186dc2a1d0",
+      "engine/experimental/native_playback_context.h": "aa6bd7083a1c0bb09d428be72d92591e9edabf3a01ce8e46d0d5aaf86c2cb256",
+      "engine/experimental/native_playback_context_runner.c": "d197333bc00073d97b563d51eb297bbf5cb7d4882a36d56b2673855d59b285c5",
+      "engine/experimental/native_gpu_preparation_probe.comp": "413d5700301ec3a5cfae767f1f7fef02b42da97a626ae50d58cb21d8a9086be7",
+      "engine/experimental/native_gpu_composer_backend.comp": "d221955cbce2bef951af504dc36394d25993a0c7f288bcf831fa7a5c2b2f4561",
+      "engine/experimental/native_gpu_reconstructed_ycc.comp": "5415f67c813a3e6bbb0c6198177576589f95177b340d10ccd7eaaaae87a18504",
+      "engine/CMakeLists.txt": "d805879fb4beec878cb9d2b4618a56bca8db42f170ef5c3ef23feb22a6084c72",
+      "engine/cmake/ExperimentalPlayback.cmake": "166a980dc170ea996fd7aecdae4c2cfebc397cee567336030db12ab1fb511a5d"
+    },
+    "playback_archive_sha256": "2c67216fbe870420bcd9a76c10d021c035c83969263b81e92acc79a03b92f22c",
+    "core_archive_sha256": "13560d7c55ebd50b0856fa8e7d2c8ed6711d09958564c6113c82dce7a2d8019e"
+  },
+  "limitations": [
+    "Two64x64BL32x32constantEL synthetic fixtures only; not interpolation accuracy on varying enhancement imagery.",
+    "Actual native context orchestration through final GLES YCC texture, not colour conversion or Kodi playback.",
+    "Checks32,768floatbits in native runner; no serialized pixel arrays or performance claim."
+  ],
+  "admission_guard_followup": {
+    "tested_context_source_sha256": "e323061a5728f72e8d13b097af6a8caa55587848da25cc115abec3186dc2a1d0",
+    "current_context_source_sha256": "2b34fa7383be16f5333a21b672957b011cde97451996a56c535e7609016cdd11",
+    "change": "Reject actual VAAPI AVFrames without retained buf[0] before accepting decoder work.",
+    "gpu_retested": false,
+    "evidence_scope": "The GPU checkpoint above remains the frozen pre-guard binary/source result. The later admission guard is separately validated and rebuilt; it is not retroactively GPU-tested."
+  }
+}

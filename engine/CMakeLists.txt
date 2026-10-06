@@ -19,7 +19,7 @@ target_compile_features(yblod_native PUBLIC c_std_11)
 set_target_properties(yblod_native PROPERTIES POSITION_INDEPENDENT_CODE ON
   C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO
   INTERPROCEDURAL_OPTIMIZATION FALSE)
-target_compile_options(yblod_native PRIVATE -Wall -Wextra -Werror -Wconversion -Wshadow)
+target_compile_options(yblod_native PRIVATE -fno-lto -Wall -Wextra -Werror -Wconversion -Wshadow)
 set_source_files_properties(src/native_colour.c PROPERTIES
   COMPILE_OPTIONS "-fno-fast-math;-ffp-contract=off")
 target_include_directories(yblod_native PUBLIC
@@ -27,6 +27,12 @@ target_include_directories(yblod_native PUBLIC
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/yblod>)
 if(UNIX)
   target_link_libraries(yblod_native PUBLIC m)
+endif()
+
+option(YBLOD_BUILD_EXPERIMENTAL_PLAYBACK
+  "Build explicit Linux VAAPI/EGL/FFmpeg playback integration candidate" OFF)
+if(YBLOD_BUILD_EXPERIMENTAL_PLAYBACK)
+  include(cmake/ExperimentalPlayback.cmake)
 endif()
 
 install(TARGETS yblod_native EXPORT YblodNativeTargets
@@ -51,4 +57,12 @@ if(BUILD_TESTING)
   add_executable(native_library_smoke tests/native_library_smoke.c)
   target_link_libraries(native_library_smoke PRIVATE yblod_native)
   add_test(NAME native_library_smoke COMMAND native_library_smoke)
+  if(YBLOD_BUILD_EXPERIMENTAL_PLAYBACK)
+    add_executable(native_playback_link_smoke tests/native_playback_link_smoke.c)
+    # Force the real archive members into this link gate, not just API-reachable
+    # objects. The experimental profile is Linux/GNU-or-Clang only.
+    target_link_libraries(native_playback_link_smoke PRIVATE
+      -Wl,--whole-archive yblod_playback_native yblod_native -Wl,--no-whole-archive)
+    add_test(NAME native_playback_link_smoke COMMAND native_playback_link_smoke)
+  endif()
 endif()

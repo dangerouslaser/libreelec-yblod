@@ -39,11 +39,22 @@ int yb_egl_output_bridge_create(uintptr_t producer_context, uint32_t texture,
 /* Injected lifecycle adapter for host tests; ops copied, user remains borrowed. */
 int yb_egl_output_bridge_create_with_ops(const yb_egl_bridge_ops *,
     uintptr_t producer_context,uint32_t texture,yb_egl_output_bridge **output);
+int yb_egl_output_bridge_create_with_timed_ops(const yb_egl_bridge_ops *,
+    int (*wait_timed)(void *,uint64_t),uintptr_t producer_context,uint32_t texture,
+    yb_egl_output_bridge **output);
 uint32_t yb_egl_output_bridge_texture(const yb_egl_output_bridge *);
 /* Fence all consumer work before deleting its texture/image. Timeout/failure
  * retains ownership for retry; successful release sets handle NULL. Caller
  * must retain producer storage and must not overwrite it before release. */
 int yb_egl_output_bridge_release(yb_egl_output_bridge **);
+/* Native bridge: one finite wait <=5s, zero is a poll. Failed wait retains
+ * texture/image/handle. Injected bridges require create_with_timed_ops.
+ * Caller must flush queued libplacebo work BEFORE fencing the GL consumer. */
+int yb_egl_output_bridge_release_timed(yb_egl_output_bridge **,uint64_t timeout_ns);
+/* Fatal recovery only: caller asserts whole original EGLdisplay teardown has
+ * invalidated image/contexts/textures, not merely producer-context destruction.
+ * Frees host handle without GL/EGL calls. Never use while display remains live. */
+int yb_egl_output_bridge_abandon_destroyed_display(yb_egl_output_bridge **,uint32_t);
 #ifdef __cplusplus
 }
 #endif

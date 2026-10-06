@@ -59,8 +59,9 @@ details are separate from playback speed. The baseline remains unchanged.
 
 The first opt-in rendered candidate may use a declared whole-code P010 route,
 falling back for fractional Y416. This avoids making selection of a hypothetical
-fractional rule a prerequisite for the first playback test. Live GPU sampling,
-and live output orchestration still require implementations.
+fractional rule a prerequisite for the first playback test. Live GPU sampling
+and orchestration now have isolated C implementations; installed Kodi
+presentation and real-film end-to-end acceptance remain separate gates.
 
 ## Current completion boundary
 
@@ -77,11 +78,28 @@ and live output orchestration still require implementations.
   four-byte error readback. It excludes new-frame preparation/import and colour
   output; it is not a playback rate.
 
+- The genuine production-context API passed a separate end-to-end synthetic
+  gate using actual FFmpeg VAAPI AVFrames and copied expanded metadata. All
+  32,768 final GLES RGBA float bits matched the native CPU oracle across two
+  64×64 BL/32×32 constant-EL fixtures. Guide-sensitive MMR and neutral/nonzero
+  NLQ paths were exercised. Twelve exact EGL restoration checks, rejected PTS
+  association, accepted decoder-clone retention and release after the consumer
+  fence passed. Peak charged memory was 63,389,696 bytes; swap/events were zero,
+  Kodi and pinned runtime unchanged. See
+  [frozen checkpoint](results/native-playback-context-synthetic-20261005r.json).
+  This is not variable-image scaler accuracy, full-film performance or installed
+  Kodi presentation evidence.
+- After that frozen GPU run, decoder admission was tightened to require retained
+  AVFrame buf[0] storage. Its separate host admission regression/build must not
+  be described as a GPU retest: the report preserves the old tested binary,
+  archives and source pins, plus the explicitly identified later guard.
+
 Remaining before the first genuine playback test:
 
-1. Complete reusable borrowed decoded-surface import, preparation, reconstruction
-   and full-size Y/Cb/Cr texture orchestration. Preserve decoded references until
-   producers and GLES consumers finish; test rejection and cleanup paths.
+1. Complete the post-guard build/admission and lifecycle checks of the reusable
+   borrowed-surface orchestration, retaining decoder references through producer
+   and GLES consumer completion. The genuine tiny synthetic path already passed;
+   full-size and real-film costs/coverage are not inferred from that result.
 2. Connect that path to Kodi behind an explicit opt-in. Preserve exact integer
    decoder timestamps and frame associations; disable old reconstruction for
    reconstructed inputs, retain existing colour/output and explicit fallback.

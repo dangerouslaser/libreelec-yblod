@@ -83,7 +83,7 @@ static int run_format(EGLDisplay display,EGLContext producer,EGLContext consumer
     void *mapped=map(GL_SHADER_STORAGE_BUFFER,0,(GLsizeiptr)sizeof(observed),GL_MAP_READ_BIT);if(!mapped)goto done;
     memcpy(observed,mapped,sizeof(observed));if(!unmap(GL_SHADER_STORAGE_BUFFER)||error()!=GL_NO_ERROR)goto done;
     if(memcmp(expected,observed,sizeof(expected)))goto done;
-    if(yb_egl_output_bridge_release(&bridge)!=0||bridge||!same_binding(&original))goto done;
+    if(yb_egl_output_bridge_release_timed(&bridge,UINT64_C(5000000000))!=0||bridge||!same_binding(&original))goto done;
     success=1;
 done:
     /* A retained bridge means outstanding work/restore failure: do not release
@@ -137,6 +137,6 @@ done:
         if(producer!=EGL_NO_CONTEXT&&!eglDestroyContext(display,producer))result=1;
         if(initialized&&!eglTerminate(display))result=1;
     }
-    if(!result)puts("{\"schema\":\"yblod.egl-output-bridge-probe.v1\",\"complete\":true,\"width\":4,\"height\":4,\"rgba32f_words_exact\":64,\"rgba16ui_words_exact\":64,\"bindings_restored\":true,\"producer_consumer_fences\":true,\"playback_tested\":false}");
+    if(!result)puts("{\"schema\":\"yblod.egl-output-bridge-probe.v1\",\"complete\":true,\"width\":4,\"height\":4,\"rgba32f_words_exact\":64,\"rgba16ui_words_exact\":64,\"bindings_restored\":true,\"producer_consumer_fences\":true,\"timed_consumer_release\":true,\"playback_tested\":false}");
     return result;
 }

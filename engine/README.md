@@ -32,6 +32,47 @@ For a standalone copy of this directory, substitute `-S .` and
 `-S tests/consumer`. The installed package remains `YblodNative` version 0.1,
 with target `Yblod::yblod_native`; installed public header filenames are unchanged.
 
+## Optional Linux playback integration candidate
+
+The default remains dependency-free and core-only. Explicitly opt in to the
+experimental VAAPI/EGL/decoder-metadata library with:
+
+```sh
+cmake -S engine -B target/native-playback \
+  -DYBLOD_BUILD_EXPERIMENTAL_PLAYBACK=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build target/native-playback --parallel 1
+ctest --test-dir target/native-playback --output-on-failure
+
+cmake --install target/native-playback --prefix "$PWD/target/native-playback-install"
+cmake -S engine/tests/playback_consumer -B target/native-playback-consumer \
+  -DCMAKE_PREFIX_PATH="$PWD/target/native-playback-install"
+cmake --build target/native-playback-consumer --parallel 1
+```
+
+This adds `yblod_playback_native` (installed as
+`Yblod::yblod_playback_native`), linking the native core plus actual FFmpeg
+libavutil, EGL and libva. Matching decoder-expanded Dolby metadata headers and
+libraries are required; the tested LibreELEC SDK uses libavutil 61.1.102, EGL
+1.5 and libva 1.24.0. The installed package rejects a different libavutil ABI
+major from its build.
+This version check does not identify custom metadata patches: consumers must
+also use the matching patched Dolby metadata headers and runtime ABI.
+OpenGL development headers must be available. No Kodi,
+Python or libplacebo is needed to build this standalone integration library.
+Shader sources and candidate headers are installed only with this option.
+
+The library compiles real guide/phase, composer, reconstructed-YCC, VA scaling,
+DMA-BUF import, EGL sibling bridge and caller-context orchestration sources.
+Its link smoke test uses actual argument guards and performs no GPU/decoder
+work. The independent installed consumer resolves only the exported package
+and `Yblod::yblod_playback_native`, checking public-header and transitive-link
+closure without source-tree include or library paths. Its actual LibreELEC SDK
+configure/build/link passed; that cross-built executable was not run.
+Compilation/linking is not evidence of live playback, colour accuracy,
+zero-copy, or a complete Dolby implementation. Runtime route selection remains
+the integrating application's responsibility; enabling this build option alone
+does not activate the candidate in Kodi.
+
 ## Layout and compatibility
 
 - `src/` and `include/`: authoritative default-library sources and public headers.
@@ -39,7 +80,8 @@ with target `Yblod::yblod_native`; installed public header filenames are unchang
 - `cmake/`: package configuration template.
 - `experimental/`: exact sampling, informative resampling, precision diagnostics,
   frame integration and decoder-metadata adapter sources. These are deliberately
-  excluded from the default library and installation. They are not promoted to
+  excluded from the default library and installation. The explicit optional
+  playback profile installs only its selected integration subset. They are not promoted to
   production by this directory move. The FFmpeg adapter requires the actual
   matching patched FFmpeg headers when separately built.
 

@@ -7,6 +7,7 @@ struct yb_egl_output_bridge {
     uintptr_t image;
     uint32_t texture;
     int ready;
+    int (*wait_timed)(void *,uint64_t);
 };
 static int valid_ops(const yb_egl_bridge_ops *o)
 {
@@ -44,15 +45,26 @@ uint32_t yb_egl_output_bridge_texture(const yb_egl_output_bridge *b)
 {
     return b && b->ready ? b->texture : 0;
 }
-int yb_egl_output_bridge_release(yb_egl_output_bridge **handle)
+int yb_egl_output_bridge_create_with_timed_ops(const yb_egl_bridge_ops *ops,
+    int (*wait_timed)(void *,uint64_t),uintptr_t producer,uint32_t texture,
+    yb_egl_output_bridge **output)
+{
+    if (!output || *output || !wait_timed) return YB_EGL_BRIDGE_ARGUMENT;
+    int status=yb_egl_output_bridge_create_with_ops(ops,producer,texture,output);
+    if (output && *output) (*output)->wait_timed=wait_timed;
+    return status;
+}
+static int release_common(yb_egl_output_bridge **handle,int timed,uint64_t timeout)
 {
     if (!handle) return YB_EGL_BRIDGE_ARGUMENT;
     yb_egl_output_bridge *b=*handle;
     if (!b) return YB_EGL_BRIDGE_OK;
+    if (timed && !b->wait_timed) return YB_EGL_BRIDGE_UNSUPPORTED;
     yb_egl_binding previous;
     if (!b->ops.snapshot(b->ops.user,&previous)) return YB_EGL_BRIDGE_RESTORE;
     int status=YB_EGL_BRIDGE_CONSUMER;
-    if (b->ops.bind(b->ops.user,&b->consumer) && b->ops.wait_current(b->ops.user)) {
+    if (b->ops.bind(b->ops.user,&b->consumer) &&
+        (timed ? b->wait_timed(b->ops.user,timeout) : b->ops.wait_current(b->ops.user))) {
         status=YB_EGL_BRIDGE_OK;
         if (b->texture) {
             if (b->ops.texture_delete(b->ops.user,b->texture)) b->texture=0;
@@ -66,6 +78,20 @@ int yb_egl_output_bridge_release(yb_egl_output_bridge **handle)
     if (!b->ops.bind(b->ops.user,&previous)) status=YB_EGL_BRIDGE_RESTORE;
     if (status==YB_EGL_BRIDGE_OK) { free(b); *handle=NULL; }
     return status;
+}
+int yb_egl_output_bridge_release(yb_egl_output_bridge **handle)
+{
+    return release_common(handle,0,0);
+}
+int yb_egl_output_bridge_release_timed(yb_egl_output_bridge **handle,uint64_t timeout)
+{
+    if (timeout>UINT64_C(5000000000)) return YB_EGL_BRIDGE_ARGUMENT;
+    return release_common(handle,1,timeout);
+}
+int yb_egl_output_bridge_abandon_destroyed_display(yb_egl_output_bridge **handle,uint32_t dead)
+{
+    if (!handle || dead!=1) return YB_EGL_BRIDGE_ARGUMENT;
+    free(*handle); *handle=NULL; return YB_EGL_BRIDGE_OK;
 }
 #ifndef YB_EGL_BRIDGE_HOST_ONLY
 #include <EGL/egl.h>
@@ -124,6 +150,20 @@ static int wait_current(void *unused)
     destroy(s);
     return (status==GL_ALREADY_SIGNALED || status==GL_CONDITION_SATISFIED) && error()==GL_NO_ERROR;
 }
+static int wait_timed(void *unused,uint64_t timeout)
+{
+    (void)unused;
+    PFNGLFENCESYNCPROC fence=(PFNGLFENCESYNCPROC)eglGetProcAddress("glFenceSync");
+    PFNGLCLIENTWAITSYNCPROC wait=(PFNGLCLIENTWAITSYNCPROC)eglGetProcAddress("glClientWaitSync");
+    PFNGLDELETESYNCPROC destroy=(PFNGLDELETESYNCPROC)eglGetProcAddress("glDeleteSync");
+    PFNGLGETERRORPROC error=(PFNGLGETERRORPROC)eglGetProcAddress("glGetError");
+    if (!fence || !wait || !destroy || !error || error()!=GL_NO_ERROR) return 0;
+    GLsync sync=fence(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
+    if (!sync) return 0;
+    GLenum status=wait(sync,GL_SYNC_FLUSH_COMMANDS_BIT,timeout);
+    destroy(sync);
+    return (status==GL_ALREADY_SIGNALED || status==GL_CONDITION_SATISFIED) && error()==GL_NO_ERROR;
+}
 static int image_create(void *unused,uintptr_t display,uintptr_t context,uint32_t texture,uintptr_t *out)
 {
     (void)unused;
@@ -170,7 +210,7 @@ static int image_delete(void *unused,uintptr_t display,uintptr_t image)
 int yb_egl_output_bridge_create(uintptr_t context,uint32_t texture,yb_egl_output_bridge **out)
 {
     const yb_egl_bridge_ops ops={NULL,snapshot,validate,bind,wait_current,image_create,texture_create,texture_delete,image_delete};
-    return yb_egl_output_bridge_create_with_ops(&ops,context,texture,out);
+    return yb_egl_output_bridge_create_with_timed_ops(&ops,wait_timed,context,texture,out);
 }
 #else
 int yb_egl_output_bridge_create(uintptr_t context,uint32_t texture,yb_egl_output_bridge **out)

@@ -1,3 +1,12 @@
 @PACKAGE_INIT@
+if(@YBLOD_BUILD_EXPERIMENTAL_PLAYBACK@)
+  include(CMakeFindDependencyMacro)
+  find_dependency(PkgConfig)
+  # Prebuilt objects use AVFrame/Dolby metadata structs from this ABI major.
+  pkg_check_modules(YbNativeAvutil REQUIRED IMPORTED_TARGET
+    "libavutil>=@YBLOD_AVUTIL_ABI_MAJOR@.0.0" "libavutil<@YBLOD_AVUTIL_ABI_NEXT@.0.0")
+  pkg_check_modules(YbNativeEgl REQUIRED IMPORTED_TARGET egl)
+  pkg_check_modules(YbNativeVa REQUIRED IMPORTED_TARGET libva)
+endif()
 include("${CMAKE_CURRENT_LIST_DIR}/YblodNativeTargets.cmake")
 check_required_components(YblodNative)

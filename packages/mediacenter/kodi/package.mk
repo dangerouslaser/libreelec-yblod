@@ -327,6 +327,17 @@ makeinstall_host() {
 }
 
 pre_configure_target() {
+  # Explicit build opt-in; the runtime opt-in remains separate. Always reset
+  # the CMake option when disabled, including reused build directories.
+  if [ "${YBLOD_NATIVE_RECONSTRUCTION:-0}" = "1" ]; then
+    [ -f "${ROOT}/engine/experimental/native_playback_context.c" ] ||
+      die "Native reconstruction requested without its public engine sources"
+    mkdir -p "${PKG_BUILD}/tools/native_engine"
+    cp -a "${ROOT}/engine/." "${PKG_BUILD}/tools/native_engine/"
+    PKG_CMAKE_OPTS_TARGET+=" -DDVBRIDGE_NATIVE_RECONSTRUCTION=ON"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DDVBRIDGE_NATIVE_RECONSTRUCTION=OFF"
+  fi
   # Keep source-location diagnostics useful without embedding build-host paths.
   export CFLAGS+=" -ffile-prefix-map=${ROOT}=/usr/src/libreelec"
   export CXXFLAGS+=" -ffile-prefix-map=${ROOT}=/usr/src/libreelec"
