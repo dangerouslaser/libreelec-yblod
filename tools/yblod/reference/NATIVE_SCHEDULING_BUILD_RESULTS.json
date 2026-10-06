@@ -1,0 +1,54 @@
+{
+  "schema": "yblod.native-scheduling-build-results.v1",
+  "complete": true,
+  "implementation_commit": "2357c7ee93",
+  "public_head_at_build": "9d5bf1a4bd",
+  "candidate_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "candidate_binary_bytes": 34881192,
+  "rollback_binary_sha256": "2f636c24c0ade31d838aa849ab98123d3f9cb308d69bee87851aad0d3f6b18c1",
+  "actual_adapter_source_sha256": "76c7e399640af223f25d2183d24bf392b8efd92af9e989c97c962a2924f0f5c7",
+  "public_adapter_patch_sha256": "691fd4f87744f5a6d0e91e2897e1d3da9a5bc12d8e88d9b96e8a33046e9583e4",
+  "embedded_engine_source_matches_canonical": true,
+  "engine_source_files_verified": [
+    "native_egl_output_bridge.c",
+    "native_egl_output_bridge.h",
+    "native_gpu_composer_backend_libplacebo.c",
+    "native_gpu_composer_fp32.c",
+    "native_gpu_composer_fp32.h",
+    "native_gpu_composer_fp32_backend.c",
+    "native_playback_context.c",
+    "native_playback_context.h"
+  ],
+  "actual_adapter_matches_reviewed_candidate": true,
+  "build": {
+    "exit_code": 0,
+    "started_utc": "2026-10-06T18:08:23.026648048Z",
+    "finished_utc": "2026-10-06T18:13:30.123782780Z",
+    "elapsed_seconds": 307.097134732,
+    "ninja_jobs": 1,
+    "lto_workers": 1,
+    "serial_ltrans_jobs": 430,
+    "network": "none",
+    "memory_max_bytes": 4294967296,
+    "memory_peak_bytes": 2364428288,
+    "memory_swap_max_bytes": 0,
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "oom_killed": false,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    }
+  },
+  "qualification_limits": [
+    "Successful bounded Kodi compile/link only; no movie playback, HDMI, output accuracy or performance qualification.",
+    "Both new scheduling options remain opt-in and default disabled.",
+    "The completed binary was preserved privately with identical SHA256; this report contains no media-derived content or identifiers."
+  ]
+}

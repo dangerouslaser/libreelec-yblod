@@ -1,0 +1,102 @@
+{
+  "schema": "yblod.ffmpeg9-container-build-results.v1",
+  "source_version": "9.0.2",
+  "source_archive_sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+  "base_image_id": "sha256:c33565031c2bfbbe2eb8ede588b63f7972d3fb34978572ebb1d2f46bf7d2296d",
+  "requested_tag": "yblod-ffmpeg9-decode:9.0.2",
+  "process_exit_code": 0,
+  "intermediate_containers": [
+    {
+      "container_id": "ee19d543da2c0d6e2ac63b9325d1bc45fb6421f8938031987bcd77f77cd4edd1",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "b9b7096e862d7bdf9e03566139b50c74f9d0dfcd7aecd0e2a66068c811ca7b5d",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "0007aa0cf796f56eda8e317046cfd0dee42ec3726946aa0e4aa4a5bd77ad91c5",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "607fd26d958702284aff93aa06b349e5fb3fe51ebcd450d81a97fa861a4b5a94",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "cef02cbc489067c740ebfd7698dba84d2e84757599a2716d116250bbdb2f4e12",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "f95590c23ad22e9869f377d86ec6a060cb74f249ca1ec78ac0cdac823a58b689",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "777e7eb920496297670d5ad1eaa16b27ff9719cfba27d0c15de1be6310d96378",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    },
+    {
+      "container_id": "f76a87edcbe14b730962c59e35aeaa1ecb3765c0ebe5044cc2fb975cb7ec7fbd",
+      "oom_killed": false,
+      "exit_code": 0,
+      "memory_limit": 4294967296,
+      "memory_swap_limit": 4294967296,
+      "cpu_quota": 100000,
+      "cpu_period": 100000
+    }
+  ],
+  "peak_memory_measured": false,
+  "host_packages_or_services_changed": false,
+  "image_id": "sha256:1eedf69bbb2da2129a50418d5e8a53cd287471ef80496e53c9e94c254bf7b5f7",
+  "verified_features": {
+    "ffmpeg_version": "9.0.2",
+    "hevc_vaapi": true,
+    "hevc_qsv": true,
+    "vaapi": true,
+    "libvpl": true,
+    "nasm_x86asm": true,
+    "avx": true,
+    "avx2": true
+  },
+  "container_runtime_versions": {
+    "intel-media-va-driver": "26.1.2+dfsg1-1",
+    "libmfx-gen1.2": "26.1.2-1",
+    "libvpl2": "1:2.16.0-1",
+    "libva2": "2.23.0-1ubuntu1",
+    "libva-drm2": "2.23.0-1ubuntu1"
+  }
+}
