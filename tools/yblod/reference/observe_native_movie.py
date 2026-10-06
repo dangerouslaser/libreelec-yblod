@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import time
 import urllib.request
+from observe_subtitle_fixture import subtitles_off_fixture
 
 ROOT = Path('/storage/yblod-native-playback-20261006')
 LOG = Path('/storage/.kodi/temp/kodi.log')
@@ -15,6 +16,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--seconds', type=int, default=75)
 parser.add_argument('--report', default='1917-owned-source-observation.json')
 parser.add_argument('--stop-on-complete', action='store_true')
+parser.add_argument('--subtitles-off', action='store_true',
+                    help='Matched subtitle-free benchmark fixture; original state is restored before stop.')
 parser.add_argument('--output-dir', default=str(ROOT))
 parser.add_argument('--label', required=True)
 parser.add_argument('--expected-binary-sha256', required=True)
@@ -159,145 +162,148 @@ position = LOG.stat().st_size
 route_start_position = position
 log_inode = LOG.stat().st_ino
 rpc('Player.Open', {'item': {'movieid': args.movie_id}, 'options': {'resume': False}})
-if args.seek_seconds:
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        active = [p for p in rpc('Player.GetActivePlayers') if p['type'] == 'video']
-        if len(active) == 1:
-            break
-        time.sleep(1)
-    else:
-        raise RuntimeError('Video player did not become active for seek')
-    seconds = args.seek_seconds
-    rpc('Player.Seek', {'playerid': active[0]['playerid'], 'value': {'time': {
-        'hours': seconds // 3600, 'minutes': seconds // 60 % 60,
-        'seconds': seconds % 60, 'milliseconds': 0}}})
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        props = rpc('Player.GetProperties', {'playerid': active[0]['playerid'],
-                                             'properties': ['time', 'speed']})
-        clock = props['time']
-        actual = clock['hours'] * 3600 + clock['minutes'] * 60 + clock['seconds']
-        if abs(actual - seconds) <= 3 and props['speed'] == 1:
-            break
-        time.sleep(1)
-    else:
-        raise RuntimeError('Seek did not reach requested source window')
-    # Exclude pre-seek diagnostic totals from the requested window.
-    status = LOG.stat()
-    if status.st_ino != log_inode or status.st_size < position:
-        raise RuntimeError('Log changed while seeking')
-    position = status.st_size
-print(f'{args.expected_title} playback requested at {args.seek_seconds}s; '
-      f'observing up to {args.seconds} seconds', flush=True)
-started = time.monotonic()
-started_ns = time.monotonic_ns()
-lines = []
-failed = False
-failure_reasons = []
-gpu_samples = []
-player_samples = []
-memory_samples = []
-partial_line = b''
-log_changed = False
-while time.monotonic() - started < args.seconds:
-    time.sleep(2)
-    gpu_samples.append(gpu_snapshot())
-    if not memory_samples or time.monotonic_ns() - memory_samples[-1]['monotonic_ns'] >= 10_000_000_000:
-        memory_samples.append({'monotonic_ns': time.monotonic_ns(),
-            'service': subprocess.check_output(['systemctl', 'show', 'kodi',
-                '-p', 'MemoryCurrent', '-p', 'MemoryPeak', '-p', 'MemoryMax'], text=True),
-            'meminfo': {key: value.strip() for key, value in
-                (line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
-                if key in ('MemAvailable', 'SwapTotal', 'SwapFree')}})
-    try:
-        active = [p for p in rpc('Player.GetActivePlayers') if p['type'] == 'video']
-        if len(active) != 1:
-            failed = True
-            failure_reasons.append('video player stopped or became ambiguous')
+with subtitles_off_fixture(args.subtitles_off, rpc, time.sleep, args.movie_id) as subtitle_fixture:
+    if args.seek_seconds:
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            active = [p for p in rpc('Player.GetActivePlayers') if p['type'] == 'video']
+            if len(active) == 1:
+                break
+            time.sleep(1)
         else:
-            player_samples.append({'monotonic_ns': time.monotonic_ns(), 'properties': rpc(
-                'Player.GetProperties', {'playerid': active[0]['playerid'],
-                                        'properties': ['time', 'speed', 'percentage']})})
-    except (OSError, RuntimeError, ValueError):
-        failed = True
-        failure_reasons.append('player JSON-RPC became unavailable')
-    # Read the final log interval even if the player disappeared.
-    status = LOG.stat()
-    if status.st_ino != log_inode or status.st_size < position:
-        log_changed = True
-        failed = True
-        break
-    with LOG.open('rb') as handle:
-        handle.seek(position)
-        chunk = handle.read()
-        position = handle.tell()
-    complete_lines = (partial_line + chunk).split(b'\n')
-    partial_line = complete_lines.pop()
-    for raw_line in complete_lines:
-        line = raw_line.decode(errors='replace')
-        if 'DVBridge' in line and any(marker in line for marker in
-                ('fallback=release', 'cleanup retained', 'quarantine retained',
-                 'DVBridge native packed output failed')):
+            raise RuntimeError('Video player did not become active for seek')
+        seconds = args.seek_seconds
+        rpc('Player.Seek', {'playerid': active[0]['playerid'], 'value': {'time': {
+            'hours': seconds // 3600, 'minutes': seconds // 60 % 60,
+            'seconds': seconds % 60, 'milliseconds': 0}}})
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            props = rpc('Player.GetProperties', {'playerid': active[0]['playerid'],
+                                                 'properties': ['time', 'speed']})
+            clock = props['time']
+            actual = clock['hours'] * 3600 + clock['minutes'] * 60 + clock['seconds']
+            if abs(actual - seconds) <= 3 and props['speed'] == 1:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Seek did not reach requested source window')
+        # Exclude pre-seek diagnostic totals from the requested window.
+        status = LOG.stat()
+        if status.st_ino != log_inode or status.st_size < position:
+            raise RuntimeError('Log changed while seeking')
+        position = status.st_size
+    print(f'{args.expected_title} playback requested at {args.seek_seconds}s; '
+          f'observing up to {args.seconds} seconds', flush=True)
+    started = time.monotonic()
+    started_ns = time.monotonic_ns()
+    lines = []
+    failed = False
+    failure_reasons = []
+    gpu_samples = []
+    player_samples = []
+    memory_samples = []
+    partial_line = b''
+    log_changed = False
+    while time.monotonic() - started < args.seconds:
+        time.sleep(2)
+        gpu_samples.append(gpu_snapshot())
+        if not memory_samples or time.monotonic_ns() - memory_samples[-1]['monotonic_ns'] >= 10_000_000_000:
+            memory_samples.append({'monotonic_ns': time.monotonic_ns(),
+                'service': subprocess.check_output(['systemctl', 'show', 'kodi',
+                    '-p', 'MemoryCurrent', '-p', 'MemoryPeak', '-p', 'MemoryMax'], text=True),
+                'meminfo': {key: value.strip() for key, value in
+                    (line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+                    if key in ('MemAvailable', 'SwapTotal', 'SwapFree')}})
+        try:
+            active = [p for p in rpc('Player.GetActivePlayers') if p['type'] == 'video']
+            if len(active) != 1:
+                failed = True
+                failure_reasons.append('video player stopped or became ambiguous')
+            else:
+                player_samples.append({'monotonic_ns': time.monotonic_ns(), 'properties': rpc(
+                    'Player.GetProperties', {'playerid': active[0]['playerid'],
+                                            'properties': ['time', 'speed', 'percentage']})})
+        except (OSError, RuntimeError, ValueError):
             failed = True
-            if line not in lines:
+            failure_reasons.append('player JSON-RPC became unavailable')
+        # Read the final log interval even if the player disappeared.
+        status = LOG.stat()
+        if status.st_ino != log_inode or status.st_size < position:
+            log_changed = True
+            failed = True
+            break
+        with LOG.open('rb') as handle:
+            handle.seek(position)
+            chunk = handle.read()
+            position = handle.tell()
+        complete_lines = (partial_line + chunk).split(b'\n')
+        partial_line = complete_lines.pop()
+        for raw_line in complete_lines:
+            line = raw_line.decode(errors='replace')
+            if 'DVBridge' in line and any(marker in line for marker in
+                    ('fallback=release', 'cleanup retained', 'quarantine retained',
+                     'DVBridge native packed output failed')):
+                failed = True
+                if line not in lines:
+                    lines.append(line)
+                    print(line, flush=True)
+            if any(marker in line for marker in (
+                'DVBridge native reconstruction:', 'DVBridge playback health:', 'DVBridge native timing:',
+                'DVBridge native composer:',
+                'DVBridge native colour handoff:',
+                'DVBridge stream candidate:', 'DVBridge first frame:', 'DVBridge: Quick Sync',
+                'DVBridge conversion:', 'DVBridge renderer summary:')):
                 lines.append(line)
                 print(line, flush=True)
-        if any(marker in line for marker in (
-            'DVBridge native reconstruction:', 'DVBridge playback health:', 'DVBridge native timing:',
-            'DVBridge native composer:',
-            'DVBridge native colour handoff:',
-            'DVBridge stream candidate:', 'DVBridge first frame:', 'DVBridge: Quick Sync',
-            'DVBridge conversion:', 'DVBridge renderer summary:')):
-            lines.append(line)
-            print(line, flush=True)
-            if 'fallback=release' in line or 'cleanup retained' in line:
-                failed = True
-            if 'DVBridge native composer:' in line:
-                counters = {key: int(value) for key, value in re.findall(
-                    r'(fp32_selected|accepted_fp32|accepted_integer|shader_compile_failed|generate_failed)=(\d+)', line)}
-                selected = 1 if args.expected_route == 'fp32' else 0
-                required = {'fp32_selected', 'accepted_fp32', 'accepted_integer',
-                            'shader_compile_failed', 'generate_failed'}
-                if (args.expected_route == 'legacy' or not required.issubset(counters)
-                        or counters.get('fp32_selected') != selected
-                        or counters.get('shader_compile_failed', 0)
-                        or counters.get('generate_failed', 0)
-                        or counters.get('accepted_integer' if selected else 'accepted_fp32', 0)):
+                if 'fallback=release' in line or 'cleanup retained' in line:
                     failed = True
-    if failed:
-        break
-after = subprocess.check_output(
-    ['systemctl', 'show', 'kodi', '-p', 'MainPID', '-p', 'ActiveEnterTimestampMonotonic'],
-    text=True)
-runtime_after = runtime_snapshot()
-if identity != after or runtime_after['binary_sha256'] != args.expected_binary_sha256:
-    failed = True
-with LOG.open('rb') as handle:
-    handle.seek(route_start_position)
-    route_text = handle.read().decode(errors='replace')
-route_lines = [line for line in route_text.splitlines() if any(marker in line for marker in (
-    'DVBridge: Quick Sync', 'DVBridge conversion:', 'DVBridge first frame:',
-    'DVBridge renderer summary:', 'DVBridge native composer:',
-    'DVBridge native reconstruction:', 'DVBridge renderer: stage=',
-    'DVBridge native packed output failed'))]
-if args.expected_route != 'legacy' and not any('DVBridge native composer:' in line for line in lines):
-    failed = True
-report = {'media': args.expected_title, 'movie_id': args.movie_id,
-          'requested_seconds': args.seconds, 'seek_seconds': args.seek_seconds,
-          'expected_route': args.expected_route,
-          'player_samples': player_samples,
-          'memory_samples': memory_samples,
-          'scope': 'Kodi commit/health markers, not HDMI flips or colour accuracy',
-          'observer_started_monotonic_ns': started_ns,
-          'elapsed_seconds': time.monotonic() - started, 'kodi_before': identity,
-          'kodi_after': after, 'failure_marker': failed, 'selected_log_lines': lines,
-          'failure_reasons': failure_reasons,
-          'log_rotated_or_truncated': log_changed,
-          'gpu_samples': gpu_samples,
-          'gpu_intervals': [gpu_interval(a, b) for a, b in zip(gpu_samples, gpu_samples[1:])]}
-report.update({'label': args.label, 'route_log_lines': route_lines, 'runtime_before': runtime_before,
-               'runtime_after': runtime_after})
+                if 'DVBridge native composer:' in line:
+                    counters = {key: int(value) for key, value in re.findall(
+                        r'(fp32_selected|accepted_fp32|accepted_integer|shader_compile_failed|generate_failed)=(\d+)', line)}
+                    selected = 1 if args.expected_route == 'fp32' else 0
+                    required = {'fp32_selected', 'accepted_fp32', 'accepted_integer',
+                                'shader_compile_failed', 'generate_failed'}
+                    if (args.expected_route == 'legacy' or not required.issubset(counters)
+                            or counters.get('fp32_selected') != selected
+                            or counters.get('shader_compile_failed', 0)
+                            or counters.get('generate_failed', 0)
+                            or counters.get('accepted_integer' if selected else 'accepted_fp32', 0)):
+                        failed = True
+        if failed:
+            break
+    after = subprocess.check_output(
+        ['systemctl', 'show', 'kodi', '-p', 'MainPID', '-p', 'ActiveEnterTimestampMonotonic'],
+        text=True)
+    runtime_after = runtime_snapshot()
+    if identity != after or runtime_after['binary_sha256'] != args.expected_binary_sha256:
+        failed = True
+    with LOG.open('rb') as handle:
+        handle.seek(route_start_position)
+        route_text = handle.read().decode(errors='replace')
+    route_lines = [line for line in route_text.splitlines() if any(marker in line for marker in (
+        'DVBridge: Quick Sync', 'DVBridge conversion:', 'DVBridge first frame:',
+        'DVBridge renderer summary:', 'DVBridge native composer:',
+        'DVBridge native reconstruction:', 'DVBridge renderer: stage=',
+        'DVBridge native packed output failed'))]
+    if args.expected_route != 'legacy' and not any('DVBridge native composer:' in line for line in lines):
+        failed = True
+    report = {'media': args.expected_title, 'movie_id': args.movie_id,
+              'requested_seconds': args.seconds, 'seek_seconds': args.seek_seconds,
+              'expected_route': args.expected_route,
+              'player_samples': player_samples,
+              'memory_samples': memory_samples,
+              'scope': 'Kodi commit/health markers, not HDMI flips or colour accuracy',
+              'observer_started_monotonic_ns': started_ns,
+              'elapsed_seconds': time.monotonic() - started, 'kodi_before': identity,
+              'kodi_after': after, 'failure_marker': failed, 'selected_log_lines': lines,
+              'failure_reasons': failure_reasons,
+              'log_rotated_or_truncated': log_changed,
+              'gpu_samples': gpu_samples,
+              'gpu_intervals': [gpu_interval(a, b) for a, b in zip(gpu_samples, gpu_samples[1:])]}
+    report.update({'label': args.label, 'route_log_lines': route_lines, 'runtime_before': runtime_before,
+                   'runtime_after': runtime_after})
+if subtitle_fixture is not None:
+    report['subtitle_fixture'] = subtitle_fixture
 with (ROOT / args.report).open('x') as handle:
     handle.write(json.dumps(report, indent=2) + '\n')
 print(json.dumps({'observation_complete': True, 'failure_marker': failed,

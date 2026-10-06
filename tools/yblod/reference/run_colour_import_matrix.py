@@ -9,6 +9,7 @@ import subprocess
 import time
 
 from run_long_matrix import command, identity, wait_rpc
+from observe_subtitle_fixture import validate_fixture
 
 IMPORTS = {0: 'original-bl-el-reimport', 1: 'metadata-only'}
 SCOPE = 'wrap-prepare-flush-destroy-excludes-native-release'
@@ -120,6 +121,8 @@ def parser():
     result.add_argument('--seek-seconds', type=int, default=0)
     result.add_argument('--seconds', type=int, default=75)
     result.add_argument('--startup-settle-seconds', type=int, default=20)
+    result.add_argument('--subtitles-off', action='store_true',
+                        help='Matched subtitle-free fixture; observer restores original state before stop.')
     return result
 
 
@@ -193,12 +196,18 @@ def run_configured_matrix(args, configs, label_prefix, describe, report_validato
                 '--expected-title', args.expected_title, '--seek-seconds', str(args.seek_seconds),
                 '--expected-route', observer_route(flag) if observer_route else 'fp32',
                 '--stop-on-complete']
+            if getattr(args, 'subtitles_off', False):
+                observer.append('--subtitles-off')
             with (args.root / (label + '.observer.log')).open('x') as log:
                 subprocess.run(observer, stdout=log, stderr=subprocess.STDOUT, check=True,
                                timeout=args.seconds + 100)
             report = json.loads((args.root / (label + '.json')).read_text())
             stopped = json.loads((args.root / (label + '.json.stop.json')).read_text())
+            if getattr(args, 'subtitles_off', False):
+                validate_fixture(report.get('subtitle_fixture'), args.movie_id)
             qualification = report_validator(report, stopped, flag, args.binary_sha256)
+            if getattr(args, 'subtitles_off', False):
+                qualification['subtitle_fixture'] = report['subtitle_fixture']
             (args.root / (label + '.qualification.json')).write_text(json.dumps(qualification, indent=2))
             command('systemctl', 'stop', 'kodi')
             status = dict(line.split('=', 1) for line in command('systemctl', 'show', 'kodi',

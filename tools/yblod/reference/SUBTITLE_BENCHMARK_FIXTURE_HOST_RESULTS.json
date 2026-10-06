@@ -1,0 +1,32 @@
+{
+  "schema": "yblod.subtitle-benchmark-fixture-host-results.v1",
+  "complete": true,
+  "suites": [
+    "test_observe_subtitle_fixture",
+    "test_colour_import_matrix",
+    "test_native_planar_matrix",
+    "test_native_packed_matrix"
+  ],
+  "tests_run": 39,
+  "fixture_tests": 12,
+  "existing_controller_tests": 27,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "syntax_parse_passed": true,
+  "memory_limit_bytes": 536870912,
+  "memory_peak_bytes": 20185088,
+  "memory_events_all_zero": true,
+  "swap_limit_bytes": 0,
+  "swap_current_bytes": 0,
+  "cpu_limit": 1,
+  "network": "none",
+  "qualification": {
+    "generated_rpc_mock_tests": true,
+    "source_contract_tests": true,
+    "real_player_restoration": false,
+    "gpu_execution": false,
+    "playback_performance": false,
+    "pixel_accuracy": false
+  }
+}
