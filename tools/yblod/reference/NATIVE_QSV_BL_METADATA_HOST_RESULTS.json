@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "scope": "CPU-only fieldwise Dolby metadata comparator fixture; no BL media or hardware execution",
+  "container_image_id": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "comparator_header_sha256": "e04c0cc131a266250da1b9ad7b874a6a5247df013d944dbbd98a38305f30dc25",
+  "fixture_source_sha256": "9c0b609c6a48de36a4733af3c261dd6cb3c6f9ff924e7a8c50607419cdfd46c5",
+  "fixture_binary_sha256": "2908dfc9878af93603b1d29bafa537c5c2618cbd8aa8398864c9e5530db9a66f",
+  "compiler_flags": ["-std=c11", "-D_DEFAULT_SOURCE", "-D_POSIX_C_SOURCE=200809L", "-Wall", "-Wextra", "-Werror", "-O2", "-fno-lto", "-fuse-ld=bfd"],
+  "deprecated_legacy_l11_annotation": "Diagnostic push/pop scoped to six legacy public L11 field comparisons; comparisons preserved",
+  "bounds_alignment_count_order_family_mutation_contracts_passed": true,
+  "exit_code": 0,
+  "resources": {"memory_cap_bytes": 536870912, "peak_bytes": 23560192, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "first_attempt": {"compile_exit_code": 1, "fixture_executed": false, "oom_killed": false, "reason": "Strict compiler rejected intentional legacy public L11 field accesses as deprecated", "peak_and_memory_events_measured": false, "artifacts_preserved": true},
+  "limits": ["Mutation tests sample each major metadata family; not exhaustive one-field mutation coverage", "No native or QSV decoded-media metadata comparison completed", "Inactive coefficient slots and full raw-trailer capacity compared strictly, assuming zero-initialized decoder exports", "No previous-RPU inheritance coverage or BL/Kodi/hardware/performance qualification"]
+}
