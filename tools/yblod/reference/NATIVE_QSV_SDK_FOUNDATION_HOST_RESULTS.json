@@ -1,0 +1,52 @@
+{
+  "schema": "yblod.native-qsv-sdk-foundation-host-results.v1",
+  "complete": true,
+  "default_enabled": false,
+  "feature_option": "YBLOD_QSV_DECODE=yes",
+  "official_source_pins": {
+    "libvpl": {
+      "version": "2.17.0",
+      "tag": "v2.17.0",
+      "tag_commit": "d77f9195cf495b937631607333288fd917ae8939",
+      "url": "https://github.com/intel/libvpl/archive/refs/tags/v2.17.0.tar.gz",
+      "sha256": "4de3e2faf1e8307fb282e4a43f443191810f6a6b0a484fffa7995ba1c814c6ec"
+    },
+    "vpl_gpu_rt": {
+      "version": "26.3.5",
+      "tag": "intel-onevpl-26.3.5",
+      "tag_commit": "6fccf7601d036ccf0e93048d9e0ff1c5e5d63027",
+      "url": "https://github.com/intel/vpl-gpu-rt/archive/refs/tags/intel-onevpl-26.3.5.tar.gz",
+      "sha256": "92867a0f8c09d81419102a61713e9f98dfd2af3fc9c91c6f4fb6d0c784c8e442"
+    }
+  },
+  "source_selection": {
+    "dispatcher_api": "2.17",
+    "runtime_bundled_api": "2.17",
+    "existing_media_driver_version": "26.3.5",
+    "existing_sdk_libva_version": "2.24.1",
+    "hardware_compatibility_qualified": false,
+    "runtime_discovery_qualified": false
+  },
+  "host_checks": {
+    "tests": 11,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "shell_syntax_pass": true,
+    "diff_check_pass": true,
+    "python_version": "3.12.3",
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "memory_peak_bytes": 20930560,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "memory_swap_current_bytes": 0
+  },
+  "qualification_limits": [
+    "Source/package CPU contracts only; no target SDK compile, GPU/runtime discovery, direct surface mapping, playback, accuracy or performance qualification.",
+    "VPL runtime shares the existing media-driver version line; that is a source-selection rationale, not a compatibility result.",
+    "SDK build helper is prepared but not launched; requires reviewed archives cached and a verified private VAAPI-only FFmpeg SDK snapshot before a network-disabled four-GiB/one-CPU/no-swap build.",
+    "EL-only QSV is the first phase toward a full Kodi BL/EL comparison and does not satisfy that full comparison by itself."
+  ]
+}

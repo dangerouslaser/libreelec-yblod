@@ -95,6 +95,30 @@ if [ "${DISPLAYSERVER}" != "x11" ]; then
   PKG_FFMPEG_VAAPI=" --enable-libdrm"
 fi
 
+# Experimental decode backend only. Normal builds keep their existing FFmpeg
+# configuration; do not enable QSV merely because its SDK happens to be present.
+PKG_FFMPEG_QSV=""
+case "${YBLOD_QSV_DECODE:-no}" in
+  no)
+    PKG_STAMP+=" yblod-qsv-decode=no"
+    ;;
+  yes)
+    if [ "${PROJECT}" != "Generic" ] || [ "${TARGET_ARCH}" != "x86_64" ] ||
+       [ "${VAAPI_SUPPORT}" != "yes" ]; then
+      die "YBLOD_QSV_DECODE=yes requires Generic x86_64 with VAAPI support"
+    fi
+    PKG_DEPENDS_TARGET+=" libvpl vpl-gpu-rt"
+    PKG_NEED_UNPACK+=" $(get_pkg_directory libvpl) $(get_pkg_directory vpl-gpu-rt)"
+    PKG_FFMPEG_QSV="--enable-libvpl --enable-decoder=hevc_qsv"
+    PKG_BUILD_FLAGS+=" +bfd"
+    PKG_FFMPEG_LIBS+=" -flto=1"
+    PKG_STAMP+=" yblod-qsv-decode=yes"
+    ;;
+  *)
+    die "YBLOD_QSV_DECODE must be yes or no"
+    ;;
+esac
+
 if build_with_debug; then
   PKG_FFMPEG_DEBUG="--enable-debug --disable-stripping"
 else
@@ -180,6 +204,7 @@ configure_target() {
               --disable-small \
               ${PKG_FFMPEG_V4L2} \
               ${PKG_FFMPEG_VAAPI} \
+              ${PKG_FFMPEG_QSV} \
               --disable-vdpau \
               ${PKG_FFMPEG_RPI} \
               --enable-runtime-cpudetect \
