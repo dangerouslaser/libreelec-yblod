@@ -1,0 +1,750 @@
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 9e5d255..e7dd0e9 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -33,10 +33,18 @@
+ #include "DVPlaybackPolicy.h"
+ #include <cstdlib>
+ #include <cmath>
++#ifdef HAVE_LIBVA
++#include "VAAPI.h"
++#include "cores/VideoPlayer/Buffers/QsvMappedBuffer.h"
++#include "windowing/WinSystem.h"
++#endif
+ extern "C"
+ {
+ #include "dvbridge_fel.h"
+ #include <libavutil/hwcontext.h>
++#ifdef HAVE_LIBVA
++#include <libavutil/hwcontext_vaapi.h>
++#endif
+ }
+ #endif
+ 
+@@ -262,6 +270,19 @@ enum AVPixelFormat CDVDVideoCodecFFmpeg::GetFormat(struct AVCodecContext * avctx
+ {
+   ICallbackHWAccel *cb = static_cast<ICallbackHWAccel*>(avctx->opaque);
+   CDVDVideoCodecFFmpeg* ctx  = dynamic_cast<CDVDVideoCodecFFmpeg*>(cb);
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (ctx && ctx->m_dvBaseQsv)
++  {
++    if (ctx->m_dvFailed || !ctx->m_dvQsvDevice || !avctx->hw_device_ctx ||
++        avctx->hw_device_ctx->data != ctx->m_dvQsvDevice->data || avctx->hwaccel_context)
++      return AV_PIX_FMT_NONE;
++    for (const auto* offered = fmt; *offered != AV_PIX_FMT_NONE; ++offered)
++      if (*offered == AV_PIX_FMT_QSV)
++        return AV_PIX_FMT_QSV;
++    ctx->m_dvFailed = true;
++    return AV_PIX_FMT_NONE;
++  }
++#endif
+ 
+   const char* pixFmtName = av_get_pix_fmt_name(*fmt);
+ 
+@@ -335,6 +356,57 @@ CDVDVideoCodecFFmpeg::~CDVDVideoCodecFFmpeg()
+   Dispose();
+ }
+ 
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++bool CDVDVideoCodecFFmpeg::OpenDVQsvDevice()
++{
++  auto* window = dynamic_cast<VAAPI::IVaapiWinSystem*>(CServiceBroker::GetWinSystem());
++  VAAPI::CVAAPIContext* displayOwner = nullptr;
++  if (!window || !VAAPI::CVAAPIContext::EnsureContext(&displayOwner, nullptr))
++    return false;
++  if (!displayOwner || displayOwner->GetDisplay() != window->GetVADisplay())
++  {
++    if (displayOwner)
++      displayOwner->Release(nullptr);
++    return false;
++  }
++  m_dvVaapiDevice = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
++  if (!m_dvVaapiDevice)
++  {
++    displayOwner->Release(nullptr);
++    return false;
++  }
++  auto* device = reinterpret_cast<AVHWDeviceContext*>(m_dvVaapiDevice->data);
++  device->user_opaque = displayOwner;
++  device->free = [](AVHWDeviceContext* context) {
++    static_cast<VAAPI::CVAAPIContext*>(context->user_opaque)->Release(nullptr);
++  };
++  auto* vaapi = static_cast<AVVAAPIDeviceContext*>(device->hwctx);
++  vaapi->display = displayOwner->GetDisplay();
++  vaapi->driver_quirks = AV_VAAPI_DRIVER_QUIRK_RENDER_PARAM_BUFFERS |
++                         AV_VAAPI_DRIVER_QUIRK_USER_SET;
++  if (av_hwdevice_ctx_init(m_dvVaapiDevice) < 0 ||
++      av_hwdevice_ctx_create_derived(&m_dvQsvDevice, AV_HWDEVICE_TYPE_QSV,
++                                     m_dvVaapiDevice, 0) < 0)
++    return false;
++  m_pCodecContext->hw_device_ctx = av_buffer_ref(m_dvQsvDevice);
++  if (!m_pCodecContext->hw_device_ctx)
++    return false;
++  try
++  {
++    m_dvQsvPool = std::make_shared<CQsvMappedBufferPool>();
++  }
++  catch (const std::bad_alloc&)
++  {
++    return false;
++  }
++  if (!m_dvQsvPool->Reset())
++    return false;
++  m_dvQsvMappedFrames = 0;
++  m_dvQsvGeneration = 1;
++  return true;
++}
++#endif
++
+ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
+ {
+   if (hints.cryptoSession)
+@@ -352,6 +424,22 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+ #endif
+ 
+   const AVCodec* pCodec = nullptr;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  const char* baseQsv = std::getenv("DVBRIDGE_BASE_QSV");
++  m_dvBaseQsv = baseQsv && std::string(baseQsv) == "1";
++  if (m_dvBaseQsv)
++  {
++    const char* reconstruction = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++    if (!reconstruction || std::string(reconstruction) != "1" || !m_dvNativeOutput ||
++        hints.codec != AV_CODEC_ID_HEVC || hints.dovi.dv_profile != 7 ||
++        !hints.dovi.el_present_flag || hints.orientation ||
++        (hints.codecOptions & CODEC_FORCE_SOFTWARE))
++      return false;
++    pCodec = avcodec_find_decoder_by_name("hevc_qsv");
++    if (!pCodec)
++      return false;
++  }
++#endif
+ 
+   m_iOrientation = hints.orientation;
+ 
+@@ -449,6 +537,24 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+     av_opt_set(m_pCodecContext, it->m_name.c_str(), it->m_value.c_str(), 0);
+   }
+ 
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvBaseQsv)
++  {
++    if (!m_pCodecContext->priv_data ||
++        !av_opt_find(m_pCodecContext->priv_data, "dovi_metadata", nullptr, 0, 0) ||
++        av_opt_set_int(m_pCodecContext->priv_data, "dovi_metadata", 1, 0) < 0 ||
++        !OpenDVQsvDevice())
++    {
++      Dispose();
++      return false;
++    }
++    m_pCodecContext->thread_count = 1;
++    m_pCodecContext->pkt_timebase = AVRational{1, AV_TIME_BASE};
++    CLog::Log(LOGINFO, "DVBridge BL QSV: decoder=hevc_qsv metadata=1 mapped=0 generation={}",
++              m_dvQsvGeneration);
++  }
++#endif
++
+   if (avcodec_open2(m_pCodecContext, pCodec, nullptr) < 0)
+   {
+     CLog::Log(LOGDEBUG,"CDVDVideoCodecFFmpeg::Open() Unable to open codec");
+@@ -525,6 +631,14 @@ void CDVDVideoCodecFFmpeg::Dispose()
+   av_frame_free(&m_pDecodedFrame);
+   av_frame_free(&m_pFilterFrame);
+   avcodec_free_context(&m_pCodecContext);
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvQsvPool)
++    m_dvQsvPool->Reset();
++  m_dvQsvPool.reset();
++  av_buffer_unref(&m_dvQsvDevice);
++  av_buffer_unref(&m_dvVaapiDevice);
++  m_dvBaseQsv = false;
++#endif
+ 
+   if (m_pHardware)
+   {
+@@ -601,7 +715,11 @@ void CDVDVideoCodecFFmpeg::UpdateName()
+   if(m_pHardware)
+     m_name += "-" + m_pHardware->Name();
+ 
+-  m_processInfo.SetVideoDecoderName(m_name, m_pHardware ? true : false);
++  bool hardware = m_pHardware != nullptr;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  hardware = hardware || m_dvBaseQsv;
++#endif
++  m_processInfo.SetVideoDecoderName(m_name, hardware);
+ 
+   CLog::Log(LOGDEBUG, "CDVDVideoCodecFFmpeg - Updated codec: {}", m_name);
+ }
+@@ -762,7 +880,12 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+     if (m_pCodecContext->hw_frames_ctx)
+     {
+       auto* frames = reinterpret_cast<AVHWFramesContext*>(m_pCodecContext->hw_frames_ctx->data);
+-      if (!dvbridge_fel_device(m_dvFel.get(), frames->device_ref))
++      AVBufferRef* elDevice = frames->device_ref;
++#ifdef HAVE_LIBVA
++      if (m_dvBaseQsv)
++        elDevice = m_dvVaapiDevice;
++#endif
++      if (!dvbridge_fel_device(m_dvFel.get(), elDevice))
+         return VC_ERROR;
+     }
+     if (result == VC_PICTURE)
+@@ -973,6 +1096,31 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetBasePicture(VideoPicture* pVid
+   }
+ 
+   // push the frame to hw decoder for further processing
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvBaseQsv)
++  {
++    if (m_dvFailed || m_interlaced || !m_dvQsvPool || !m_dvVaapiDevice)
++      return VC_ERROR;
++    av_frame_unref(m_pFrame);
++    av_frame_move_ref(m_pFrame, m_pDecodedFrame);
++    auto* buffer = m_dvQsvPool->GetMapped(m_pFrame, m_dvVaapiDevice);
++    if (!buffer || !GetPictureCommon(pVideoPicture))
++    {
++      if (buffer)
++        buffer->Release();
++      m_dvFailed = true;
++      return VC_ERROR;
++    }
++    if (pVideoPicture->videoBuffer)
++      pVideoPicture->videoBuffer->Release();
++    pVideoPicture->videoBuffer = buffer;
++    ++m_dvQsvMappedFrames;
++    if (m_dvQsvMappedFrames == 1 || m_dvQsvMappedFrames % 120 == 0)
++      CLog::Log(LOGINFO, "DVBridge BL QSV: decoder=hevc_qsv metadata=1 mapped={} generation={}",
++                m_dvQsvMappedFrames, m_dvQsvGeneration);
++    return VC_PICTURE;
++  }
++#endif
+   if (m_pHardware)
+   {
+     av_frame_unref(m_pFrame);
+@@ -1084,6 +1232,12 @@ void CDVDVideoCodecFFmpeg::Reset()
+   m_dvPending.clear();
+   dvbridge_fel_reset(m_dvFel.get());
+   m_dvFailed = false;
++#ifdef HAVE_LIBVA
++  if (m_dvBaseQsv && (!m_dvQsvPool || !m_dvQsvPool->Reset()))
++    m_dvFailed = true;
++  else if (m_dvBaseQsv)
++    ++m_dvQsvGeneration;
++#endif
+ #endif
+   m_started = false;
+   m_startedInput = false;
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index 271fc2c..64b5346 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -31,6 +31,9 @@ extern "C"
+ }
+ 
+ class CVideoBufferPoolFFmpeg;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++class CQsvMappedBufferPool;
++#endif
+ 
+ class CDVDVideoCodecFFmpeg : public CDVDVideoCodec, public ICallbackHWAccel
+ {
+@@ -64,6 +67,15 @@ protected:
+   std::deque<std::shared_ptr<VideoPicture>> m_dvPending;
+   bool m_dvFailed{false};
+   bool m_dvNativeOutput{false};
++#ifdef HAVE_LIBVA
++  bool m_dvBaseQsv{false};
++  AVBufferRef* m_dvVaapiDevice{};
++  AVBufferRef* m_dvQsvDevice{};
++  std::shared_ptr<CQsvMappedBufferPool> m_dvQsvPool;
++  uint64_t m_dvQsvMappedFrames{};
++  uint64_t m_dvQsvGeneration{};
++  bool OpenDVQsvDevice();
++#endif
+   // Last in-band HDR10 static metadata of this stream (see GetPictureCommon).
+   bool m_dvHasStreamDisplayMetadata{false};
+   AVMasteringDisplayMetadata m_dvStreamDisplayMetadata{};
+diff --git a/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt b/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
+index 823dad5..82bdfc2 100644
+--- a/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
+@@ -1,6 +1,11 @@
+ set(SOURCES VideoBuffer.cpp)
+ set(HEADERS VideoBuffer.h)
+ 
++if(ENABLE_DVBRIDGE AND TARGET ${APP_NAME_LC}::VAAPI)
++  list(APPEND SOURCES QsvMappedBuffer.cpp)
++  list(APPEND HEADERS QsvMappedBuffer.h)
++endif()
++
+ # dma-buf identity is consumed by the VAAPI EGL path, which builds on x11 too
+ if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_LC
+    OR "x11" IN_LIST CORE_PLATFORM_NAME_LC)
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.h
+@@ -30,6 +30,15 @@
+ class CCapabilities;
+ class CVaapiRenderPicture;
+ 
++/* Borrowed only while the caller holds the validated video-buffer reference. */
++struct BorrowedSurfaceView
++{
++  VADisplay display;
++  VASurfaceID surface;
++  int width;
++  int height;
++};
++
+ struct InteropInfo
+ {
+   EGLDisplay eglDisplay = nullptr;
+@@ -58,6 +67,7 @@
+ {
+ public:
+   bool Import(CVaapiRenderPicture* pic) override;
++  bool Import(const BorrowedSurfaceView& view);
+   void Reset() override;
+   void Init(InteropInfo &interop) override;
+ 
+@@ -96,6 +106,7 @@
+   //! \brief Imported texture for the picture's surface dma-buf; nullptr on export or import failure.
+   //! Textures in inUse are protected from eviction while a render slot still names them.
+   CVaapi2Texture* Get(CVaapiRenderPicture* pic, std::span<CVaapiTexture* const> inUse);
++  CVaapi2Texture* Get(const BorrowedSurfaceView& view, std::span<CVaapiTexture* const> inUse);
+   //! \brief Reset and drop every cached texture; needs the GL context current.
+   void ReleaseAll();
+ 
+@@ -107,4 +118,3 @@
+   std::vector<size_t> m_free;
+ };
+ }
+-
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.cpp
+@@ -30,6 +30,12 @@
+ 
+ bool CVaapi2Texture::Import(CVaapiRenderPicture* pic)
+ {
++  return Import({pic->vadsp, pic->procPic.videoSurface,
++                 static_cast<int>(pic->DVDPic.iWidth), static_cast<int>(pic->DVDPic.iHeight)});
++}
++
++bool CVaapi2Texture::Import(const BorrowedSurfaceView& view)
++{
+   if (m_imported)
+     return true;
+ 
+@@ -44,7 +50,7 @@
+ 
+   VADRMPRIMESurfaceDescriptor surface;
+ 
+-  status = vaExportSurfaceHandle(pic->vadsp, pic->procPic.videoSurface,
++  status = vaExportSurfaceHandle(view.display, view.surface,
+     VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+     VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
+     &surface);
+@@ -61,7 +67,7 @@
+   for (uint32_t object = 0; object < surface.num_objects && object < drmFDs.size(); object++)
+     drmFDs[object].attach(surface.objects[object].fd);
+ 
+-  status = vaSyncSurface(pic->vadsp, pic->procPic.videoSurface);
++  status = vaSyncSurface(view.display, view.surface);
+   if (status != VA_STATUS_SUCCESS)
+   {
+     CLog::Log(LOGERROR, "CVaapi2Texture::Import: vaSyncSurface - Error: {} ({})",
+@@ -69,7 +75,7 @@
+     return failImport();
+   }
+ 
+-  m_textureSize.Set(pic->DVDPic.iWidth, pic->DVDPic.iHeight);
++  m_textureSize.Set(view.width, view.height);
+ 
+   for (uint32_t layerNo = 0; layerNo < surface.num_layers; layerNo++)
+   {
+@@ -259,9 +265,16 @@
+ CVaapi2Texture* CVaapiTexturePool::Get(CVaapiRenderPicture* pic,
+                                        std::span<CVaapiTexture* const> inUse)
+ {
++  return Get({pic->vadsp, pic->procPic.videoSurface,
++              static_cast<int>(pic->DVDPic.iWidth), static_cast<int>(pic->DVDPic.iHeight)}, inUse);
++}
++
++CVaapi2Texture* CVaapiTexturePool::Get(const BorrowedSurfaceView& view,
++                                    std::span<CVaapiTexture* const> inUse)
++{
+   VADRMPRIMESurfaceDescriptor surface;
+   VAStatus status = vaExportSurfaceHandle(
+-      pic->vadsp, pic->procPic.videoSurface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
++      view.display, view.surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+       VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS, &surface);
+   if (status != VA_STATUS_SUCCESS)
+   {
+@@ -271,7 +284,7 @@
+   }
+ 
+   // this export only identifies the memory; Import on a miss re-exports its own fds
+-  const auto identity = IdentityFromVaDescriptor(surface, pic->DVDPic.iWidth, pic->DVDPic.iHeight);
++  const auto identity = IdentityFromVaDescriptor(surface, view.width, view.height);
+   for (uint32_t i = 0; i < surface.num_objects; i++)
+     close(surface.objects[i].fd);
+   if (!identity)
+@@ -281,7 +294,7 @@
+   if (handle)
+   {
+     // Import syncs only on a miss; a cached texture still needs this frame's decode done
+-    status = vaSyncSurface(pic->vadsp, pic->procPic.videoSurface);
++    status = vaSyncSurface(view.display, view.surface);
+     if (status != VA_STATUS_SUCCESS)
+     {
+       CLog::Log(LOGERROR, "CVaapiTexturePool::{}: vaSyncSurface - Error: {} ({})", __FUNCTION__,
+@@ -304,7 +317,7 @@
+       m_entries[slot]->Init(m_interop);
+     }
+ 
+-    if (!m_entries[slot]->Import(pic))
++    if (!m_entries[slot]->Import(view))
+     {
+       m_free.push_back(slot);
+       return nullptr;
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
+@@ -62,6 +62,7 @@
+   EShaderFormat GetShaderFormat() override;
+ 
+   bool m_isVAAPIBuffer = true;
++  bool m_isQsvMappedBuffer = false;
+   bool m_nv12Allocated[NUM_BUFFERS]{};
+   // VA fourcc of the surfaces being received (NV12 / P010 / P012 / P016 /
+   // YUY2 / Y210 / Y212 / Y216). Captured at Configure and read by
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include "RendererVAAPIGLES.h"
++#include "cores/VideoPlayer/Buffers/QsvMappedBuffer.h"
+ 
+ #include "../RenderFactory.h"
+ #include "cores/VideoPlayer/DVDCodecs/DVDCodecUtils.h"
+@@ -82,6 +83,18 @@
+ 
+ CBaseRenderer* CRendererVAAPIGLES::Create(CVideoBuffer* buffer)
+ {
++  if (auto* qsv = dynamic_cast<CQsvMappedBuffer*>(buffer))
++  {
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_YBLOD_NATIVE_PLAYBACK)
++    const char* selected = std::getenv("DVBRIDGE_BASE_QSV");
++    const char* native = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++    if (selected && std::strcmp(selected, "1") == 0 && native && std::strcmp(native, "1") == 0 &&
++        m_pWinSystem && qsv->Valid(m_pWinSystem->GetVADisplay()))
++      return new CRendererVAAPIGLES();
++#endif
++    (void)qsv;
++    return nullptr;
++  }
+   CVaapiRenderPicture *vb = dynamic_cast<CVaapiRenderPicture*>(buffer);
+   if (vb)
+     return new CRendererVAAPIGLES();
+@@ -138,6 +151,18 @@
+ 
+ bool CRendererVAAPIGLES::Configure(const VideoPicture& picture, float fps, unsigned int orientation)
+ {
++  auto* qsv = dynamic_cast<CQsvMappedBuffer*>(picture.videoBuffer);
++  m_isQsvMappedBuffer = qsv != nullptr;
++  if (qsv)
++  {
++    if (!m_pWinSystem || !qsv->Valid(m_pWinSystem->GetVADisplay()) || orientation != 0 ||
++        picture.hdrType != StreamHdrType::HDR_TYPE_DOLBYVISION)
++      return false;
++    m_isVAAPIBuffer = true;
++    m_vaapiFourcc = VA_FOURCC_P010;
++  }
++  else
++  {
+   CVaapiRenderPicture *pic = dynamic_cast<CVaapiRenderPicture*>(picture.videoBuffer);
+   if (pic->procPic.videoSurface != VA_INVALID_ID)
+     m_isVAAPIBuffer = true;
+@@ -145,6 +170,7 @@
+     m_isVAAPIBuffer = false;
+ 
+   m_vaapiFourcc = pic->procPic.fourcc;
++  }
+ 
+   if (m_isVAAPIBuffer)
+   {
+@@ -172,6 +198,14 @@
+ 
+ bool CRendererVAAPIGLES::ConfigChanged(const VideoPicture& picture)
+ {
++  auto* qsv = dynamic_cast<CQsvMappedBuffer*>(picture.videoBuffer);
++  if (m_isQsvMappedBuffer || qsv)
++  {
++    if (!qsv || !m_isQsvMappedBuffer || !m_pWinSystem ||
++        !qsv->Valid(m_pWinSystem->GetVADisplay()))
++      return true;
++    return CLinuxRendererGLES::ConfigChanged(picture);
++  }
+   CVaapiRenderPicture *pic = dynamic_cast<CVaapiRenderPicture*>(picture.videoBuffer);
+   if ((pic->procPic.videoSurface != VA_INVALID_ID && !m_isVAAPIBuffer) ||
+       (pic->procPic.videoSurface == VA_INVALID_ID && m_isVAAPIBuffer))
+@@ -248,6 +282,7 @@
+         CServiceBroker::GetWinSystem()->GetGfxContext());
+ #endif
+   auto* sourcePicture = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer);
++  auto* qsvPicture = dynamic_cast<CQsvMappedBuffer*>(buffer.videoBuffer);
+   if (!window || !buffer.doviMetadata.Data() || buffer.doviPts == DVD_NOPTS_VALUE)
+     return false;
+   CDVBridgeGLES::Layer layer{};
+@@ -263,6 +298,14 @@
+   layer.height = m_sourceHeight;
+   layer.pts = buffer.doviPts;
+   layer.decodedSourcePts = buffer.doviSourcePts;
++  if (qsvPicture)
++  {
++    if (!qsvPicture->Valid(m_pWinSystem->GetVADisplay())) return false;
++    layer.vaDisplay = m_pWinSystem->GetVADisplay();
++    layer.vaSurface = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(qsvPicture->Frame()->data[3]));
++    layer.decodedFrame = qsvPicture->Frame();
++    layer.nativeOnly = true;
++  }
+   std::unique_ptr<AVBufferRef, NativeGuardDeleter> nativeGuard;
+   if (auto* pic = sourcePicture; pic && pic->valid)
+   {
+@@ -323,7 +366,9 @@
+       return true;
+     return rendered;
+   }
+-  return window->RenderDVBridge(layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
++  const bool rendered = window->RenderDVBridge(layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
++  const bool valid = rendered && (!qsvPicture || qsvPicture->Valid(m_pWinSystem->GetVADisplay()));
++  return valid;
+ }
+ #endif
+ 
+@@ -415,13 +460,26 @@
+   CPictureBuffer &buf = m_buffers[index];
+ 
+   CVaapiRenderPicture *pic = dynamic_cast<CVaapiRenderPicture*>(buf.videoBuffer);
++  auto* qsv = dynamic_cast<CQsvMappedBuffer*>(buf.videoBuffer);
+ 
++  if (qsv)
++  {
++    if (!m_pWinSystem || !qsv->Valid(m_pWinSystem->GetVADisplay())) return false;
++    const auto* frame = qsv->Frame();
++    const VAAPI::BorrowedSurfaceView view{m_pWinSystem->GetVADisplay(),
++        static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(frame->data[3])), frame->width, frame->height};
++    m_vaapiTextures[index] = m_texturePool.Get(view, m_vaapiTextures);
++    if (!qsv->Valid(view.display)) return false;
++  }
++  else
++  {
+   if (!pic || !pic->valid)
+   {
+     return false;
+   }
+ 
+   m_vaapiTextures[index] = m_texturePool.Get(pic, m_vaapiTextures);
++  }
+   if (!m_vaapiTextures[index])
+     return false;
+ 
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -34,6 +34,7 @@
+     // Borrowed for this call only. A custom VAAPI source is a public-property
+     // snapshot backed by nativeRenderGuard, not a fabricated HWFramesContext.
+     const AVFrame* decodedFrame = nullptr;
++    bool nativeOnly = false;
+     int64_t decodedSourcePts = AV_NOPTS_VALUE;
+     // DVDVideoCodecFFmpeg submits BL/EL packet timestamps in AV_TIME_BASE
+     // units. Keep that producer declaration, not a conversion from pts double.
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -982,6 +982,10 @@
+   if (m_nativeRequested && !m_nativeFailed && !nativeCleanupRetained.load() &&
+       PrepareNative(base, enhancement, metadata, geometry, allowPacked))
+     return true;
++  if (base.nativeOnly)
++  {
++    return Failure("qsv-base-native-required");
++  }
+   if (m_nativeFailed && !nativeCleanupRetained.load())
+     ReleaseNative();
+   if (m_nativeFailClosed)
+@@ -992,6 +996,8 @@
+                            base.nativeAllocationHeight)))
+     return false;
+ #endif
++  if (base.nativeOnly)
++    return Failure("qsv-base-native-unavailable");
+   // Quick Sync scaling on the Intel media engine (see dvbridge_vpp.c):
+   //  mode 1: the FEL enhancement layer is upscaled there (default);
+   //  mode 2: base layer colour is upsampled there too. Both layers then come back rotated by 180
+diff --git a/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.h b/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.h
+new file mode 100644
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.h
+@@ -0,0 +1,50 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++#include "cores/VideoPlayer/Buffers/VideoBuffer.h"
++#include <mutex>
++extern "C" {
++#include <libavutil/frame.h>
++#include <libavutil/hwcontext.h>
++#include <libavutil/hwcontext_vaapi.h>
++}
++
++struct CQsvMappedGeneration
++{
++  std::atomic_bool valid{true};
++  std::atomic_bool quarantined{false};
++  uint64_t identity{};
++};
++
++class CQsvMappedBuffer final : public CVideoBuffer
++{
++public:
++  explicit CQsvMappedBuffer(int id) : CVideoBuffer(id) {}
++  ~CQsvMappedBuffer() override { av_frame_free(&m_frame); }
++  const AVFrame* Frame() const { return m_frame; }
++  bool Valid(VADisplay display) const;
++private:
++  friend class CQsvMappedBufferPool;
++  AVFrame* m_frame{};
++  std::shared_ptr<CQsvMappedGeneration> m_generation;
++};
++
++/* Not registered as a software buffer pool. Only directly mapped frames enter.
++ * Quarantine retains this pool permanently; its decoder must remain terminal. */
++class CQsvMappedBufferPool final : public IVideoBufferPool
++{
++public:
++  CVideoBuffer* Get() override { return nullptr; }
++  CQsvMappedBuffer* GetMapped(const AVFrame* qsv, AVBufferRef* vaapiDevice);
++  void Return(int id) override;
++  bool Reset();
++  void Quarantine();
++private:
++  static constexpr size_t MAX_BUFFERS = 32;
++  std::mutex m_mutex;
++  std::vector<std::unique_ptr<CQsvMappedBuffer>> m_buffers;
++  std::vector<bool> m_busy;
++  std::shared_ptr<CQsvMappedGeneration> m_generation;
++  uint64_t m_nextGeneration{};
++  bool m_quarantined{};
++  std::shared_ptr<IVideoBufferPool> m_quarantineOwner;
++};
+diff --git a/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.cpp b/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.cpp
+new file mode 100644
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.cpp
+@@ -0,0 +1,107 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "QsvMappedBuffer.h"
++#include <limits>
++
++bool CQsvMappedBuffer::Valid(VADisplay display) const
++{
++  if (!m_generation || !m_generation->valid || m_generation->quarantined || !m_frame ||
++      m_frame->format != AV_PIX_FMT_VAAPI || !m_frame->buf[0] || !m_frame->hw_frames_ctx ||
++      m_frame->width <= 0 || m_frame->height <= 0 || m_frame->width > 8192 || m_frame->height > 8192 ||
++      (m_frame->flags & AV_FRAME_FLAG_INTERLACED) ||
++      m_frame->crop_top || m_frame->crop_bottom || m_frame->crop_left || m_frame->crop_right)
++    return false;
++  const auto* frames = reinterpret_cast<const AVHWFramesContext*>(m_frame->hw_frames_ctx->data);
++  if (!frames || frames->format != AV_PIX_FMT_VAAPI || frames->sw_format != AV_PIX_FMT_P010 ||
++      !frames->device_ctx || frames->device_ctx->type != AV_HWDEVICE_TYPE_VAAPI ||
++      !frames->device_ctx->hwctx || frames->width < m_frame->width || frames->height < m_frame->height)
++    return false;
++  const auto* device = static_cast<const AVVAAPIDeviceContext*>(frames->device_ctx->hwctx);
++  const auto* metadata = av_frame_get_side_data(m_frame, AV_FRAME_DATA_DOVI_METADATA);
++  return device->display == display && reinterpret_cast<uintptr_t>(m_frame->data[3]) != VA_INVALID_ID &&
++         metadata && metadata->data && metadata->size > 0 && metadata->size <= 1048576;
++}
++
++CQsvMappedBuffer* CQsvMappedBufferPool::GetMapped(const AVFrame* qsv, AVBufferRef* vaapiDevice)
++{
++  if (!qsv || qsv->format != AV_PIX_FMT_QSV || !qsv->buf[0] || !qsv->hw_frames_ctx ||
++      !vaapiDevice || !vaapiDevice->data)
++    return nullptr;
++  const auto* device = reinterpret_cast<const AVHWDeviceContext*>(vaapiDevice->data);
++  if (device->type != AV_HWDEVICE_TYPE_VAAPI || !device->hwctx)
++    return nullptr;
++  std::shared_ptr<CQsvMappedGeneration> generation;
++  {
++    std::lock_guard lock(m_mutex);
++    if (m_quarantined || !m_generation || !m_generation->valid) return nullptr;
++    generation = m_generation;
++  }
++  AVBufferRef* derived = nullptr;
++  if (av_hwframe_ctx_create_derived(&derived, AV_PIX_FMT_VAAPI, vaapiDevice,
++      qsv->hw_frames_ctx, AV_HWFRAME_MAP_READ | AV_HWFRAME_MAP_DIRECT) < 0)
++    return nullptr;
++  AVFrame* mapped = av_frame_alloc();
++  if (!mapped) { av_buffer_unref(&derived); return nullptr; }
++  mapped->format = AV_PIX_FMT_VAAPI;
++  mapped->hw_frames_ctx = derived;
++  if (av_hwframe_map(mapped, qsv, AV_HWFRAME_MAP_READ | AV_HWFRAME_MAP_DIRECT) < 0 ||
++      av_frame_copy_props(mapped, qsv) < 0) { av_frame_free(&mapped); return nullptr; }
++  if (mapped->format != AV_PIX_FMT_VAAPI || !mapped->hw_frames_ctx ||
++      !mapped->hw_frames_ctx->data) { av_frame_free(&mapped); return nullptr; }
++  std::lock_guard lock(m_mutex);
++  const auto* mappedFrames = reinterpret_cast<const AVHWFramesContext*>(mapped->hw_frames_ctx->data);
++  if (m_quarantined || generation != m_generation || !generation->valid ||
++      !mappedFrames || mappedFrames->device_ctx != device) {
++    av_frame_free(&mapped); return nullptr;
++  }
++  size_t index = 0;
++  while (index < m_busy.size() && m_busy[index]) ++index;
++  if (index == MAX_BUFFERS) { av_frame_free(&mapped); return nullptr; }
++  if (index == m_busy.size()) {
++    try {
++      m_buffers.reserve(MAX_BUFFERS); m_busy.reserve(MAX_BUFFERS);
++      auto buffer = std::make_unique<CQsvMappedBuffer>(static_cast<int>(index));
++      m_buffers.push_back(std::move(buffer)); m_busy.push_back(false);
++    } catch (const std::bad_alloc&) { av_frame_free(&mapped); return nullptr; }
++  }
++  auto* buffer = m_buffers[index].get();
++  buffer->m_frame = mapped;
++  buffer->m_generation = m_generation;
++  buffer->m_pixFormat = AV_PIX_FMT_VAAPI;
++  const auto display = static_cast<const AVVAAPIDeviceContext*>(device->hwctx)->display;
++  if (!buffer->Valid(display)) {
++    av_frame_free(&buffer->m_frame); buffer->m_generation.reset(); return nullptr;
++  }
++  m_busy[index] = true;
++  buffer->Acquire(GetPtr());
++  return buffer;
++}
++
++void CQsvMappedBufferPool::Return(int id)
++{
++  std::lock_guard lock(m_mutex);
++  if (id < 0 || static_cast<size_t>(id) >= m_buffers.size() || !m_busy[id]) return;
++  if (m_quarantined) return;
++  auto& buffer = m_buffers[id];
++  av_frame_free(&buffer->m_frame);
++  buffer->m_generation.reset();
++  m_busy[id] = false;
++}
++
++bool CQsvMappedBufferPool::Reset()
++{
++  std::lock_guard lock(m_mutex);
++  if (m_generation) m_generation->valid = false;
++  if (m_quarantined || m_nextGeneration == std::numeric_limits<uint64_t>::max()) return false;
++  try { m_generation = std::make_shared<CQsvMappedGeneration>(); }
++  catch (const std::bad_alloc&) { return false; }
++  m_generation->identity = ++m_nextGeneration;
++  return true;
++}
++
++void CQsvMappedBufferPool::Quarantine()
++{
++  std::lock_guard lock(m_mutex);
++  m_quarantined = true;
++  m_quarantineOwner = GetPtr();
++  if (m_generation) { m_generation->quarantined = true; m_generation->valid = false; }
++}
+

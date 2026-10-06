@@ -1,0 +1,42 @@
+{
+  "schema": "yblod.qsv-bl-kodi-integration-source-tests.v1",
+  "all_passed": true,
+  "source_only": true,
+  "source_sha256": {
+    "qsv-bl-kodi-integration-source-only.patch": "ee9268624baa17892617c453b24a8e81fd5a5fcc7b935883ee2407e8ae420c7f",
+    "qsv-bl-kodi-decoder-source-only.patch": "220004074b99597084cdfc9d118a9f001b0aca01f1294902372e47c97f4c0379",
+    "compile_qsv_kodi_decoder.py": "7883649769138ee0895fe68e7b88f3cbe9d2418ec61d97e3171c5c242aaa99cb",
+    "stage_qsv_kodi_integration.py": "610514c30a99319d217f07652a492053bbfe21d25a9f99df3289a6d7042b9c6c",
+    "test_qsv_kodi_decoder_source.py": "34f712a9f3490cd8b81b92ac78f445475eb6a41f041c7870ac47bf9df8e37bb2",
+    "check_qsv_kodi_integration_candidate.sh": "5f8876577128172ffdb87fc6a698012333871b309c14d48c25e78751a573a9a3"
+  },
+  "tests": {
+    "complete_eleven_file_patch_applies_fuzz_zero": true,
+    "decoder_source_contracts": 6,
+    "inherited_renderer_source_contracts": 5,
+    "strict_sdk_decoder_objects_dvbridge_enabled_and_disabled": 2
+  },
+  "limits": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "gpu_devices_mounted": false,
+    "sdk_mount_read_only": true
+  },
+  "resources": {
+    "memory_peak_bytes": 427843584,
+    "all_memory_events_zero": true,
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0
+  },
+  "image": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "qualification": {
+    "actual_codec_open": false,
+    "hardware_decode": false,
+    "hardware_map": false,
+    "kodi_playback": false,
+    "picture_accuracy": false,
+    "performance": false
+  }
+}

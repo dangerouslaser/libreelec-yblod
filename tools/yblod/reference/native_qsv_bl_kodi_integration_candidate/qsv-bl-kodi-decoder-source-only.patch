@@ -1,0 +1,283 @@
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 9e5d255..e7dd0e9 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -33,10 +33,18 @@
+ #include "DVPlaybackPolicy.h"
+ #include <cstdlib>
+ #include <cmath>
++#ifdef HAVE_LIBVA
++#include "VAAPI.h"
++#include "cores/VideoPlayer/Buffers/QsvMappedBuffer.h"
++#include "windowing/WinSystem.h"
++#endif
+ extern "C"
+ {
+ #include "dvbridge_fel.h"
+ #include <libavutil/hwcontext.h>
++#ifdef HAVE_LIBVA
++#include <libavutil/hwcontext_vaapi.h>
++#endif
+ }
+ #endif
+ 
+@@ -262,6 +270,19 @@ enum AVPixelFormat CDVDVideoCodecFFmpeg::GetFormat(struct AVCodecContext * avctx
+ {
+   ICallbackHWAccel *cb = static_cast<ICallbackHWAccel*>(avctx->opaque);
+   CDVDVideoCodecFFmpeg* ctx  = dynamic_cast<CDVDVideoCodecFFmpeg*>(cb);
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (ctx && ctx->m_dvBaseQsv)
++  {
++    if (ctx->m_dvFailed || !ctx->m_dvQsvDevice || !avctx->hw_device_ctx ||
++        avctx->hw_device_ctx->data != ctx->m_dvQsvDevice->data || avctx->hwaccel_context)
++      return AV_PIX_FMT_NONE;
++    for (const auto* offered = fmt; *offered != AV_PIX_FMT_NONE; ++offered)
++      if (*offered == AV_PIX_FMT_QSV)
++        return AV_PIX_FMT_QSV;
++    ctx->m_dvFailed = true;
++    return AV_PIX_FMT_NONE;
++  }
++#endif
+ 
+   const char* pixFmtName = av_get_pix_fmt_name(*fmt);
+ 
+@@ -335,6 +356,57 @@ CDVDVideoCodecFFmpeg::~CDVDVideoCodecFFmpeg()
+   Dispose();
+ }
+ 
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++bool CDVDVideoCodecFFmpeg::OpenDVQsvDevice()
++{
++  auto* window = dynamic_cast<VAAPI::IVaapiWinSystem*>(CServiceBroker::GetWinSystem());
++  VAAPI::CVAAPIContext* displayOwner = nullptr;
++  if (!window || !VAAPI::CVAAPIContext::EnsureContext(&displayOwner, nullptr))
++    return false;
++  if (!displayOwner || displayOwner->GetDisplay() != window->GetVADisplay())
++  {
++    if (displayOwner)
++      displayOwner->Release(nullptr);
++    return false;
++  }
++  m_dvVaapiDevice = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_VAAPI);
++  if (!m_dvVaapiDevice)
++  {
++    displayOwner->Release(nullptr);
++    return false;
++  }
++  auto* device = reinterpret_cast<AVHWDeviceContext*>(m_dvVaapiDevice->data);
++  device->user_opaque = displayOwner;
++  device->free = [](AVHWDeviceContext* context) {
++    static_cast<VAAPI::CVAAPIContext*>(context->user_opaque)->Release(nullptr);
++  };
++  auto* vaapi = static_cast<AVVAAPIDeviceContext*>(device->hwctx);
++  vaapi->display = displayOwner->GetDisplay();
++  vaapi->driver_quirks = AV_VAAPI_DRIVER_QUIRK_RENDER_PARAM_BUFFERS |
++                         AV_VAAPI_DRIVER_QUIRK_USER_SET;
++  if (av_hwdevice_ctx_init(m_dvVaapiDevice) < 0 ||
++      av_hwdevice_ctx_create_derived(&m_dvQsvDevice, AV_HWDEVICE_TYPE_QSV,
++                                     m_dvVaapiDevice, 0) < 0)
++    return false;
++  m_pCodecContext->hw_device_ctx = av_buffer_ref(m_dvQsvDevice);
++  if (!m_pCodecContext->hw_device_ctx)
++    return false;
++  try
++  {
++    m_dvQsvPool = std::make_shared<CQsvMappedBufferPool>();
++  }
++  catch (const std::bad_alloc&)
++  {
++    return false;
++  }
++  if (!m_dvQsvPool->Reset())
++    return false;
++  m_dvQsvMappedFrames = 0;
++  m_dvQsvGeneration = 1;
++  return true;
++}
++#endif
++
+ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
+ {
+   if (hints.cryptoSession)
+@@ -352,6 +424,22 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+ #endif
+ 
+   const AVCodec* pCodec = nullptr;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  const char* baseQsv = std::getenv("DVBRIDGE_BASE_QSV");
++  m_dvBaseQsv = baseQsv && std::string(baseQsv) == "1";
++  if (m_dvBaseQsv)
++  {
++    const char* reconstruction = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++    if (!reconstruction || std::string(reconstruction) != "1" || !m_dvNativeOutput ||
++        hints.codec != AV_CODEC_ID_HEVC || hints.dovi.dv_profile != 7 ||
++        !hints.dovi.el_present_flag || hints.orientation ||
++        (hints.codecOptions & CODEC_FORCE_SOFTWARE))
++      return false;
++    pCodec = avcodec_find_decoder_by_name("hevc_qsv");
++    if (!pCodec)
++      return false;
++  }
++#endif
+ 
+   m_iOrientation = hints.orientation;
+ 
+@@ -449,6 +537,24 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+     av_opt_set(m_pCodecContext, it->m_name.c_str(), it->m_value.c_str(), 0);
+   }
+ 
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvBaseQsv)
++  {
++    if (!m_pCodecContext->priv_data ||
++        !av_opt_find(m_pCodecContext->priv_data, "dovi_metadata", nullptr, 0, 0) ||
++        av_opt_set_int(m_pCodecContext->priv_data, "dovi_metadata", 1, 0) < 0 ||
++        !OpenDVQsvDevice())
++    {
++      Dispose();
++      return false;
++    }
++    m_pCodecContext->thread_count = 1;
++    m_pCodecContext->pkt_timebase = AVRational{1, AV_TIME_BASE};
++    CLog::Log(LOGINFO, "DVBridge BL QSV: decoder=hevc_qsv metadata=1 mapped=0 generation={}",
++              m_dvQsvGeneration);
++  }
++#endif
++
+   if (avcodec_open2(m_pCodecContext, pCodec, nullptr) < 0)
+   {
+     CLog::Log(LOGDEBUG,"CDVDVideoCodecFFmpeg::Open() Unable to open codec");
+@@ -525,6 +631,14 @@ void CDVDVideoCodecFFmpeg::Dispose()
+   av_frame_free(&m_pDecodedFrame);
+   av_frame_free(&m_pFilterFrame);
+   avcodec_free_context(&m_pCodecContext);
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvQsvPool)
++    m_dvQsvPool->Reset();
++  m_dvQsvPool.reset();
++  av_buffer_unref(&m_dvQsvDevice);
++  av_buffer_unref(&m_dvVaapiDevice);
++  m_dvBaseQsv = false;
++#endif
+ 
+   if (m_pHardware)
+   {
+@@ -601,7 +715,11 @@ void CDVDVideoCodecFFmpeg::UpdateName()
+   if(m_pHardware)
+     m_name += "-" + m_pHardware->Name();
+ 
+-  m_processInfo.SetVideoDecoderName(m_name, m_pHardware ? true : false);
++  bool hardware = m_pHardware != nullptr;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  hardware = hardware || m_dvBaseQsv;
++#endif
++  m_processInfo.SetVideoDecoderName(m_name, hardware);
+ 
+   CLog::Log(LOGDEBUG, "CDVDVideoCodecFFmpeg - Updated codec: {}", m_name);
+ }
+@@ -762,7 +880,12 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+     if (m_pCodecContext->hw_frames_ctx)
+     {
+       auto* frames = reinterpret_cast<AVHWFramesContext*>(m_pCodecContext->hw_frames_ctx->data);
+-      if (!dvbridge_fel_device(m_dvFel.get(), frames->device_ref))
++      AVBufferRef* elDevice = frames->device_ref;
++#ifdef HAVE_LIBVA
++      if (m_dvBaseQsv)
++        elDevice = m_dvVaapiDevice;
++#endif
++      if (!dvbridge_fel_device(m_dvFel.get(), elDevice))
+         return VC_ERROR;
+     }
+     if (result == VC_PICTURE)
+@@ -973,6 +1096,31 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetBasePicture(VideoPicture* pVid
+   }
+ 
+   // push the frame to hw decoder for further processing
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvBaseQsv)
++  {
++    if (m_dvFailed || m_interlaced || !m_dvQsvPool || !m_dvVaapiDevice)
++      return VC_ERROR;
++    av_frame_unref(m_pFrame);
++    av_frame_move_ref(m_pFrame, m_pDecodedFrame);
++    auto* buffer = m_dvQsvPool->GetMapped(m_pFrame, m_dvVaapiDevice);
++    if (!buffer || !GetPictureCommon(pVideoPicture))
++    {
++      if (buffer)
++        buffer->Release();
++      m_dvFailed = true;
++      return VC_ERROR;
++    }
++    if (pVideoPicture->videoBuffer)
++      pVideoPicture->videoBuffer->Release();
++    pVideoPicture->videoBuffer = buffer;
++    ++m_dvQsvMappedFrames;
++    if (m_dvQsvMappedFrames == 1 || m_dvQsvMappedFrames % 120 == 0)
++      CLog::Log(LOGINFO, "DVBridge BL QSV: decoder=hevc_qsv metadata=1 mapped={} generation={}",
++                m_dvQsvMappedFrames, m_dvQsvGeneration);
++    return VC_PICTURE;
++  }
++#endif
+   if (m_pHardware)
+   {
+     av_frame_unref(m_pFrame);
+@@ -1084,6 +1232,12 @@ void CDVDVideoCodecFFmpeg::Reset()
+   m_dvPending.clear();
+   dvbridge_fel_reset(m_dvFel.get());
+   m_dvFailed = false;
++#ifdef HAVE_LIBVA
++  if (m_dvBaseQsv && (!m_dvQsvPool || !m_dvQsvPool->Reset()))
++    m_dvFailed = true;
++  else if (m_dvBaseQsv)
++    ++m_dvQsvGeneration;
++#endif
+ #endif
+   m_started = false;
+   m_startedInput = false;
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index 271fc2c..64b5346 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -31,6 +31,9 @@ extern "C"
+ }
+ 
+ class CVideoBufferPoolFFmpeg;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++class CQsvMappedBufferPool;
++#endif
+ 
+ class CDVDVideoCodecFFmpeg : public CDVDVideoCodec, public ICallbackHWAccel
+ {
+@@ -64,6 +67,15 @@ protected:
+   std::deque<std::shared_ptr<VideoPicture>> m_dvPending;
+   bool m_dvFailed{false};
+   bool m_dvNativeOutput{false};
++#ifdef HAVE_LIBVA
++  bool m_dvBaseQsv{false};
++  AVBufferRef* m_dvVaapiDevice{};
++  AVBufferRef* m_dvQsvDevice{};
++  std::shared_ptr<CQsvMappedBufferPool> m_dvQsvPool;
++  uint64_t m_dvQsvMappedFrames{};
++  uint64_t m_dvQsvGeneration{};
++  bool OpenDVQsvDevice();
++#endif
+   // Last in-band HDR10 static metadata of this stream (see GetPictureCommon).
+   bool m_dvHasStreamDisplayMetadata{false};
+   AVMasteringDisplayMetadata m_dvStreamDisplayMetadata{};
+diff --git a/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt b/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
+index 823dad5..82bdfc2 100644
+--- a/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/Buffers/CMakeLists.txt
+@@ -1,6 +1,11 @@
+ set(SOURCES VideoBuffer.cpp)
+ set(HEADERS VideoBuffer.h)
+ 
++if(ENABLE_DVBRIDGE AND TARGET ${APP_NAME_LC}::VAAPI)
++  list(APPEND SOURCES QsvMappedBuffer.cpp)
++  list(APPEND HEADERS QsvMappedBuffer.h)
++endif()
++
+ # dma-buf identity is consumed by the VAAPI EGL path, which builds on x11 too
+ if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_LC
+    OR "x11" IN_LIST CORE_PLATFORM_NAME_LC)
+
