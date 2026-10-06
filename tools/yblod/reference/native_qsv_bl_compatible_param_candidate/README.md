@@ -22,4 +22,12 @@ The actual candidate `qsv_decode` CPU fixture passed 53 cases, including ownersh
 
 Two prior fixture attempts are recorded in `COMPATIBLE_PARAM_CPU_RESULTS.json`: the added owned-session mock initially reached the real dispatcher close with a fake handle. An ASAN run identified that fixture gap; the correction explicitly mocks `MFXClose` and checks that the actual flush path closes it once. Product source was not changed to address that fixture failure.
 
-This evidence does not establish hardware acceptance, previous-RPU reference coverage, pixel accuracy, full parameter-change reconfiguration, Kodi playback, HDMI output or performance improvements. Changed allocation/crop still fails closed. Actual hardware and movie comparisons must pass independently before adoption.
+This CPU evidence does not establish hardware acceptance, previous-RPU reference coverage, pixel accuracy, full parameter-change reconfiguration, Kodi playback, HDMI output or performance improvements. Changed allocation/crop still fails closed.
+
+## Isolated hardware result
+
+`COMPATIBLE_PARAM_BUILD_RESULTS.json` records a separate copied-source libavcodec build, with the original SDK and previous libraries unchanged. The container had a 4 GiB limit, zero swap, one CPU, no network or GPU, and serial compilation/LTO; peak memory was 584,028,160 bytes with zero memory events and swap. This report is build evidence, not playback evidence.
+
+`COMPATIBLE_PARAM_HARDWARE_RESULTS.json` records one subsequent Ollie trial using that exact library and the preserved historical three-frame comparison probe. All nine raw P010 planes had literally zero sample differences; independently decoded native HEVC Dolby metadata, raw RPU bytes and frame properties matched. The live owned child, actual i915 client and mapped executable closure were verified. Only the three selected QSV frames were directly mapped to VAAPI; this is not a claim that every returned frame was mapped.
+
+The initial simultaneous two-decoder trial exceeded its 512 MiB test cgroup and was retained as a failure. A separately authorized 1536 MiB diagnostic budget then passed with a 679,452,672-byte peak, zero memory events and zero swap. The larger allowance is not a Kodi memory optimization or a performance comparison. Both attempts are disclosed in the scalar report. No access-unit coverage, full reconfiguration, Kodi playback or physical HDMI output is qualified by this three-frame result.
