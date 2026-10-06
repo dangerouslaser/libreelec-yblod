@@ -1,0 +1,493 @@
+{
+  "schema": "yblod.partial-long-playback-qualification.v1",
+  "date": "2026-10-06",
+  "same_binary_completed_cases": true,
+  "completed_matrix_lifecycle_and_observer_cases": 3,
+  "planned_cases": 8,
+  "completed_case_native_failure_or_crash_markers": 0,
+  "full_matrix_complete": false,
+  "execution": "Two original completed lifecycle/observer cases plus one explicitly resumed completed case, not a continuous completed eight-case matrix or an assertion that the integer control was smooth.",
+  "interruption": "The resumed integer control was stopped following a visible-drop concern and the faster route restored by the controller.",
+  "matched_1917_first_window": {
+    "requested_seconds_per_route": 300,
+    "integer": {
+      "media": "1917",
+      "seek_seconds": 0,
+      "requested_seconds": 300,
+      "expected_route": "integer",
+      "observer_elapsed_seconds": 301.1144898529892,
+      "health": {
+        "first_pts_s": 10.093,
+        "last_pts_s": 290.54,
+        "source_seconds": 280.447,
+        "counter_window_valid": true,
+        "first_drop_total": 0,
+        "last_drop_total": 16,
+        "first_skip_total": 2,
+        "last_skip_total": 38,
+        "drop_delta": 16,
+        "skip_delta": 36,
+        "normal_speed": true,
+        "stalled": false,
+        "weighted_render_avg_percent": 65.51741517944696
+      },
+      "stage_window": {
+        "start_released": 120,
+        "end_released": 5760,
+        "released_count_delta": 5640,
+        "wall_ms_per_release": {
+          "scaler_submit": 0.16804255319148936,
+          "va_wait": 3.9953617021276595,
+          "imports": 0.2581914893617021,
+          "prep_submit": 0.09095744680851064,
+          "prep_wait": 2.0728510638297872,
+          "composer_submit": 0.0944468085106383,
+          "composer_wait": 16.45155319148936,
+          "ycc_submit": 0.06757446808510639,
+          "ycc_wait": 5.130765957446808,
+          "bridge": 0.048255319148936174,
+          "consumer_release": 7.165893617021276
+        },
+        "worst_case_log_rounding_error_ms": 0.0005212765957446808,
+        "released_count_is_not_unique_frames_or_display_flips": true
+      },
+      "memory_snapshots": {
+        "runtime_before": {
+          "MemoryCurrent": 571060224,
+          "MemoryPeak": 571060224
+        },
+        "runtime_after": {
+          "MemoryCurrent": 1724821504,
+          "MemoryPeak": 1962348544
+        }
+      },
+      "gpu_counter_intervals": {
+        "valid_count": 147,
+        "unavailable_count": 0,
+        "duration_seconds": 299.027294086,
+        "time_weighted_busy_percent": {
+          "drm-engine-copy": 0.0,
+          "drm-engine-render": 65.40257564406606,
+          "drm-engine-video": 6.489436526626592,
+          "drm-engine-video-enhance": 7.656377595222301
+        },
+        "scope": "Deduplicated Kodi DRM client counters, not isolated shader timings."
+      },
+      "player_progress": {
+        "samples": 148,
+        "all_normal_speed": true
+      },
+      "route": {
+        "observations": 48,
+        "first": {
+          "released_frames": "120",
+          "fp32_selected": "0",
+          "accepted_fp32": "0",
+          "accepted_integer": "0",
+          "cache_hits": "0",
+          "cache_misses": "0",
+          "shader_compile_failed": "0",
+          "generate_failed": "0"
+        },
+        "last": {
+          "released_frames": "5760",
+          "fp32_selected": "0",
+          "accepted_fp32": "0",
+          "accepted_integer": "0",
+          "cache_hits": "0",
+          "cache_misses": "0",
+          "shader_compile_failed": "0",
+          "generate_failed": "0"
+        }
+      },
+      "sampled_memory": {
+        "sample_count": 30,
+        "minimum_system_available_bytes": 1851760640,
+        "maximum_service_current_bytes": 1789546496,
+        "scope": "Whole Kodi service and whole-system availability, not engine-only allocations."
+      },
+      "lifecycle_and_observer_integrity_passed": true
+    },
+    "fp32": {
+      "media": "1917",
+      "seek_seconds": 0,
+      "requested_seconds": 300,
+      "expected_route": "fp32",
+      "observer_elapsed_seconds": 301.9615176859952,
+      "health": {
+        "first_pts_s": 10.469,
+        "last_pts_s": 290.749,
+        "source_seconds": 280.28000000000003,
+        "counter_window_valid": true,
+        "first_drop_total": 0,
+        "last_drop_total": 0,
+        "first_skip_total": 1,
+        "last_skip_total": 1,
+        "drop_delta": 0,
+        "skip_delta": 0,
+        "normal_speed": true,
+        "stalled": false,
+        "weighted_render_avg_percent": 61.81070908675734
+      },
+      "stage_window": {
+        "start_released": 120,
+        "end_released": 7080,
+        "released_count_delta": 6960,
+        "wall_ms_per_release": {
+          "scaler_submit": 0.17496551724137932,
+          "va_wait": 4.06351724137931,
+          "imports": 0.23610344827586202,
+          "prep_submit": 0.08481034482758622,
+          "prep_wait": 1.978155172413793,
+          "composer_submit": 0.10113793103448275,
+          "composer_wait": 8.993344827586206,
+          "ycc_submit": 0.06762068965517241,
+          "ycc_wait": 5.044034482758621,
+          "bridge": 0.04456896551724138,
+          "consumer_release": 6.9623620689655175
+        },
+        "worst_case_log_rounding_error_ms": 0.0005172413793103448,
+        "released_count_is_not_unique_frames_or_display_flips": true
+      },
+      "memory_snapshots": {
+        "runtime_before": {
+          "MemoryCurrent": 589230080,
+          "MemoryPeak": 589230080
+        },
+        "runtime_after": {
+          "MemoryCurrent": 1664790528,
+          "MemoryPeak": 1941204992
+        }
+      },
+      "gpu_counter_intervals": {
+        "valid_count": 148,
+        "unavailable_count": 0,
+        "duration_seconds": 299.905392234,
+        "time_weighted_busy_percent": {
+          "drm-engine-copy": 0.0,
+          "drm-engine-render": 61.82638438302112,
+          "drm-engine-video": 6.524672883751376,
+          "drm-engine-video-enhance": 9.449615680763719
+        },
+        "scope": "Deduplicated Kodi DRM client counters, not isolated shader timings."
+      },
+      "player_progress": {
+        "samples": 149,
+        "all_normal_speed": true
+      },
+      "route": {
+        "observations": 59,
+        "first": {
+          "released_frames": "120",
+          "fp32_selected": "1",
+          "accepted_fp32": "120",
+          "accepted_integer": "0",
+          "cache_hits": "119",
+          "cache_misses": "1",
+          "shader_compile_failed": "0",
+          "generate_failed": "0"
+        },
+        "last": {
+          "released_frames": "7080",
+          "fp32_selected": "1",
+          "accepted_fp32": "7080",
+          "accepted_integer": "0",
+          "cache_hits": "7079",
+          "cache_misses": "1",
+          "shader_compile_failed": "0",
+          "generate_failed": "0"
+        }
+      },
+      "sampled_memory": {
+        "sample_count": 30,
+        "minimum_system_available_bytes": 1656786944,
+        "maximum_service_current_bytes": 1925435392,
+        "scope": "Whole Kodi service and whole-system availability, not engine-only allocations."
+      },
+      "lifecycle_and_observer_integrity_passed": true
+    },
+    "composer_wait_reduction_percent": 45.33437224493429
+  },
+  "unmatched_1917_fp32_20_minute_window": {
+    "media": "1917",
+    "seek_seconds": 1200,
+    "requested_seconds": 300,
+    "expected_route": "fp32",
+    "observer_elapsed_seconds": 301.859461007989,
+    "health": {
+      "first_pts_s": 1210.042,
+      "last_pts_s": 1490.322,
+      "source_seconds": 280.28,
+      "counter_window_valid": true,
+      "first_drop_total": 0,
+      "last_drop_total": 0,
+      "first_skip_total": 0,
+      "last_skip_total": 1,
+      "drop_delta": 0,
+      "skip_delta": 1,
+      "normal_speed": true,
+      "stalled": false,
+      "weighted_render_avg_percent": 61.410708615344
+    },
+    "stage_window": {
+      "start_released": 120,
+      "end_released": 7200,
+      "released_count_delta": 7080,
+      "wall_ms_per_release": {
+        "scaler_submit": 0.16815254237288138,
+        "va_wait": 4.059135593220339,
+        "imports": 0.23374576271186442,
+        "prep_submit": 0.0818135593220339,
+        "prep_wait": 1.9647966101694916,
+        "composer_submit": 0.09786440677966103,
+        "composer_wait": 8.779186440677966,
+        "ycc_submit": 0.06766101694915255,
+        "ycc_wait": 5.071796610169492,
+        "bridge": 0.04715254237288136,
+        "consumer_release": 6.955457627118644
+      },
+      "worst_case_log_rounding_error_ms": 0.0005169491525423729,
+      "released_count_is_not_unique_frames_or_display_flips": true
+    },
+    "memory_snapshots": {
+      "runtime_before": {
+        "MemoryCurrent": 583528448,
+        "MemoryPeak": 583528448
+      },
+      "runtime_after": {
+        "MemoryCurrent": 1700122624,
+        "MemoryPeak": 2021335040
+      }
+    },
+    "gpu_counter_intervals": {
+      "valid_count": 148,
+      "unavailable_count": 0,
+      "duration_seconds": 299.803276026,
+      "time_weighted_busy_percent": {
+        "drm-engine-copy": 0.0,
+        "drm-engine-render": 61.44684978559869,
+        "drm-engine-video": 6.715043823021497,
+        "drm-engine-video-enhance": 9.445556932988335
+      },
+      "scope": "Deduplicated Kodi DRM client counters, not isolated shader timings."
+    },
+    "player_progress": {
+      "samples": 149,
+      "all_normal_speed": true
+    },
+    "route": {
+      "observations": 60,
+      "first": {
+        "released_frames": "120",
+        "fp32_selected": "1",
+        "accepted_fp32": "120",
+        "accepted_integer": "0",
+        "cache_hits": "119",
+        "cache_misses": "1",
+        "shader_compile_failed": "0",
+        "generate_failed": "0"
+      },
+      "last": {
+        "released_frames": "7200",
+        "fp32_selected": "1",
+        "accepted_fp32": "7200",
+        "accepted_integer": "0",
+        "cache_hits": "7199",
+        "cache_misses": "1",
+        "shader_compile_failed": "0",
+        "generate_failed": "0"
+      }
+    },
+    "sampled_memory": {
+      "sample_count": 30,
+      "minimum_system_available_bytes": 1643552768,
+      "maximum_service_current_bytes": 1961484288,
+      "scope": "Whole Kodi service and whole-system availability, not engine-only allocations."
+    },
+    "lifecycle_and_observer_integrity_passed": true
+  },
+  "interrupted_integer_20_minute_control": {
+    "media": "1917",
+    "seek_seconds": 1200,
+    "route": "integer",
+    "status": "Interrupted by the controller following a visible-drop concern; not a completed qualification or pipeline crash.",
+    "observer_report_complete": false,
+    "shutdown_qualified_by_this_run": false,
+    "first_observed_pts_s": 1199.281,
+    "last_observed_pts_s": 1310.267,
+    "last_drop_total": 13,
+    "last_skip_total": 24,
+    "observed_drop_delta": 13,
+    "observed_skip_delta": 24,
+    "partial_composer_wait_ms": 16.665125,
+    "scope": "Partial log evidence only; not a matched-duration comparison with the completed five-minute FP32 window."
+  },
+  "separate_spr_fp32_observation": {
+    "media": "Saving Private Ryan",
+    "seek_seconds": 0,
+    "observer_elapsed_seconds": 300.3542411130038,
+    "health": {
+      "first_pts_s": 10.469,
+      "last_pts_s": 290.749,
+      "source_seconds": 280.28000000000003,
+      "counter_window_valid": true,
+      "first_drop_total": 0,
+      "last_drop_total": 0,
+      "first_skip_total": 1,
+      "last_skip_total": 1,
+      "drop_delta": 0,
+      "skip_delta": 0,
+      "normal_speed": true,
+      "stalled": false,
+      "weighted_render_avg_percent": 64.6178351493874
+    },
+    "stage_window": {
+      "start_released": 120,
+      "end_released": 7080,
+      "released_count_delta": 6960,
+      "wall_ms_per_release": {
+        "scaler_submit": 0.1885,
+        "va_wait": 4.075344827586207,
+        "imports": 0.25698275862068964,
+        "prep_submit": 0.08698275862068965,
+        "prep_wait": 1.967689655172414,
+        "composer_submit": 0.10649999999999998,
+        "composer_wait": 9.313362068965517,
+        "ycc_submit": 0.07191379310344827,
+        "ycc_wait": 5.231844827586208,
+        "bridge": 0.04851724137931034,
+        "consumer_release": 7.466344827586207
+      },
+      "worst_case_log_rounding_error_ms": 0.0005172413793103448,
+      "released_count_is_not_unique_frames_or_display_flips": true
+    },
+    "memory_snapshots": {
+      "runtime_before": {
+        "MemoryCurrent": 790654976,
+        "MemoryPeak": 2018594816
+      },
+      "runtime_after": {
+        "MemoryCurrent": 1843224576,
+        "MemoryPeak": 2018594816
+      }
+    },
+    "gpu_counter_intervals": {
+      "valid_count": 147,
+      "unavailable_count": 0,
+      "duration_seconds": 298.269831103,
+      "time_weighted_busy_percent": {
+        "drm-engine-copy": 0.0,
+        "drm-engine-render": 64.58430440270646,
+        "drm-engine-video": 5.744594535302857,
+        "drm-engine-video-enhance": 9.458098429759783
+      },
+      "scope": "Deduplicated Kodi DRM client counters, not isolated shader timings."
+    },
+    "status": "Separate FP32-only observation; no matched integer control and no playback-stop/service-shutdown qualification."
+  },
+  "separate_spr20_fp32_observation": {
+    "media": "Saving Private Ryan",
+    "seek_seconds": 1200,
+    "observer_elapsed_seconds": 300.5580002529896,
+    "health": {
+      "first_pts_s": 1209.458,
+      "last_pts_s": 1489.738,
+      "source_seconds": 280.28,
+      "counter_window_valid": true,
+      "first_drop_total": 0,
+      "last_drop_total": 0,
+      "first_skip_total": 1,
+      "last_skip_total": 1,
+      "drop_delta": 0,
+      "skip_delta": 0,
+      "normal_speed": true,
+      "stalled": false,
+      "weighted_render_avg_percent": 65.3464271187892
+    },
+    "stage_window": {
+      "start_released": 120,
+      "end_released": 7080,
+      "released_count_delta": 6960,
+      "wall_ms_per_release": {
+        "scaler_submit": 0.18606896551724136,
+        "va_wait": 4.063051724137931,
+        "imports": 0.26465517241379316,
+        "prep_submit": 0.0848793103448276,
+        "prep_wait": 1.922103448275862,
+        "composer_submit": 0.10060344827586208,
+        "composer_wait": 9.62051724137931,
+        "ycc_submit": 0.06970689655172413,
+        "ycc_wait": 5.306413793103448,
+        "bridge": 0.05001724137931034,
+        "consumer_release": 7.440155172413793
+      },
+      "worst_case_log_rounding_error_ms": 0.0005172413793103448,
+      "released_count_is_not_unique_frames_or_display_flips": true
+    },
+    "memory_snapshots": {
+      "runtime_before": {
+        "MemoryCurrent": 1524858880,
+        "MemoryPeak": 1999118336
+      },
+      "runtime_after": {
+        "MemoryCurrent": 1972039680,
+        "MemoryPeak": 2068738048
+      }
+    },
+    "gpu_counter_intervals": {
+      "valid_count": 147,
+      "unavailable_count": 0,
+      "duration_seconds": 298.504579663,
+      "time_weighted_busy_percent": {
+        "drm-engine-copy": 0.0,
+        "drm-engine-render": 65.38789696304063,
+        "drm-engine-video": 5.474028258610797,
+        "drm-engine-video-enhance": 9.437485877035563
+      },
+      "scope": "Deduplicated Kodi DRM client counters, not isolated shader timings."
+    },
+    "status": "Separate fast-only five-minute observation with player stop and a clean service shutdown; no matched integer control.",
+    "player_stop_idle_and_identity_passed": true,
+    "service_shutdown": {
+      "controller_reported_result": "success",
+      "controller_reported_exec_main_status": 0,
+      "independent_journal_successful_deactivation": true,
+      "bounded_journal_crash_or_timeout_markers": 0,
+      "scope": "Result/status reported by the controller; clean deactivation independently observed in the bounded journal. Not a claim about later menu-only shutdown."
+    }
+  },
+  "numbered_fel_user_visual_observation": {
+    "status": "User-reported visual observation, not quantified display accuracy.",
+    "user_report": "that clip finished - looked perfect",
+    "reported_stream_flags": {
+      "fp32": true,
+      "fel": true
+    },
+    "partial_log_through_approximately_seconds": 110,
+    "partial_log_drop_total": 0,
+    "partial_log_skip_total": 2,
+    "skip_scope": "Includes startup; partial logs are not a full-clip counter report.",
+    "formal_full_clip_observer_report": false,
+    "quantitative_display_accuracy_qualified": false
+  },
+  "independent_startup_journals": {
+    "original_completed_first_pair": {
+      "service_starts_observed": 2,
+      "crash_or_failure_markers": 0,
+      "scope": "Entire bounded Kodi journal independently inspected, including service startup; not solely the running controller journal filter."
+    },
+    "resumed_completed_fp32_and_interrupted_integer_startups": {
+      "service_starts_observed": 2,
+      "crash_or_failure_markers": 0,
+      "scope": "Entire bounded Kodi journal independently inspected, including service startup; not solely the running controller journal filter."
+    }
+  },
+  "running_controller_startup_boundary": "After wait_rpc; independently inspected journals cover startup. The subsequently published source moves it before start.",
+  "subsequent_separate_menu_shutdown": {
+    "status": "Timed out and was force-killed with SIGKILL.",
+    "scope": "Separate short-start/menu-toggle shutdown after the SPR20 observation; not the completed SPR playback shutdown.",
+    "explicit_heap_abort_seen_in_bounded_journal": false,
+    "general_shutdown_issue_resolved": false
+  },
+  "scope": "Composer helper wall times and playback counters, not an untouched CroqueMr benchmark, exclusive GPU kernel time, unique HDMI flips, displayed colour accuracy, or engine-only RAM."
+}
