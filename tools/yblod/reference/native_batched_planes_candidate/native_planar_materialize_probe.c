@@ -4,8 +4,6 @@
 #include "native_playback_context.c"
 
 struct yb_egl_output_bridge { unsigned slot; };
-int yb_egl_output_bridge_release_planes_timed(yb_egl_output_bridge *handles[3],uint64_t timeout)
-{ (void)handles;(void)timeout;assert(0);return YB_EGL_BRIDGE_ARGUMENT; }
 static struct yb_native_playback_context *current;
 static struct yb_egl_output_bridge rgba_bridge={3};
 static uintptr_t active_context=2;
@@ -46,6 +44,14 @@ int yb_egl_output_bridge_release_timed(yb_egl_output_bridge **handle,uint64_t ti
     if(release_error)return YB_EGL_BRIDGE_CLEANUP;
     released[slot]++;*handle=NULL;return YB_EGL_BRIDGE_OK;
 }
+int yb_egl_output_bridge_release_planes_timed(yb_egl_output_bridge *handles[3],uint64_t timeout)
+{
+    assert(timeout==1000);
+    if(timeout_slot>=0){timeout_slot=-1;return YB_EGL_BRIDGE_CONSUMER;}
+    if(release_error)return YB_EGL_BRIDGE_CLEANUP;
+    for(unsigned i=0;i<3;i++)if(handles[i]){released[i]++;handles[i]=NULL;}
+    return YB_EGL_BRIDGE_OK;
+}
 int yb_gpu_ycc_submit(yb_gpu_ycc_backend *backend,const yb_gpu_ycc_plan *plan)
 {
     assert(backend==(yb_gpu_ycc_backend *)(uintptr_t)6&&active_context==3);
@@ -81,7 +87,7 @@ uint32_t yb_egl_output_bridge_texture(const yb_egl_output_bridge *bridge)
 static void marked(void *owner){assert(owner==(void *)(uintptr_t)7);quarantines++;}
 static void setup(struct yb_native_playback_context *p,struct yb_egl_output_bridge bridges[3],AVFrame *base,AVFrame *el,AVBufferRef *guard)
 {
-    memset(p,0,sizeof(*p));p->state=OUTPUT_READY;p->planar_output=1;
+    memset(p,0,sizeof(*p));p->state=OUTPUT_READY;p->planar_output=1;p->batched_planes=1;
     p->settings.egl_display=1;p->desktop=(EGLContext)(uintptr_t)3;
     p->consumer=(yb_egl_binding){1,2,0,0,EGL_OPENGL_ES_API};
     p->base=base;p->el=el;p->base_render_guard=guard;
@@ -137,7 +143,7 @@ int main(void)
             assert(!memcmp(&out,&sentinel,sizeof(out))&&!submissions&&!finishes&&!bridge_creates);
             retained(&p,&base,&el,&guard);assert(active_context==2&&active_api==EGL_OPENGL_ES_API);
             transition_guards(&p);
-            for(unsigned i=0;i<3;i++)assert(released[i]==((int)i<fault?1u:0u));
+            for(unsigned i=0;i<3;i++)assert(!released[i]&&p.plane_bridges[i]);
             status=yb_native_playback_materialize_rgba(&p,1000,&out);
         }
         assert(status==YB_NATIVE_PLAYBACK_OK&&p.state==OUTPUT_READY&&!p.quarantined&&p.planar_output==1);
@@ -178,6 +184,6 @@ int main(void)
         assert(submissions==1&&finishes==2&&bridge_creates==1);
         checks++;
     }
-    printf("{\"schema\":\"yblod.native-planar-materialize-host-test.v1\",\"complete\":true,\"actual_materialize_function\":true,\"cases\":%u,\"release_timeout_positions\":3,\"decoded_refs_retained\":true,\"failed_output_unchanged\":true,\"gpu_execution\":false}\n",checks);
+    printf("{\"schema\":\"yblod.native-batched-materialize-host-test.v1\",\"complete\":true,\"actual_materialize_function\":true,\"cases\":%u,\"all_planes_retained_on_batch_timeout\":true,\"decoded_refs_retained\":true,\"failed_output_unchanged\":true,\"gpu_execution\":false}\n",checks);
     return 0;
 }

@@ -31,7 +31,8 @@ struct yb_native_playback_context {
     yb_vaapi_p010_import *base_import,*el_import;
     yb_egl_output_bridge *bridge;
     yb_egl_output_bridge *plane_bridges[3];
-    int planar_output;
+    int planar_output,batched_planes;
+    uint64_t batch_imports,batch_releases;
     AVFrame *base,*el;
     AVBufferRef *base_render_guard;
     uint32_t base_allocation_width,base_allocation_height;
@@ -191,10 +192,24 @@ int yb_native_playback_create(const yb_native_playback_create_info *info,
 int yb_native_playback_options_validate(const yb_native_playback_options *options)
 {
     if(!options||options->version!=1||options->reserved[0]||options->reserved[1]||
-       (options->flags&~(uint32_t)(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT))||
-       ((options->flags&(YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT))&&!(options->flags&YB_NATIVE_PLAYBACK_FP32)))
+       (options->flags&~(uint32_t)(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT|YB_NATIVE_PLAYBACK_BATCHED_PLANES|YB_NATIVE_PLAYBACK_IMMUTABLE_INSTRUCTIONS))||
+       ((options->flags&YB_NATIVE_PLAYBACK_BATCHED_PLANES)&&!(options->flags&YB_NATIVE_PLAYBACK_PLANAR_OUTPUT))||
+       ((options->flags&(YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT|YB_NATIVE_PLAYBACK_IMMUTABLE_INSTRUCTIONS))&&!(options->flags&YB_NATIVE_PLAYBACK_FP32)))
         return YB_NATIVE_PLAYBACK_ARGUMENT;
     return YB_NATIVE_PLAYBACK_OK;
+}
+int yb_native_playback_batched_planes_selected(const yb_native_playback_context *p)
+{ return p&&p->batched_planes; }
+int yb_native_playback_get_batch_stats(const yb_native_playback_context *p,yb_native_playback_batch_stats *out)
+{
+    if(!p||!out)return YB_NATIVE_PLAYBACK_ARGUMENT;
+    *out=(yb_native_playback_batch_stats){(uint32_t)p->batched_planes,p->batch_imports,p->batch_releases};
+    return YB_NATIVE_PLAYBACK_OK;
+}
+int yb_native_playback_get_instruction_stats(const yb_native_playback_context *p,yb_gpu_fp32_instruction_stats *out,size_t size)
+{
+    if(!p||!p->fp32)return YB_NATIVE_PLAYBACK_ARGUMENT;
+    return yb_gpu_fp32_get_instruction_stats(p->fp32,out,size);
 }
 int yb_native_playback_create_ex(const yb_native_playback_create_info *info,
     const yb_native_playback_options *options,yb_native_playback_context **out)
@@ -213,6 +228,7 @@ int yb_native_playback_create_ex(const yb_native_playback_create_info *info,
     if (!p) return YB_NATIVE_PLAYBACK_ERROR;
     p->settings=*info; p->consumer=saved;
     p->planar_output=(flags&YB_NATIVE_PLAYBACK_PLANAR_OUTPUT)!=0;
+    p->batched_planes=(flags&YB_NATIVE_PLAYBACK_BATCHED_PLANES)!=0;
     const EGLint attrs[]={EGL_SURFACE_TYPE,0,EGL_RENDERABLE_TYPE,EGL_OPENGL_BIT,EGL_NONE};
     const EGLint context[]={EGL_CONTEXT_MAJOR_VERSION_KHR,4,EGL_CONTEXT_MINOR_VERSION_KHR,3,
         EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR,EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR,EGL_NONE};
@@ -228,7 +244,8 @@ int yb_native_playback_create_ex(const yb_native_playback_create_info *info,
     gpu.shader_source=info->composer.bytes; gpu.shader_bytes=info->composer.size;
     if (flags&YB_NATIVE_PLAYBACK_FP32) {
         const yb_gpu_fp32_options composer_options={1,
-            flags&YB_NATIVE_PLAYBACK_NLQ_LUT?(uint32_t)YB_GPU_FP32_NLQ_LUT:0U,{0,0}};
+            (flags&YB_NATIVE_PLAYBACK_NLQ_LUT?(uint32_t)YB_GPU_FP32_NLQ_LUT:0U)|
+            (flags&YB_NATIVE_PLAYBACK_IMMUTABLE_INSTRUCTIONS?(uint32_t)YB_GPU_FP32_IMMUTABLE_INSTRUCTIONS:0U),{0,0}};
         if (yb_gpu_fp32_create_ex(&gpu,&composer_options,&p->fp32)) goto fail;
     } else if (yb_gpu_backend_create(&gpu,&p->composer)) goto fail;
     gpu.shader_source=info->ycc_expansion.bytes; gpu.shader_bytes=info->ycc_expansion.size;
@@ -519,12 +536,21 @@ static int playback_finish_impl(yb_native_playback_context *p,uint64_t timeout,
         if (!restore(&saved)) goto quarantine;
         /* Keep every sibling and decoded lease on a partial import failure.
          * Publish only after all producer fences/imports have completed. */
+        if(p->batched_planes) {
+            YB_TIMED_NO_PENDING(p,YB_NATIVE_TIMING_BRIDGE,status,
+                yb_egl_output_bridge_create_planes((uintptr_t)p->desktop,p->reconstructed.textures,
+                    p->plane_bridges),YB_EGL_BRIDGE_OK);
+            if(status)goto quarantine;
+            if(p->batch_imports!=UINT64_MAX)p->batch_imports++;
+        }
         for (unsigned i=0;i<3;i++) {
             if (!p->reconstructed.textures[i]) goto quarantine;
-            YB_TIMED_NO_PENDING(p,YB_NATIVE_TIMING_BRIDGE,status,
-                yb_egl_output_bridge_create((uintptr_t)p->desktop,p->reconstructed.textures[i],
-                    &p->plane_bridges[i]),YB_EGL_BRIDGE_OK);
-            if (status) goto quarantine;
+            if(!p->batched_planes) {
+                YB_TIMED_NO_PENDING(p,YB_NATIVE_TIMING_BRIDGE,status,
+                    yb_egl_output_bridge_create((uintptr_t)p->desktop,p->reconstructed.textures[i],
+                        &p->plane_bridges[i]),YB_EGL_BRIDGE_OK);
+                if (status) goto quarantine;
+            }
             output.textures[i]=yb_egl_output_bridge_texture(p->plane_bridges[i]);
             if (!output.textures[i]) goto quarantine;
         }
@@ -580,7 +606,14 @@ int yb_native_playback_materialize_rgba(yb_native_playback_context *p,uint64_t t
     if(p->state==PLANAR_RGBA_RELEASING) {
         /* Flush and discard consumer wrappers before entry. Retain every
          * decoded lease and producer plane while sibling fences are pending. */
-        for(unsigned i=0;i<3;i++) {
+        if(p->batched_planes) {
+            status=yb_egl_output_bridge_release_planes_timed(p->plane_bridges,timeout);
+            if(status==YB_EGL_BRIDGE_CONSUMER)
+                return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
+            if(status)goto quarantine;
+            if(p->batch_releases!=UINT64_MAX)p->batch_releases++;
+        }
+        for(unsigned i=0;!p->batched_planes&&i<3;i++) {
             status=yb_egl_output_bridge_release_timed(&p->plane_bridges[i],timeout);
             if(status==YB_EGL_BRIDGE_CONSUMER)
                 return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
@@ -628,7 +661,12 @@ static int playback_release_impl(yb_native_playback_context *p,uint64_t timeout)
     /* Kodi must pl_gpu_flush before this call, so queued renderer work is
      * actually submitted and belongs before this consumer fence. */
     int status=yb_egl_output_bridge_release_timed(&p->bridge,timeout);
-    if (!status) for (unsigned i=0;i<3;i++) {
+    if(!status&&p->batched_planes) {
+        int had_planes=p->plane_bridges[0]||p->plane_bridges[1]||p->plane_bridges[2];
+        status=yb_egl_output_bridge_release_planes_timed(p->plane_bridges,timeout);
+        if(!status&&had_planes&&p->batch_releases!=UINT64_MAX)p->batch_releases++;
+    }
+    if (!status&&!p->batched_planes) for (unsigned i=0;i<3;i++) {
         status=yb_egl_output_bridge_release_timed(&p->plane_bridges[i],timeout);
         if (status) break;
     }

@@ -11,9 +11,14 @@ extern "C" {
 #endif
 typedef struct yb_native_playback_context yb_native_playback_context;
 enum { YB_NATIVE_PLAYBACK_FP32=1,YB_NATIVE_PLAYBACK_NLQ_LUT=2,
-       YB_NATIVE_PLAYBACK_PLANAR_OUTPUT=4 };
+       YB_NATIVE_PLAYBACK_PLANAR_OUTPUT=4,YB_NATIVE_PLAYBACK_BATCHED_PLANES=8,
+       YB_NATIVE_PLAYBACK_IMMUTABLE_INSTRUCTIONS=16 };
 typedef struct { uint32_t version,flags,reserved[2]; } yb_native_playback_options;
 int yb_native_playback_options_validate(const yb_native_playback_options *);
+int yb_native_playback_batched_planes_selected(const yb_native_playback_context *);
+typedef struct {uint32_t selected;uint64_t imports,releases;} yb_native_playback_batch_stats;
+int yb_native_playback_get_batch_stats(const yb_native_playback_context *,yb_native_playback_batch_stats *);
+int yb_native_playback_get_instruction_stats(const yb_native_playback_context *,yb_gpu_fp32_instruction_stats *,size_t);
 /* CPU-only, same-owner-thread route diagnostics. Zero counters when disabled. */
 int yb_native_playback_fp32_selected(const yb_native_playback_context *);
 int yb_native_playback_fp32_get_stats(const yb_native_playback_context *,yb_gpu_fp32_stats *);

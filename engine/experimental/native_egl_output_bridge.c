@@ -88,6 +88,82 @@ int yb_egl_output_bridge_release_timed(yb_egl_output_bridge **handle,uint64_t ti
     if (timeout>UINT64_C(5000000000)) return YB_EGL_BRIDGE_ARGUMENT;
     return release_common(handle,1,timeout);
 }
+static int same_binding(const yb_egl_binding *a,const yb_egl_binding *b)
+{
+    return a->display==b->display&&a->context==b->context&&a->draw==b->draw&&
+        a->read==b->read&&a->api==b->api;
+}
+int yb_egl_output_bridge_create_planes_with_ops(const yb_egl_bridge_ops *ops,
+    int (*timed)(void *,uint64_t),uintptr_t producer,const uint32_t textures[3],
+    yb_egl_output_bridge *out[3])
+{
+    if(!valid_ops(ops)||!timed||!producer||!textures||!out)return YB_EGL_BRIDGE_ARGUMENT;
+    for(unsigned i=0;i<3;i++)if(out[i]||!textures[i])return YB_EGL_BRIDGE_ARGUMENT;
+    yb_egl_binding consumer;
+    if(!ops->snapshot(ops->user,&consumer)||!consumer.display||!consumer.context||
+       !ops->validate(ops->user,&consumer,producer))return YB_EGL_BRIDGE_UNSUPPORTED;
+    for(unsigned i=0;i<3;i++) {
+        out[i]=calloc(1,sizeof(*out[i]));
+        if(!out[i]) {
+            for(unsigned j=0;j<i;j++){free(out[j]);out[j]=NULL;}
+            return YB_EGL_BRIDGE_ARGUMENT;
+        }
+        out[i]->ops=*ops;out[i]->consumer=consumer;out[i]->wait_timed=timed;
+    }
+    yb_egl_binding desktop={consumer.display,producer,0,0,0x30A2};
+    int status=YB_EGL_BRIDGE_PRODUCER;
+    if(ops->bind(ops->user,&desktop)&&ops->wait_current(ops->user)) {
+        status=YB_EGL_BRIDGE_IMPORT;
+        unsigned i=0;
+        for(;i<3;i++)if(!ops->image_create(ops->user,consumer.display,producer,
+            textures[i],&out[i]->image)||!out[i]->image)break;
+        if(i==3&&ops->bind(ops->user,&consumer)) {
+            for(i=0;i<3;i++)if(!ops->texture_create(ops->user,out[i]->image,
+                &out[i]->texture)||!out[i]->texture)break;
+            if(i==3)status=YB_EGL_BRIDGE_OK;
+        }
+    }
+    if(!ops->bind(ops->user,&consumer))status=YB_EGL_BRIDGE_RESTORE;
+    for(unsigned i=0;i<3;i++)out[i]->ready=status==YB_EGL_BRIDGE_OK;
+    return status;
+}
+int yb_egl_output_bridge_release_planes_timed(yb_egl_output_bridge *handles[3],uint64_t timeout)
+{
+    if(!handles||timeout>UINT64_C(5000000000))return YB_EGL_BRIDGE_ARGUMENT;
+    yb_egl_output_bridge *first=NULL;
+    for(unsigned i=0;i<3;i++)if(handles[i]){first=handles[i];break;}
+    if(!first)return YB_EGL_BRIDGE_OK;
+    if(!first->wait_timed)return YB_EGL_BRIDGE_UNSUPPORTED;
+    for(unsigned i=0;i<3;i++)if(handles[i]) {
+        for(unsigned j=0;j<i;j++)if(handles[j]==handles[i])return YB_EGL_BRIDGE_ARGUMENT;
+        yb_egl_output_bridge *b=handles[i];
+        if(!same_binding(&b->consumer,&first->consumer)||b->wait_timed!=first->wait_timed||
+           b->ops.user!=first->ops.user||b->ops.snapshot!=first->ops.snapshot||
+           b->ops.bind!=first->ops.bind||b->ops.texture_delete!=first->ops.texture_delete||
+           b->ops.image_delete!=first->ops.image_delete)return YB_EGL_BRIDGE_ARGUMENT;
+    }
+    yb_egl_binding previous;
+    if(!first->ops.snapshot(first->ops.user,&previous))return YB_EGL_BRIDGE_RESTORE;
+    int status=YB_EGL_BRIDGE_CONSUMER;
+    if(first->ops.bind(first->ops.user,&first->consumer)&&
+       first->wait_timed(first->ops.user,timeout)) {
+        status=YB_EGL_BRIDGE_OK;
+        for(unsigned i=0;i<3;i++)if(handles[i]) {
+            yb_egl_output_bridge *b=handles[i];
+            if(b->texture) {
+                if(b->ops.texture_delete(b->ops.user,b->texture))b->texture=0;
+                else status=YB_EGL_BRIDGE_CLEANUP;
+            }
+            if(!b->texture&&b->image) {
+                if(b->ops.image_delete(b->ops.user,b->consumer.display,b->image))b->image=0;
+                else status=YB_EGL_BRIDGE_CLEANUP;
+            }
+        }
+    }
+    if(!first->ops.bind(first->ops.user,&previous))status=YB_EGL_BRIDGE_RESTORE;
+    if(status==YB_EGL_BRIDGE_OK)for(unsigned i=0;i<3;i++){free(handles[i]);handles[i]=NULL;}
+    return status;
+}
 int yb_egl_output_bridge_abandon_destroyed_display(yb_egl_output_bridge **handle,uint32_t dead)
 {
     if (!handle || dead!=1) return YB_EGL_BRIDGE_ARGUMENT;
@@ -212,7 +288,16 @@ int yb_egl_output_bridge_create(uintptr_t context,uint32_t texture,yb_egl_output
     const yb_egl_bridge_ops ops={NULL,snapshot,validate,bind,wait_current,image_create,texture_create,texture_delete,image_delete};
     return yb_egl_output_bridge_create_with_timed_ops(&ops,wait_timed,context,texture,out);
 }
+int yb_egl_output_bridge_create_planes(uintptr_t context,const uint32_t textures[3],yb_egl_output_bridge *out[3])
+{
+    const yb_egl_bridge_ops ops={NULL,snapshot,validate,bind,wait_current,image_create,texture_create,texture_delete,image_delete};
+    return yb_egl_output_bridge_create_planes_with_ops(&ops,wait_timed,context,textures,out);
+}
 #else
+int yb_egl_output_bridge_create_planes(uintptr_t context,const uint32_t textures[3],yb_egl_output_bridge *out[3])
+{
+    (void)context;(void)textures;(void)out;return YB_EGL_BRIDGE_UNSUPPORTED;
+}
 int yb_egl_output_bridge_create(uintptr_t context,uint32_t texture,yb_egl_output_bridge **out)
 {
     (void)context;(void)texture;

@@ -4,6 +4,7 @@
 #define yb_gpu_backend_pack_metadata yb_fp_backend_pack_metadata
 #define yb_gpu_backend_create yb_fp_backend_create
 #define yb_gpu_backend_create_lut yb_fp_backend_create_lut
+#define yb_gpu_backend_create_instructions yb_fp_backend_create_instructions
 #define yb_gpu_backend_submit yb_fp_backend_submit
 #define yb_gpu_backend_finish yb_fp_backend_finish
 #define yb_gpu_backend_destroy yb_fp_backend_destroy

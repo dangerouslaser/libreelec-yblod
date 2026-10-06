@@ -1,0 +1,96 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -104,6 +104,12 @@
+   yb_gpu_fp32_stats composer{};
+   yb_gpu_nlq_lut_stats lut{};
+   lut.version = 1;
++  yb_native_playback_batch_stats batch{};
++  yb_gpu_fp32_instruction_stats instruction{};
++  instruction.version = 1;
++  const bool optimizationStatsValid =
++      yb_native_playback_get_batch_stats(context, &batch) == YB_NATIVE_PLAYBACK_OK &&
++      yb_native_playback_get_instruction_stats(context, &instruction, sizeof(instruction)) == YB_NATIVE_PLAYBACK_OK;
+   if (yb_native_playback_fp32_get_stats(context, &composer) == YB_NATIVE_PLAYBACK_OK &&
+       yb_native_playback_nlq_lut_get_stats(context, &lut, sizeof(lut)) == YB_NATIVE_PLAYBACK_OK)
+   {
+@@ -113,11 +119,17 @@
+         "DVBridge native composer: released_frames={} fp32_selected={} "
+         "accepted_fp32={} accepted_integer={} cache_hits={} cache_misses={} "
+         "shader_compile_failed={} generate_failed={} nlq_lut_enabled={} accepted_lut={} "
+-        "nlq_shader_compiles={} nlq_builds={} nlq_uploads={} nlq_cache_hits={}",
++        "nlq_shader_compiles={} nlq_builds={} nlq_uploads={} nlq_cache_hits={} "
++        "optimization_stats_valid={} batched_planes_selected={} immutable_instructions_selected={} "
++        "batched_plane_imports={} batched_plane_releases={} immutable_accepted_frames={} "
++        "immutable_metadata_uploads={} immutable_range_bindings={} immutable_dispatches={}",
+         stats.completed_frames, yb_native_playback_fp32_selected(context),
+         composer.accepted_fp32, composer.accepted_integer, composer.cache_hits,
+         composer.cache_misses, composer.shader_compile_failed, composer.generate_failed,
+-        lut.enabled, lut.accepted_frames, lut.shader_compiles, lut.builds, lut.uploads, lut.cache_hits);
++        lut.enabled, lut.accepted_frames, lut.shader_compiles, lut.builds, lut.uploads, lut.cache_hits,
++        optimizationStatsValid ? 1 : 0, batch.selected, instruction.enabled,
++        batch.imports, batch.releases, instruction.accepted_frames,
++        instruction.metadata_uploads, instruction.range_bindings, instruction.dispatches);
+   }
+ }
+ #endif
+@@ -666,11 +678,23 @@
+     if (m_nativePlanar && (!fp32 || std::strcmp(fp32, "1") ||
+                           !noReimportFlag || std::strcmp(noReimportFlag, "1")))
+       return fail("planar requires fp32 native colour admission", YB_NATIVE_PLAYBACK_ARGUMENT);
++    const char* batchFlag = std::getenv("DVBRIDGE_NATIVE_BATCHED_PLANES");
++    const char* instructionFlag = std::getenv("DVBRIDGE_NATIVE_IMMUTABLE_INSTRUCTIONS");
++    if ((batchFlag && std::strcmp(batchFlag, "0") && std::strcmp(batchFlag, "1")) ||
++        (instructionFlag && std::strcmp(instructionFlag, "0") && std::strcmp(instructionFlag, "1")))
++      return fail("native optimization flag", YB_NATIVE_PLAYBACK_ARGUMENT);
++    const bool batchRequested = batchFlag && !std::strcmp(batchFlag, "1");
++    const bool instructionRequested = instructionFlag && !std::strcmp(instructionFlag, "1");
++    if ((batchRequested && !m_nativePlanar) ||
++        (instructionRequested && (!fp32 || std::strcmp(fp32, "1"))))
++      return fail("native optimization requires matching route", YB_NATIVE_PLAYBACK_ARGUMENT);
+     const yb_native_playback_options options{
+         1, static_cast<uint32_t>(YB_NATIVE_PLAYBACK_FP32 |
+             (nlqRequested ? YB_NATIVE_PLAYBACK_NLQ_LUT : 0) |
+-            (m_nativePlanar ? YB_NATIVE_PLAYBACK_PLANAR_OUTPUT : 0)), {0, 0}};
+-    const int status = (nlqRequested || m_nativePlanar) ? yb_native_playback_create_ex(&info, &options, &m_native)
++            (m_nativePlanar ? YB_NATIVE_PLAYBACK_PLANAR_OUTPUT : 0) |
++            (batchRequested ? YB_NATIVE_PLAYBACK_BATCHED_PLANES : 0) |
++            (instructionRequested ? YB_NATIVE_PLAYBACK_IMMUTABLE_INSTRUCTIONS : 0)), {0, 0}};
++    const int status = (nlqRequested || m_nativePlanar || instructionRequested) ? yb_native_playback_create_ex(&info, &options, &m_native)
+                                     : yb_native_playback_create(&info, &m_native);
+     if (status != YB_NATIVE_PLAYBACK_OK)
+       return fail("create", status);
+@@ -1099,13 +1123,32 @@
+         !write("metadata.bin", m_outputCaptureMetadata.data(), m_outputCaptureMetadata.size()))
+       return false;
+     char info[512];
++    int batchedPlanes = 0, immutableInstructions = 0;
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++    if (m_nativePrepared)
++    {
++      yb_native_playback_batch_stats batch{};
++      yb_gpu_fp32_instruction_stats instruction{};
++      instruction.version = 1;
++      if (yb_native_playback_get_batch_stats(m_native, &batch) != YB_NATIVE_PLAYBACK_OK)
++        return false;
++      batchedPlanes = batch.selected ? 1 : 0;
++      if (yb_native_playback_fp32_selected(m_native))
++      {
++        if (yb_native_playback_get_instruction_stats(m_native, &instruction, sizeof(instruction)) != YB_NATIVE_PLAYBACK_OK)
++          return false;
++        immutableInstructions = instruction.enabled ? 1 : 0;
++      }
++    }
++#endif
+     const int length = std::snprintf(info, sizeof(info),
+         "{\"width\":3840,\"height\":2160,\"format\":\"RGBA8 DV tunnel bottom up\","
+         "\"pts\":%.17g,\"el_pts\":%.17g,\"requested_pts\":%.17g,\"exact\":%d,"
+-        "\"native\":%d,\"direct_packed\":%d,\"qsv_mode\":%d,\"native_planar\":%d}\n",
++        "\"native\":%d,\"direct_packed\":%d,\"qsv_mode\":%d,\"native_planar\":%d,"
++        "\"batched_planes\":%d,\"immutable_instructions\":%d}\n",
+         m_outputCapturePts, m_outputCaptureElPts, requestedPts, exact,
+         m_nativePrepared ? 1 : 0, m_direct ? 1 : 0, DVBRIDGE::playbackQsvMode.load(),
+-        m_nativePrepared && m_nativePlanarPrepared ? 1 : 0);
++        m_nativePrepared && m_nativePlanarPrepared ? 1 : 0, batchedPlanes, immutableInstructions);
+     return length > 0 && static_cast<size_t>(length) < sizeof(info) &&
+            write("frame.json", info, static_cast<size_t>(length));
+   }();

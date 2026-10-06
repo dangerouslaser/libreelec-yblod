@@ -1,0 +1,17 @@
+{
+  "schema": "yblod.native-scheduling-adapter-compile-results.v1",
+  "source": "DVBridgeGLES.cpp",
+  "source_sha256": "76c7e399640af223f25d2183d24bf392b8efd92af9e989c97c962a2924f0f5c7",
+  "native_playback_context_header_sha256": "e1c2a53bb37f5276b9f526162513a68f23bc0218cb4ba465c2d990f85427048e",
+  "native_gpu_composer_fp32_header_sha256": "24d4c7a14d17ab48a2e95cbd0301fc7b6c34227098b790c87fed0d4e19d6eefc",
+  "native_object_compile_passed": true,
+  "non_native_object_compile_passed": true,
+  "warnings_as_errors": true,
+  "command_source": "Actual Kodi compile_commands.json; override only source/output/header lookup, disable LTO, enable -Werror; second object removes HAVE_YBLOD_NATIVE_PLAYBACK=1.",
+  "limits": {"memory_bytes": 536870912, "swap_bytes": 0, "cpu_cores": 1, "network": "none"},
+  "memory_peak_bytes": 389009408,
+  "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+  "swap_current_bytes": 0,
+  "exit_code": 0,
+  "scope": "Strict SDK object compilation only; no complete binary link, GPU execution, playback, performance, frame preservation, or physical HDMI qualification."
+}

@@ -51,6 +51,14 @@ int yb_egl_output_bridge_release(yb_egl_output_bridge **);
  * texture/image/handle. Injected bridges require create_with_timed_ops.
  * Caller must flush queued libplacebo work BEFORE fencing the GL consumer. */
 int yb_egl_output_bridge_release_timed(yb_egl_output_bridge **,uint64_t timeout_ns);
+/* Three siblings share one producer/consumer completion wait. Partial errors
+ * retain every allocated handle; none may be sampled unless creation succeeds. */
+int yb_egl_output_bridge_create_planes_with_ops(const yb_egl_bridge_ops *,
+    int (*wait_timed)(void *,uint64_t),uintptr_t producer,const uint32_t textures[3],
+    yb_egl_output_bridge *output[3]);
+int yb_egl_output_bridge_create_planes(uintptr_t producer,const uint32_t textures[3],
+    yb_egl_output_bridge *output[3]);
+int yb_egl_output_bridge_release_planes_timed(yb_egl_output_bridge *handles[3],uint64_t timeout_ns);
 /* Fatal recovery only: caller asserts whole original EGLdisplay teardown has
  * invalidated image/contexts/textures, not merely producer-context destruction.
  * Frees host handle without GL/EGL calls. Never use while display remains live. */

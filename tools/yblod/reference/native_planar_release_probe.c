@@ -4,6 +4,8 @@
 #include "native_playback_context.c"
 
 struct yb_egl_output_bridge { unsigned slot; };
+int yb_egl_output_bridge_release_planes_timed(yb_egl_output_bridge *handles[3],uint64_t timeout)
+{ (void)handles;(void)timeout;assert(0);return YB_EGL_BRIDGE_ARGUMENT; }
 static uintptr_t active_context=2;
 static EGLenum active_api=EGL_OPENGL_ES_API;
 static int timeout_slot=-1;

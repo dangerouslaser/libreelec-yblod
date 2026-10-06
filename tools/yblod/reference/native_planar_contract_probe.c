@@ -5,9 +5,11 @@
 int main(void)
 {
     yb_native_playback_options options={1,0,{0,0}};
-    for(uint32_t flags=0;flags<32;flags++){
+    for(uint32_t flags=0;flags<64;flags++){
         options.flags=flags;
-        int valid=flags==0||flags==1||flags==3||flags==5||flags==7;
+        int valid=flags<32&&
+            (!(flags&30)||(flags&YB_NATIVE_PLAYBACK_FP32))&&
+            (!(flags&YB_NATIVE_PLAYBACK_BATCHED_PLANES)||(flags&YB_NATIVE_PLAYBACK_PLANAR_OUTPUT));
         assert((yb_native_playback_options_validate(&options)==YB_NATIVE_PLAYBACK_OK)==valid);
     }
     options.flags=7;
