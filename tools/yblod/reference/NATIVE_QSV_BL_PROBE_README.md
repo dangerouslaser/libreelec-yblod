@@ -1,7 +1,11 @@
 # Raw base-layer comparison probe (experimental)
 
-This source has not yet been compiled or run. It does not establish Kodi playback,
-Dolby output accuracy or performance. It downloads diagnostic pixels only; the
+The current integrated probe has not been run with hardware or media. Its
+synthetic CPU mocks compiled, including the probe with its main function renamed;
+the earlier pre-integration probe compiled separately. See
+`NATIVE_QSV_BL_INTEGRATION_HOST_RESULTS.json` and the separate original-probe build
+report. None of this establishes Kodi playback, Dolby output accuracy or
+performance. The probe downloads diagnostic pixels only; the
 proposed playback route must retain direct QSV-to-VAAPI hardware mapping.
 
 The probe sends private byte-identical packet clones from one ordinary MKV demux
@@ -20,6 +24,8 @@ fail qualification. Inactive coefficient slots and full raw-trailer capacity are
 compared strictly, assuming zero-initialized decoder exports.
 
 Compile only, using fresh output and read-only SDK/source/runtime mounts:
+The source bundle must include its sibling metadata, payload, pairing, RPU
+coverage and handshake headers; quoted includes resolve those local files.
 
 ```sh
 docker run --name UNIQUE_CPU_BUILD --memory 512m --memory-swap 512m --cpus 1 \
@@ -41,8 +47,19 @@ before its first QSV pixel readback. Raw input, frames, RPU bytes and content
 hashes remain private; public results may contain only equality/count scalars.
 
 The private CLI is `probe INPUT_MKV RENDER_NODE SEEK_US PTS1_US PTS2_US PTS3_US`.
+The integrated source independently normalizes cloned AUs and requires literal
+original NAL payload bytes, with only a complete exact hvcC-derived parameter-set
+prefix at byte zero permitted. Valid AUD-leading or midpacket extradata injection
+can therefore fail admission; this strict limitation is not silently waived.
+CPU-only property/metadata snapshots are capped at 64 pending entries and a
+conservative estimated 4 MiB aggregate budget, separate from the enforced 512 MiB
+container cap. Every matched decoder pair contributes private AU coverage counts;
+pending unpaired frames are explicitly reported, not counted as covered.
 Exact previous-RPU inheritance/no-RPU coverage is not yet established: raw RPU
 side-data presence is reported per selected frame, but that alone does not prove
 every AU's inheritance transition. The probe does not drain EOF; all exact
 targets must arrive within the bounded input window. Target-host qualification
 and full reconstructed-picture/playback comparisons remain separate requirements.
+A later controlled packet-window test must submit decoder drain signals, account
+for pending accepted AUs, then flush/re-seek/reopen while retaining mapped owners.
+Such a short-window drain is not natural full-film EOF qualification.

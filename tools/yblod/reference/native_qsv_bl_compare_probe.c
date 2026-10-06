@@ -5,6 +5,7 @@
  * Baseline native HEVC/RPU source identity must be proven by the launcher.
  * No media bytes, metadata values, paths or content hashes are exported. */
 #include <libavcodec/avcodec.h>
+#include <libavcodec/bsf.h>
 #include <libavformat/avformat.h>
 #include <libavutil/hwcontext.h>
 #include <libavutil/log.h>
@@ -18,12 +19,14 @@
 #include <time.h>
 #include "native_qsv_probe_handshake.h"
 #include "native_qsv_bl_metadata_equal.h"
+#include "native_qsv_bl_payload_guard.h"
 enum { N=3, VIDEO_LIMIT=4096, READ_LIMIT=65536 };
 static const char *stage="preflight";
 static time_t deadline;
 static int64_t targets[N];
 static uint64_t submitted[2], mapped, frames_seen[2];
 static AVFrame *selected[2][N];
+static int raw_rpu_equal(const AVFrame *a,const AVFrame *b);
 static enum AVPixelFormat format(AVCodecContext *ctx,const enum AVPixelFormat *choices)
 {
  if(!ctx||!ctx->hw_device_ctx||!ctx->hw_device_ctx->data)return AV_PIX_FMT_NONE;
@@ -80,6 +83,8 @@ static int props(const AVFrame *a,const AVFrame *b)
   a->chroma_location==b->chroma_location&&a->color_range==b->color_range&&
   a->color_primaries==b->color_primaries&&a->color_trc==b->color_trc&&a->colorspace==b->colorspace;
 }
+#include "native_qsv_bl_pair_coverage.h"
+static struct yb_pair_state pair_state;
 static int drain(AVCodecContext *decoder,unsigned route,AVBufferRef *va,AVBufferRef *qsv)
 {
  for(unsigned bounded=0;bounded<128;bounded++){
@@ -92,6 +97,8 @@ static int drain(AVCodecContext *decoder,unsigned route,AVBufferRef *va,AVBuffer
   AVHWFramesContext *source_pool=(void*)f->hw_frames_ctx->data;
   if(source_pool->format!=f->format||source_pool->sw_format!=AV_PIX_FMT_P010||
      source_pool->device_ctx!=(AVHWDeviceContext*)(route?qsv:va)->data){av_frame_free(&f);return 0;}
+  stage="independent_decoded_metadata_pair";
+  if(!yb_pair_frame(&pair_state,f,route)){av_frame_free(&f);return 0;}
   int index=-1;for(int i=0;i<N;i++)if(f->pts==targets[i])index=i;
   if(index<0){av_frame_free(&f);continue;}
   if(selected[route][index]){av_frame_free(&f);return 0;}
@@ -147,7 +154,8 @@ int main(int argc,char **argv)
   * Launcher captures all decoder stderr privately; no default AV log output. */
  av_log_set_level(AV_LOG_QUIET);
  AVFormatContext *input=NULL;AVCodecContext *dec[2]={0};AVBufferRef *va=NULL,*qsv=NULL;
- AVPacket *packet=av_packet_alloc();struct stat before,after;int success=0,stream=-1;
+ AVBSFContext *scanner_bsf=NULL;struct yb_normalization normalization={0};
+ AVPacket *packet=av_packet_alloc();struct stat before,after;int success=0,stream=-1,reported=0;
  uint64_t reads=0,videos=0;int64_t seek=0;deadline=time(NULL)+170;
  if(argc!=7||!packet||stat(argv[1],&before))goto done;
  for(int i=0;i<4;i++){char *end=NULL;errno=0;int64_t v=strtoll(argv[i+3],&end,10);if(errno||!*argv[i+3]||*end||v<0)goto done;if(i)targets[i-1]=v;else seek=v;}
@@ -161,6 +169,11 @@ int main(int argc,char **argv)
  if(!config||!config->data||config->size<sizeof(AVDOVIDecoderConfigurationRecord))goto done;
  const AVDOVIDecoderConfigurationRecord *dv=(const void*)config->data;
  if(dv->dv_profile!=7||!dv->rpu_present_flag||!dv->el_present_flag||!dv->bl_present_flag)goto done;
+ stage="independent_scanner_bsf_init";
+ if(av_bsf_alloc(av_bsf_get_by_name("hevc_mp4toannexb"),&scanner_bsf)<0||avcodec_parameters_copy(scanner_bsf->par_in,par)<0)goto done;
+ scanner_bsf->time_base_in=(AVRational){1,1000000};
+ if(av_bsf_init(scanner_bsf)<0||par->extradata_size<0||scanner_bsf->par_out->extradata_size<0||
+    !yb_normalization_init(&normalization,par->extradata,(size_t)par->extradata_size,scanner_bsf->par_out->extradata,(size_t)scanner_bsf->par_out->extradata_size))goto done;
  for(unsigned i=0;i<input->nb_streams;i++)input->streams[i]->discard=i==(unsigned)stream?AVDISCARD_DEFAULT:AVDISCARD_ALL;
  stage="devices";
  if(av_hwdevice_ctx_create(&va,AV_HWDEVICE_TYPE_VAAPI,argv[2],NULL,0)<0||av_hwdevice_ctx_create_derived(&qsv,AV_HWDEVICE_TYPE_QSV,va,0)<0)goto done;
@@ -182,9 +195,23 @@ int main(int argc,char **argv)
  while(reads<READ_LIMIT&&videos<VIDEO_LIMIT&&time(NULL)<deadline){
   stage="read_packet";int rr=av_read_frame(input,packet);if(rr<0)break;reads++;
   if(packet->stream_index!=stream){av_packet_unref(packet);continue;}videos++;
+  if(packet->size<=0||!packet->data)goto done;
   int64_t pts,dts;
   if(!timestamp(packet->pts,input->streams[stream]->time_base,input->start_time,&pts)||!timestamp(packet->dts,input->streams[stream]->time_base,input->start_time,&dts))goto done;
   packet->pts=pts;packet->dts=dts;packet->duration=0;packet->time_base=(AVRational){1,1000000};
+  stage="private_literal_au_coverage";
+  AVPacket *scanner_input=av_packet_clone(packet),*normalized=av_packet_alloc();
+  if(!scanner_input||!normalized){av_packet_free(&scanner_input);av_packet_free(&normalized);goto done;}
+  int normalization_ok=av_bsf_send_packet(scanner_bsf,scanner_input)>=0&&av_bsf_receive_packet(scanner_bsf,normalized)==0;
+  av_packet_free(&scanner_input);
+  struct yb_au_coverage coverage;
+  if(!normalization_ok||normalized->pts!=packet->pts||normalized->dts!=packet->dts||normalized->duration!=packet->duration||
+     !yb_literal_normalized(&normalization,packet->data,(size_t)packet->size,normalized->data,(size_t)normalized->size)||
+     !yb_scan_au(normalized->data,(size_t)normalized->size,&coverage)||!yb_record_event(&pair_state,packet->pts,coverage)){
+   av_packet_free(&normalized);goto done;
+  }
+  av_packet_unref(normalized);int surplus=av_bsf_receive_packet(scanner_bsf,normalized);av_packet_free(&normalized);
+  if(surplus!=AVERROR(EAGAIN))goto done;
   for(unsigned route=0;route<2;route++){
    AVPacket *copy=av_packet_clone(packet);if(!copy)goto done;
    /* Private literal packet identity, no exported content hash. */
@@ -200,8 +227,13 @@ int main(int argc,char **argv)
  }
  stage="compare";
  if(!success||mapped<N||submitted[0]!=submitted[1]){success=0;goto done;}
+ for(int i=0;i<N;i++){
+  unsigned e;for(e=0;e<pair_state.event_count;e++)if(pair_state.events[e].pts==targets[i])break;
+  if(e==pair_state.event_count||pair_state.events[e].decoded_mask!=3)success=0;
+ }
  for(int i=0;i<N;i++)if(!props(selected[0][i],selected[1][i])||!yb_metadata_equal(selected[0][i],selected[1][i])||!raw_rpu_equal(selected[0][i],selected[1][i]))success=0;
  if(stat(argv[1],&after)||!same_source(&before,&after))success=0;
+ reported=1;
  printf("{\"scope\":\"three raw BL frames and independent native HEVC Dolby metadata only; not Kodi or performance\",\"packet_clone_identity_verified\":true,\"submitted_packets_equal\":%s,\"frames\":[",submitted[0]==submitted[1]?"true":"false");
  for(int i=0;i<N;i++){
   int aw,ah,bw,bh;int safe=geometry(selected[0][i],&aw,&ah)&&geometry(selected[1][i],&bw,&bh)&&aw==bw&&ah==bh;
@@ -209,10 +241,12 @@ int main(int argc,char **argv)
   for(unsigned p=0;p<3;p++){struct plane_result r=safe?compare(selected[0][i],selected[1][i],p):(struct plane_result){0,0,0,0};if(r.different||!r.low_bits_zero)success=0;printf("%s{\"plane\":\"%c\",\"sample_count\":%"PRIu64",\"differing_uint16_samples\":%"PRIu64",\"maximum_absolute_sample_codes\":%u,\"p010_low_bits_zero\":%s}",p?",":"","YUV"[p],r.samples,r.different,r.maximum,r.low_bits_zero?"true":"false");}
   printf("]}");
  }
- printf("],\"pass\":%s}\n",success?"true":"false");
+ printf("],\"decoded_pair_coverage\":{\"paired_frames\":%"PRIu64",\"without_rpu\":%"PRIu64",\"new_rpu\":%"PRIu64",\"previous_rpu\":%"PRIu64",\"multiple_rpu_aus\":%"PRIu64",\"pending_unpaired_snapshots\":%u,\"previous_reference_validity_scope\":\"independent native decoder resolution, not header classifier\"},\"pass\":%s}\n",pair_state.paired,pair_state.without_rpu,pair_state.new_rpu,pair_state.previous_rpu,pair_state.duplicate_rpu_aus,pair_state.snapshot_count,success?"true":"false");
 done:
+ if(!reported)printf("{\"scope\":\"raw BL diagnostic, no quality or performance qualification\",\"pass\":false,\"failure_stage\":\"%s\",\"submitted_packets\":[%"PRIu64",%"PRIu64"],\"decoded_frames\":[%"PRIu64",%"PRIu64"],\"matched_metadata_pairs\":%"PRIu64"}\n",stage,submitted[0],submitted[1],frames_seen[0],frames_seen[1],pair_state.paired);
  if(!success)fprintf(stderr,"BL diagnostic failure stage: %s\n",stage);
  for(unsigned route=0;route<2;route++){for(int i=0;i<N;i++)av_frame_free(&selected[route][i]);avcodec_free_context(&dec[route]);}
  av_buffer_unref(&qsv);av_buffer_unref(&va);av_packet_free(&packet);avformat_close_input(&input);
+ yb_pairs_clear(&pair_state);av_bsf_free(&scanner_bsf);yb_normalization_clear(&normalization);
  return success?0:1;
 }
