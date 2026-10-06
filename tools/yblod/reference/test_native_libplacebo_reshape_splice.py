@@ -56,8 +56,11 @@ class SpliceTests(unittest.TestCase):
         self.assertNotIn('strstr(r->glsl', source)
 
     def test_uniform_generator_and_backend_contract(self):
-        source = (HERE / "native_libplacebo_reshape_generate.c").read_text()
-        backend = (HERE / "native_gpu_composer_backend_libplacebo.c").read_text()
+        source_directory = HERE
+        if not (source_directory / "native_libplacebo_reshape_generate.c").exists():
+            source_directory = HERE.resolve().parents[2] / "engine/experimental"
+        source = (source_directory / "native_libplacebo_reshape_generate.c").read_text()
+        backend = (source_directory / "native_gpu_composer_backend_libplacebo.c").read_text()
         self.assertIn('strcmp(argv[1],"--uniforms-native-output-range")==0', source)
         self.assertIn('YB_FP_OUTPUT_RANGE_NATIVE', source)
         self.assertIn('#define %s yb_fp_c%d_%s', source)
