@@ -1,0 +1,37 @@
+{
+  "schema": "yblod.native-planar-long-controller-host-results.v1",
+  "scope": "Source-contract and mocked controller/lifecycle tests only; no GPU, movie playback, performance, or HDMI qualification.",
+  "qualified_playback": false,
+  "qualified_performance": false,
+  "modules": [
+    "test_native_planar_long_matrix",
+    "test_native_planar_matrix",
+    "test_observe_subtitle_fixture",
+    "test_colour_import_matrix"
+  ],
+  "limits": {
+    "memory_bytes": 536870912,
+    "memory_and_swap_bytes": 536870912,
+    "cpus": 1,
+    "network": "none"
+  },
+  "initial_gate": {
+    "tests": 40,
+    "exit_code": 0,
+    "memory_peak_bytes": 24121344,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0,
+    "stdout_provenance": "Completed tool output chunk 163275; no filesystem log was retained for this initial run."
+  },
+  "final_source_replay": {
+    "tests": 40,
+    "exit_code": 0,
+    "memory_peak_bytes": 36663296,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0,
+    "stdout_provenance": "Completed tool output chunk 0e8feb; exact stdout retained privately as native-planar-long-controller-tests.log."
+  },
+  "command": "python3 -m unittest -v test_native_planar_long_matrix test_native_planar_matrix test_observe_subtitle_fixture test_colour_import_matrix",
+  "container_image": "intel-dv-buildcheck:20260925",
+  "coverage": "Fixed 600-second per-film ABBA labels and scene identity; same-binary strict published frame-proof association; identical configs except planar flag; capture disabled; native packed and actual planar route gates; optional subtitle fixture validation and same-original-state restoration; shared controller lifecycle invocation mocked without playback."
+}
