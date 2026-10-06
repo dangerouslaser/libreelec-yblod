@@ -1,0 +1,290 @@
+{
+  "schema": "yblod.native-playback-stage-profile.v1",
+  "optimization_applied": false,
+  "baseline": {
+    "health": {
+      "approximate_elapsed_start_end_seconds": [
+        10.016,
+        70.116
+      ],
+      "drop_delta": 1,
+      "skip_delta": 7,
+      "interval_weighted_render_avg_percent": 63.98306655574043,
+      "source_fps": 23.976,
+      "speed": 1000,
+      "stalled_any": false,
+      "scope": "Health counter differences and interval-weighted render diagnostics; attempts are not unique frame or HDMI counts."
+    },
+    "gpu": {
+      "selected_interval_seconds": 60.309084027,
+      "valid_intervals": 30,
+      "unavailable_intervals": 0,
+      "interval_weighted_engine_busy_percent": {
+        "drm-engine-render": 64.2901091527798,
+        "drm-engine-copy": 0.0,
+        "drm-engine-video": 5.8622245803255755,
+        "drm-engine-video-enhance": 7.6005826152953055
+      },
+      "anchor_scope": "Approximate ordinal2s sample anchor; baseline has no saved observer start timestamp",
+      "scope": "Kodi DRM client engine busy diagnostics; not reconstruction-only GPU time."
+    }
+  },
+  "measurement_build": {
+    "health": {
+      "approximate_elapsed_start_end_seconds": [
+        10.016,
+        70.116
+      ],
+      "drop_delta": 5,
+      "skip_delta": 7,
+      "interval_weighted_render_avg_percent": 63.26242429284525,
+      "source_fps": 23.976,
+      "speed": 1000,
+      "stalled_any": false,
+      "scope": "Health counter differences and interval-weighted render diagnostics; attempts are not unique frame or HDMI counts."
+    },
+    "gpu": {
+      "selected_interval_seconds": 58.254136787,
+      "valid_intervals": 29,
+      "unavailable_intervals": 0,
+      "interval_weighted_engine_busy_percent": {
+        "drm-engine-render": 63.26055848487635,
+        "drm-engine-copy": 0.0,
+        "drm-engine-video": 5.85961789199793,
+        "drm-engine-video-enhance": 7.425984787685289
+      },
+      "anchor_scope": "Exact saved observer monotonic anchor; fully contained10\u201370s intervals",
+      "scope": "Kodi DRM client engine busy diagnostics; not reconstruction-only GPU time."
+    },
+    "native_stages": {
+      "schema": "yblod.playback-stage-summary.v1",
+      "failure_marker": false,
+      "service_identity_unchanged": true,
+      "scope": "Host helper-call wall time per released native frame; not GPU kernel, full render budget, unique frames or HDMI output.",
+      "stage_snapshots": [
+        {
+          "released_frames": 120,
+          "elapsed_from_first_frame_seconds": 6.985,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.22,
+            "va_wait": 4.124,
+            "imports": 0.265,
+            "prep_submit": 0.11,
+            "prep_wait": 2.446,
+            "composer_submit": 0.116,
+            "composer_wait": 17.257,
+            "ycc_submit": 0.179,
+            "ycc_wait": 5.207,
+            "bridge": 0.231,
+            "consumer_release": 7.267
+          }
+        },
+        {
+          "released_frames": 240,
+          "elapsed_from_first_frame_seconds": 13.279,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.193,
+            "va_wait": 4.062,
+            "imports": 0.257,
+            "prep_submit": 0.103,
+            "prep_wait": 2.277,
+            "composer_submit": 0.105,
+            "composer_wait": 16.779,
+            "ycc_submit": 0.123,
+            "ycc_wait": 5.249,
+            "bridge": 0.138,
+            "consumer_release": 7.26
+          }
+        },
+        {
+          "released_frames": 360,
+          "elapsed_from_first_frame_seconds": 19.621,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.182,
+            "va_wait": 4.045,
+            "imports": 0.256,
+            "prep_submit": 0.101,
+            "prep_wait": 2.225,
+            "composer_submit": 0.101,
+            "composer_wait": 16.748,
+            "ycc_submit": 0.104,
+            "ycc_wait": 5.224,
+            "bridge": 0.106,
+            "consumer_release": 7.259
+          }
+        },
+        {
+          "released_frames": 480,
+          "elapsed_from_first_frame_seconds": 25.876,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.177,
+            "va_wait": 4.038,
+            "imports": 0.256,
+            "prep_submit": 0.1,
+            "prep_wait": 2.195,
+            "composer_submit": 0.099,
+            "composer_wait": 16.689,
+            "ycc_submit": 0.095,
+            "ycc_wait": 5.218,
+            "bridge": 0.091,
+            "consumer_release": 7.251
+          }
+        },
+        {
+          "released_frames": 600,
+          "elapsed_from_first_frame_seconds": 32.55,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.176,
+            "va_wait": 4.035,
+            "imports": 0.261,
+            "prep_submit": 0.1,
+            "prep_wait": 2.186,
+            "composer_submit": 0.101,
+            "composer_wait": 16.695,
+            "ycc_submit": 0.089,
+            "ycc_wait": 5.213,
+            "bridge": 0.082,
+            "consumer_release": 7.246
+          }
+        },
+        {
+          "released_frames": 720,
+          "elapsed_from_first_frame_seconds": 39.851,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.175,
+            "va_wait": 4.035,
+            "imports": 0.262,
+            "prep_submit": 0.1,
+            "prep_wait": 2.195,
+            "composer_submit": 0.101,
+            "composer_wait": 16.704,
+            "ycc_submit": 0.086,
+            "ycc_wait": 5.231,
+            "bridge": 0.076,
+            "consumer_release": 7.258
+          }
+        },
+        {
+          "released_frames": 840,
+          "elapsed_from_first_frame_seconds": 46.854,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.177,
+            "va_wait": 4.034,
+            "imports": 0.267,
+            "prep_submit": 0.099,
+            "prep_wait": 2.194,
+            "composer_submit": 0.102,
+            "composer_wait": 16.623,
+            "ycc_submit": 0.084,
+            "ycc_wait": 5.236,
+            "bridge": 0.072,
+            "consumer_release": 7.261
+          }
+        },
+        {
+          "released_frames": 960,
+          "elapsed_from_first_frame_seconds": 52.402,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.179,
+            "va_wait": 4.029,
+            "imports": 0.27,
+            "prep_submit": 0.099,
+            "prep_wait": 2.167,
+            "composer_submit": 0.101,
+            "composer_wait": 16.539,
+            "ycc_submit": 0.083,
+            "ycc_wait": 5.213,
+            "bridge": 0.07,
+            "consumer_release": 7.25
+          }
+        },
+        {
+          "released_frames": 1080,
+          "elapsed_from_first_frame_seconds": 58.41,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.18,
+            "va_wait": 4.026,
+            "imports": 0.27,
+            "prep_submit": 0.098,
+            "prep_wait": 2.144,
+            "composer_submit": 0.1,
+            "composer_wait": 16.516,
+            "ycc_submit": 0.081,
+            "ycc_wait": 5.194,
+            "bridge": 0.067,
+            "consumer_release": 7.239
+          }
+        },
+        {
+          "released_frames": 1200,
+          "elapsed_from_first_frame_seconds": 63.998,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.179,
+            "va_wait": 4.021,
+            "imports": 0.267,
+            "prep_submit": 0.096,
+            "prep_wait": 2.122,
+            "composer_submit": 0.099,
+            "composer_wait": 16.464,
+            "ycc_submit": 0.079,
+            "ycc_wait": 5.172,
+            "bridge": 0.065,
+            "consumer_release": 7.229
+          }
+        },
+        {
+          "released_frames": 1320,
+          "elapsed_from_first_frame_seconds": 71.129,
+          "rounded_cumulative_ms_per_released_frame": {
+            "scaler_submit": 0.179,
+            "va_wait": 4.02,
+            "imports": 0.267,
+            "prep_submit": 0.096,
+            "prep_wait": 2.131,
+            "composer_submit": 0.099,
+            "composer_wait": 16.492,
+            "ycc_submit": 0.078,
+            "ycc_wait": 5.169,
+            "bridge": 0.063,
+            "consumer_release": 7.229
+          }
+        }
+      ],
+      "timing_precision": "Logged cumulative means are rounded to 0.001 ms; reconstructed window estimates are not original nanosecond totals.",
+      "comparison_valid": true,
+      "approximate_steady_stage_window": {
+        "release_count_start_end": [
+          240,
+          1200
+        ],
+        "elapsed_from_first_frame_start_end_seconds": [
+          13.279,
+          63.998
+        ],
+        "estimated_ms_per_released_frame": {
+          "scaler_submit": 0.1755,
+          "va_wait": 4.01075,
+          "imports": 0.2695,
+          "prep_submit": 0.09425,
+          "prep_wait": 2.0832499999999996,
+          "composer_submit": 0.0975,
+          "composer_wait": 16.38525,
+          "ycc_submit": 0.068,
+          "ycc_wait": 5.152749999999999,
+          "bridge": 0.04674999999999999,
+          "consumer_release": 7.2212499999999995
+        },
+        "per_stage_rounding_error_bound_ms_per_released_frame": 0.00075,
+        "scope": "Between available snapshots inside approximate first-frame-relative 10\u201370 s window, not exact observer wall window."
+      }
+    }
+  },
+  "service_memory": {
+    "before_peak_bytes": 2048139264,
+    "before_current_after_stop_bytes": 1033510912,
+    "measurement_peak_bytes": 1852936192,
+    "measurement_current_after_stop_bytes": 925974528,
+    "scope": "Whole Kodi service, differing process histories; not engine-only memory or leak proof."
+  },
+  "conclusion": "Measurement-only build; no demonstrated performance improvement. Composer completion wait is the largest measured helper-wall bucket, not proven exclusive GPU kernel cost. Drops increased in this single approximate comparison; repeat matched controls required."
+}
