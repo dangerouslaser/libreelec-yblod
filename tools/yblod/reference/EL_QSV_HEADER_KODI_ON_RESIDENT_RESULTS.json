@@ -1,0 +1,22 @@
+{
+  "schema": "yblod-el-qsv-header-kodi-on-resident-v1",
+  "pass": true,
+  "movie": "Saving Private Ryan",
+  "seek_seconds": 1200,
+  "reference_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "candidate_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "scope": "Resident retained-reference versus QSV-enabled candidate comparison. This is NOT a direct same-candidate QSV-OFF/QSV-ON comparison or performance qualification.",
+  "frames": [
+    {"frame": 1, "source_pts_microseconds": 1210000000, "source_el_pts_microseconds": 1210000000, "source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_equal": false, "differing_tunnel_rgb_bytes": 48, "el_qsv_map_sequence": 254},
+    {"frame": 2, "source_pts_microseconds": 1220010000, "source_el_pts_microseconds": 1220010000, "source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_equal": false, "differing_tunnel_rgb_bytes": 120, "el_qsv_map_sequence": 494},
+    {"frame": 3, "source_pts_microseconds": 1230020000, "source_el_pts_microseconds": 1230020000, "source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_equal": false, "differing_tunnel_rgb_bytes": 120, "el_qsv_map_sequence": 734}
+  ],
+  "accuracy": {"maximum_absolute_12bit_codes_each_frame": {"I": 0, "P": 0, "T": 0}, "exact_picture_percent_each_frame": {"I": 100, "P": 100, "T": 100}, "transport_difference_scope": "Only CRC-validated packet update-ID and dependent checksum bits; all other oriented raster RGB bits and packet payload/header semantics exact. Alpha is excluded."},
+  "route": {"native": 1, "native_planar": 1, "direct_packed": 1, "batched_planes": 0, "immutable_instructions": 0, "el_decoder_qsv": 1, "el_qsv_native_used": 1},
+  "capture": {"elapsed_seconds": 70.2016415, "peak_memory_bytes": 19316736, "memory_limit_bytes": 536870912, "cpu_limit": 1, "memory_events_all_zero": true, "swap_current_bytes": 0, "swap_peak_bytes": 0, "actual_process_runtime_and_target_identity_verified": true, "source_identity_scope": "Private file stat identity plus exact captured BL/EL timestamps and source RPU; no whole-film immutable-content claim."},
+  "comparison": {"peak_memory_bytes": 47955968, "memory_limit_bytes": 536870912, "cpu_limit": 1, "memory_events_all_zero": true, "swap_current_bytes": 0, "swap_peak_bytes": 0},
+  "metadata_inspection": {"pass": true, "all_three_actual_map_color_valid": true, "all_three_metadata_use_enhancement_residual": true, "captured_metadata_unchanged": true, "system_loader_and_libplacebo_unchanged": true, "loader_and_relocations_verified": true, "inspector_binary_sha256": "33631aab6ac986f6dc45ca7ab2e814b647778808b86335f9c9d65b8b6274798d", "elapsed_seconds": 0.23169696200056933, "peak_memory_bytes": 10133504, "memory_limit_bytes": 536870912, "cpu_limit": 1, "memory_events_all_zero": true, "swap_current_bytes": 0, "swap_peak_bytes": 0, "owned_unit_terminal": true},
+  "rollback": {"retained_binary_mount_runtime_and_override_restored": true, "subtitles_restored": true, "retained_idle": true},
+  "capture_memory_scope": "Capture peak_memory_bytes measures the diagnostic controller cgroup, NOT the Kodi service. Comparison and metadata inspection peaks likewise measure only their own diagnostic cgroups.",
+  "limitations": "Mapped enhancement supplied to native request and residual-active metadata are separately verified. These captures do not establish sustained playback health, successful display restoration, whole-film conformance or direct same-candidate comparison. Raw captures and metadata remain private."
+}
