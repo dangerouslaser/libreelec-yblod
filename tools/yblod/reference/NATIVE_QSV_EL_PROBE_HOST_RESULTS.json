@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "SDK compile and CPU-only diagnostic contracts; no GPU/media/Kodi/playback qualification",
+  "probe_binary_sha256": "7e503d456fd7d03d7f19d28fc4bd0b9fc9ac0a3d8c337d8c50397d3c0d345de4",
+  "cpu_test_binary_sha256": "0220bf010a68a8c38a39798a02625e3ab3475699dab8ed274bfc56efc061851f",
+  "strict_sdk_compile": {"passed": true, "memory_peak_after_compile_bytes": 28491776},
+  "cpu_contracts": {
+    "passed": true,
+    "combined_compile_and_cpu_test_memory_peak_bytes": 29552640,
+    "coverage": ["visible1080 versus coded1088 bottom8 geometry", "coded padding ignored by actual active-plane comparator", "U/V separation and literal low-bit difference detected", "even crop and overflow rejection", "plane storage bounds and strides", "duration/timebase/best-effort/chroma/colour differences", "stat identity changes", "Kodi ordinary-MKV timestamp truncation", "actual loaded SDK avutil canonical-map identity accepted, incorrect and absent library identities rejected", "QSV runtime gate fails without loaded implementation and driver"]
+  },
+  "limits_each_operation": {"memory_bytes": 536870912, "swap_bytes": 0, "cpus": 1, "network": "none", "memory_events_all_zero": true},
+  "qualification_limits": ["Stat identity does not prove immutable file content", "Six diagnostic CPU frames may occupy approximately36MiB plus hardware decoder pools", "Private decoder diagnostics are not exported", "Only ordinary MKV timestamp conversion is implemented; TS/menu paths unsupported", "No real media/raw EL equality, token preservation, runtime discovery or complete pipeline output evidence yet"]
+}
