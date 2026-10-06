@@ -1,0 +1,57 @@
+{
+  "schema": "yblod.el-qsv-target-checkpoint-diagnostic.v1",
+  "probe_binary_sha256": "6f9644654fc5e7782c7244e33cb164e329717c441e6e4d598688569203517058",
+  "staged_candidate_binary_sha256": "aff416779620c4cba8cecb6e6c71a6fb3b228e4bab7e397aaeeba4556166067f",
+  "retained_running_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "content": "Saving Private Ryan",
+  "movie_id": 3391,
+  "seek_seconds": 1200,
+  "target_gpu_vendor": "0x8086",
+  "target_gpu_device": "0x9a49",
+  "target_driver": "i915",
+  "pass": false,
+  "probe_timed_out": true,
+  "probe_exit_code": -15,
+  "controller_exit_code": 1,
+  "elapsed_seconds": 170.0799859520048,
+  "scoped_child_terminated_with_SIGTERM": true,
+  "SIGKILL_needed": false,
+  "last_progress": {
+    "sequence_begin": 5120,
+    "sequence_end": 5120,
+    "stage": "helper_submit",
+    "route": 1,
+    "counts": [
+      {
+        "demux_reads": 725,
+        "accepted_packets": 725,
+        "accepted_frames": 3
+      },
+      {
+        "demux_reads": 1,
+        "accepted_packets": 0,
+        "accepted_frames": 0
+      }
+    ]
+  },
+  "source_stat_unchanged": true,
+  "source_identity_scope": "Same local source stat/dev/inode/size/mtime/ctime; not immutable content proof.",
+  "runtime_fingerprints_unchanged": true,
+  "existing_driver_unchanged": true,
+  "probe_binary_unchanged": true,
+  "user_playback_remained_idle": true,
+  "current_kodi_binary_and_pid_unchanged": true,
+  "kodi_configuration_or_runtime_changed": false,
+  "diagnostic_unit_terminal": true,
+  "diagnostic_unit_main_pid": 0,
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "extra_swap_limit_bytes": 0,
+    "cpu_limit": 1,
+    "peak_memory_bytes": 132427776,
+    "memory_events_all_zero": true,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0
+  },
+  "scope": "Checkpoint-only actual target EL helper diagnostic. VAAPI matched three requested source frames; QSV stalled at first helper_submit before accepting a packet. No successful QSV frames, hardware frame equality, full Kodi playback or performance qualification. Live maps/fdinfo handshake was not performed."
+}
