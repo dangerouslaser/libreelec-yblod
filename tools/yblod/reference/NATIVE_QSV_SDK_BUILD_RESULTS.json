@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "source_commit": "2813eca66f9e47c1d3fc57602440df3b3261189e",
+  "scope": "Successful SDK foundation build only; no GPU/runtime-discovery, VM, Kodi playback, output or performance qualification",
+  "exit_code": 0,
+  "duration_seconds": 152.115383964,
+  "versions": {"libvpl": "2.17.0", "vpl_gpu_rt": "26.3.5", "ffmpeg": "9.0.2"},
+  "configured_features": {"libvpl": true, "qsv": true, "vaapi": true, "hevc_qsv_decoder": true},
+  "link_fix": "Runtime only: target GCC libgcc.a appended after dependent archives through CMAKE_CXX_STANDARD_LIBRARIES; no CPU-feature source or codegen changes",
+  "baseline_driver_unchanged": true,
+  "baseline_kodi_unchanged": true,
+  "resources": {
+    "memory_limit_bytes": 4294967296,
+    "memory_peak_bytes": 1422815232,
+    "swap_limit_bytes": 0,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "oom_killed": false,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0}
+  },
+  "preserved_failed_attempt": "NATIVE_QSV_SDK_FIRST_BUILD_RESULTS.json",
+  "qsv_runtime_discovery_qualified": false,
+  "kodi_playback_qualified": false,
+  "full_base_layer_qsv_comparison_complete": false
+}
