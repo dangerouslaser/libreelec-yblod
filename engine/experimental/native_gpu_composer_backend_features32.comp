@@ -1,0 +1,152 @@
+#version 430 core
+#extension GL_ARB_gpu_shader_int64 : require
+layout(local_size_x=8,local_size_y=8) in;
+layout(std430,binding=0) readonly buffer Metadata { int64_t m[]; };
+layout(binding=0) uniform sampler2D bl_y;
+layout(binding=1) uniform sampler2D bl_uv;
+layout(binding=2) uniform sampler2D prepared_guide;
+layout(binding=3) uniform sampler2D el_y;
+layout(binding=4) uniform sampler2D el_uv;
+layout(location=0) uniform uvec3 input_geometry; // full width, height, component start
+
+uint recover_word(float normalized)
+{
+    return uint(floor(normalized*65535.0+0.5));
+}
+// Input planes are normalized R16/RG16 P010 words. The guide is an explicit
+// prepared native-code R16 plane, never synthesized by texture filtering.
+bool fetch_sample(uint index, int component, out uvec4 sample_value)
+{
+    uint width=component==0 ? input_geometry.x : input_geometry.x/2u;
+    uint position=input_geometry.z+index;
+    ivec2 coordinate=ivec2(position%width,position/width);
+    uint y,cb=0u,cr=0u,enhancement;
+    if(component==0) {
+        y=recover_word(texelFetch(bl_y,coordinate,0).r);
+        enhancement=recover_word(texelFetch(el_y,coordinate,0).r);
+        if(((y|enhancement)&63u)!=0u) return false;
+        y >>= 6u;
+    } else {
+        vec2 base=texelFetch(bl_uv,coordinate,0).rg;
+        cb=recover_word(base.r);cr=recover_word(base.g);
+        vec2 layer=texelFetch(el_uv,coordinate,0).rg;
+        enhancement=recover_word(component==1 ? layer.r : layer.g);
+        y=recover_word(texelFetch(prepared_guide,coordinate,0).r);
+        if(((cb|cr|enhancement)&63u)!=0u || y>1023u) return false;
+        cb >>= 6u;cr >>= 6u;
+    }
+    sample_value=uvec4(y,cb,cr,enhancement>>6u);
+    return true;
+}
+layout(std430,binding=1) buffer FrameError { uint frame_error; };
+layout(r16ui,binding=0) uniform writeonly uimage2D reconstructed_y;
+layout(r16ui,binding=1) uniform writeonly uimage2D reconstructed_cb;
+layout(r16ui,binding=2) uniform writeonly uimage2D reconstructed_cr;
+
+int64_t floor_power_two(int64_t value, int shift)
+{
+    return value >= int64_t(0) ? value >> shift :
+        -int64_t(1) - ((-(value+int64_t(1))) >> shift);
+}
+int64_t bound(int64_t value, int64_t low, int64_t high)
+{
+    return value < low ? low : value > high ? high : value;
+}
+// Preserve each original feature's floor. The checked L1 metadata envelope
+// bounds every accumulation prefix, including this column-wise ordering.
+int64_t add_feature(int64_t total, int offset, int order, int term,
+                    int64_t feature, int64_t squared)
+{
+    total += m[offset+3+term]*feature;
+    if (order >= 2) total += m[offset+10+term]*squared;
+    if (order >= 3)
+        total += m[offset+17+term]*floor_power_two(feature*squared,20);
+    return total;
+}
+int64_t add_product_feature(int64_t total, int offset, int order, int term,
+                            int64_t feature)
+{
+    return add_feature(total,offset,order,term,feature,
+                       floor_power_two(feature*feature,20));
+}
+void main()
+{
+    int component=int(m[1]), pivot_count=int(m[17]);
+    uvec2 plane_size=component==0 ? input_geometry.xy : input_geometry.xy/2u;
+    uvec2 pixel=gl_GlobalInvocationID.xy;
+    if(any(greaterThanEqual(pixel,plane_size))) return;
+    uint index=pixel.y*plane_size.x+pixel.x;
+    if(index>=uint(m[0])) { atomicOr(frame_error,2u);return; }
+    uvec4 sample_value;
+    if(!fetch_sample(index,component,sample_value)) {
+        atomicOr(frame_error,1u);
+        return;
+    }
+    int64_t original=int64_t(sample_value[component]);
+    int64_t y=bound(int64_t(sample_value.x),m[11],m[12]);
+    int64_t cb=bound(int64_t(sample_value.y),m[13],m[14]);
+    int64_t cr=bound(int64_t(sample_value.z),m[15],m[16]);
+    int segment=0;
+    while (segment<pivot_count-2 && original>=m[19+segment]) ++segment;
+    int offset=35+24*segment;
+    int order=int(m[offset+1]);
+    int64_t total=int64_t(0);
+    if(m[offset]==int64_t(0)) {
+        int64_t code=component==0 ? y : component==1 ? cb : cr;
+        int64_t power=int64_t(1);
+        for (int degree=0;degree<=order;++degree) {
+            total += m[offset+3+degree]*power*(int64_t(1) << (20-int(m[4])*degree));
+            power *= code;
+        }
+    } else {
+        int depth=int(m[4]);
+        int64_t linear_scale=int64_t(1) << (20-depth);
+        int64_t pair_scale=int64_t(1) << (20-2*depth);
+        total=m[offset+2]*(int64_t(1) << 20);
+        if (depth==10) {
+            // Host admission guarantees each clamped code lies in[0,1023].
+            // Code squares/pairs <2^20, triple product <2^30: exact uint32.
+            // Only feature construction narrows. Coefficients, accumulation,
+            // normalized feature powers and all signed floors remain int64.
+            uint iy=uint(y),icb=uint(cb),icr=uint(cr);
+            total=add_feature(total,offset,order,0,int64_t(iy<<10u),int64_t(iy*iy));
+            total=add_feature(total,offset,order,1,int64_t(icb<<10u),int64_t(icb*icb));
+            total=add_feature(total,offset,order,2,int64_t(icr<<10u),int64_t(icr*icr));
+            total=add_product_feature(total,offset,order,3,int64_t(iy*icb));
+            total=add_product_feature(total,offset,order,4,int64_t(iy*icr));
+            total=add_product_feature(total,offset,order,5,int64_t(icb*icr));
+            total=add_product_feature(total,offset,order,6,int64_t((iy*icb*icr)>>10u));
+        } else {
+            // Preserve generic metadata-depth behavior as the original path.
+        total=add_feature(total,offset,order,0,y*linear_scale,y*y*pair_scale);
+        total=add_feature(total,offset,order,1,cb*linear_scale,cb*cb*pair_scale);
+        total=add_feature(total,offset,order,2,cr*linear_scale,cr*cr*pair_scale);
+        total=add_product_feature(total,offset,order,3,y*cb*pair_scale);
+        total=add_product_feature(total,offset,order,4,y*cr*pair_scale);
+        total=add_product_feature(total,offset,order,5,cb*cr*pair_scale);
+        // Triple feature retains the pair feature's normalization, then floor.
+        total=add_product_feature(total,offset,order,6,
+            floor_power_two((y*cb*pair_scale)*(cr*linear_scale),20));
+        }
+    }
+    int64_t mapped=bound(floor_power_two(total,int(m[5])+4),int64_t(0),int64_t(65535));
+    int64_t residual=int64_t(0);
+    if (m[2]==int64_t(1)) {
+        int64_t distance=int64_t(sample_value.w)-m[7];
+        if (distance!=int64_t(0)) {
+            int64_t direction=distance>int64_t(0) ? int64_t(1) : -int64_t(1);
+            int64_t gain=int64_t(1) << (10-int(m[6]));
+            int64_t accumulator=((int64_t(2)*distance-direction)*m[8]+int64_t(2)*direction*m[9])*gain;
+            int64_t limit=int64_t(2)*gain*m[10];
+            residual=floor_power_two(bound(accumulator,-limit,limit),int(m[5])-5-int(m[6]));
+        }
+    }
+    int64_t summed=mapped+residual;
+    int shift=16-int(m[3]);
+    int64_t reconstructed=bound(floor_power_two(summed+(int64_t(1) << (shift-1)),shift),
+                               int64_t(0),(int64_t(1) << int(m[3]))-int64_t(1));
+    uvec4 value=uvec4(uint(reconstructed),0u,0u,0u);
+    if(component==0)imageStore(reconstructed_y,ivec2(pixel),value);
+    else if(component==1)imageStore(reconstructed_cb,ivec2(pixel),value);
+    else imageStore(reconstructed_cr,ivec2(pixel),value);
+}

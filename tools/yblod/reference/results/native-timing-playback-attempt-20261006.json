@@ -1,0 +1,27 @@
+{
+  "schema": "yblod.native-timing-playback-attempt.v1",
+  "binary_sha256": "736b1fb2f830a837f05d95afc6d47c64d927da52dfad893530bd3361cbc3192c",
+  "movie": "1917",
+  "diagnostics_requested": true,
+  "native_reconstruction_requested": true,
+  "display_connectors_connected": 0,
+  "native_eligible": false,
+  "native_stage_timing_logs_observed": false,
+  "service_identity_unchanged_during_attempt": true,
+  "normal_playback_stop_requested": true,
+  "valid_native_before_after_comparison": false,
+  "reason": "Every DRM display connector was disconnected after restart; native path was not admitted. No optimization or timing result inferred.",
+  "previous_binary_shutdown": {
+    "binary_sha256": "b06db596c9cec559d5ea8634b6bdedcec0cf43bd376cb9be73529dada60c5931",
+    "heap_abort_observed": true,
+    "message": "corrupted size vs. prev_size while consolidating",
+    "occurred_before_timing_binary_installation": true,
+    "core_initially_observed_privately": true,
+    "core_available_at_debugger_preflight": false,
+    "launcher_deletes_stale_cores_before_start": true,
+    "matching_crash_backtrace_available": false,
+    "cause_known": false,
+    "shutdown_qualified": false
+  },
+  "private_media_or_core_data_published": false
+}

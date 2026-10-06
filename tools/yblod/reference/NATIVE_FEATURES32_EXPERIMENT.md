@@ -1,0 +1,13 @@
+# Exact 10-bit feature construction experiment
+
+`native_gpu_composer_backend_features32.comp` is a separate, unadopted alternative to the canonical composer. Only MMR feature construction specializes metadata depth 10. Admitted clamped codes are in [0,1023]; maximum linear feature is 1,047,552, square/pair 1,046,529 and raw triple 1,070,599,167. All fit unsigned 32-bit arithmetic. The identity floor((a*b)*(c*1024)/1048576) = floor(a*b*c/1024) exactly preserves the positive triple-feature floor. Signed coefficients, accumulation order, normalized feature square/cube floors, width admission, polynomial/NLQ math and output limits remain unchanged. Generic metadata depths retain the original code path. No coefficient-gating variant is combined here.
+
+Six host tests check all 1024 single codes, 1,048,576 pairs, 512 boundary and 20,000 seeded triples, admission/source invariants and saved A/B/B/A evidence. This is mathematical/source validation, not compiled signed/multipivot shader coverage.
+
+The unchanged production image probe compiled both shaders on Intel Mesa and each of four invocations compared all 12,441,600 reconstructed codes with the existing C engine on identical prepared 4K inputs, after a full 49,766,400-value CPU stage gate. One warmup preceded three measured host submission/completion samples per run. Timed passes check the frame error flag only; exhaustive reconstructed-plane comparison is untimed. This is not full colour, TV output, GPU-exclusive kernel timing or playback FPS.
+
+The saved report lists every sample. Pooled wall median was 16.876356 ms for baseline and 16.1226355 ms for candidate, approximately 4.47% lower. This narrow diagnostic is promising, not an established playback benefit. TV connectors were disconnected and playback was stopped: earlier workload cohorts are not directly comparable. No canonical adoption has occurred.
+
+Fresh scopes capped each invocation at 512 MiB, zero swap, CPU quota100000/100000 and an external 60-second systemd deadline. Saved memory events and CPU-throttling deltas were zero. Memory peaks are in-scope snapshots; wrapper CPU usage includes oracle/bookkeeping. GPU frequencies are before/after snapshots, not continuous measurements. All selected input/artifact/runtime pins and Kodi identity remained unchanged; no failed attempts or retries.
+
+Reproduce by passing either canonical or alternative shader to `native_gpu_composer_image_probe` with identical prepared inputs, unchanged executable and A/B/B/A ordering. Preserve full-frame gates, cleanup checks, resource limits and workload/frequency observations. Compiled signed/higher-order/multipivot custom-context coverage remains unrun, and real matched playback testing is required before adoption.

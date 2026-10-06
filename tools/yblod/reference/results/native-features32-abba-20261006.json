@@ -1,0 +1,129 @@
+{
+  "schema": "yblod.native-gpu-features32-abba.v1",
+  "production_adopted": false,
+  "scope": "Same resident 3840x2160 prepared fixture; reconstructed-code exactness, not full colour or playback. TV disconnected; not comparable with earlier workload cohorts.",
+  "baseline_shader_sha256": "d221955cbce2bef951af504dc36394d25993a0c7f288bcf831fa7a5c2b2f4561",
+  "candidate_shader_sha256": "6680b09b94b5dc1a6af4cfbb75c653003f33ae1b5433f0b68c56fd5cd5633271",
+  "runner_sha256": "0d8a138c466fc3eef8f8efb536cbb83b5df7e765dd50872969dc5ff91cc471ec",
+  "failed_attempts": 0,
+  "retries": 0,
+  "each_run": {
+    "cpu_stage_values": 49766400,
+    "gpu_exact_reconstructed_values": 12441600,
+    "full_frame_exact": true,
+    "cleanup_succeeded": true,
+    "pins_and_kodi_identity_unchanged": true,
+    "memory_limit_bytes": 536870912,
+    "swap_bytes": 0,
+    "memory_events_all_zero": true,
+    "cpu_max": "100000 100000",
+    "nr_throttled_delta": 0,
+    "throttled_usec_delta": 0,
+    "deadline_seconds": 60,
+    "warmups": 1
+  },
+  "runs": [
+    {
+      "id": "A1",
+      "wall_ns": [
+        17696194,
+        16927200,
+        16825512
+      ],
+      "cpu_ns": [
+        185892,
+        329272,
+        317788
+      ],
+      "cold_setup_wall_ns": 52846865,
+      "memory_peak_snapshot_bytes": 223174656,
+      "wrapper_window_cpu_usage_delta_us": 1662440,
+      "act_freq_before_after_mhz": [
+        0,
+        0
+      ],
+      "cur_freq_before_after_mhz": [
+        633,
+        1283
+      ]
+    },
+    {
+      "id": "B1",
+      "wall_ns": [
+        17477141,
+        16100116,
+        16145155
+      ],
+      "cpu_ns": [
+        212198,
+        318798,
+        324675
+      ],
+      "cold_setup_wall_ns": 188641603,
+      "memory_peak_snapshot_bytes": 250544128,
+      "wrapper_window_cpu_usage_delta_us": 1894119,
+      "act_freq_before_after_mhz": [
+        550,
+        0
+      ],
+      "cur_freq_before_after_mhz": [
+        550,
+        1267
+      ]
+    },
+    {
+      "id": "B2",
+      "wall_ns": [
+        16083660,
+        16187438,
+        16051032
+      ],
+      "cpu_ns": [
+        172054,
+        296208,
+        360756
+      ],
+      "cold_setup_wall_ns": 79904822,
+      "memory_peak_snapshot_bytes": 223510528,
+      "wrapper_window_cpu_usage_delta_us": 1829325,
+      "act_freq_before_after_mhz": [
+        0,
+        0
+      ],
+      "cur_freq_before_after_mhz": [
+        417,
+        1267
+      ]
+    },
+    {
+      "id": "A2",
+      "wall_ns": [
+        17798574,
+        16793734,
+        16723463
+      ],
+      "cpu_ns": [
+        335072,
+        317614,
+        285121
+      ],
+      "cold_setup_wall_ns": 51074470,
+      "memory_peak_snapshot_bytes": 222965760,
+      "wrapper_window_cpu_usage_delta_us": 1670641,
+      "act_freq_before_after_mhz": [
+        0,
+        0
+      ],
+      "cur_freq_before_after_mhz": [
+        1267,
+        1250
+      ]
+    }
+  ],
+  "pooled_median_wall_ns": {
+    "baseline": 16876356,
+    "candidate": 16122635.5
+  },
+  "pooled_median_wall_reduction_percent": 4.466132973255599,
+  "conclusion": "Candidate pooled median approximately 4.47% lower in this narrow diagnostic; no established playback benefit or adoption. Compiled signed/higher-order/multipivot custom-context gate remains unrun."
+}
