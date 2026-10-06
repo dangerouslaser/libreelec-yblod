@@ -1,0 +1,17 @@
+{
+  "schema": "yblod.sdk-loader-argv-cpu-fixture.v1",
+  "pass": true,
+  "pinned_container_image_sha256": "40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "actual_executable_is_direct_sdk_loader": true,
+  "actual_parent_is_fixture": true,
+  "argv_matches_full_loader_command": true,
+  "argv_matches_exact_binary_tail": false,
+  "argv_shape": "full_loader_command",
+  "child_exit_code": 0,
+  "loader_code_identity_unchanged": true,
+  "elapsed_seconds": 2.0236325499718077,
+  "resources": {"memory_limit_bytes": 536870912, "swap_limit_bytes": 0, "cpu_limit": 1, "peak_memory_bytes": 20889600, "all_memory_events_zero": true, "swap_current_bytes": 0, "swap_peak_bytes": 0},
+  "gpu_access": false,
+  "media_access": false,
+  "scope": "Direct SDK loader running sleep for two seconds, not the EL decoder. Actual kernel process argv matches the strict full invocation; no argv guard relaxation supported. Does not identify the prior GPU callback failure or qualify raw EL samples, playback or performance."
+}

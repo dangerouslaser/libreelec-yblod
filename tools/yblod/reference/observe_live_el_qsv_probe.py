@@ -101,6 +101,7 @@ def main():
     parser.add_argument('--seek-us',type=int,required=True)
     parser.add_argument('--pts-us',type=int,action='append',required=True)
     parser.add_argument('--extra-library-dir',type=Path,action='append',default=[])
+    parser.add_argument('--expected-code-root',type=Path)
     args=parser.parse_args()
     os.umask(0o077)
     result=dict(pass_=False,scope='Live raw EL probe diagnostic only; final raw equality and capture-target identity qualification are separate.')
@@ -114,7 +115,7 @@ def main():
         if args.seek_us!=1200000000 or len(args.pts_us)!=3 or args.pts_us!=sorted(set(args.pts_us)) or any(not args.seek_us<p<=1380000000 for p in args.pts_us):raise ValueError('Exact three source timestamps required')
         if not args.private_prefix.is_absolute():raise ValueError('Absolute private output prefix required')
         paths={name:Path(str(args.private_prefix)+suffix) for name,suffix in
-            (('ready','.ready'),('ack','.ack'),('stdout','.stdout-private.json'),('stderr','.stderr-private.log'),('proof','.live-proof-private.json'))}
+            (('ready','.ready'),('ack','.ack'),('stdout','.stdout-private.json'),('stderr','.stderr-private.log'),('proof','.live-proof-private.json'),('map_audit','.mapped-code-private.json'))}
         if any(path.exists() or path.is_symlink() for path in paths.values()):raise ValueError('Fresh private observer paths required')
         manifest=json.loads(args.runtime_identity.read_text())
         if set(manifest)!={'files'} or not manifest['files']:raise ValueError('Reviewed explicit code closure required')
@@ -143,7 +144,8 @@ def main():
                 if time.monotonic()>=deadline:raise TimeoutError('Scoped probe deadline reached')
                 if paths['ready'].exists() and proof is None:
                     stage='live_identity_callback'
-                    proof=acknowledge_unit_child(paths['ready'],paths['ack'],nonce,parent['pid'],parent['start_ticks'],loader,binary,args.binary_sha256,argv,args.node,runtime_files,args.driver)
+                    audit_options={} if args.expected_code_root is None else dict(private_library_audit=paths['map_audit'],expected_code_root=args.expected_code_root)
+                    proof=acknowledge_unit_child(paths['ready'],paths['ack'],nonce,parent['pid'],parent['start_ticks'],loader,binary,args.binary_sha256,argv,args.node,runtime_files,args.driver,**audit_options)
                     if proof['probe_pid']!=child.pid:raise ValueError('Ready checkpoint differs from actually launched child')
                     stage='remaining_raw_comparisons'
                 time.sleep(.05)
@@ -164,6 +166,12 @@ def main():
     except BaseException as error:
         result.update(pass_=False,error_type=type(error).__name__,failure_stage=stage)
         if str(error) in SAFE_FAILURE_CODES:result['failure_code']=SAFE_FAILURE_CODES[str(error)]
+        if 'paths' in locals() and paths['map_audit'].is_file():
+            try:
+                audit=json.loads(paths['map_audit'].read_text())['summary']
+                names=('canonical_so_count','under_expected_code_root_count','outside_expected_code_root_count','deleted_map_count')
+                if set(audit)==set(names) and all(type(audit[key]) is int and 0<=audit[key]<=256 for key in names):result['mapped_code_audit_summary']=audit
+            except BaseException:result['mapped_code_audit_summary_unavailable']=True
     finally:
         signal.signal(signal.SIGTERM,signal.SIG_IGN)
         try:stop_owned_child(child)

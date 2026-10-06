@@ -43,8 +43,42 @@ def mapped_probe(pid,binary,expected_sha):
     return True
 
 
+def audit_mapped_code(child,binary,expected_sha,private_output,expected_code_root):
+    """Private code-path inventory only, before strict admission; never raw maps."""
+    output=Path(private_output)
+    if not output.is_absolute() or output.exists() or output.is_symlink():raise ValueError('Fresh private code audit required')
+    root=Path(expected_code_root).resolve(strict=True)
+    rows=[]
+    for line in (Path('/proc')/str(child['pid'])/'maps').read_text().splitlines():
+        fields=line.split(None,5)
+        if len(fields)!=6 or not fields[5].startswith('/'):continue
+        deleted=fields[5].endswith(' (deleted)')
+        path=Path(fields[5][:-10] if deleted else fields[5])
+        if '.so' not in path.name:continue
+        canonical=path.resolve(strict=not deleted)
+        under_root=canonical.is_relative_to(root)
+        identity=None
+        # Never hash or open unexpected/outside paths. Stat only SDK code.
+        if under_root and not deleted:
+            info=canonical.stat()
+            if stat.S_ISREG(info.st_mode):identity=[getattr(info,key) for key in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns')]
+        item=dict(path=str(canonical),deleted=deleted,under_expected_code_root=under_root,stat_identity=identity)
+        if item not in rows:rows.append(item)
+    summary=dict(canonical_so_count=len(rows),under_expected_code_root_count=sum(row['under_expected_code_root'] for row in rows),
+        outside_expected_code_root_count=sum(not row['under_expected_code_root'] for row in rows),deleted_map_count=sum(row['deleted'] for row in rows))
+    identity=lambda value:[getattr(value,key) for key in ('st_dev','st_ino','st_size','st_mtime_ns','st_ctime_ns')]
+    record=dict(process={key:child[key] for key in ('pid','ppid','start_ticks','executable')},
+        expected_probe_binary=str(Path(binary).resolve(strict=True)),expected_probe_code_sha256=expected_sha,
+        probe_file_identity=identity(Path(binary).stat()),loader_file_identity=identity(Path(child['executable']).stat()),
+        mapped_code=rows,summary=summary)
+    with output.open('x') as stream:json.dump(record,stream)
+    output.chmod(0o600)
+    return summary
+
+
 def acknowledge_unit_child(ready,ack,nonce,unit_pid,unit_start_ticks,loader,binary,
-                           expected_binary_sha,expected_argv,node,runtime_files,driver):
+                           expected_binary_sha,expected_argv,node,runtime_files,driver,
+                           private_library_audit=None,expected_code_root=None):
     """Call while the child holds its genuine QSV helper/device alive at ready."""
     if not isinstance(nonce,str) or not re.fullmatch('[a-f0-9]{64}',nonce):raise ValueError('Fresh nonce required')
     if not isinstance(expected_binary_sha,str) or not re.fullmatch('[a-f0-9]{64}',expected_binary_sha):raise ValueError('Expected probe code digest required')
@@ -61,6 +95,9 @@ def acknowledge_unit_child(ready,ack,nonce,unit_pid,unit_start_ticks,loader,bina
     child=children[0]
     if child['executable']!=str(Path(loader).resolve(strict=True)) or child['argv']!=expected_argv:raise ValueError('Actual loader/probe invocation differs')
     if mapped_probe(child['pid'],binary,expected_binary_sha) is not True:raise ValueError('Actual probe mapping proof required')
+    if private_library_audit is not None:
+        if expected_code_root is None:raise ValueError('Expected code root required for private audit')
+        audit_mapped_code(child,binary,expected_binary_sha,private_library_audit,expected_code_root)
     clients=process_gpu_client(child['pid'],node)
     libraries=mapped_libraries(child['pid'],runtime_files,driver)
     if not clients or libraries is not True:raise ValueError('Actual live GPU client and complete mapped closure required')

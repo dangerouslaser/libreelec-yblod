@@ -32,6 +32,7 @@ class ObserverTests(unittest.TestCase):
             argv=['observer','--binary',str(root/'binary'),'--loader',str(root/'loader'),'--runtime',str(runtime),
                 '--driver',str(root/'driver'),'--source',str(root/'source'),'--node',str(root/'node'),
                 '--runtime-identity',str(manifest),'--private-prefix',str(root/'result'),
+                '--expected-code-root',str(root),
                 '--binary-sha256','a'*64,'--driver-sha256','b'*64,'--seek-us','1200000000']
             for pts in PTS:argv+=['--pts-us',str(pts)]
             (root/'node').write_bytes(b'node')
@@ -51,7 +52,12 @@ class ObserverTests(unittest.TestCase):
             observations=[identity,dict(identity,input='changed') if mode=='identity' else identity]
             clock=iter([0,0,171,180]) if mode=='deadline' else None
             output=io.StringIO()
-            with patch('sys.argv',argv),patch.object(observer,'resources',side_effect=[resources,final]),patch.object(observer,'observe',side_effect=observations),patch.object(observer,'process_record',return_value={'pid':1,'start_ticks':9}),patch.object(observer,'acknowledge_unit_child',return_value={'probe_pid':42},side_effect=ValueError('Mapped library outside the exact isolated closure/current driver') if mode=='callback-closure' else None),patch.object(observer.subprocess,'Popen',side_effect=launch),patch.object(observer.signal,'signal'),patch.object(observer.time,'sleep'),patch.object(observer.time,'monotonic',side_effect=(lambda:next(clock)) if clock else None,return_value=1),contextlib.redirect_stdout(output):
+            def acknowledge(*args,**kwargs):
+                if mode=='audit-closure':
+                    kwargs['private_library_audit'].write_text(json.dumps({'mapped_code':[{'path':'private-unknown.so'}],'summary':{'canonical_so_count':24,'under_expected_code_root_count':24,'outside_expected_code_root_count':0,'deleted_map_count':0}}))
+                if mode in ('callback-closure','audit-closure'):raise ValueError('Mapped library outside the exact isolated closure/current driver')
+                return {'probe_pid':42}
+            with patch('sys.argv',argv),patch.object(observer,'resources',side_effect=[resources,final]),patch.object(observer,'observe',side_effect=observations),patch.object(observer,'process_record',return_value={'pid':1,'start_ticks':9}),patch.object(observer,'acknowledge_unit_child',side_effect=acknowledge),patch.object(observer.subprocess,'Popen',side_effect=launch),patch.object(observer.signal,'signal'),patch.object(observer.time,'sleep'),patch.object(observer.time,'monotonic',side_effect=(lambda:next(clock)) if clock else None,return_value=1),contextlib.redirect_stdout(output):
                 code=observer.main()
             result=json.loads(output.getvalue())
             self.assertEqual(result['pass'],mode=='success')
@@ -60,6 +66,10 @@ class ObserverTests(unittest.TestCase):
             if mode=='callback-closure':
                 self.assertEqual(result['failure_stage'],'live_identity_callback')
                 self.assertEqual(result['failure_code'],'mapped_library_closure')
+            if mode=='audit-closure':
+                self.assertEqual(result['mapped_code_audit_summary']['canonical_so_count'],24)
+                self.assertNotIn('private-unknown',output.getvalue())
+                self.assertNotIn('mapped_code',result)
     def test_success(self):self.run_case()
     def test_identity_failure(self):self.run_case('identity')
     def test_probe_report_failure(self):self.run_case('probe-report')
@@ -67,6 +77,7 @@ class ObserverTests(unittest.TestCase):
     def test_resource_failure(self):self.run_case('resource')
     def test_literal_timestamp_failure(self):self.run_case('wrong-pts')
     def test_callback_failure_exports_only_static_stage_code(self):self.run_case('callback-closure')
+    def test_private_audit_summary_only_exported_on_failure(self):self.run_case('audit-closure')
     def test_code_fingerprint_advises_without_changing_bytes(self):
         with tempfile.TemporaryDirectory() as temp:
             file=Path(temp)/'code';value=b'x'*1048576+b'tail';file.write_bytes(value)
