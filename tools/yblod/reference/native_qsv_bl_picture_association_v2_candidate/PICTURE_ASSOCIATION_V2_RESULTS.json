@@ -1,0 +1,105 @@
+{
+  "scope": "Picture-association.v2: three raw BL frames plus finite-window AU/duration/native metadata; triggering-packet DTS is separately observed, not required equal; not full-film EOF, Kodi, display or performance qualification.",
+  "pass": true,
+  "live_child_identity_verified": true,
+  "actual_gpu_client_verified": true,
+  "actual_mapped_code_closure_verified": true,
+  "matched_frames": 3,
+  "literal_sample_differences": 0,
+  "metadata_and_picture_properties_equal": true,
+  "code_driver_and_source_stat_unchanged": true,
+  "source_identity_scope": "local stat identity only; no content immutability claim",
+  "controlled_packet_window": {
+    "full_film_eof": false,
+    "accepted_aus": [
+      725,
+      725
+    ],
+    "returned_frames": [
+      725,
+      725
+    ],
+    "event_count": 725,
+    "receive_eof": [
+      true,
+      true
+    ],
+    "complete_event_pairs": true
+  },
+  "decoded_pair_coverage": {
+    "paired_frames": 725,
+    "without_rpu": 0,
+    "new_rpu": 725,
+    "previous_rpu": 0,
+    "multiple_rpu_aus": 0,
+    "pending_unpaired_snapshots": 0,
+    "previous_reference_validity_scope": "independent native decoder resolution, not header classifier"
+  },
+  "source_packet_duration": {
+    "positive_packets": 725,
+    "unknown_zero_packets": 0,
+    "returned_frames_bound_to_au_duration": true
+  },
+  "lifecycle_enabled": false,
+  "comparison_contract": "picture-association.v2",
+  "transport_pkt_dts": {
+    "qualifies_picture": false,
+    "observed_pairs": 725,
+    "equal_pairs": 665,
+    "different_pairs": 60,
+    "reference_unknown": 3,
+    "candidate_unknown": 3,
+    "both_unknown": 3,
+    "known_pairs": 722,
+    "max_absolute_route_delta_us": 83000,
+    "max_absolute_reference_minus_pts_us": 83000,
+    "max_absolute_candidate_minus_pts_us": 0
+  },
+  "selected_property_observations": [
+    {
+      "legacy_all_properties_equal": true,
+      "picture_properties_equal": true,
+      "transport_pkt_dts_equal": true
+    },
+    {
+      "legacy_all_properties_equal": true,
+      "picture_properties_equal": true,
+      "transport_pkt_dts_equal": true
+    },
+    {
+      "legacy_all_properties_equal": true,
+      "picture_properties_equal": true,
+      "transport_pkt_dts_equal": true
+    }
+  ],
+  "probe_exit_code": 0,
+  "resources": {
+    "memory_limit_bytes": 1610612736,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1,
+    "peak_memory_bytes": 920211456,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    },
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0
+  },
+  "elapsed_seconds": 8.754042951972224,
+  "diagnostic_library_sources_and_eight_libraries_guarded_before_after": true,
+  "duration_window_compiled_source_verified": true,
+  "sdk_native_and_abi_guards_unchanged": true,
+  "closure_code_files": 27,
+  "selected_direct_mapped_frames": 3,
+  "schema": "yblod.qsv-bl-picture-association-v2-results.v1",
+  "media": "Saving Private Ryan Profile 7",
+  "libavcodec_sha256": "871a5b008e907d67bc4ba3b36cc9dbe932657505c194c9d2f34784309c394a95",
+  "probe_sha256": "da9791a63a48638be26098c85f728cfae31f3e6f5ea07618671365354b718367",
+  "previous_rpu_semantics_exercised": false,
+  "kodi_playback_qualified": false
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "yblod.qsv-bl-keyflag-transport-diagnostic.v1",
+  "qualified": false,
+  "scope": "Failed strict finite-window diagnostic; not picture accuracy or Kodi playback qualification",
+  "candidate_libavcodec_sha256": "871a5b008e907d67bc4ba3b36cc9dbe932657505c194c9d2f34784309c394a95",
+  "probe_sha256": "35c7ca52027281ee8fcd9d1ec8fcf8e2f75be9cb6746b1bb10a42e7aa5e321ed",
+  "submitted_packets": [
+    26,
+    26
+  ],
+  "decoded_frames": [
+    24,
+    23
+  ],
+  "paired_frames": 22,
+  "rejection": {
+    "reason": 10,
+    "only_differing_compared_property": "pkt_dts",
+    "flags_equal": true,
+    "metadata_equal": true,
+    "raw_rpu_equal": true,
+    "source_pts_best_effort_duration_equal": true
+  },
+  "geometry": {
+    "reference": {
+      "width": 3840,
+      "height": 2160,
+      "crops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "pool_width": 3840,
+      "pool_height": 2160
+    },
+    "candidate": {
+      "width": 3840,
+      "height": 2160,
+      "crops": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "pool_width": 3840,
+      "pool_height": 2176
+    },
+    "typed_mapped_buffer_admission_proven": false
+  },
+  "resources": {
+    "memory_limit_bytes": 1610612736,
+    "peak_memory_bytes": 465039360,
+    "memory_events_all_zero": true,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "elapsed_seconds": 4.059227114950772
+  },
+  "no_product_dts_rewrite": true,
+  "strict_legacy_comparison_preserved": true,
+  "no_hardware_retry": true
+}

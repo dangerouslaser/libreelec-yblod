@@ -1,0 +1,53 @@
+{
+  "compile_and_cpu_tests_passed": true,
+  "hardware_or_media_executed": false,
+  "duration_conversion_cases": 14,
+  "source_sha256": {
+    "native_qsv_bl_compare_probe.c": "851ae506fa4351e9e7c2523ee2a3d37595a092df88fb024180e2ec3074ee2b05",
+    "test_native_qsv_bl_duration.c": "f4c65c177bb8ba1da9619371effeae8e8bf86494f8f42ac15b6d38d065d6f654",
+    "test_native_qsv_bl_lifecycle.c": "cbeee3f0f7d43ce7833fa31bbe76bf8e647675f2a292ae412952675c5ff18c13",
+    "test_native_qsv_bl_pair_coverage.c": "ca5d8910a7a0b2f9bb9a52402113ba2e137214abfcba5d91886c049f3ad37d1f",
+    "native_qsv_bl_duration.h": "533a4568c6ce4d5abeaa4d799408c19a8ffa12f97a41c837f2d9ee2100a9847f",
+    "native_qsv_bl_metadata_equal.h": "e04c0cc131a266250da1b9ad7b874a6a5247df013d944dbbd98a38305f30dc25",
+    "native_qsv_bl_pair_coverage.h": "91b66775ba1477800d505a3d83b1a6c52e179840a074a11c020691438279d038",
+    "native_qsv_bl_payload_guard.h": "a2aeb9de033c91ad2ecbf970443de9c3678cb74bbc62a72260f81b08329862e1",
+    "native_qsv_bl_rpu_coverage.h": "ba90f277daa009b2bdeb862c0a7cb486ae79d6e6dbcd4858d8a454809481fa9b",
+    "native_qsv_probe_handshake.h": "10d273de5c74f8f24e45d5b7dac6667541b4d4af4258a3a322b3c2037caec6d5"
+  },
+  "outputs": {
+    "test_native_qsv_bl_duration": {
+      "sha256": "a9d6dc33221b46eb4f1fdfdc885abddc0b1530d77bcd898de8941d3b3db2998b",
+      "bytes": 19152
+    },
+    "test_native_qsv_bl_pair_coverage": {
+      "sha256": "a1459bdf67f42455f3949fda574612b9f15ededeccdd6dfc586200c377cb90b5",
+      "bytes": 49136
+    },
+    "test_native_qsv_bl_lifecycle": {
+      "sha256": "26bfca07563b2d7bc8634d7242d04c945a254bad0b3f4eb9cc38aad1b6d30b24",
+      "bytes": 36984
+    },
+    "native_qsv_bl_compare_probe": {
+      "sha256": "da9791a63a48638be26098c85f728cfae31f3e6f5ea07618671365354b718367",
+      "bytes": 70128
+    }
+  },
+  "peak_memory_bytes": 118476800,
+  "memory_events": {
+    "low": 0,
+    "high": 0,
+    "max": 0,
+    "oom": 0,
+    "oom_kill": 0,
+    "oom_group_kill": 0,
+    "sock_throttled": 0
+  },
+  "swap_peak_bytes": 0,
+  "schema": "yblod.qsv-bl-picture-association-v2-cpu-results.v1",
+  "observer_mock_tests": 12,
+  "first_attempt": {
+    "passed": false,
+    "failure": "legacy synthetic drain fixture omitted new DTS conservation counts",
+    "correction": "fixture-only initialize second mocked window; probe/product gates unchanged"
+  }
+}
