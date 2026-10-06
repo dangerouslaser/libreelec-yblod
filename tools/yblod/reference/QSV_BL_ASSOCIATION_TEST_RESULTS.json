@@ -1,0 +1,29 @@
+{
+  "schema": "yblod.qsv-bl-association-foundation.v1",
+  "all_contract_checks_passed": true,
+  "source_sha256": {
+    "qsv_dovi_association.h": "629db3acbdfb7ddf5a5ea61b6e1cc0b3b5f64e4ef852630f0d6494b095a69bb0",
+    "test_qsv_dovi_association.c": "951d0bc0d0bc4a1af269cd3d06b40838134a9d2a2c5c955368641aa97f608048"
+  },
+  "memory_peak_bytes": 9981952,
+  "memory_events": {
+    "low": 0,
+    "high": 0,
+    "max": 0,
+    "oom": 0,
+    "oom_kill": 0,
+    "oom_group_kill": 0,
+    "sock_throttled": 0
+  },
+  "swap_bytes": 0,
+  "limits": {
+    "memory_bytes": 536870912,
+    "extra_swap_bytes": 0,
+    "cpus": 1,
+    "network": "none",
+    "gpu_access": false
+  },
+  "scope": "Association ownership and identities only; no parser integration or hardware qualification.",
+  "ffmpeg_integration_implemented": false,
+  "image": "yblod-ffmpeg9-decode:9.0.2"
+}
