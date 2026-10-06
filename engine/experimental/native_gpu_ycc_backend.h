@@ -26,6 +26,11 @@ typedef struct {
 int yb_gpu_ycc_validate_plan(const yb_gpu_ycc_plan *);
 int yb_gpu_ycc_create(const yb_gpu_ycc_create_info *,yb_gpu_ycc_backend **);
 int yb_gpu_ycc_submit(yb_gpu_ycc_backend *,const yb_gpu_ycc_plan *);
+/* Read-only whole-plane 12-bit range validation; no output allocation/write.
+ * Same input admission and completion/error fence contract as expansion.
+ * Complete with validate_finish, never the texture-producing finish API. */
+int yb_gpu_ycc_validate_submit(yb_gpu_ycc_backend *,const yb_gpu_ycc_plan *);
+int yb_gpu_ycc_validate_finish(yb_gpu_ycc_backend *,uint64_t);
 /* Finite <=5s wait; PENDING preserves input borrow. Reads four-byte error flag
  * after fence. Entire frame rejects on nonzero flag; output changes only OK.
  * RGBA32F contains unrotated Y,Cb,Cr code/4096 and alpha1, no rounded chroma. */

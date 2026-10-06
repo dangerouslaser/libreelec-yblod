@@ -16,7 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-enum { IDLE=0,VA_PENDING=1,PREP_PENDING=2,COMPOSER_PENDING=3,YCC_PENDING=4,OUTPUT_READY=5 };
+enum { IDLE=0,VA_PENDING=1,PREP_PENDING=2,COMPOSER_PENDING=3,YCC_PENDING=4,OUTPUT_READY=5,
+       PLANAR_PENDING=6,VALIDATION_PENDING=7 };
 struct yb_native_playback_context {
     yb_native_playback_create_info settings;
     EGLContext desktop;
@@ -28,6 +29,8 @@ struct yb_native_playback_context {
     yb_gpu_ycc_backend *ycc;
     yb_vaapi_p010_import *base_import,*el_import;
     yb_egl_output_bridge *bridge;
+    yb_egl_output_bridge *plane_bridges[3];
+    int planar_output;
     AVFrame *base,*el;
     AVBufferRef *base_render_guard;
     uint32_t base_allocation_width,base_allocation_height;
@@ -187,8 +190,8 @@ int yb_native_playback_create(const yb_native_playback_create_info *info,
 int yb_native_playback_options_validate(const yb_native_playback_options *options)
 {
     if(!options||options->version!=1||options->reserved[0]||options->reserved[1]||
-       (options->flags&~(uint32_t)(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT))||
-       ((options->flags&YB_NATIVE_PLAYBACK_NLQ_LUT)&&!(options->flags&YB_NATIVE_PLAYBACK_FP32)))
+       (options->flags&~(uint32_t)(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT))||
+       ((options->flags&(YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT))&&!(options->flags&YB_NATIVE_PLAYBACK_FP32)))
         return YB_NATIVE_PLAYBACK_ARGUMENT;
     return YB_NATIVE_PLAYBACK_OK;
 }
@@ -208,6 +211,7 @@ int yb_native_playback_create_ex(const yb_native_playback_create_info *info,
     yb_native_playback_context *p=calloc(1,sizeof(*p));
     if (!p) return YB_NATIVE_PLAYBACK_ERROR;
     p->settings=*info; p->consumer=saved;
+    p->planar_output=(flags&YB_NATIVE_PLAYBACK_PLANAR_OUTPUT)!=0;
     const EGLint attrs[]={EGL_SURFACE_TYPE,0,EGL_RENDERABLE_TYPE,EGL_OPENGL_BIT,EGL_NONE};
     const EGLint context[]={EGL_CONTEXT_MAJOR_VERSION_KHR,4,EGL_CONTEXT_MINOR_VERSION_KHR,3,
         EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR,EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR,EGL_NONE};
@@ -390,9 +394,11 @@ static int gpu_status(yb_native_playback_context *p,int status,int before_dispat
     }
     quarantine(p); return YB_NATIVE_PLAYBACK_QUARANTINED;
 }
-int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_native_playback_output *out)
+static int playback_finish_impl(yb_native_playback_context *p,uint64_t timeout,
+    yb_native_playback_output *out,yb_native_playback_planar_output *planar)
 {
-    if (!p || !out || !timeout || timeout>UINT64_C(5000000000)) return YB_NATIVE_PLAYBACK_ARGUMENT;
+    if (!p || (!out&&!planar) || !timeout || timeout>UINT64_C(5000000000) ||
+        (!!planar!=p->planar_output) || (planar&&planar->version!=1)) return YB_NATIVE_PLAYBACK_ARGUMENT;
     if (p->quarantined) return YB_NATIVE_PLAYBACK_QUARANTINED;
     if (p->state==IDLE || p->state==OUTPUT_READY || p->closing) return YB_NATIVE_PLAYBACK_ARGUMENT;
     yb_egl_binding saved;
@@ -470,6 +476,20 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
         status=gpu_status(p,status,0);
         if (status) return finish_call(p,&saved,status);
         if (memcmp(p->reconstructed.frame_id,p->metadata.frame.frame_id,32)) goto quarantine;
+        if (p->planar_output) {
+            if (p->reconstructed.version!=1 || p->reconstructed.output_depth!=12 ||
+                p->reconstructed.width!=p->metadata.frame.width ||
+                p->reconstructed.height!=p->metadata.frame.height) goto quarantine;
+            yb_gpu_ycc_plan check={0};check.version=1;check.width=p->reconstructed.width;
+            check.height=p->reconstructed.height;check.output_depth=12;check.sampling_contract=1;
+            memcpy(check.textures,p->reconstructed.textures,sizeof(check.textures));
+            memcpy(check.frame_id,p->reconstructed.frame_id,32);
+            YB_TIMED_CALL(p,YB_NATIVE_TIMING_YCC_SUBMIT,status,
+                yb_gpu_ycc_validate_submit(p->ycc,&check),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
+            status=gpu_status(p,status,1);
+            if(status)return finish_call(p,&saved,status);
+            p->state=VALIDATION_PENDING;
+        } else {
         yb_gpu_ycc_plan plan={0}; plan.version=1; plan.width=p->reconstructed.width;
         plan.height=p->reconstructed.height; plan.output_depth=12; plan.sampling_contract=1;
         memcpy(plan.textures,p->reconstructed.textures,sizeof(plan.textures));
@@ -479,6 +499,36 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
         status=gpu_status(p,status,1);
         if (status) return finish_call(p,&saved,status);
         p->state=YCC_PENDING;
+        }
+    }
+    if (p->state==VALIDATION_PENDING) {
+        YB_TIMED_CALL(p,YB_NATIVE_TIMING_YCC_WAIT,status,
+            yb_gpu_ycc_validate_finish(p->ycc,timeout),YB_GPU_BACKEND_OK,YB_GPU_BACKEND_PENDING);
+        status=gpu_status(p,status,0);
+        if(status)return finish_call(p,&saved,status);
+        p->state=PLANAR_PENDING;
+    }
+    if (p->state==PLANAR_PENDING) {
+        yb_native_playback_planar_output output={0};
+        output.version=1; output.width=p->reconstructed.width;
+        output.height=p->reconstructed.height; output.output_depth=12;
+        output.sampling_contract=1;
+        memcpy(output.frame_id,p->reconstructed.frame_id,32);
+        if (!restore(&saved)) goto quarantine;
+        /* Keep every sibling and decoded lease on a partial import failure.
+         * Publish only after all producer fences/imports have completed. */
+        for (unsigned i=0;i<3;i++) {
+            if (!p->reconstructed.textures[i]) goto quarantine;
+            YB_TIMED_NO_PENDING(p,YB_NATIVE_TIMING_BRIDGE,status,
+                yb_egl_output_bridge_create((uintptr_t)p->desktop,p->reconstructed.textures[i],
+                    &p->plane_bridges[i]),YB_EGL_BRIDGE_OK);
+            if (status) goto quarantine;
+            output.textures[i]=yb_egl_output_bridge_texture(p->plane_bridges[i]);
+            if (!output.textures[i]) goto quarantine;
+        }
+        status=finish_call(p,&saved,YB_NATIVE_PLAYBACK_OK);
+        if (!status) { p->state=OUTPUT_READY; *planar=output; }
+        return status;
     }
     if (p->state==YCC_PENDING) {
         YB_TIMED_CALL(p,YB_NATIVE_TIMING_YCC_WAIT,status,
@@ -503,6 +553,11 @@ int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_
 quarantine:
     quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
 }
+int yb_native_playback_finish(yb_native_playback_context *p,uint64_t timeout,yb_native_playback_output *out)
+{ return playback_finish_impl(p,timeout,out,NULL); }
+int yb_native_playback_finish_planar(yb_native_playback_context *p,uint64_t timeout,
+    yb_native_playback_planar_output *out)
+{ return playback_finish_impl(p,timeout,NULL,out); }
 static int playback_release_impl(yb_native_playback_context *p,uint64_t timeout)
 {
     if (!p || timeout>UINT64_C(5000000000)) return YB_NATIVE_PLAYBACK_ARGUMENT;
@@ -513,6 +568,10 @@ static int playback_release_impl(yb_native_playback_context *p,uint64_t timeout)
     /* Kodi must pl_gpu_flush before this call, so queued renderer work is
      * actually submitted and belongs before this consumer fence. */
     int status=yb_egl_output_bridge_release_timed(&p->bridge,timeout);
+    if (!status) for (unsigned i=0;i<3;i++) {
+        status=yb_egl_output_bridge_release_timed(&p->plane_bridges[i],timeout);
+        if (status) break;
+    }
     if (status==YB_EGL_BRIDGE_CONSUMER) return finish_call(p,&saved,YB_NATIVE_PLAYBACK_PENDING);
     if (status || !bind_desktop(p) || !clear_frame(p)) {
         quarantine(p); return finish_call(p,&saved,YB_NATIVE_PLAYBACK_QUARANTINED);
@@ -568,6 +627,8 @@ int yb_native_playback_abandon_after_display_teardown(yb_native_playback_context
         (p->el_import && yb_vaapi_p010_import_abandon_destroyed_display(&p->el_import,1)) ||
         (p->scaler && yb_vaapi_el_scaler_abandon_after_display_teardown(&p->scaler,1))) return YB_NATIVE_PLAYBACK_ERROR;
     if (yb_egl_output_bridge_abandon_destroyed_display(&p->bridge,1)) return YB_NATIVE_PLAYBACK_ERROR;
+    for (unsigned i=0;i<3;i++)
+        if (yb_egl_output_bridge_abandon_destroyed_display(&p->plane_bridges[i],1)) return YB_NATIVE_PLAYBACK_ERROR;
     av_frame_free(&p->base); av_frame_free(&p->el); free(p); *handle=NULL; return 0;
 }
 

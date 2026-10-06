@@ -10,7 +10,8 @@
 extern "C" {
 #endif
 typedef struct yb_native_playback_context yb_native_playback_context;
-enum { YB_NATIVE_PLAYBACK_FP32=1,YB_NATIVE_PLAYBACK_NLQ_LUT=2 };
+enum { YB_NATIVE_PLAYBACK_FP32=1,YB_NATIVE_PLAYBACK_NLQ_LUT=2,
+       YB_NATIVE_PLAYBACK_PLANAR_OUTPUT=4 };
 typedef struct { uint32_t version,flags,reserved[2]; } yb_native_playback_options;
 int yb_native_playback_options_validate(const yb_native_playback_options *);
 /* CPU-only, same-owner-thread route diagnostics. Zero counters when disabled. */
@@ -96,6 +97,17 @@ typedef struct {
      * code values /4096 in RGB, alpha1; NOT RGB colour or native colour output.
      * Feed root colour-only renderer with original paired metadata. */
 } yb_native_playback_output;
+typedef struct {
+    uint32_t version,textures[3],width,height,output_depth,sampling_contract;
+    uint8_t frame_id[32];
+    /* Borrowed GLES TEXTURE_2D R16UI Y/Cb/Cr, native 4:2:0 12-bit codes.
+     * All three siblings belong to one completed, validated frame. Hold them
+     * until release; sampling_contract1 preserves the existing YCC expansion. */
+} yb_native_playback_planar_output;
+/* Additive opt-in API; requires PLANAR_OUTPUT and output->version1. The
+ * existing float-output API/layout is unchanged. No output mutation on error. */
+int yb_native_playback_finish_planar(yb_native_playback_context *,uint64_t,
+    yb_native_playback_planar_output *);
 enum { YB_NATIVE_PLAYBACK_OK=0,YB_NATIVE_PLAYBACK_ARGUMENT=1,
        YB_NATIVE_PLAYBACK_FALLBACK=2,YB_NATIVE_PLAYBACK_PENDING=3,
        YB_NATIVE_PLAYBACK_ERROR=4,YB_NATIVE_PLAYBACK_QUARANTINED=5 };

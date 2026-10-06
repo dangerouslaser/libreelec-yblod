@@ -36,11 +36,11 @@ struct yb_gpu_ycc_backend {
     struct backend_gl gl;
     yb_gpu_ycc_create_info owner;
     uintptr_t context;
-    GLuint program,buffers[1],outputs[1];
+    GLuint program,validation_program,buffers[1],outputs[1];
     GLsync fence;
-    uint32_t width,height,output_depth;
+    uint32_t width,height,output_depth,allocation_width,allocation_height;
     uint8_t frame_id[32];
-    int pending,valid,failed,closing;
+    int pending,valid,failed,closing,validation_only;
 };
 static int same_context(const yb_gpu_ycc_backend *b)
 {return b&&b->owner.current_context&&b->owner.current_context(b->owner.opaque)==b->context;}
@@ -55,6 +55,43 @@ static void delete_owned(yb_gpu_ycc_backend *b)
 {
     b->gl.DeleteTextures(1,b->outputs);b->gl.DeleteBuffers(1,b->buffers);
     if(b->program)b->gl.DeleteProgram(b->program);
+    if(b->validation_program)b->gl.DeleteProgram(b->validation_program);
+}
+static int create_validation_program(yb_gpu_ycc_backend *b)
+{
+    if(b->validation_program)return YB_GPU_BACKEND_OK;
+    static const char source[]=
+        "#version 430 core\n"
+        "layout(local_size_x=8,local_size_y=8) in;\n"
+        "layout(binding=0) uniform usampler2D reconstructed_y;\n"
+        "layout(binding=1) uniform usampler2D reconstructed_cb;\n"
+        "layout(binding=2) uniform usampler2D reconstructed_cr;\n"
+        "layout(std430,binding=0) buffer Errors { uint error_flags; };\n"
+        "layout(location=0) uniform ivec2 full_size;\n"
+        "layout(location=1) uniform uint sampling_contract;\n"
+        "layout(location=2) uniform uint reconstructed_depth;\n"
+        "void main(){ ivec2 p=ivec2(gl_GlobalInvocationID.xy);\n"
+        "if(any(greaterThanEqual(p,full_size)))return;\n"
+        "if(sampling_contract!=1u||reconstructed_depth!=12u){atomicOr(error_flags,1u);return;}\n"
+        "uint value=texelFetch(reconstructed_y,p,0).r;\n"
+        "if(all(lessThan(p,full_size/2)))value=max(value,max(texelFetch(reconstructed_cb,p,0).r,texelFetch(reconstructed_cr,p,0).r));\n"
+        "if(value>4095u)atomicOr(error_flags,2u); }\n";
+    struct backend_gl *g=&b->gl;
+    GLuint shader=g->CreateShader(GL_COMPUTE_SHADER);
+    if(!shader)return YB_GPU_BACKEND_GL_FAILURE;
+    const char *text=source; GLint length=(GLint)(sizeof(source)-1U),compiled=0;
+    g->ShaderSource(shader,1,&text,&length);g->CompileShader(shader);
+    g->GetShaderiv(shader,GL_COMPILE_STATUS,&compiled);
+    GLuint program=g->CreateProgram();
+    if(compiled&&program){g->AttachShader(program,shader);g->LinkProgram(program);}
+    g->DeleteShader(shader);
+    GLint linked=0,group[3]={0,0,0};
+    if(program){g->GetProgramiv(program,GL_LINK_STATUS,&linked);if(linked)g->GetProgramiv(program,GL_COMPUTE_WORK_GROUP_SIZE,group);}
+    if(!compiled||!linked||group[0]!=8||group[1]!=8||group[2]!=1||g->GetError()!=GL_NO_ERROR){
+        if(program)g->DeleteProgram(program);
+        return YB_GPU_BACKEND_GL_FAILURE;
+    }
+    b->validation_program=program;return YB_GPU_BACKEND_OK;
 }
 
 int yb_gpu_ycc_create(const yb_gpu_ycc_create_info *info,yb_gpu_ycc_backend **output)
@@ -126,7 +163,7 @@ static int validate_texture(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p,unsig
        swizzle[0]==GL_RED&&swizzle[1]==GL_GREEN&&swizzle[2]==GL_BLUE&&swizzle[3]==GL_ALPHA&&g->GetError()==GL_NO_ERROR;
 }
 
-int yb_gpu_ycc_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
+static int submit_impl(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p,int validation_only)
 {
     int status=yb_gpu_ycc_validate_plan(p);if(status)return status;
     if(!same_context(b))return YB_GPU_BACKEND_ARGUMENT;
@@ -138,7 +175,8 @@ int yb_gpu_ycc_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,0,&gx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,1,&gy);
     if(limit<(GLint)p->width||limit<(GLint)p->height||gx<(GLint)((p->width+7U)/8U)||gy<(GLint)((p->height+7U)/8U))return YB_GPU_BACKEND_UNSUPPORTED;
     for(unsigned slot=0;slot<3;slot++)if(!validate_texture(b,p,slot))return YB_GPU_BACKEND_UNSUPPORTED;
-    int resize=b->width!=p->width||b->height!=p->height;
+    if(validation_only){status=create_validation_program(b);if(status)return status;}
+    int resize=!validation_only&&(!b->outputs[0]||b->allocation_width!=p->width||b->allocation_height!=p->height);
     GLuint fresh[1]={0};
     if(resize){
         g->GenTextures(1,fresh);
@@ -155,24 +193,31 @@ int yb_gpu_ycc_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
     const uint32_t zero=0;
     g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[0]);g->BufferSubData(GL_SHADER_STORAGE_BUFFER,0,4,&zero);
     g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,0,b->buffers[0]);
-    g->UseProgram(b->program);g->Uniform2i(0,(GLint)p->width,(GLint)p->height);
+    g->UseProgram(validation_only?b->validation_program:b->program);g->Uniform2i(0,(GLint)p->width,(GLint)p->height);
     g->Uniform1ui(1,p->sampling_contract);g->Uniform1ui(2,p->output_depth);
-    g->BindImageTexture(0,resize?fresh[0]:b->outputs[0],0,GL_FALSE,0,GL_WRITE_ONLY,GL_RGBA32F);
+    if(!validation_only)g->BindImageTexture(0,resize?fresh[0]:b->outputs[0],0,GL_FALSE,0,GL_WRITE_ONLY,GL_RGBA32F);
     g->DispatchCompute((p->width+7U)/8U,(p->height+7U)/8U,1);
     g->MemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT);
     b->fence=g->FenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE,0);
     /* Even if a GL error occurs after queueing, retain pending work so caller
      * cannot recycle borrowed inputs before completion. */
-    if(resize){g->DeleteTextures(1,b->outputs);memcpy(b->outputs,fresh,sizeof(fresh));}
+    if(resize){g->DeleteTextures(1,b->outputs);memcpy(b->outputs,fresh,sizeof(fresh));
+        b->allocation_width=p->width;b->allocation_height=p->height;}
     b->width=p->width;b->height=p->height;b->output_depth=(uint32_t)p->output_depth;memcpy(b->frame_id,p->frame_id,32);
     b->pending=1;
+    b->validation_only=validation_only;
     if(!b->fence||g->GetError()!=GL_NO_ERROR){b->failed=1;return YB_GPU_BACKEND_GL_FAILURE;}
     return YB_GPU_BACKEND_OK;
 }
+int yb_gpu_ycc_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
+{return submit_impl(b,p,0);}
+int yb_gpu_ycc_validate_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
+{return submit_impl(b,p,1);}
 
-int yb_gpu_ycc_finish(yb_gpu_ycc_backend *b,uint64_t timeout,yb_gpu_ycc_output *output)
+static int finish_impl(yb_gpu_ycc_backend *b,uint64_t timeout,yb_gpu_ycc_output *output,int validation_only)
 {
-    if(!output||(uintptr_t)output%_Alignof(yb_gpu_ycc_output)||timeout>UINT64_C(5000000000)||!same_context(b))return YB_GPU_BACKEND_ARGUMENT;
+    if((!validation_only&&(!output||(uintptr_t)output%_Alignof(yb_gpu_ycc_output)))||
+       timeout>UINT64_C(5000000000)||!same_context(b)||b->validation_only!=validation_only)return YB_GPU_BACKEND_ARGUMENT;
     if(!b->pending)return YB_GPU_BACKEND_ARGUMENT;
     if(!b->fence)return YB_GPU_BACKEND_GL_FAILURE;
     struct backend_gl *g=&b->gl;
@@ -185,10 +230,15 @@ int yb_gpu_ycc_finish(yb_gpu_ycc_backend *b,uint64_t timeout,yb_gpu_ycc_output *
     g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[0]);g->GetBufferSubData(GL_SHADER_STORAGE_BUFFER,0,4,&error);
     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
     if(error)return YB_GPU_BACKEND_FRAME_REJECTED;
+    if(validation_only){b->valid=1;return YB_GPU_BACKEND_OK;}
     yb_gpu_ycc_output value={0};value.version=1;value.width=b->width;value.height=b->height;value.output_depth=b->output_depth;
     value.texture=b->outputs[0];value.sampling_contract=1;memcpy(value.frame_id,b->frame_id,32);
     b->valid=1;*output=value;return YB_GPU_BACKEND_OK;
 }
+int yb_gpu_ycc_finish(yb_gpu_ycc_backend *b,uint64_t timeout,yb_gpu_ycc_output *output)
+{return finish_impl(b,timeout,output,0);}
+int yb_gpu_ycc_validate_finish(yb_gpu_ycc_backend *b,uint64_t timeout)
+{return finish_impl(b,timeout,NULL,1);}
 
 int yb_gpu_ycc_destroy(yb_gpu_ycc_backend **handle)
 {
@@ -212,6 +262,11 @@ int yb_gpu_ycc_destroy(yb_gpu_ycc_backend **handle)
         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
         b->program=0;
     }
+    if(b->validation_program){
+        g->DeleteProgram(b->validation_program);
+        if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+        b->validation_program=0;
+    }
     free(b);*handle=NULL;return YB_GPU_BACKEND_OK;
 }
 int yb_gpu_ycc_abandon_destroyed_context(yb_gpu_ycc_backend **handle,uint32_t destroyed)
@@ -227,6 +282,10 @@ int yb_gpu_ycc_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
 {(void)b;int status=yb_gpu_ycc_validate_plan(p);return status?status:YB_GPU_BACKEND_UNSUPPORTED;}
 int yb_gpu_ycc_finish(yb_gpu_ycc_backend *b,uint64_t timeout,yb_gpu_ycc_output *output)
 {(void)b;(void)timeout;(void)output;return YB_GPU_BACKEND_UNSUPPORTED;}
+int yb_gpu_ycc_validate_submit(yb_gpu_ycc_backend *b,const yb_gpu_ycc_plan *p)
+{(void)b;int status=yb_gpu_ycc_validate_plan(p);return status?status:YB_GPU_BACKEND_UNSUPPORTED;}
+int yb_gpu_ycc_validate_finish(yb_gpu_ycc_backend *b,uint64_t timeout)
+{(void)b;(void)timeout;return YB_GPU_BACKEND_UNSUPPORTED;}
 int yb_gpu_ycc_destroy(yb_gpu_ycc_backend **b)
 {(void)b;return YB_GPU_BACKEND_UNSUPPORTED;}
 int yb_gpu_ycc_abandon_destroyed_context(yb_gpu_ycc_backend **b,uint32_t destroyed)

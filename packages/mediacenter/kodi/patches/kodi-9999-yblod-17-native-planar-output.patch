@@ -1,0 +1,514 @@
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -5,6 +5,7 @@
+ #include <libavutil/dovi_meta.h>
+ #include <libavutil/mem.h>
+ #include <libplacebo/shaders/custom.h>
++#include <libplacebo/dispatch.h>
+ #include <libplacebo/opengl.h>
+ #include <GLES3/gl31.h>
+ #include <math.h>
+@@ -37,6 +38,57 @@
+     bool direct_conversion;
+     bool native_packed;
+ };
++struct planar_source {
++    const struct dvbridge_native_planar *planes;
++    bool called,failed;
++};
++static struct pl_hook_res expand_native_planar(void *priv,const struct pl_hook_params *p)
++{
++    struct planar_source *source=priv;
++    const struct dvbridge_native_planar *planes=source->planes;
++    source->called=true;
++    if(p->stage!=PL_HOOK_NATIVE||p->rect.x0!=0||p->rect.y0!=0||
++       p->rect.x1!=planes->width||p->rect.y1!=planes->height){
++        source->failed=true;return (struct pl_hook_res){.failed=true};
++    }
++    pl_shader sh=pl_dispatch_begin(p->dispatch);
++    pl_fmt vertex=pl_find_fmt(p->gpu,PL_FMT_FLOAT,2,32,32,PL_FMT_CAP_VERTEX);
++    if(!sh||!vertex){if(sh)pl_dispatch_abort(p->dispatch,&sh);
++        source->failed=true;return (struct pl_hook_res){.failed=true};}
++    const float corners[4][2]={{0,0},{planes->width,0},{0,planes->height},{planes->width,planes->height}};
++    const struct pl_shader_va coord={.attr={.name="native_pixel",.fmt=vertex},
++        .data={corners[0],corners[1],corners[2],corners[3]}};
++    const struct pl_shader_desc descriptors[]={
++        {.desc={.name="native_y",.type=PL_DESC_SAMPLED_TEX},.binding={.object=planes->textures[0],.sample_mode=PL_TEX_SAMPLE_NEAREST}},
++        {.desc={.name="native_cb",.type=PL_DESC_SAMPLED_TEX},.binding={.object=planes->textures[1],.sample_mode=PL_TEX_SAMPLE_NEAREST}},
++        {.desc={.name="native_cr",.type=PL_DESC_SAMPLED_TEX},.binding={.object=planes->textures[2],.sample_mode=PL_TEX_SAMPLE_NEAREST}},
++    };
++    const struct pl_custom_shader shader={
++        .input=PL_SHADER_SIG_NONE,.output=PL_SHADER_SIG_COLOR,
++        .output_w=planes->width,.output_h=planes->height,
++        .vertex_attribs=&coord,.num_vertex_attribs=1,
++        .descriptors=descriptors,.num_descriptors=3,
++        .description="native 4:2:0 exact expansion",
++        .header=
++            "float native_chroma(usampler2D plane,ivec2 p){\n"
++            "vec2 position=vec2(float(p.x)*0.5,(float(p.y)-0.5)*0.5);\n"
++            "ivec2 first=ivec2(floor(position));vec2 fraction=position-vec2(first);\n"
++            "ivec2 last=textureSize(plane,0)-ivec2(1);\n"
++            "uint a=texelFetch(plane,clamp(first,ivec2(0),last),0).r;\n"
++            "uint b=texelFetch(plane,clamp(first+ivec2(0,1),ivec2(0),last),0).r;\n"
++            "uint c=texelFetch(plane,clamp(first+ivec2(1,0),ivec2(0),last),0).r;\n"
++            "uint d=texelFetch(plane,clamp(first+ivec2(1,1),ivec2(0),last),0).r;\n"
++            "float left=float(a)*(1.0-fraction.y)+float(b)*fraction.y;\n"
++            "float right=float(c)*(1.0-fraction.y)+float(d)*fraction.y;\n"
++            "return left*(1.0-fraction.x)+right*fraction.x;}\n",
++        .body="ivec2 p=ivec2(floor(native_pixel));\n"
++            "color=vec4(vec3(float(texelFetch(native_y,p,0).r),native_chroma(native_cb,p),native_chroma(native_cr,p))/4096.0,1.0);\n",
++    };
++    source->failed=!pl_shader_custom(sh,&shader);
++    if(source->failed){pl_dispatch_abort(p->dispatch,&sh);return (struct pl_hook_res){.failed=true};}
++    return (struct pl_hook_res){.output=PL_HOOK_SIG_COLOR,.sh=sh,.rect=p->rect,
++        .repr=p->repr,.color=p->color,.components=4};
++}
+ 
+ void dvbridge_renderer_set_direct_conversion(struct dvbridge_renderer *r, bool enabled)
+ {
+@@ -231,7 +283,8 @@
+                         const void *metadata, size_t bytes, double pts, double el_pts,
+                         struct dvbridge_geometry geometry, pl_tex packed, bool flip, bool hdr10,
+                         pl_tex reconstructed,
+-                        const struct dvbridge_native_colour_association *native_association)
++                        const struct dvbridge_native_colour_association *native_association,
++                        const struct dvbridge_native_planar *planar)
+ {
+     if (!r)
+         return false;
+@@ -241,7 +294,7 @@
+     dvbridge_candidate_destroy(r->pending);
+     r->pending = NULL;
+     if (native_association) {
+-        if (source || !reconstructed || hdr10 ||
++        if (source || (!reconstructed&&!planar) || hdr10 ||
+             !dvbridge_native_colour_association_valid(native_association) ||
+             native_association->width != (unsigned)geometry.source_width ||
+             native_association->height != (unsigned)geometry.source_height ||
+@@ -263,6 +316,19 @@
+         for (int c=0;c<4;++c)
+             if (reconstructed->params.format->component_depth[c] != 32)
+                 return false;
++    }
++    if(planar){
++        if(reconstructed||!native_association||hdr10||planar->output_depth!=12||planar->sampling_contract!=1||
++           planar->width!=(unsigned)geometry.source_width||planar->height!=(unsigned)geometry.source_height||
++           !planar->width||!planar->height||planar->width>3840||planar->height>2160||((planar->width|planar->height)&1U))return false;
++        for(unsigned i=0;i<3;i++){
++            pl_tex tex=planar->textures[i];
++            if(!tex||!tex->params.sampleable||tex->params.format->type!=PL_FMT_UINT||
++               tex->params.format->num_components!=1||tex->params.format->component_depth[0]!=16||
++               tex->params.w!=(int)(i?planar->width/2:planar->width)||
++               tex->params.h!=(int)(i?planar->height/2:planar->height))return false;
++            for(unsigned j=0;j<i;j++)if(tex==planar->textures[j])return false;
++        }
+     }
+     for (int p = 0; source && p < source->num_planes; ++p)
+         if (!source->planes[p].texture)
+@@ -293,7 +359,7 @@
+     image.profile = (struct pl_icc_profile){0};
+     image.icc = NULL;
+     image.lut = NULL;
+-    if (reconstructed) {
++    if (reconstructed||planar) {
+         /* Experimental engine has already performed mapping and NLQ. Keep the
+          * original paired source above solely for validated metadata/packets.
+          * The output remains an inherited colour-only stage, not native colour
+@@ -304,7 +370,8 @@
+         image.enhancement_layer=NULL;
+         image.num_planes=1;
+         memset(image.planes,0,sizeof(image.planes));
+-        image.planes[0]=(struct pl_plane){.texture=reconstructed,.components=4,
++        image.planes[0]=planar?(struct pl_plane){.texture=planar->textures[0],.components=1,
++            .component_mapping={0,-1,-1,-1}}:(struct pl_plane){.texture=reconstructed,.components=4,
+             .component_mapping={0,1,2,3}};
+         image.repr.bits=(struct pl_bit_encoding){.sample_depth=12,.color_depth=12};
+         image.repr.levels=PL_COLOR_LEVELS_FULL;
+@@ -360,7 +427,7 @@
+         3.06441879f, -2.16597676f, 0.10155818f}, {
+         -0.65612108f, 1.78554118f, -0.12943749f}, {
+         0.01736321f, -0.04725154f, 1.03004253f}}};
+-    const bool direct = !reconstructed && r->direct_conversion && packed && !hdr10 &&
++    const bool direct = !reconstructed && !planar && r->direct_conversion && packed && !hdr10 &&
+         !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
+         !geometry.x && !geometry.y && geometry.width == 3840 && geometry.height == 2160;
+     if (direct) {
+@@ -374,23 +441,27 @@
+     memcpy(mask.ipt_offset, r->ipt_offset, sizeof(mask.ipt_offset));
+     mask.flip = flip;
+     mask.direct_conversion = direct;
+-    mask.native_packed = reconstructed != NULL;
++    mask.native_packed = reconstructed != NULL || planar != NULL;
+     mask.packets = dvbridge_packets(r->pending, &mask.count);
+-    mask.early_mask = !reconstructed && packed && !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
++    mask.early_mask = !reconstructed && !planar && packed && !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
+                       (margins[0] || margins[1] || margins[2] || margins[3]);
+     const struct pl_hook hook = {
+         .stages = PL_HOOK_OUTPUT | (mask.early_mask ? PL_HOOK_NATIVE : 0),
+         .input = PL_HOOK_SIG_COLOR,
+         .priv = &mask, .hook = packed ? pack_active_area : mask_active_area,
+-        .signature = packed ? (reconstructed ? 0x4456425246555304ULL :
++        .signature = packed ? ((reconstructed||planar) ? 0x4456425246555304ULL :
+                               (direct ? 0x4456425246555303ULL : 0x4456425246555302ULL)) : 0x445642524c350001ULL};
+-    const struct pl_hook *hooks[] = {&hook};
++    struct planar_source native={.planes=planar};
++    const struct pl_hook expansion={.stages=PL_HOOK_NATIVE,.input=PL_HOOK_SIG_NONE,
++        .priv=&native,.hook=expand_native_planar,.signature=0x445642524e503031ULL};
++    const struct pl_hook *hooks[] = {planar?&expansion:&hook,&hook};
+     params.hooks = hooks;
+-    params.num_hooks = 1;
++    params.num_hooks = planar?2:1;
+     if (!packed && (geometry.x || geometry.y || geometry.width != 3840 || geometry.height != 2160))
+         pl_tex_clear(r->gpu, r->rgb, (float[4]){0, 0, 0, 1});
+     r->ready = pl_render_image_dovi(r->renderer, &image, &target, &params,
+-                                   direct ? &transport_from_hpe : NULL) && mask.called && !mask.failed;
++                                   direct ? &transport_from_hpe : NULL) && mask.called && !mask.failed &&
++                                   (!planar||(native.called&&!native.failed));
+     /* An EL sampling failure can otherwise return a successfully rendered BL-only frame. */
+     struct pl_render_errors errors = pl_renderer_get_errors(r->renderer);
+     r->ready = r->ready && !errors.errors && !errors.num_disabled_hooks;
+@@ -406,7 +477,7 @@
+                         const void *metadata, size_t bytes, double pts, double el_pts,
+                         struct dvbridge_geometry geometry)
+ {
+-    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, false, NULL, NULL);
++    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, false, NULL, NULL, NULL);
+ }
+ 
+ bool dvbridge_render_reconstructed_rgb(struct dvbridge_renderer *r,
+@@ -426,7 +497,7 @@
+         return false;
+     }
+     return render(r, paired_source, metadata, bytes, pts, el_pts, geometry,
+-                  NULL, false, false, reconstructed, NULL);
++                  NULL, false, false, reconstructed, NULL, NULL);
+ }
+ 
+ bool dvbridge_render_native_reconstructed_rgb(struct dvbridge_renderer *r,
+@@ -438,21 +509,22 @@
+     return render(r, NULL, metadata, bytes,
+                   association ? association->presentation_pts : (double)NAN,
+                   association ? association->enhancement_presentation_pts : (double)NAN,
+-                  geometry, NULL, false, false, reconstructed, association);
++                  geometry, NULL, false, false, reconstructed, association, NULL);
+ }
+ 
+ bool dvbridge_render_hdr10_rgb(struct dvbridge_renderer *r, const struct pl_frame *source,
+                               const void *metadata, size_t bytes, double pts, double el_pts,
+                               struct dvbridge_geometry geometry)
+ {
+-    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true, NULL, NULL);
++    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true, NULL, NULL, NULL);
+ }
+ 
+ static bool render_packed(struct dvbridge_renderer *r, const struct pl_frame *source,
+                            const void *metadata, size_t bytes, double pts, double el_pts,
+                            struct dvbridge_geometry geometry, pl_tex target, bool flip,
+                            pl_tex reconstructed,
+-                           const struct dvbridge_native_colour_association *association)
++                           const struct dvbridge_native_colour_association *association,
++                           const struct dvbridge_native_planar *planar)
+ {
+     if (r)
+         r->ready = false;
+@@ -482,7 +554,7 @@
+     }
+     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+     bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false,
+-                     reconstructed, association);
++                     reconstructed, association, planar);
+     ok = glGetError() == GL_NO_ERROR && ok;
+     glColorMask(mask[0], mask[1], mask[2], mask[3]);
+     for (unsigned i=0; i<sizeof(caps)/sizeof(*caps); ++i) {
+@@ -498,7 +570,7 @@
+                            struct dvbridge_geometry geometry, pl_tex target, bool flip)
+ {
+     return render_packed(r, source, metadata, bytes, pts, el_pts, geometry, target, flip,
+-                         NULL, NULL);
++                         NULL, NULL, NULL);
+ }
+ 
+ bool dvbridge_render_native_reconstructed_packed(struct dvbridge_renderer *r,
+@@ -509,8 +581,26 @@
+     return render_packed(r, NULL, metadata, bytes,
+                         association ? association->presentation_pts : (double)NAN,
+                         association ? association->enhancement_presentation_pts : (double)NAN,
+-                        geometry, target, flip, reconstructed, association);
++                        geometry, target, flip, reconstructed, association, NULL);
+ }
++bool dvbridge_render_native_planar_rgb(struct dvbridge_renderer *r,
++    const struct dvbridge_native_colour_association *association,const struct dvbridge_native_planar *planar,
++    const void *metadata,size_t bytes,struct dvbridge_geometry geometry)
++{
++    return render(r,NULL,metadata,bytes,
++        association?association->presentation_pts:(double)NAN,
++        association?association->enhancement_presentation_pts:(double)NAN,
++        geometry,NULL,false,false,NULL,association,planar);
++}
++bool dvbridge_render_native_planar_packed(struct dvbridge_renderer *r,
++    const struct dvbridge_native_colour_association *association,const struct dvbridge_native_planar *planar,
++    const void *metadata,size_t bytes,struct dvbridge_geometry geometry,pl_tex target,bool flip)
++{
++    return render_packed(r,NULL,metadata,bytes,
++        association?association->presentation_pts:(double)NAN,
++        association?association->enhancement_presentation_pts:(double)NAN,
++        geometry,target,flip,NULL,association,planar);
++}
+ 
+ pl_tex dvbridge_render_texture(const struct dvbridge_renderer *r)
+ {
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -6,6 +6,16 @@
+ #include "dvbridge_native_colour.h"
+ 
+ struct dvbridge_renderer;
++struct dvbridge_native_planar {
++    pl_tex textures[3];
++    unsigned width,height,output_depth,sampling_contract;
++};
++bool dvbridge_render_native_planar_rgb(struct dvbridge_renderer *,
++    const struct dvbridge_native_colour_association *,const struct dvbridge_native_planar *,
++    const void *,size_t,struct dvbridge_geometry);
++bool dvbridge_render_native_planar_packed(struct dvbridge_renderer *,
++    const struct dvbridge_native_colour_association *,const struct dvbridge_native_planar *,
++    const void *,size_t,struct dvbridge_geometry,pl_tex,bool);
+ struct dvbridge_renderer *dvbridge_renderer_create(pl_gpu gpu);
+ void dvbridge_renderer_destroy(struct dvbridge_renderer *renderer);
+ void dvbridge_renderer_reset(struct dvbridge_renderer *renderer);
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -164,9 +164,9 @@
+   if (!DVBRIDGE::DiagnosticsEnabled() || m_lastReported == m_prepares)
+     return;
+   CLog::Log(LOGINFO,
+-      "DVBridge renderer {}: prepared={} direct={} composed={} presented={} presentation_failures={} stage_failures={}",
++      "DVBridge renderer {}: prepared={} direct={} composed={} presented={} presentation_failures={} stage_failures={} native_planar={}",
+       event, m_prepares, m_directFrames, m_prepares - m_directFrames,
+-      m_presentations, m_failedPresentations, m_failures.Count());
++      m_presentations, m_failedPresentations, m_failures.Count(), m_nativePlanarFrames);
+   m_lastReported = m_prepares;
+ }
+ 
+@@ -405,7 +405,8 @@
+ bool CDVBridgeGLES::Prepare(const Layer& base, const Layer* enhancement,
+                           const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked,
+                           pl_tex reconstructed,
+-                          const dvbridge_native_colour_association* nativeAssociation)
++                          const dvbridge_native_colour_association* nativeAssociation,
++                          const dvbridge_native_planar* planar)
+ {
+   m_prepared = m_packed = false;
+   m_nativePrepared = false;
+@@ -417,9 +418,9 @@
+     return Failure("metadata-unavailable");
+   SetIptOffset(m_renderer, m_packer);
+   const bool requestedConversion = DVBRIDGE::playbackDirectConversion.load();
+-  dvbridge_renderer_set_direct_conversion(m_renderer, !reconstructed && requestedConversion && m_conversionUsable);
++  dvbridge_renderer_set_direct_conversion(m_renderer, !reconstructed && !planar && requestedConversion && m_conversionUsable);
+   dvbridge_gl_frame bl{}, el{};
+-  if (nativeAssociation && (!reconstructed || enhancement ||
++  if (nativeAssociation && ((!reconstructed && !planar) || enhancement ||
+                            !dvbridge_native_colour_association_valid(nativeAssociation)))
+     return Failure("native-colour-association");
+   if (!nativeAssociation && !dvbridge_gl_frame_import(&bl, m_gl->gpu, base.layout, base.width, base.height, base.planes))
+@@ -438,12 +439,14 @@
+     elPts = enhancement->pts;
+   }
+   const char* nativePacked = std::getenv("DVBRIDGE_NATIVE_PACKED_OUTPUT");
+-  if (reconstructed && nativeAssociation && nativePacked && std::strcmp(nativePacked, "1") == 0 &&
++  if ((reconstructed || planar) && nativeAssociation && nativePacked && std::strcmp(nativePacked, "1") == 0 &&
+       !m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
+       geometry.source_width == 3840 && geometry.source_height == 2160 &&
+       geometry.width == 3840 && geometry.height == 2160)
+   {
+-    m_direct = dvbridge_render_native_reconstructed_packed(
++    m_direct = planar ? dvbridge_render_native_planar_packed(
++        m_renderer, nativeAssociation, planar, metadata.Data(), metadata.Size(),
++        geometry, m_scanout, true) : dvbridge_render_native_reconstructed_packed(
+         m_renderer, nativeAssociation, reconstructed, metadata.Data(), metadata.Size(),
+         geometry, m_scanout, true);
+     if (!m_direct)
+@@ -455,7 +458,7 @@
+   }
+   // The fast path produces the exact transport bytes directly. GUI/subtitle
+   // frames and non-fullscreen geometry retain the original 32F composition.
+-  if (!reconstructed && !m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
++  if (!reconstructed && !planar && !m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
+       geometry.width == 3840 && geometry.height == 2160)
+   {
+     // Finish readback before rendering the real output; capture never replaces scanout.
+@@ -484,14 +487,16 @@
+     }
+   }
+   const auto renderRGB = m_hdr10 ? dvbridge_render_hdr10_rgb : dvbridge_render_rgb;
+-  m_prepared = m_direct || (reconstructed
++  m_prepared = m_direct || (planar
++      ? (!m_hdr10 && dvbridge_render_native_planar_rgb(m_renderer, nativeAssociation, planar,
++                                                     metadata.Data(), metadata.Size(), geometry)) : (reconstructed
+       ? (!m_hdr10 && (nativeAssociation
+           ? dvbridge_render_native_reconstructed_rgb(m_renderer, nativeAssociation, reconstructed,
+                                                     metadata.Data(), metadata.Size(), geometry)
+           : dvbridge_render_reconstructed_rgb(m_renderer, &bl.frame, reconstructed,
+                                              metadata.Data(), metadata.Size(), base.pts, elPts, geometry)))
+       : (m_direct || renderRGB(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
+-                              base.pts, elPts, geometry)));
++                              base.pts, elPts, geometry))));
+   m_pendingInfo = 0;
+   if (m_prepared)
+   {
+@@ -517,7 +522,7 @@
+   dvbridge_gl_frame_release(&bl);
+   if (!m_prepared)
+     return Failure("render-prepare");
+-  m_nativePrepared = reconstructed != nullptr;
++  m_nativePrepared = reconstructed != nullptr || planar != nullptr;
+   m_nativeColourNoReimport = nativeAssociation != nullptr;
+   const int conversionPath = dvbridge_renderer_used_direct_conversion(m_renderer) ? 1 : 0;
+   if (conversionPath != m_lastConversionPath)
+@@ -531,6 +536,7 @@
+   {
+     ++m_prepares;
+     m_directFrames += m_direct;
++    m_nativePlanarFrames += planar != nullptr;
+     if (m_firstFrame)
+     {
+       m_firstFrame = false;
+@@ -647,9 +653,19 @@
+     const char* fp32 = std::getenv("DVBRIDGE_NATIVE_FP32");
+     if (nlqRequested && (!fp32 || std::strcmp(fp32, "1")))
+       return fail("nlq_lut requires fp32", YB_NATIVE_PLAYBACK_ARGUMENT);
++    const char* planarFlag = std::getenv("DVBRIDGE_NATIVE_PLANAR_OUTPUT");
++    if (planarFlag && std::strcmp(planarFlag, "0") && std::strcmp(planarFlag, "1"))
++      return fail("planar output flag", YB_NATIVE_PLAYBACK_ARGUMENT);
++    m_nativePlanar = planarFlag && !std::strcmp(planarFlag, "1");
++    const char* noReimportFlag = std::getenv("DVBRIDGE_NATIVE_COLOUR_NO_REIMPORT");
++    if (m_nativePlanar && (!fp32 || std::strcmp(fp32, "1") ||
++                          !noReimportFlag || std::strcmp(noReimportFlag, "1")))
++      return fail("planar requires fp32 native colour admission", YB_NATIVE_PLAYBACK_ARGUMENT);
+     const yb_native_playback_options options{
+-        1, YB_NATIVE_PLAYBACK_FP32 | YB_NATIVE_PLAYBACK_NLQ_LUT, {0, 0}};
+-    const int status = nlqRequested ? yb_native_playback_create_ex(&info, &options, &m_native)
++        1, static_cast<uint32_t>(YB_NATIVE_PLAYBACK_FP32 |
++            (nlqRequested ? YB_NATIVE_PLAYBACK_NLQ_LUT : 0) |
++            (m_nativePlanar ? YB_NATIVE_PLAYBACK_PLANAR_OUTPUT : 0)), {0, 0}};
++    const int status = (nlqRequested || m_nativePlanar) ? yb_native_playback_create_ex(&info, &options, &m_native)
+                                     : yb_native_playback_create(&info, &m_native);
+     if (status != YB_NATIVE_PLAYBACK_OK)
+       return fail("create", status);
+@@ -713,9 +729,21 @@
+   if (submitted != YB_NATIVE_PLAYBACK_OK)
+     return fail("submit", submitted);
+   yb_native_playback_output output{};
+-  const int finished = yb_native_playback_finish(m_native, 1000000000, &output);
++  yb_native_playback_planar_output planarOutput{};
++  planarOutput.version = 1;
++  const int finished = m_nativePlanar
++      ? yb_native_playback_finish_planar(m_native, 1000000000, &planarOutput)
++      : yb_native_playback_finish(m_native, 1000000000, &output);
+   if (finished != YB_NATIVE_PLAYBACK_OK)
+     return fail("finish", finished);
++  if (m_nativePlanar)
++  {
++    if (planarOutput.version != 1 || planarOutput.output_depth != 12 || planarOutput.sampling_contract != 1)
++      return fail("planar output contract", YB_NATIVE_PLAYBACK_ERROR);
++    output.width = planarOutput.width;
++    output.height = planarOutput.height;
++    std::memcpy(output.frame_id, planarOutput.frame_id, 32);
++  }
+   if (std::memcmp(output.frame_id, association.frame_id, 32) ||
+       output.width != association.width || output.height != association.height)
+     return fail("output-association", YB_NATIVE_PLAYBACK_ERROR);
+@@ -732,12 +760,30 @@
+       clock_gettime(CLOCK_THREAD_CPUTIME_ID, &colourCpuBegin) == 0;
+   if (colourTimingRequested && !colourTimingStarted)
+     m_nativeColourTimingValid = false;
+-  pl_tex reconstructed = pl_opengl_wrap(m_gl->gpu, &wrap);
++  pl_tex reconstructed = m_nativePlanar ? nullptr : pl_opengl_wrap(m_gl->gpu, &wrap);
++  dvbridge_native_planar planar{};
++  bool planarReady = m_nativePlanar;
++  if (m_nativePlanar)
++  {
++    planar.width = output.width;
++    planar.height = output.height;
++    planar.output_depth = planarOutput.output_depth;
++    planar.sampling_contract = planarOutput.sampling_contract;
++    for (unsigned i = 0; i < 3; ++i)
++    {
++      wrap.texture = planarOutput.textures[i];
++      wrap.iformat = GL_R16UI;
++      wrap.width = i ? base.width / 2 : base.width;
++      wrap.height = i ? base.height / 2 : base.height;
++      planar.textures[i] = pl_opengl_wrap(m_gl->gpu, &wrap);
++      planarReady = planarReady && planar.textures[i];
++    }
++  }
+   dvbridge_dmabuf imported{};
+   bool prepared = false;
+   const char* noReimport = std::getenv("DVBRIDGE_NATIVE_COLOUR_NO_REIMPORT");
+   const bool omitColourImports = noReimport && std::strcmp(noReimport, "1") == 0;
+-  if (reconstructed && omitColourImports)
++  if ((reconstructed || planarReady) && omitColourImports)
+   {
+     dvbridge_native_colour_association proof{};
+     proof.version = 1;
+@@ -756,7 +802,8 @@
+     std::memcpy(proof.reconstructed_frame_id, output.frame_id, 32);
+     proof.presentation_pts = base.pts;
+     proof.enhancement_presentation_pts = static_cast<double>(enhancement->pts);
+-    prepared = Prepare(base, nullptr, metadata, geometry, allowPacked, reconstructed, &proof);
++    prepared = Prepare(base, nullptr, metadata, geometry, allowPacked, reconstructed, &proof,
++                       m_nativePlanar ? &planar : nullptr);
+   }
+   else if (reconstructed && dvbridge_dmabuf_import(&imported, enhancement))
+   {
+@@ -772,6 +819,8 @@
+   // Submit libplacebo's queued consumer commands before the context fences.
+   pl_gpu_flush(m_gl->gpu);
+   pl_tex_destroy(m_gl->gpu, &reconstructed);
++  for (auto& plane : planar.textures)
++    pl_tex_destroy(m_gl->gpu, &plane);
+   dvbridge_dmabuf_release(&imported);
+   if (colourTimingStarted)
+   {
+@@ -994,9 +1043,10 @@
+     const int length = std::snprintf(info, sizeof(info),
+         "{\"width\":3840,\"height\":2160,\"format\":\"RGBA8 DV tunnel bottom up\","
+         "\"pts\":%.17g,\"el_pts\":%.17g,\"requested_pts\":%.17g,\"exact\":%d,"
+-        "\"native\":%d,\"direct_packed\":%d,\"qsv_mode\":%d}\n",
++        "\"native\":%d,\"direct_packed\":%d,\"qsv_mode\":%d,\"native_planar\":%d}\n",
+         m_outputCapturePts, m_outputCaptureElPts, requestedPts, exact,
+-        m_nativePrepared ? 1 : 0, m_direct ? 1 : 0, DVBRIDGE::playbackQsvMode.load());
++        m_nativePrepared ? 1 : 0, m_direct ? 1 : 0, DVBRIDGE::playbackQsvMode.load(),
++        m_nativePrepared && m_nativePlanar ? 1 : 0);
+     return length > 0 && static_cast<size_t>(length) < sizeof(info) &&
+            write("frame.json", info, static_cast<size_t>(length));
+   }();
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -58,7 +58,8 @@
+   bool Prepare(const Layer& base, const Layer* enhancement,
+                const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false,
+                pl_tex reconstructed = nullptr,
+-               const struct dvbridge_native_colour_association* nativeAssociation = nullptr);
++               const struct dvbridge_native_colour_association* nativeAssociation = nullptr,
++               const struct dvbridge_native_planar* planar = nullptr);
+   bool PrepareHardware(const Layer& base, const AVFrame* enhancement,
+                        const CDVMetadataBuffer& metadata, dvbridge_geometry geometry, bool allowPacked = false);
+   unsigned int GetPQTexture() const;
+@@ -80,6 +81,7 @@
+   yb_native_playback_context* m_native = nullptr;
+   bool m_nativeRequested = false;
+   bool m_nativeFailed = false;
++  bool m_nativePlanar = false;
+   uint64_t m_nativeSerial = 0;
+   void Summary(const char* event);
+   void CapturePair(const pl_frame& frame, const CDVMetadataBuffer& metadata,
+@@ -95,6 +97,7 @@
+   uint64_t m_lastCapturePoll = 0;
+   DVBRIDGE::DiagnosticFailures m_failures;
+   uint64_t m_prepares{0}, m_directFrames{0}, m_presentations{0}, m_failedPresentations{0};
++  uint64_t m_nativePlanarFrames{0};
+   uint64_t m_lastSummary{0}, m_lastReported{0};
+   bool m_firstFrame{true};
+   bool m_hdr10{false};

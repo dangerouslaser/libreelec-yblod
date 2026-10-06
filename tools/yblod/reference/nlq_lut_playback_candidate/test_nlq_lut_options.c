@@ -28,7 +28,9 @@ int main(void)
     assert(yb_gpu_fp32_create(&info,&composer)==YB_GPU_BACKEND_ARGUMENT&&!composer&&context_calls==2);
     for(uint32_t flags=0;flags<8;flags++){
         native.flags=flags;
-        int valid=flags==0||flags==YB_NATIVE_PLAYBACK_FP32||flags==(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT);
+        int valid=flags==0||flags==YB_NATIVE_PLAYBACK_FP32||flags==(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT)||
+            flags==(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT)||
+            flags==(YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT|YB_NATIVE_PLAYBACK_PLANAR_OUTPUT);
         assert((yb_native_playback_options_validate(&native)==YB_NATIVE_PLAYBACK_OK)==valid);
     }
     native.flags=YB_NATIVE_PLAYBACK_FP32|YB_NATIVE_PLAYBACK_NLQ_LUT;
