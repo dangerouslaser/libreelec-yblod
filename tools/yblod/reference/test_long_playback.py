@@ -1,8 +1,22 @@
+import ast
+from pathlib import Path
 import unittest
 from summarize_long_playback import summarize
 
 
 class WindowTests(unittest.TestCase):
+    def test_seek_payload_matches_observed_kodi_schema(self):
+        tree = ast.parse(Path(__file__).with_name('observe_native_movie.py').read_text())
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == 'rpc'
+                 and node.args and isinstance(node.args[0], ast.Constant)
+                 and node.args[0].value == 'Player.Seek']
+        self.assertEqual(len(calls), 1)
+        payload = eval(compile(ast.Expression(calls[0].args[1]), '<seek-payload>', 'eval'),
+                       {'__builtins__': {}}, {'active': [{'playerid': 1}], 'seconds': 1200})
+        self.assertEqual(payload, {'playerid': 1, 'value': {'time': {
+            'hours': 0, 'minutes': 20, 'seconds': 0, 'milliseconds': 0}}})
+
     def report(self):
         return {
             'selected_log_lines': [

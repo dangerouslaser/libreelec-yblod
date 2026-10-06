@@ -163,9 +163,9 @@ if args.seek_seconds:
     else:
         raise RuntimeError('Video player did not become active for seek')
     seconds = args.seek_seconds
-    rpc('Player.Seek', {'playerid': active[0]['playerid'], 'value': {
+    rpc('Player.Seek', {'playerid': active[0]['playerid'], 'value': {'time': {
         'hours': seconds // 3600, 'minutes': seconds // 60 % 60,
-        'seconds': seconds % 60, 'milliseconds': 0}})
+        'seconds': seconds % 60, 'milliseconds': 0}}})
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         props = rpc('Player.GetProperties', {'playerid': active[0]['playerid'],
