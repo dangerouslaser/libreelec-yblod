@@ -1,0 +1,624 @@
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
+@@ -24,6 +24,9 @@
+ #include "windowing/WinSystem.h"
+ 
+ #include <array>
++#include <cstdlib>
++#include <cstring>
++#include <limits>
+ #include <mutex>
+ #include <optional>
+ #ifdef HAVE_DVBRIDGE
+@@ -519,6 +522,12 @@
+ 
+ bool CDecoder::Open(AVCodecContext* avctx, AVCodecContext* mainctx, const enum AVPixelFormat fmt)
+ {
++  if (CVaapiNativePoolState::processQuarantined.load())
++    return false;
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  const char* native = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++  m_nativeSourceEnabled = native && std::strcmp(native, "1") == 0;
++#endif
+   if (!m_capFormats.Supports(AV_PIX_FMT_NV12))
+     return false;
+ 
+@@ -806,9 +815,13 @@
+ {
+   CLog::Log(LOGINFO, "VAAPI::{}", __FUNCTION__);
+ 
++  std::unique_lock<CGraphicContext> gfxLock;
++  if (m_nativePoolState)
++    gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
+   std::unique_lock lock(m_DecoderSection);
+ 
+-  FiniVAAPIOutput();
++  if (!FiniVAAPIOutput())
++    return;
+ 
+   m_deviceRef.reset();
+ 
+@@ -828,10 +841,18 @@
+   // a second decoder might need resources
+   if (m_vaapiConfigured == true)
+   {
++    std::unique_lock<CGraphicContext> gfxLock;
++    if (m_nativePoolState)
++      gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
+     std::unique_lock lock(m_DecoderSection);
++    if (m_nativePoolState && m_nativePoolState->quarantined.load())
++      return IHardwareDecoder::Release();
++    if (m_nativePoolState)
++      m_nativePoolState->valid.store(false);
+     CLog::Log(LOGDEBUG, LOGVIDEO, "VAAPI::Release pre-cleanup");
+ 
+-    std::unique_lock lock1(CServiceBroker::GetWinSystem()->GetGfxContext());
++    if (!gfxLock.owns_lock())
++      gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
+     Message *reply;
+     if (m_vaapiOutput.m_controlPort.SendOutMessageSync(COutputControlProtocol::PRECLEANUP, &reply,
+                                                        2s))
+@@ -872,6 +893,10 @@
+   // while we are waiting to recover we can't do anything
+   std::unique_lock lock(va->m_DecoderSection);
+ 
++  if (CVaapiNativePoolState::processQuarantined.load() ||
++      (va->m_nativePoolState && va->m_nativePoolState->quarantined.load()))
++    return -1;
++
+   if(va->m_DisplayState != VAAPI_OPEN)
+   {
+     CLog::Log(LOGWARNING, "VAAPI::FFGetBuffer - returning due to awaiting recovery");
+@@ -943,6 +968,9 @@
+ 
+   if (!m_vaapiConfigured)
+     return CDVDVideoCodec::VC_ERROR;
++  if (CVaapiNativePoolState::processQuarantined.load() ||
++      (m_nativePoolState && m_nativePoolState->quarantined.load()))
++    return CDVDVideoCodec::VC_ERROR;
+ 
+   if (pFrame)
+   { // we have a new frame from decoder
+@@ -968,6 +996,50 @@
+     static_cast<ICallbackHWAccel*>(avctx->opaque)->GetPictureCommon(&(pic->DVDPic));
+     m_codecControl = pic->DVDPic.iFlags & (DVD_CODEC_CTRL_HURRY | DVD_CODEC_CTRL_NO_POSTPROC);
+     pic->videoSurface = surf;
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++    if (m_nativeSourceEnabled &&
++        m_vaapiConfig.pixelFormat == VA_FOURCC_P010 &&
++        !(pic->DVDPic.iFlags & DVP_FLAG_INTERLACED) &&
++        pFrame->format == AV_PIX_FMT_VAAPI && pFrame->buf[0] &&
++        av_buffer_get_opaque(pFrame->buf[0]) == this)
++    {
++      const AVFrameSideData* dovi = av_frame_get_side_data(pFrame, AV_FRAME_DATA_DOVI_METADATA);
++      AVFrame* source = dovi && dovi->data && dovi->size && dovi->size <= 1024*1024
++          ? av_frame_alloc() : nullptr;
++      AVFrameSideData* copied = source
++          ? av_frame_new_side_data(source, AV_FRAME_DATA_DOVI_METADATA, dovi->size) : nullptr;
++      if (copied)
++      {
++        std::memcpy(copied->data, dovi->data, dovi->size);
++        source->pts = pFrame->pts;
++        source->best_effort_timestamp = pFrame->best_effort_timestamp;
++        source->time_base = pFrame->time_base;
++        source->chroma_location = pFrame->chroma_location;
++        source->flags = pFrame->flags;
++        source->color_primaries = pFrame->color_primaries;
++        source->color_trc = pFrame->color_trc;
++        source->colorspace = pFrame->colorspace;
++        source->color_range = pFrame->color_range;
++        source->format = pFrame->format;
++        source->width = pFrame->width;
++        source->height = pFrame->height;
++        source->data[3] = pFrame->data[3];
++        pic->nativeSource.frame = std::shared_ptr<AVFrame>(source, [](AVFrame* frame)
++        {
++          av_frame_free(&frame);
++        });
++        pic->nativeSource.allocationWidth = static_cast<unsigned>(m_vaapiConfig.surfaceWidth);
++        pic->nativeSource.allocationHeight = static_cast<unsigned>(m_vaapiConfig.surfaceHeight);
++        pic->nativeSource.fourcc = m_vaapiConfig.pixelFormat;
++        pic->nativeSource.display = m_vaapiConfig.dpy;
++        pic->nativeSource.decoderOwner = this;
++        pic->nativeSource.generation = m_nativeSourceGeneration;
++        pic->nativeSource.poolState = m_nativePoolState;
++      }
++      else
++        av_frame_free(&source);
++    }
++#endif
+     m_bufferStats.IncDecoded();
+     CPayloadWrap<CVaapiDecodedPicture> *payload = new CPayloadWrap<CVaapiDecodedPicture>(pic);
+     m_vaapiOutput.m_dataPort.SendOutMessage(COutputDataProtocol::NEWFRAME, payload);
+@@ -1076,10 +1148,16 @@
+   }
+   if (state == VAAPI_RESET || state == VAAPI_ERROR)
+   {
++    std::unique_lock<CGraphicContext> gfxLock;
++    if (m_nativePoolState)
++      gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
+     std::unique_lock lock(m_DecoderSection);
+ 
++    if (m_nativePoolState && m_nativePoolState->quarantined.load())
++      return CDVDVideoCodec::VC_FATAL;
+     avcodec_flush_buffers(avctx);
+-    FiniVAAPIOutput();
++    if (!FiniVAAPIOutput())
++      return CDVDVideoCodec::VC_FATAL;
+     if (m_vaapiConfig.context)
+       m_vaapiConfig.context->Release(this);
+     m_vaapiConfig.context = 0;
+@@ -1183,6 +1261,17 @@
+ 
+ bool CDecoder::ConfigVAAPI()
+ {
++  std::unique_lock<CGraphicContext> gfxLock;
++  if (m_nativeSourceEnabled)
++    gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
++  if (CVaapiNativePoolState::processQuarantined.load() ||
++      (m_nativePoolState && m_nativePoolState->quarantined.load()))
++    return false;
++  if (m_nativeSourceEnabled &&
++      m_nativeSourceGeneration == std::numeric_limits<std::uint64_t>::max())
++    return false;
++  if (m_nativePoolState)
++    m_nativePoolState->valid.store(false);
+   m_vaapiConfig.dpy = m_vaapiConfig.context->GetDisplay();
+   m_vaapiConfig.attrib = m_vaapiConfig.context->GetAttrib(m_vaapiConfig.profile);
+   unsigned int validFormats = VA_RT_FORMAT_YUV420 | VA_RT_FORMAT_YUV420_10BPP |
+@@ -1289,7 +1378,8 @@
+   }
+ 
+   // initialize output
+-  std::unique_lock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
++  if (!gfxLock.owns_lock())
++    gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
+   m_vaapiConfig.stats = &m_bufferStats;
+   m_bufferStats.Reset();
+   m_vaapiOutput.Start();
+@@ -1317,14 +1407,26 @@
+   m_inMsgEvent.Reset();
+   m_vaapiConfigured = true;
+   m_ErrorCount = 0;
++  if (m_nativeSourceEnabled)
++  {
++    ++m_nativeSourceGeneration;
++    m_nativePoolState = std::make_shared<CVaapiNativePoolState>(m_nativeSourceGeneration);
++  }
+ 
+   return true;
+ }
+ 
+-void CDecoder::FiniVAAPIOutput()
++bool CDecoder::FiniVAAPIOutput()
+ {
++  std::unique_lock<CGraphicContext> gfxLock;
++  if (m_nativePoolState)
++    gfxLock = std::unique_lock<CGraphicContext>(CServiceBroker::GetWinSystem()->GetGfxContext());
++  if (m_nativePoolState && m_nativePoolState->quarantined.load())
++    return false;
++  if (m_nativePoolState)
++    m_nativePoolState->valid.store(false);
+   if (!m_vaapiConfigured)
+-    return;
++    return true;
+ 
+   // uninit output
+   m_vaapiOutput.Dispose();
+@@ -1344,6 +1446,7 @@
+   if (m_vaapiConfig.configId != VA_INVALID_ID)
+     CheckSuccess(vaDestroyConfig(m_vaapiConfig.dpy, m_vaapiConfig.configId), "vaDestroyConfig");
+   m_vaapiConfig.configId = VA_INVALID_ID;
++  return true;
+ }
+ 
+ void CDecoder::ReturnRenderPicture(CVaapiRenderPicture *renderPic)
+@@ -1485,6 +1588,7 @@
+ {
+   CVaapiRenderPicture *pic = allRenderPics[id];
+ 
++  pic->nativeSource = {};
+   m_vaapi.ReturnRenderPicture(pic);
+   m_vaapi.ReleasePicReference();
+ }
+@@ -1851,6 +1955,7 @@
+             m_state = O_TOP_ERROR;
+             return;
+           }
++          m_currentPicture.nativeSource = {};
+           CVaapiProcessedPicture outPic;
+           if (m_pp->Filter(outPic))
+           {
+@@ -2052,6 +2157,7 @@
+ 
+ void COutput::Flush()
+ {
++  m_currentPicture.nativeSource = {};
+   Message *msg;
+   while (m_dataPort.ReceiveOutMessage(&msg))
+   {
+@@ -2268,6 +2374,7 @@
+   {
+     vaSyncSurface(m_config.dpy, pic.videoSurface);
+     pic.id = m_bufferPool->procPicId++;
++    retPic->nativeSource = std::move(pic.nativeSource);
+     m_bufferPool->processedPicsAway.push_back(pic);
+     retPic->procPic = pic;
+     retPic->vadsp = m_config.dpy;
+@@ -2345,6 +2452,7 @@
+ 
+ void COutput::ReleaseBufferPool(bool precleanup)
+ {
++  m_currentPicture.nativeSource = {};
+   ProcessSyncPicture();
+ 
+   m_bufferPool->DeleteTextures(precleanup);
+@@ -2403,6 +2511,7 @@
+     return false;
+   outPic.DVDPic.SetParams(m_pic.DVDPic);
+   outPic.videoSurface = m_pic.videoSurface;
++  outPic.nativeSource = std::move(m_pic.nativeSource);
+   m_refsToSurfaces++;
+   outPic.source = this;
+   outPic.DVDPic.iFlags &= ~(DVP_FLAG_TOP_FIELD_FIRST |
+@@ -2423,7 +2532,7 @@
+ 
+ void CSkipPostproc::Flush()
+ {
+-
++  m_pic.nativeSource = {};
+ }
+ 
+ bool CSkipPostproc::UpdateDeintMethod(EINTERLACEMETHOD method)
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.h
+@@ -21,6 +21,7 @@
+ #include "platform/linux/sse4/DllLibSSE4.h"
+ 
+ #include <cstdint>
++#include <atomic>
+ #include <list>
+ #include <map>
+ #include <memory>
+@@ -206,6 +207,28 @@
+  * Holds a decoded frame
+  * Input to COutput for further processing
+  */
++struct CVaapiNativePoolState
++{
++  inline static std::atomic<bool> processQuarantined{false};
++  explicit CVaapiNativePoolState(std::uint64_t value) : generation(value) {}
++  const std::uint64_t generation;
++  std::atomic<bool> valid{true};
++  std::atomic<bool> quarantined{false};
++};
++
++struct CVaapiNativeSource
++{
++  // Public source properties only; never owns the decoder's VA buffer.
++  std::shared_ptr<AVFrame> frame;
++  unsigned allocationWidth{};
++  unsigned allocationHeight{};
++  std::int32_t fourcc{};
++  VADisplay display{};
++  void* decoderOwner{};
++  std::uint64_t generation{};
++  std::shared_ptr<CVaapiNativePoolState> poolState;
++};
++
+ struct CVaapiDecodedPicture
+ {
+   CVaapiDecodedPicture() = default;
+@@ -218,11 +241,13 @@
+     DVDPic.SetParams(rhs.DVDPic);
+     videoSurface = rhs.videoSurface;
+     index = rhs.index;
++    nativeSource = rhs.nativeSource;
+     return *this;
+   };
+   VideoPicture DVDPic;
+   VASurfaceID videoSurface;
+   int index;
++  CVaapiNativeSource nativeSource;
+ };
+ 
+ /**
+@@ -245,6 +270,7 @@
+     source = rhs.source;
+     crop = rhs.crop;
+     fourcc = rhs.fourcc;
++    nativeSource = rhs.nativeSource;
+     return *this;
+   };
+ 
+@@ -257,6 +283,7 @@
+   // VA fourcc of the underlying surface. Set by COutput from
+   // CVaapiConfig::pixelFormat.
+   std::int32_t fourcc{};
++  CVaapiNativeSource nativeSource;
+ };
+ 
+ class CVaapiRenderPicture : public CVideoBuffer
+@@ -268,6 +295,7 @@
+   VideoPicture DVDPic;
+   CVaapiProcessedPicture procPic;
+   AVFrame *avFrame = nullptr;
++  CVaapiNativeSource nativeSource;
+ 
+   bool valid = false;
+   VADisplay vadsp;
+@@ -571,7 +599,7 @@
+   void SetWidthHeight(int width, int height);
+   bool ConfigVAAPI();
+   bool CheckStatus(VAStatus vdp_st, int line);
+-  void FiniVAAPIOutput();
++  bool FiniVAAPIOutput();
+   void ReturnRenderPicture(CVaapiRenderPicture *renderPic);
+   long ReleasePicReference();
+   bool CheckSuccess(VAStatus status, const std::string& function);
+@@ -587,6 +615,9 @@
+   int m_ErrorCount;
+ 
+   bool m_vaapiConfigured;
++  bool m_nativeSourceEnabled = false;
++  std::uint64_t m_nativeSourceGeneration = 0;
++  std::shared_ptr<CVaapiNativePoolState> m_nativePoolState;
+   CVaapiConfig  m_vaapiConfig;
+   CVideoSurfaces m_videoSurfaces;
+   int m_getBufferError;
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -19,14 +19,65 @@
+ #ifdef HAVE_DVBRIDGE
+ #include "ServiceBroker.h"
+ #include "windowing/gbm/WinSystemGbmGLESContext.h"
++#include "windowing/GraphicContext.h"
+ #include <cmath>
+ #endif
+ 
+ #include <memory>
++#include <new>
++#include <cstdlib>
++#include <cstring>
+ 
+ using namespace VAAPI;
+ using namespace KODI::UTILS::EGL;
+ 
++#ifdef HAVE_DVBRIDGE
++namespace
++{
++struct NativeRenderOwner
++{
++  CVaapiRenderPicture* picture;
++  std::shared_ptr<CVaapiNativePoolState> pool;
++};
++void ReleaseNativeRenderOwner(void* opaque, uint8_t*)
++{
++  auto* owner = static_cast<NativeRenderOwner*>(opaque);
++  CVaapiRenderPicture* picture = owner->picture;
++  delete owner;
++  picture->Release();
++}
++int ValidateNativeRenderOwner(void* opaque, void* display, unsigned surface,
++                              uint64_t generation, uint32_t width, uint32_t height)
++{
++  auto* owner = static_cast<NativeRenderOwner*>(opaque);
++  if (CVaapiNativePoolState::processQuarantined.load() ||
++      !owner || !owner->picture || !owner->pool || !owner->pool->valid.load() ||
++      owner->pool->quarantined.load() || owner->pool->generation != generation)
++    return 0;
++  const auto& source = owner->picture->nativeSource;
++  return owner->picture->valid && source.frame && source.poolState == owner->pool &&
++      source.generation == generation && source.display == display &&
++      owner->picture->vadsp == display && owner->picture->procPic.videoSurface == surface &&
++      reinterpret_cast<uintptr_t>(source.frame->data[3]) == surface &&
++      source.fourcc == VA_FOURCC_P010 && source.decoderOwner &&
++      source.allocationWidth == width && source.allocationHeight == height;
++}
++void QuarantineNativeRenderOwner(void* opaque)
++{
++  auto* owner = static_cast<NativeRenderOwner*>(opaque);
++  if (owner && owner->pool)
++  {
++    owner->pool->quarantined.store(true);
++    CVaapiNativePoolState::processQuarantined.store(true);
++  }
++}
++struct NativeGuardDeleter
++{
++  void operator()(AVBufferRef* guard) const { av_buffer_unref(&guard); }
++};
++}
++#endif
++
+ IVaapiWinSystem* CRendererVAAPIGLES::m_pWinSystem = nullptr;
+ 
+ CBaseRenderer* CRendererVAAPIGLES::Create(CVideoBuffer* buffer)
+@@ -179,6 +230,9 @@
+ #ifdef HAVE_DVBRIDGE
+ bool CRendererVAAPIGLES::RenderDVBridge(int idx)
+ {
++  // Handled without drawing: never sample a quarantined VA generation.
++  if (CVaapiNativePoolState::processQuarantined.load())
++    return true;
+   // Native decoder textures only. Postprocessed/cropped/rotated images need
+   // their own explicit metadata/geometry mapping and must not fall back here.
+   if (!m_isVAAPIBuffer || m_textureTarget != GL_TEXTURE_2D || m_renderOrientation != 0)
+@@ -186,6 +240,14 @@
+   auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbmGLESContext*>(
+       CServiceBroker::GetWinSystem());
+   auto& buffer = m_buffers[idx];
++  std::unique_lock<CGraphicContext> nativeGfxLock;
++#ifdef HAVE_YBLOD_NATIVE_PLAYBACK
++  const char* native = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++  if (native && std::strcmp(native, "1") == 0)
++    nativeGfxLock = std::unique_lock<CGraphicContext>(
++        CServiceBroker::GetWinSystem()->GetGfxContext());
++#endif
++  auto* sourcePicture = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer);
+   if (!window || !buffer.doviMetadata.Data() || buffer.doviPts == DVD_NOPTS_VALUE)
+     return false;
+   CDVBridgeGLES::Layer layer{};
+@@ -201,11 +263,38 @@
+   layer.height = m_sourceHeight;
+   layer.pts = buffer.doviPts;
+   layer.decodedSourcePts = buffer.doviSourcePts;
+-  if (auto* pic = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer); pic && pic->valid)
++  std::unique_ptr<AVBufferRef, NativeGuardDeleter> nativeGuard;
++  if (auto* pic = sourcePicture; pic && pic->valid)
+   {
+     layer.vaDisplay = pic->vadsp;
+     layer.vaSurface = pic->procPic.videoSurface;
+     layer.decodedFrame = pic->avFrame;
++    if (pic->nativeSource.frame && pic->nativeSource.poolState)
++    {
++      auto* owner = new (std::nothrow) NativeRenderOwner{pic, pic->nativeSource.poolState};
++      if (owner)
++      {
++        pic->Acquire();
++        nativeGuard.reset(av_buffer_create(nullptr, 0, ReleaseNativeRenderOwner, owner, 0));
++        if (!nativeGuard)
++        {
++          delete owner;
++          pic->Release();
++        }
++        else
++        {
++          layer.decodedFrame = pic->nativeSource.frame.get();
++          layer.nativeRenderGuard = nativeGuard.get();
++          layer.nativeOwnerIdentity = owner;
++          layer.nativeGeneration = pic->nativeSource.generation;
++          layer.nativeAllocationWidth = pic->nativeSource.allocationWidth;
++          layer.nativeAllocationHeight = pic->nativeSource.allocationHeight;
++          layer.nativeFourcc = static_cast<uint32_t>(pic->nativeSource.fourcc);
++          layer.nativeValidate = ValidateNativeRenderOwner;
++          layer.nativeQuarantine = QuarantineNativeRenderOwner;
++        }
++      }
++    }
+   }
+   for (int p = 0; p < 2; ++p)
+   {
+@@ -220,6 +309,20 @@
+       static_cast<int>(std::lround(m_destRect.x1)), static_cast<int>(std::lround(m_destRect.y1)),
+       static_cast<int>(std::lround(m_destRect.Width())),
+       static_cast<int>(std::lround(m_destRect.Height()))};
++  if (nativeGuard)
++  {
++    if (!ValidateNativeRenderOwner(layer.nativeOwnerIdentity, layer.vaDisplay, layer.vaSurface,
++                                   layer.nativeGeneration, layer.nativeAllocationWidth,
++                                   layer.nativeAllocationHeight))
++      return true;
++    const bool rendered = window->RenderDVBridge(
++        layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
++    if (!ValidateNativeRenderOwner(layer.nativeOwnerIdentity, layer.vaDisplay, layer.vaSurface,
++                                   layer.nativeGeneration, layer.nativeAllocationWidth,
++                                   layer.nativeAllocationHeight))
++      return true;
++    return rendered;
++  }
+   return window->RenderDVBridge(layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
+ }
+ #endif
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -101,7 +101,8 @@
+ CDVBridgeGLES::~CDVBridgeGLES()
+ {
+ #ifdef HAVE_YBLOD_NATIVE_PLAYBACK
+-  ReleaseNative();
++  if (!ReleaseNative())
++    return;
+ #endif
+   Summary("closed");
+   CDVPlaybackInfo::presented.store(0);
+@@ -180,8 +181,9 @@
+ void CDVBridgeGLES::Reset()
+ {
+ #ifdef HAVE_YBLOD_NATIVE_PLAYBACK
+-  if (ReleaseNative())
+-    m_nativeFailed = false;
++  if (!ReleaseNative())
++    return;
++  m_nativeFailed = false;
+ #endif
+   Summary("reset");
+   m_nativePrepared = false;
+@@ -443,6 +445,7 @@
+   const int status = yb_native_playback_destroy(&m_native);
+   if (status == YB_NATIVE_PLAYBACK_OK)
+     return true;
++  yb_native_playback_quarantine_retained(m_native);
+   // Never free an uncertain in-flight context or its retained decoder refs.
+   m_nativeFailed = true;
+   nativeCleanupRetained.store(true);
+@@ -492,7 +495,7 @@
+   if (device->display != base.vaDisplay)
+     return fail("enhancement-device-display", YB_NATIVE_PLAYBACK_FALLBACK);
+   yb_native_playback_create_info info{};
+-  info.version = 1;
++  info.version = 2;
+   info.egl_display = reinterpret_cast<uintptr_t>(eglGetCurrentDisplay());
+   info.va_display = base.vaDisplay;
+   info.enhancement_scaler = {
+@@ -553,6 +556,20 @@
+   request.base_packet_timebase_den = request.enhancement_packet_timebase_den = base.decodedPacketTimeBase.den;
+   request.expanded_dovi_side_data = metadata.Data();
+   request.expanded_dovi_side_data_bytes = metadata.Size();
++  if (base.nativeRenderGuard)
++  {
++    request.base_storage = YB_NATIVE_BASE_KODI_SURFACE;
++    request.kodi_base.version = 1;
++    request.kodi_base.fourcc = base.nativeFourcc;
++    request.kodi_base.allocation_width = base.nativeAllocationWidth;
++    request.kodi_base.allocation_height = base.nativeAllocationHeight;
++    request.kodi_base.va_display = base.vaDisplay;
++    request.kodi_base.generation = base.nativeGeneration;
++    request.kodi_base.owner_identity = base.nativeOwnerIdentity;
++    request.kodi_base.render_guard = base.nativeRenderGuard;
++    request.kodi_base.validate = base.nativeValidate;
++    request.kodi_base.mark_quarantine = base.nativeQuarantine;
++  }
+   const int submitted = yb_native_playback_submit(m_native, &request, 1000000000);
+   if (submitted != YB_NATIVE_PLAYBACK_OK)
+     return fail("submit", submitted);
+@@ -603,6 +620,13 @@
+   if (m_nativeRequested && !m_nativeFailed && !nativeCleanupRetained.load() &&
+       PrepareNative(base, enhancement, metadata, geometry))
+     return true;
++  if (m_nativeFailed && !nativeCleanupRetained.load())
++    ReleaseNative();
++  if (base.nativeRenderGuard && (!base.nativeValidate ||
++      !base.nativeValidate(base.nativeOwnerIdentity, base.vaDisplay, base.vaSurface,
++                           base.nativeGeneration, base.nativeAllocationWidth,
++                           base.nativeAllocationHeight)))
++    return false;
+ #endif
+   // Quick Sync scaling on the Intel media engine (see dvbridge_vpp.c):
+   //  mode 1: the FEL enhancement layer is upscaled there (default);
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -30,13 +30,21 @@
+     // Decoded VAAPI surface of this layer, when available (for Quick Sync processing).
+     void* vaDisplay = nullptr;
+     unsigned vaSurface = 0xffffffff; // VA_INVALID_SURFACE
+-    // Borrowed for this call only. Native reconstruction clones the actual
+-    // decoder frame before asynchronous VA/GL work; never retain this pointer.
++    // Borrowed for this call only. A custom VAAPI source is a public-property
++    // snapshot backed by nativeRenderGuard, not a fabricated HWFramesContext.
+     const AVFrame* decodedFrame = nullptr;
+     int64_t decodedSourcePts = AV_NOPTS_VALUE;
+     // DVDVideoCodecFFmpeg submits BL/EL packet timestamps in AV_TIME_BASE
+     // units. Keep that producer declaration, not a conversion from pts double.
+     AVRational decodedPacketTimeBase{1, AV_TIME_BASE};
++    AVBufferRef* nativeRenderGuard = nullptr;
++    void* nativeOwnerIdentity = nullptr;
++    uint64_t nativeGeneration = 0;
++    uint32_t nativeAllocationWidth = 0;
++    uint32_t nativeAllocationHeight = 0;
++    uint32_t nativeFourcc = 0;
++    int (*nativeValidate)(void*, void*, unsigned, uint64_t, uint32_t, uint32_t) = nullptr;
++    void (*nativeQuarantine)(void*) = nullptr;
+   };
+ 
+   CDVBridgeGLES() = default;
