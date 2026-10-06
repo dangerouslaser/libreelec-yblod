@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "scope": "Ollie Intel UHD770 Raptor Lake controlled first-EL-AU initialization diagnostic only",
+  "probe_binary_sha256": "726f16c6a629379e4e94642e30e3f52235cceb83e53cdf3726d16f2276fd2c0a",
+  "variant": "derived0",
+  "async_depth": 1,
+  "extra_hw_frames": 0,
+  "terminal_confirmed": true,
+  "exit_code": 137,
+  "oom_killed": false,
+  "controller_abort": "180 second wall timeout",
+  "last_checkpoint": "standalone_first_au_send",
+  "actual_helper_first_au_private_identity_available": true,
+  "actual_helper_first_au_matches_derived36": true,
+  "original_helper_destroyed_before_standalone_send": true,
+  "decoder_accepted_packets": 0,
+  "code_runtime_identity_unchanged": true,
+  "private_input_stat_identity_unchanged": true,
+  "baseline_sdk_driver_expected": true,
+  "kodi_idle_after": true,
+  "resource_limits": {"memory_bytes": 536870912, "swap_bytes": 0, "cpu": 1, "network": "none"},
+  "terminal_cgroup_resource_measurement_available": false,
+  "qualification_limits": [
+    "Initialization stalled in plain FFmpeg first-AU send; no hardware frame returned",
+    "No successful QSV decode, raw-sample equality, Kodi output, playback or performance qualification",
+    "Private first-AU hash and media path are not exported",
+    "Other controlled variants require separate approval"
+  ]
+}
