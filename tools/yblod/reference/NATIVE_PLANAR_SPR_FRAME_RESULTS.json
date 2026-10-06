@@ -1,0 +1,306 @@
+{
+  "schema": "yblod.native-planar-spr-frame-scalar-results.v1",
+  "content": "Saving Private Ryan",
+  "seek_seconds": 1200,
+  "qualified_binary_sha256": "ef4eb9a9600662b2215d0c468625056eed19adbd284d76a3e696242fadfb281c",
+  "candidate_binary_sha256": "2f636c24c0ade31d838aa849ab98123d3f9cb308d69bee87851aad0d3f6b18c1",
+  "comparisons": [
+    {
+      "comparison": "qualified_native_packed_to_new_binary_planar_disabled",
+      "frames": [
+        {
+          "frame_label": "frame1",
+          "before": {
+            "pts_microseconds": 1210000000,
+            "el_pts_microseconds": 1210000000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1
+            }
+          },
+          "after": {
+            "pts_microseconds": 1210000000,
+            "el_pts_microseconds": 1210000000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 0
+            }
+          },
+          "source_timestamps_equal": true,
+          "source_metadata_equal": true,
+          "complete_captured_rgba_equal": true,
+          "differing_tunnel_rgb_bytes": 0,
+          "literal_tunnel_rgb_equal": true,
+          "picture_and_payload_preserved": true,
+          "maximum_absolute_12bit_codes": {
+            "I": 0,
+            "P": 0,
+            "T": 0
+          },
+          "exact_picture_percent": {
+            "I": 100,
+            "P": 100,
+            "T": 100
+          },
+          "comparator_result_provenance": "Root-observed completed bounded comparator stdout; not independently recovered from journal.",
+          "comparison_resource_proof": {
+            "root_observed_memory_peak_bytes": 88657920,
+            "root_observed_memory_events": 0,
+            "root_observed_swap_bytes": 0,
+            "journal_successful_deactivation": true,
+            "resource_values_independently_recovered": false
+          }
+        },
+        {
+          "frame_label": "frame2",
+          "before": {
+            "pts_microseconds": 1220010000,
+            "el_pts_microseconds": 1220010000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1
+            }
+          },
+          "after": {
+            "pts_microseconds": 1220010000,
+            "el_pts_microseconds": 1220010000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 0
+            }
+          },
+          "source_timestamps_equal": true,
+          "source_metadata_equal": true,
+          "complete_captured_rgba_equal": true,
+          "differing_tunnel_rgb_bytes": 0,
+          "literal_tunnel_rgb_equal": true,
+          "picture_and_payload_preserved": true,
+          "maximum_absolute_12bit_codes": {
+            "I": 0,
+            "P": 0,
+            "T": 0
+          },
+          "exact_picture_percent": {
+            "I": 100,
+            "P": 100,
+            "T": 100
+          },
+          "comparator_result_provenance": "Root-observed completed bounded comparator stdout; not independently recovered from journal.",
+          "comparison_resource_proof": {
+            "root_observed_memory_peak_bytes": 59785216,
+            "root_observed_memory_events": 0,
+            "root_observed_swap_bytes": 0,
+            "journal_successful_deactivation": true,
+            "resource_values_independently_recovered": false
+          }
+        },
+        {
+          "frame_label": "frame3",
+          "before": {
+            "pts_microseconds": 1230020000,
+            "el_pts_microseconds": 1230020000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1
+            }
+          },
+          "after": {
+            "pts_microseconds": 1230020000,
+            "el_pts_microseconds": 1230020000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 0
+            }
+          },
+          "source_timestamps_equal": true,
+          "source_metadata_equal": true,
+          "complete_captured_rgba_equal": true,
+          "differing_tunnel_rgb_bytes": 0,
+          "literal_tunnel_rgb_equal": true,
+          "picture_and_payload_preserved": true,
+          "maximum_absolute_12bit_codes": {
+            "I": 0,
+            "P": 0,
+            "T": 0
+          },
+          "exact_picture_percent": {
+            "I": 100,
+            "P": 100,
+            "T": 100
+          },
+          "comparator_result_provenance": "Root-observed completed bounded comparator stdout; not independently recovered from journal.",
+          "comparison_resource_proof": {
+            "root_observed_memory_peak_bytes": 32681984,
+            "root_observed_memory_events": 0,
+            "root_observed_swap_bytes": 0,
+            "journal_successful_deactivation": true,
+            "resource_values_independently_recovered": false
+          }
+        }
+      ]
+    },
+    {
+      "comparison": "same_new_binary_planar_disabled_to_enabled",
+      "frames": [
+        {
+          "frame_label": "frame1",
+          "before": {
+            "pts_microseconds": 1210000000,
+            "el_pts_microseconds": 1210000000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 0
+            }
+          },
+          "after": {
+            "pts_microseconds": 1210000000,
+            "el_pts_microseconds": 1210000000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 1
+            }
+          },
+          "source_timestamps_equal": true,
+          "source_metadata_equal": true,
+          "complete_captured_rgba_equal": false,
+          "differing_tunnel_rgb_bytes": 66,
+          "literal_tunnel_rgb_equal": false,
+          "picture_and_payload_preserved": true,
+          "maximum_absolute_12bit_codes": {
+            "I": 0,
+            "P": 0,
+            "T": 0
+          },
+          "exact_picture_percent": {
+            "I": 100,
+            "P": 100,
+            "T": 100
+          },
+          "comparator_result_provenance": "Root-observed completed bounded comparator stdout; not independently recovered from journal.",
+          "comparison_resource_proof": {
+            "root_observed_memory_peak_bytes": 64532480,
+            "root_observed_memory_events": 0,
+            "root_observed_swap_bytes": 0,
+            "journal_successful_deactivation": true,
+            "resource_values_independently_recovered": false
+          }
+        },
+        {
+          "frame_label": "frame2",
+          "before": {
+            "pts_microseconds": 1220010000,
+            "el_pts_microseconds": 1220010000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 0
+            }
+          },
+          "after": {
+            "pts_microseconds": 1220010000,
+            "el_pts_microseconds": 1220010000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 1
+            }
+          },
+          "source_timestamps_equal": true,
+          "source_metadata_equal": true,
+          "complete_captured_rgba_equal": false,
+          "differing_tunnel_rgb_bytes": 120,
+          "literal_tunnel_rgb_equal": false,
+          "picture_and_payload_preserved": true,
+          "maximum_absolute_12bit_codes": {
+            "I": 0,
+            "P": 0,
+            "T": 0
+          },
+          "exact_picture_percent": {
+            "I": 100,
+            "P": 100,
+            "T": 100
+          },
+          "comparator_result_provenance": "Root-observed completed bounded comparator stdout; not independently recovered from journal.",
+          "comparison_resource_proof": {
+            "root_observed_memory_peak_bytes": 71593984,
+            "root_observed_memory_events": 0,
+            "root_observed_swap_bytes": 0,
+            "journal_successful_deactivation": true,
+            "resource_values_independently_recovered": false
+          }
+        },
+        {
+          "frame_label": "frame3",
+          "before": {
+            "pts_microseconds": 1230020000,
+            "el_pts_microseconds": 1230020000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 0
+            }
+          },
+          "after": {
+            "pts_microseconds": 1230020000,
+            "el_pts_microseconds": 1230020000,
+            "route": {
+              "native": 1,
+              "direct_packed": 1,
+              "qsv_mode": 1,
+              "native_planar": 1
+            }
+          },
+          "source_timestamps_equal": true,
+          "source_metadata_equal": true,
+          "complete_captured_rgba_equal": false,
+          "differing_tunnel_rgb_bytes": 132,
+          "literal_tunnel_rgb_equal": false,
+          "picture_and_payload_preserved": true,
+          "maximum_absolute_12bit_codes": {
+            "I": 0,
+            "P": 0,
+            "T": 0
+          },
+          "exact_picture_percent": {
+            "I": 100,
+            "P": 100,
+            "T": 100
+          },
+          "comparator_result_provenance": "Root-observed completed bounded comparator stdout; not independently recovered from journal.",
+          "comparison_resource_proof": {
+            "root_observed_memory_peak_bytes": 61861888,
+            "root_observed_memory_events": 0,
+            "root_observed_swap_bytes": 0,
+            "journal_successful_deactivation": true,
+            "resource_values_independently_recovered": false
+          }
+        }
+      ]
+    }
+  ],
+  "scopes": [
+    "Source/capture/binary identities independently checked read-only on VM; captured-frame and expanded-metadata hashes are computed internally and only equality booleans are emitted.",
+    "Old-to-new disabled outputs have identical complete captured RGBA content, internally verified by SHA256 equality; content hashes are not published.",
+    "Enabled output is not literally byte-identical: validated transport update IDs and their CRCs differ, while all picture samples and Dolby payload remain exact.",
+    "Comparator pixel/semantic and peak-memory numbers are root-observed completed unit stdout; transient-unit properties were collected and journal contains lifecycle messages only.",
+    "Source equality covers captured timestamps and expanded Dolby metadata, not whole-media-file identity or Dolby conformance.",
+    "These frame checks are accuracy qualification, not playback-efficiency measurements."
+  ]
+}
