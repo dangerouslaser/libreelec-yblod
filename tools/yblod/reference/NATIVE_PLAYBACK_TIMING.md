@@ -6,12 +6,12 @@ perform no clock reads until explicitly enabled.
 
 For a build with `YBLOD_NATIVE_RECONSTRUCTION=1`, the Kodi diagnostic integration
 is enabled separately with `DVBRIDGE_NATIVE_DIAGNOSTICS=1` alongside
-`DVBRIDGE_NATIVE_RECONSTRUCTION=1`. It reports native stage aggregates every120
+`DVBRIDGE_NATIVE_RECONSTRUCTION=1`. It reports native stage aggregates every 120
 successfully released frames. Diagnostics are measurement, not an optimization;
 compare the same playback window before/after any proposed change.
 
 All timings are host `CLOCK_MONOTONIC` wall time—not GPU kernel/device time.
-The11 buckets are scaler submit, VA wait, combined BL/EL import, preparation
+The 11 buckets are scaler submit, VA wait, combined BL/EL import, preparation
 submit/wait, composer submit/wait, YCC submit/wait, bridge and consumer release.
 Import counts both actual calls separately. Release covers the full release
 operation, including consumer wait, cleanup and context restoration; other
@@ -31,7 +31,7 @@ not a complete frame budget or proof of unique displayed-frame cadence.
 `yb_native_playback_diagnostics_enable`, `_get` and `_reset` run on the same owner
 thread as playback; reads are not atomic/thread-safe. Enable/reset require an
 idle, nonclosing, nonquarantined context. Get may inspect retained quarantine
-statistics. Version1 is output-only. Clock errors/backward readings or checked
+statistics. Version 1 is output-only. Clock errors/backward readings or checked
 counter overflow invalidate diagnostics without altering playback or its
 quarantine/lifetime decisions. Logs must reject `valid=false` aggregates.
 
