@@ -1,0 +1,36 @@
+{
+  "schema": "yblod.el-qsv-live-observer-cpu-tests.v1",
+  "pass": true,
+  "test_count": 8,
+  "coverage": ["mocked successful live observation", "identity change rejection", "failed probe report rejection", "deadline and owned-child termination", "invalid final resources rejection", "literal timestamp mismatch rejection", "streamed code digest and unchanged bytes with aligned cache advice", "cache advice failure closes qualification"],
+  "pinned_container_image_sha256": "40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "runtime_manifest_preparation": {
+    "code_file_count": 23,
+    "code_bytes": 676383768,
+    "attempt_1": {
+      "pass": false,
+      "cpu_mock_tests_passed": 6,
+      "peak_memory_bytes": 536870912,
+      "memory_events_max": 461,
+      "memory_events_oom": 0,
+      "memory_events_oom_kill": 0,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "scope": "Code-only manifest generation completed but strict resource gate failed; not discarded or used as a qualified preparation."
+    },
+    "attempt_2": {
+      "pass": true,
+      "cpu_mock_tests_passed": 8,
+      "manifest_sha256": "ade230539806d0d95d5e3b2719f35fe4279628192c973774be2e61a5901c5f3d",
+      "all_code_paths_and_digests_identical_to_attempt_1": true,
+      "elapsed_seconds": 1.0485406890511513,
+      "peak_memory_bytes": 32747520,
+      "all_memory_events_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "fix": "POSIX_FADV_DONTNEED only for complete aligned ranges already read during code-artifact fingerprinting. Full digests and stat identity checks unchanged; no file rewrites, global cache flush, movie reads or memory-cap relaxation."
+    }
+  },
+  "limits_both_attempts": {"memory_limit_bytes": 536870912, "swap_limit_bytes": 0, "cpu_limit": 1, "network": "none", "gpu_access": false, "media_access": false, "sdk_and_source_mounts": "read-only"},
+  "scope": "CPU mock integration and SDK code-closure preparation only. No executed GPU handshake, raw EL equality, Petunia target identity, Kodi playback or performance qualification. Resource peaks cover each full preparation container, not individual unit tests."
+}
