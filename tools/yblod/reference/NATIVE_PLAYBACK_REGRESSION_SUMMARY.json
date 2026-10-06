@@ -1,0 +1,34 @@
+{
+  "schema": "yblod.native-playback-regression-summary.v1",
+  "date": "2026-10-05",
+  "source_scope": {
+    "base_commit": "245360a6d7e875c564cb2d2760da9293666b4270",
+    "includes_uncommitted_reviewed_playback_checkpoint": false,
+    "scope": "Final run began after the base commit; coordinator verified production/test sources clean except an unrelated preexisting accuracy bytecode cache. No complete immutable runtime source manifest was captured.",
+    "source_manifest_available": false
+  },
+  "reference": {"tests": 1305, "skipped": 1, "failures": 0, "errors": 0, "seconds": 53.667},
+  "accuracy": {"tests": 8, "skipped": 0, "failures": 0, "errors": 0},
+  "separate_sdk_contract": {"tests": 1, "c_checks": 19, "passed": true, "matching_sdk_loader_used": true},
+  "optional_skips": [
+    {"module": "test_native_playback_context_contract", "count": 1, "reason": "Full-library SDK probe unset in host discovery; its 19 checks passed separately with matching SDK loader."}
+  ],
+  "enabled_optional_inputs": ["Actual matching FFmpeg SDK headers", "22-case playback metadata SDK fixture", "21-check borrowed VA scaler SDK contract fixture", "Six-scenario borrowed VA scaler SDK fault fixture", "Saved pre-06 renderer originals for patch dry-run", "YBLOD_DOVI_COLOUR_PROBE_BINARY: existing colour adapter SDK fixture", "YBLOD_GPU_COLOUR_RUNNER_BINARY: existing colour runner pre-device CLI guards", "YBLOD_GPU_EL_SCALING_RUNNER_BINARY: existing EL scaling CPU-only oracle", "YBLOD_GPU_PREPARATION_RUNNER_BINARY: existing preparation CPU-only oracle and CLI guards", "YBLOD_VAAPI_EGL_IMPORT_PROBE_BINARY: existing P010 import CLI guards", "YBLOD_VAAPI_PROBE_BINARY: existing v11 VA scaler CLI guards", "YBLOD_VAAPI_EXPORT_PROBE_BINARY: existing surface export CLI guards", "YBLOD_VAAPI_Y416_IMPORT_PROBE_BINARY: existing Y416 import CLI guards"],
+  "resources": {
+    "mechanism": "Separate systemd user service",
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_quota_percent": 100,
+    "runtime_max_seconds": 240,
+    "service_result": "success",
+    "service_memory_peak_bytes": 111489024,
+    "service_swap_peak_bytes": 0,
+    "service_cpu_usage_ns": 53560898000,
+    "mid_run_direct_memory_peak_bytes": 111489024,
+    "mid_run_memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "final_cgroup_memory_events_available": false,
+    "note": "Direct counters were captured while running. Persisted systemd MemoryPeak/MemorySwapPeak captured after successful exit. The kernel removed the empty cgroup despite retained service state, so final direct event counters are unavailable."
+  },
+  "log": {"relative_path": "target/reference-final-20261005.log", "sha256": "f016eecb2bbb4c990e885f0ad0408fa15bcb647864a24b188627e00483e4106b", "published": false},
+  "limitations": ["Diagnostic regression only: no GPU execution, playback, colour accuracy, or real-time performance claim.", "Saved hardware evidence tests inspect existing reports rather than rerun hardware.", "One SDK-loader discovery omission passed separately; this is not a zero-skip discovery run.", "A prior SDK-container attempt lacked host compiler/numpy and is excluded as an invalid test environment; an earlier host attempt was intentionally stopped to reserve the Kodi compiler slot. The intermediate 26-skip pass was superseded by this final replay of all available optional binaries.", "No private media, metadata coefficients, input paths, or hashes are included."]
+}

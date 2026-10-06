@@ -1,0 +1,11 @@
+# Native playback checkpoint: host regression
+
+On 2026-10-05, the final reference suite passed **1,305 tests with one optional skip**, zero failures and zero errors (53.667 seconds). The accuracy suite separately passed all eight tests. A matching-SDK-loader replay separately passed all 19 real production C ABI argument checks.
+
+This is diagnostic regression evidence, not GPU execution or a playback qualification. Hardware-result tests read saved evidence; they do not repeat hardware jobs. The final run began after commit `245360a6d7e875c564cb2d2760da9293666b4270`; the coordinator verified production/test sources clean apart from an unrelated preexisting accuracy bytecode cache. A complete immutable run-time source manifest was not captured.
+
+The full suite used a separate systemd scope capped at 512 MiB, zero swap, one CPU and 240 seconds, while the independently capped Kodi build continued. Persisted systemd accounting reported success, memory peak 111,489,024 bytes, swap peak zero and CPU usage 53.560898 seconds. Direct mid-run counters matched that peak and all memory events were zero at that observation. The kernel removed the empty cgroup after exit despite retained service state, so final event counters are unavailable. The saved test log and its hash are identified in the JSON report; the log itself is not published.
+
+All available optional compiled SDK/CPU-only fixtures and pre-device CLI guard binaries were enabled in this final replay, closing 25 omissions in an intermediate pass. Actual matching FFmpeg headers, the 22-case metadata fixture, the 21-check scaler contract, its six fault scenarios, and saved pre-06 renderer originals were also enabled. The production context's sole skipped discovery method passed separately through the SDK loader; its staged runtime dependencies require the matching build mount. See [the summary](NATIVE_PLAYBACK_REGRESSION_SUMMARY.json).
+
+A prior SDK-container attempt lacked the host compiler/numpy and is excluded as an invalid environment. An earlier host attempt was deliberately stopped for compiler scheduling. The intermediate 26-skip pass is superseded by the final replay above. No GPU, film input, coefficients, private input paths or private hashes appear in this checkpoint.

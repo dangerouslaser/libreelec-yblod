@@ -1,0 +1,53 @@
+{
+  "schema": "yblod-actual-kodi-build-checkpoint-v1",
+  "build_completed": true,
+  "build_exit_code": 0,
+  "ninja_actions_completed": 82,
+  "dependency_aware_header_consumers_rebuilt": true,
+  "native_archive_source_objects": 14,
+  "final_lto_parallelism": 1,
+  "final_lto_partitions_reported_by_compiler": 429,
+  "elapsed_seconds": 424.800893,
+  "resource_limits": {
+    "memory_bytes": 4294967296,
+    "memory_plus_swap_bytes": 4294967296,
+    "cpus": 1,
+    "ninja_jobs": 1
+  },
+  "resource_observations": {
+    "memory_peak_bytes": 2362478592,
+    "memory_events": {
+      "low": 0, "high": 0, "max": 0, "oom": 0,
+      "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0
+    },
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "container_oom_killed": false
+  },
+  "artifact": {
+    "name": "kodi.bin",
+    "bytes": 34791080,
+    "sha256": "fd0c3794ee435898ae10dc2e60995a116e7cc39426df0c5f20dbf06092dd807e",
+    "isolated_candidate_copy_hash_verified": true
+  },
+  "patches": {
+    "06_sha256": "d8afd0aa7ba96b2adbcf16bad102e50b31075b95a7cacbdf5bb6fb80b434d119",
+    "07_sha256": "6f6c01c08a596a3b533294a753b7b08e9fc6888f4ff18e3152f79c7d5996bf62",
+    "exact_live_dry_runs_before_staging_passed": true
+  },
+  "selected_materialized_engine_source_pins": {
+    "CMakeLists.txt": "d805879fb4beec878cb9d2b4618a56bca8db42f170ef5c3ef23feb22a6084c72",
+    "cmake/ExperimentalPlayback.cmake": "166a980dc170ea996fd7aecdae4c2cfebc397cee567336030db12ab1fb511a5d",
+    "cmake/YblodNativeConfig.cmake.in": "59ce40653dd7882d3012ff9f7b7ec7802027acbfe5e89a2bb8dad07bd90226df",
+    "experimental/native_playback_context.c": "2b34fa7383be16f5333a21b672957b011cde97451996a56c535e7609016cdd11"
+  },
+  "private_build_log_sha256": "684e751029b966a8242a77da633d72853f37c5d5943f8b105824de284aa884e4",
+  "private_source_pin_inventory_sha256": "a60f85cf4f4ad1f3f045830b9aeae3cde957f9f5c3f6640839c9fb0fa9e210a2",
+  "scope": {
+    "installed": false,
+    "playback_tested": false,
+    "performance_measured": false,
+    "colour_accuracy_measured": false,
+    "note": "Actual compile/link evidence only. Existing playback defaults remain opt-in; no display eligibility bypass was added."
+  }
+}

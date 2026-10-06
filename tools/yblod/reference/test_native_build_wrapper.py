@@ -33,4 +33,22 @@ class NativeBuildWrapperTests(unittest.TestCase):
     def test_bash_syntax(self):
         result=subprocess.run(['bash','-n',str(ROOT/'tools/yblod/build.sh')],capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
+    def test_native_hook_patch_follows_project_prerequisites(self):
+        directory=ROOT/'projects/Generic/patches/kodi'
+        base='kodi-9990-native-dv.patch'
+        reconstructed='kodi-9999-yblod-06-native-reconstructed-input.patch'
+        hook='kodi-9999-yblod-07-native-live-hook.patch'
+        names=sorted(p.name for p in directory.glob('*.patch'))
+        for name in (base,reconstructed,hook):self.assertTrue((directory/name).is_file(),name)
+        self.assertLess(names.index(base),names.index(reconstructed))
+        self.assertLess(names.index(reconstructed),names.index(hook))
+        self.assertFalse((ROOT/'packages/mediacenter/kodi/patches'/hook).exists())
+        self.assertIn('+++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp',(directory/base).read_text())
+        # scripts/unpack applies common/package patches before project patches;
+        # placing the hook there would run before 9990 creates its target files.
+        prefix='for i in ${PKG_DIR}/patches/*.patch'
+        source=(ROOT/'scripts/unpack').read_text()
+        self.assertIn(prefix,source)
+        unpack=prefix+source.split(prefix,1)[1].split('; do',1)[0]
+        self.assertLess(unpack.index('${PKG_DIR}/patches/*.patch'),unpack.index('${PROJECT_DIR}/${PROJECT}/patches/${PKG_NAME}/*.patch'))
 if __name__=='__main__':unittest.main()

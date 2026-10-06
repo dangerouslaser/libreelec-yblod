@@ -1,0 +1,27 @@
+{
+  "schema": "yblod.native-kodi-install-checkpoint.v1",
+  "date": "2026-10-05",
+  "candidate_sha256": "fd0c3794ee435898ae10dc2e60995a116e7cc39426df0c5f20dbf06092dd807e",
+  "original_sha256": "884d6e922b130d28686095f836695df80d972c2ef2287f669264a56065595cd2",
+  "transferred_hash_verified": true,
+  "dynamic_dependencies_resolved": true,
+  "runtime_opt_in_enabled": true,
+  "installation": "Temporary bind mount and runtime systemd drop-in; original squashfs executable unmodified. Reboot restores original installation.",
+  "startup": {
+    "service_active": true,
+    "service_running": true,
+    "unexpected_restarts": 0,
+    "jsonrpc_ping": "pong",
+    "candidate_mount_and_active_binary_hash_verified": true
+  },
+  "display": {
+    "intel_connectors_checked": 5,
+    "connected_connectors": 0,
+    "current_display_admits_dolby_output": false,
+    "action_required": "Connect petunia's HDMI output to the Dolby Vision TV and turn it on before real native-path playback testing."
+  },
+  "native_movie_playback_tested": false,
+  "sustained_performance_measured": false,
+  "colour_accuracy_measured": false,
+  "scope": "Installation and application startup only. Component synthetic correctness and actual compile/link evidence are recorded separately; neither demonstrates native movie playback."
+}
