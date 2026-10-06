@@ -1,0 +1,19 @@
+{
+  "schema": "yblod.canonical-renderer-digest-cpu-tests.v1",
+  "pass": true,
+  "test_methods": 9,
+  "elapsed_seconds": 2.362,
+  "valid_id_packet_combinations": 64,
+  "coverage": ["all16 update IDs", "one through four packets", "orientation reversal", "alpha excluded", "RGB and payload mutations", "unused metadata-region bits", "invalid CRC", "individually CRC-valid unequal repetitions", "strict integer timestamps", "different source metadata", "symlink rejection", "capture changed during fingerprinting"],
+  "memory_limit_bytes": 536870912,
+  "peak_memory_bytes": 24637440,
+  "cpu_limit": 1,
+  "swap_limit_bytes": 0,
+  "swap_current_bytes": 0,
+  "swap_peak_bytes": 0,
+  "memory_events_all_zero": true,
+  "gpu_access": false,
+  "private_capture_access": false,
+  "scope": "Synthetic3840x8 fixtures. Runtime loader separately requires actual3840x2160 captures. Equality means cryptographic canonical fingerprints, not a literal pairwise bytewise comparison.",
+  "preserved_failures": ["Two container import setup failures: unreadable0700 mount and missing NumPy; no product test ran.", "First host test expected a digest for a mutated packet that correctly failed CRC. Negative fixture corrected to accept strict rejection or unequal fingerprint; production code unchanged."]
+}
