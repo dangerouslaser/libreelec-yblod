@@ -1,0 +1,38 @@
+{
+  "schema": "yblod.qsv-dovi-au-component-tests.v1",
+  "source_sha256": {
+    "qsv_dovi.h": "c7a409ec09971a745fbba8b5d87e14e770d501e8ef8f57a232029415f8254293",
+    "test_qsv_dovi_au.c": "104fabbdd2008919abe59b3ca02c3aacdebb80bebf0b9c5d07f618bdb2dedd2a"
+  },
+  "admission_checks": 10,
+  "transactions": 382,
+  "resolved_state_comparisons": 388,
+  "native_parser_error_cases": 378,
+  "reordered_immutable_snapshots": 3,
+  "all_passed": true,
+  "exit_code": 0,
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 21946368,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0,
+    "additional_swap_allowed": false,
+    "cpu_limit": 1,
+    "network": "none",
+    "gpu_devices": []
+  },
+  "scope": {
+    "actual_ffmpeg_9_parser": true,
+    "private_full_rpu_nal_input": true,
+    "synthetic_nondecodable_picture_headers": true,
+    "raw_input_or_hash_exported": false,
+    "previous_rpu_reference_qualified": false,
+    "actual_mfx_timestamp_qualified": false,
+    "hardware_qualified": false,
+    "codec_integrated": false,
+    "sdk_modified": false,
+    "pixel_conformance": false,
+    "playback_qualified": false,
+    "graceful_parameter_change_drain_qualified": false
+  }
+}
