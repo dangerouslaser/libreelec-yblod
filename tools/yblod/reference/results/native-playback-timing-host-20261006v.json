@@ -1,0 +1,28 @@
+{
+  "schema": "yblod.native-playback-timing-host-checkpoint.v1",
+  "scope": "Synthetic host-only timing-helper checks plus actual strict SDK incremental archive and whole-archive link gate; NOT GPU or playback timing evidence",
+  "create_frame_abi_version": 2,
+  "create_and_frame_layouts_unchanged": true,
+  "diagnostics_version": 1,
+  "default_enabled": false,
+  "stage_count": 11,
+  "gpu_attempted": false,
+  "hardware_calls": false,
+  "strict_sdk_compile": true,
+  "whole_archive_sdk_link_passed": true,
+  "runtime": "Matching LibreELEC SDK ld-linux-x86-64.so.2 and SDK library path",
+  "limits": {"memory_bytes": 536870912, "memory_plus_swap_bytes": 536870912, "additional_swap_bytes": 0, "cpus": 1, "network": "none"},
+  "resource_counters_captured": false,
+  "synthetic_result": {"schema": "yblod.native-playback-timing-host.v1", "checks_passed": 34, "gpu_attempted": false, "clock_is_synthetic": true},
+  "source_test_result_before_saved_report_audit": {"passed": 5, "skipped": 1, "skip_reason": "Direct optional SDK runtime environment unset; actual probe independently executed with the matching SDK loader"},
+  "covered": ["Default-disabled no clock reads", "OK/PENDING/failed counts and sum/max", "Atomic counter/sum overflow rejection", "Clock failure and backward timestamps invalidate only diagnostics", "IDLE-only enable/reset and invalid arguments", "Quarantined statistics inspection without hardware calls", "Completed-frame counter overflow", "Helper status mapped using its own enum; expression evaluated once"],
+  "tested_source_sha256": {
+    "engine/experimental/native_playback_context.c": "d4070698be577ba3d35fe114971c260ef9beb24bb56582535eaab6beee42c9d0",
+    "engine/experimental/native_playback_context.h": "dff4f35cb0495f8e2b7cd5a10b6a8b0338c0e06862cc791a1b931e7149c37061",
+    "engine/experimental/native_playback_timing_probe.c": "c68c068c2025764e7f99be5700bd19e0578b4f8dc751fa3552254d506efd4eaa"
+  },
+  "probe_executable_sha256": "497e32ddb7da1e1c0e7da59ae89f61bb40a112926ff4c964056b4c7038eb47c2",
+  "playback_archive_sha256": "8eb181535885f7b05cf7bdee33a565cc17cb3eec88f13ea2ab30fbf631441565",
+  "core_archive_sha256": "13560d7c55ebd50b0856fa8e7d2c8ed6711d09958564c6113c82dce7a2d8019e",
+  "limitations": ["No production clock/performance distribution measured by this host fixture", "No GPU kernel/device elapsed timing", "No new playback comparison or optimization adopted", "Recorded source/archive/executable identities are this checkpoint, not retroactive pins for earlier reports"]
+}

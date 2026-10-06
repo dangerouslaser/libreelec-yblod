@@ -9,6 +9,36 @@
 extern "C" {
 #endif
 typedef struct yb_native_playback_context yb_native_playback_context;
+enum {
+    YB_NATIVE_TIMING_SCALER_SUBMIT=0,YB_NATIVE_TIMING_VA_WAIT,
+    YB_NATIVE_TIMING_IMPORT,YB_NATIVE_TIMING_PREPARATION_SUBMIT,
+    YB_NATIVE_TIMING_PREPARATION_WAIT,YB_NATIVE_TIMING_COMPOSER_SUBMIT,
+    YB_NATIVE_TIMING_COMPOSER_WAIT,YB_NATIVE_TIMING_YCC_SUBMIT,
+    YB_NATIVE_TIMING_YCC_WAIT,YB_NATIVE_TIMING_BRIDGE,
+    YB_NATIVE_TIMING_RELEASE,YB_NATIVE_TIMING_STAGE_COUNT
+};
+typedef struct {
+    uint64_t calls,ok,pending,failed,total_wall_ns,max_wall_ns;
+} yb_native_playback_stage_stats;
+typedef struct {
+    uint32_t version,enabled,valid;
+    uint64_t completed_frames;
+    yb_native_playback_stage_stats stages[YB_NATIVE_TIMING_STAGE_COUNT];
+} yb_native_playback_diagnostics;
+/* Optional host-wall instrumentation, disabled by default (no clock reads).
+ * Same owner thread as context operations; NOT atomic or thread-safe reads.
+ * Stage totals include OK/PENDING/failed API attempts; imports count BL and EL
+ * separately in one bucket. Average API call=total_wall_ns/calls, NOT per-frame
+ * or pure GPU/kernel time. The release bucket covers the complete release call
+ * including consumer wait/cleanup/context restoration; other buckets cover the
+ * named helper calls only. completed_frames counts successful consumer release.
+ * Clock/counter failures invalidate stats ONLY, never playback behavior.
+ * enable/reset require IDLE and a nonclosing/nonquarantined context. get copies
+ * to output only on success; may inspect quarantined retained diagnostics.
+ * No EGL/VA work or changes to create/frame ABI2 layouts. */
+int yb_native_playback_diagnostics_enable(yb_native_playback_context *,int enabled);
+int yb_native_playback_diagnostics_get(const yb_native_playback_context *,yb_native_playback_diagnostics *);
+int yb_native_playback_diagnostics_reset(yb_native_playback_context *);
 typedef struct { const char *bytes; size_t size; } yb_playback_shader;
 /* Explicit nonowning property snapshot of Kodi's decoded BL. No decoder buffer
  * refs or fabricated HWFramesContext. The genuine render-picture token owns

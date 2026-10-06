@@ -1,0 +1,61 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -48,6 +48,40 @@
+ // attempts for this process; retain its allocation until process/display
+ // teardown rather than recycling uncertain resources or repeatedly allocating.
+ std::atomic<bool> nativeCleanupRetained{false};
++bool NativeTimingRequested()
++{
++  const char* value = std::getenv("DVBRIDGE_NATIVE_DIAGNOSTICS");
++  return value && std::strcmp(value, "1") == 0;
++}
++void LogNativeTimings(yb_native_playback_context* context)
++{
++  if (!NativeTimingRequested())
++    return;
++  yb_native_playback_diagnostics stats{};
++  stats.version = 1;
++  if (yb_native_playback_diagnostics_get(context, &stats) != YB_NATIVE_PLAYBACK_OK ||
++      !stats.enabled || !stats.valid || !stats.completed_frames || stats.completed_frames % 120 != 0)
++    return;
++  const auto perFrameMs = [&](unsigned stage)
++  {
++    return static_cast<double>(stats.stages[stage].total_wall_ns) /
++        static_cast<double>(stats.completed_frames) / 1000000.0;
++  };
++  // Cumulative host-wall stage totals per successfully released frame.
++  // Not GPU kernel time, unique displayed frames, or a complete render budget.
++  CLog::Log(LOGINFO,
++      "DVBridge native timing: released_frames={} valid={} wall_ms_per_released_frame "
++      "scaler_submit={:.3f} va_wait={:.3f} imports={:.3f} prep_submit={:.3f} prep_wait={:.3f} "
++      "composer_submit={:.3f} composer_wait={:.3f} ycc_submit={:.3f} ycc_wait={:.3f} "
++      "bridge={:.3f} consumer_release={:.3f}",
++      stats.completed_frames, stats.valid,
++      perFrameMs(YB_NATIVE_TIMING_SCALER_SUBMIT), perFrameMs(YB_NATIVE_TIMING_VA_WAIT),
++      perFrameMs(YB_NATIVE_TIMING_IMPORT), perFrameMs(YB_NATIVE_TIMING_PREPARATION_SUBMIT),
++      perFrameMs(YB_NATIVE_TIMING_PREPARATION_WAIT), perFrameMs(YB_NATIVE_TIMING_COMPOSER_SUBMIT),
++      perFrameMs(YB_NATIVE_TIMING_COMPOSER_WAIT), perFrameMs(YB_NATIVE_TIMING_YCC_SUBMIT),
++      perFrameMs(YB_NATIVE_TIMING_YCC_WAIT), perFrameMs(YB_NATIVE_TIMING_BRIDGE),
++      perFrameMs(YB_NATIVE_TIMING_RELEASE));
++}
+ #endif
+ void BackendLog(void*, pl_log_level level, const char* message)
+ {
+@@ -517,6 +551,9 @@
+     const int status = yb_native_playback_create(&info, &m_native);
+     if (status != YB_NATIVE_PLAYBACK_OK)
+       return fail("create", status);
++    if (NativeTimingRequested() &&
++        yb_native_playback_diagnostics_enable(m_native, 1) != YB_NATIVE_PLAYBACK_OK)
++      CLog::Log(LOGWARNING, "DVBridge native timing: enable failed; playback unchanged");
+   }
+   yb_native_playback_frame request{};
+   auto& association = request.association;
+@@ -607,6 +644,7 @@
+   const int released = yb_native_playback_release(m_native, 1000000000);
+   if (released != YB_NATIVE_PLAYBACK_OK)
+     return fail("consumer-release", released);
++  LogNativeTimings(m_native);
+   return prepared || fail("colour-only-render", YB_NATIVE_PLAYBACK_ERROR);
+ }
+ #endif
