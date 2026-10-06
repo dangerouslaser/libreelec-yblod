@@ -53,7 +53,7 @@ class PlanarMath(unittest.TestCase):
         self.assertIn('value>4095u', validator)
         self.assertIn('b->allocation_width!=p->width',backend)
         adapter = (root/'packages/mediacenter/kodi/patches/kodi-9999-yblod-17-native-planar-output.patch').read_text()
-        self.assertIn('m_nativePrepared && m_nativePlanar ? 1 : 0',adapter)
+        self.assertIn('m_nativePrepared && m_nativePlanarPrepared ? 1 : 0',adapter)
         self.assertIn('m_nativePlanarFrames += planar != nullptr',adapter)
 
 
