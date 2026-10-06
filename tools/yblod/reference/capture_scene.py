@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import subprocess
@@ -51,7 +52,7 @@ def process_identity():
                 binary_sha256=digest.hexdigest())
 
 
-def main():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True, type=Path)
     parser.add_argument('--baseline', type=Path)
@@ -59,7 +60,43 @@ def main():
     parser.add_argument('--binary-sha256', help='Expected installed Kodi executable digest; always recorded.')
     parser.add_argument('--expected-native', type=int, choices=(0, 1))
     parser.add_argument('--expected-direct-packed', type=int, choices=(0, 1))
-    args = parser.parse_args()
+    parser.add_argument('--movie-id', type=int, default=3391)
+    parser.add_argument('--expected-title', default='Saving Private Ryan')
+    parser.add_argument('--seek-seconds', type=float, default=1200)
+    parser.add_argument('--target-seconds', type=float, action='append',
+                        help='Absolute movie time to capture; repeat up to three times. Defaults to seek plus 10/20/30 seconds.')
+    args = parser.parse_args(argv)
+    if args.movie_id <= 0 or not args.expected_title.strip():
+        parser.error('Positive movie ID and nonempty expected title required')
+    if not math.isfinite(args.seek_seconds) or not 0 <= args.seek_seconds <= 86400:
+        parser.error('Seek must be finite and between zero and 86400 seconds')
+    if args.baseline and args.target_seconds:
+        parser.error('Explicit target times cannot be combined with an exact-frame baseline')
+    if not args.baseline:
+        args.target_seconds = args.target_seconds or [args.seek_seconds + offset for offset in (10, 20, 30)]
+        if not 1 <= len(args.target_seconds) <= 3 or any(
+                not math.isfinite(value) or not args.seek_seconds < value <= 86400 for value in args.target_seconds):
+            parser.error('One to three finite target times after the seek and at most 86400 seconds required')
+        if args.target_seconds != sorted(set(args.target_seconds)):
+            parser.error('Target times must be strictly increasing')
+    return args
+
+
+def capture_targets(args):
+    if not args.baseline:
+        return [(seconds * 1000000, 0) for seconds in args.target_seconds]
+    frames = json.loads(args.baseline.read_text())['frames']
+    values = [row['pts'] for row in frames]
+    if not 1 <= len(values) <= 3 or any(isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or not args.seek_seconds * 1000000 < value <= 86400000000 for value in values):
+        raise RuntimeError('Invalid exact-frame baseline targets')
+    if values != sorted(set(values)):
+        raise RuntimeError('Exact-frame baseline targets must be strictly increasing')
+    return [(value, 1) for value in values]
+
+
+def main():
+    args = parse_args()
     if command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '--value').strip() != 'inactive':
         raise RuntimeError('Kodi must be inactive before capture')
     root = Path('/storage/dvbridge-output-captures')
@@ -67,11 +104,7 @@ def main():
     request = root / 'request'
     if request.exists() or args.report.exists():
         raise RuntimeError('Fresh request/report required')
-    if args.baseline:
-        frames = json.loads(args.baseline.read_text())['frames']
-        targets = [(row['pts'], 1) for row in frames]
-    else:
-        targets = [(1210000000, 0), (1220000000, 0), (1230000000, 0)]
+    targets = capture_targets(args)
     override = Path('/run/systemd/system/kodi.service.d/yblod-native-playback.conf')
     shutil.copyfile(args.config, override)
     command('systemctl', 'daemon-reload')
@@ -89,12 +122,12 @@ def main():
     identity = process_identity()
     if args.binary_sha256 and identity['binary_sha256'] != args.binary_sha256.lower():
         raise RuntimeError('Wrong Kodi binary')
-    title = rpc('VideoLibrary.GetMovieDetails', {'movieid': 3391, 'properties': ['title']})['moviedetails']['title']
-    if title != 'Saving Private Ryan':
+    title = rpc('VideoLibrary.GetMovieDetails', {'movieid': args.movie_id, 'properties': ['title']})['moviedetails']['title']
+    if title != args.expected_title:
         raise RuntimeError('Unexpected movie identity')
     existing = set(root.glob('frame-*'))
     request.write_text(f'{targets[0][0]:.17g} {targets[0][1]}\n')
-    rpc('Player.Open', {'item': {'movieid': 3391}, 'options': {'resume': False}})
+    rpc('Player.Open', {'item': {'movieid': args.movie_id}, 'options': {'resume': False}})
     player = None
     for _ in range(30):
         players = rpc('Player.GetActivePlayers')
@@ -104,8 +137,10 @@ def main():
         time.sleep(1)
     if player is None:
         raise RuntimeError('No player')
-    rpc('Player.Seek', {'playerid': player, 'value': {'time': {'hours': 0, 'minutes': 20,
-                                                             'seconds': 0, 'milliseconds': 0}}})
+    milliseconds = round(args.seek_seconds * 1000)
+    rpc('Player.Seek', {'playerid': player, 'value': {'time': {'hours': milliseconds // 3600000,
+                       'minutes': milliseconds // 60000 % 60, 'seconds': milliseconds // 1000 % 60,
+                       'milliseconds': milliseconds % 1000}}})
     captured = []
     for index, (pts, exact) in enumerate(targets):
         if index:
@@ -147,6 +182,7 @@ def main():
     if set(state.splitlines()) != {'ActiveState=inactive', 'Result=success', 'MainPID=0'}:
         raise RuntimeError(state)
     args.report.write_text(json.dumps({'frames': captured, 'shutdown': state,
+                                     'movie': dict(id=args.movie_id, title=title, seek_seconds=args.seek_seconds),
                                      'identity_before': identity, 'identity_after': final_identity}, indent=2))
     print('PASS capture/player-stop/shutdown', flush=True)
 
