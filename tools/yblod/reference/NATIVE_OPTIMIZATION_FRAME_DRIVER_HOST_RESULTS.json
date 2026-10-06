@@ -1,0 +1,17 @@
+{
+  "schema": "yblod.native-optimization-frame-driver-host-results.v1",
+  "source_sha256": {
+    "run_native_optimization_frame_comparisons.py": "af15770db138cc8294df51f6a93b1c305f5cde869ec004ba2e7452ac46e2c1c1",
+    "test_native_optimization_frame_comparisons.py": "d74b70462716d95e8110e188e9d66b5429aebda9b53890447a40872973bd80d9",
+    "run_vm_capture_comparisons.py": "36f4a37146fb8f3f42cdde6bb8914cf35d3cd653572b6d26a8db7141c7dd3bc9"
+  },
+  "test_count": 16,
+  "new_driver_test_count": 5,
+  "suites": ["test_native_optimization_frame_comparisons", "test_run_vm_capture_comparisons", "test_native_optimization_qualification"],
+  "exit_code": 0,
+  "limits": {"memory_bytes": 536870912, "swap_bytes": 0, "cpu_cores": 1, "network": "none"},
+  "memory_peak_bytes": 31682560,
+  "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+  "swap_current_bytes": 0,
+  "scope": "Generated capture manifests and comparator subprocess mocks only; no VM captures, actual media comparisons, GPU execution or playback qualification. Validates binary/process/source/frame-file association, exactly three increasing matched frames, movie subtitle restoration, isolated actual option routes, strict typed zero-tolerance preservation evidence, comparator resource boundaries and sanitized public output. Retained-baseline mode does not infer absent legacy option fields."
+}
