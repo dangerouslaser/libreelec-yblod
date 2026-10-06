@@ -1,0 +1,33 @@
+{
+  "schema": "yblod.qsv-bl-renderer-foundation-tests.v1",
+  "scope": "source-only disposable renderer patch; no decoder integration",
+  "patch_sha256": "d3915628557c5b4296ef1cc03b841d1e16c30f682f17d66b0d5b5dc3aa49fb9c",
+  "source_contract_tests": 5,
+  "strict_sdk_object_compilations": 6,
+  "native_enabled_objects": 3,
+  "native_disabled_objects": 3,
+  "exit_code": 0,
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 388759552,
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0},
+    "swap_current_bytes": 0,
+    "additional_swap_allowed": false,
+    "cpu_limit": 1,
+    "network": "none",
+    "gpu_devices": [],
+    "sdk_mount": "read-only"
+  },
+  "qualification": {
+    "old_importer_body_field_substitution_equivalent": true,
+    "native_only_no_legacy_fallback_source_contract": true,
+    "ordinary_preroll_does_not_blanket_quarantine_source_contract": true,
+    "actual_sdk_source_applied": false,
+    "decoder_integrated": false,
+    "resolved_metadata_association": false,
+    "hardware_import": false,
+    "playback": false,
+    "pixel_accuracy": false,
+    "performance": false
+  }
+}

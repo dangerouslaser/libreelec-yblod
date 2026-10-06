@@ -1,0 +1,300 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.h
+@@ -30,6 +30,15 @@
+ class CCapabilities;
+ class CVaapiRenderPicture;
+ 
++/* Borrowed only while the caller holds the validated video-buffer reference. */
++struct BorrowedSurfaceView
++{
++  VADisplay display;
++  VASurfaceID surface;
++  int width;
++  int height;
++};
++
+ struct InteropInfo
+ {
+   EGLDisplay eglDisplay = nullptr;
+@@ -58,6 +67,7 @@
+ {
+ public:
+   bool Import(CVaapiRenderPicture* pic) override;
++  bool Import(const BorrowedSurfaceView& view);
+   void Reset() override;
+   void Init(InteropInfo &interop) override;
+ 
+@@ -96,6 +106,7 @@
+   //! \brief Imported texture for the picture's surface dma-buf; nullptr on export or import failure.
+   //! Textures in inUse are protected from eviction while a render slot still names them.
+   CVaapi2Texture* Get(CVaapiRenderPicture* pic, std::span<CVaapiTexture* const> inUse);
++  CVaapi2Texture* Get(const BorrowedSurfaceView& view, std::span<CVaapiTexture* const> inUse);
+   //! \brief Reset and drop every cached texture; needs the GL context current.
+   void ReleaseAll();
+ 
+@@ -107,4 +118,3 @@
+   std::vector<size_t> m_free;
+ };
+ }
+-
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/VaapiEGL.cpp
+@@ -30,6 +30,12 @@
+ 
+ bool CVaapi2Texture::Import(CVaapiRenderPicture* pic)
+ {
++  return Import({pic->vadsp, pic->procPic.videoSurface,
++                 static_cast<int>(pic->DVDPic.iWidth), static_cast<int>(pic->DVDPic.iHeight)});
++}
++
++bool CVaapi2Texture::Import(const BorrowedSurfaceView& view)
++{
+   if (m_imported)
+     return true;
+ 
+@@ -44,7 +50,7 @@
+ 
+   VADRMPRIMESurfaceDescriptor surface;
+ 
+-  status = vaExportSurfaceHandle(pic->vadsp, pic->procPic.videoSurface,
++  status = vaExportSurfaceHandle(view.display, view.surface,
+     VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+     VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
+     &surface);
+@@ -61,7 +67,7 @@
+   for (uint32_t object = 0; object < surface.num_objects && object < drmFDs.size(); object++)
+     drmFDs[object].attach(surface.objects[object].fd);
+ 
+-  status = vaSyncSurface(pic->vadsp, pic->procPic.videoSurface);
++  status = vaSyncSurface(view.display, view.surface);
+   if (status != VA_STATUS_SUCCESS)
+   {
+     CLog::Log(LOGERROR, "CVaapi2Texture::Import: vaSyncSurface - Error: {} ({})",
+@@ -69,7 +75,7 @@
+     return failImport();
+   }
+ 
+-  m_textureSize.Set(pic->DVDPic.iWidth, pic->DVDPic.iHeight);
++  m_textureSize.Set(view.width, view.height);
+ 
+   for (uint32_t layerNo = 0; layerNo < surface.num_layers; layerNo++)
+   {
+@@ -259,9 +265,16 @@
+ CVaapi2Texture* CVaapiTexturePool::Get(CVaapiRenderPicture* pic,
+                                        std::span<CVaapiTexture* const> inUse)
+ {
++  return Get({pic->vadsp, pic->procPic.videoSurface,
++              static_cast<int>(pic->DVDPic.iWidth), static_cast<int>(pic->DVDPic.iHeight)}, inUse);
++}
++
++CVaapi2Texture* CVaapiTexturePool::Get(const BorrowedSurfaceView& view,
++                                    std::span<CVaapiTexture* const> inUse)
++{
+   VADRMPRIMESurfaceDescriptor surface;
+   VAStatus status = vaExportSurfaceHandle(
+-      pic->vadsp, pic->procPic.videoSurface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
++      view.display, view.surface, VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+       VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS, &surface);
+   if (status != VA_STATUS_SUCCESS)
+   {
+@@ -271,7 +284,7 @@
+   }
+ 
+   // this export only identifies the memory; Import on a miss re-exports its own fds
+-  const auto identity = IdentityFromVaDescriptor(surface, pic->DVDPic.iWidth, pic->DVDPic.iHeight);
++  const auto identity = IdentityFromVaDescriptor(surface, view.width, view.height);
+   for (uint32_t i = 0; i < surface.num_objects; i++)
+     close(surface.objects[i].fd);
+   if (!identity)
+@@ -281,7 +294,7 @@
+   if (handle)
+   {
+     // Import syncs only on a miss; a cached texture still needs this frame's decode done
+-    status = vaSyncSurface(pic->vadsp, pic->procPic.videoSurface);
++    status = vaSyncSurface(view.display, view.surface);
+     if (status != VA_STATUS_SUCCESS)
+     {
+       CLog::Log(LOGERROR, "CVaapiTexturePool::{}: vaSyncSurface - Error: {} ({})", __FUNCTION__,
+@@ -304,7 +317,7 @@
+       m_entries[slot]->Init(m_interop);
+     }
+ 
+-    if (!m_entries[slot]->Import(pic))
++    if (!m_entries[slot]->Import(view))
+     {
+       m_free.push_back(slot);
+       return nullptr;
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
+@@ -62,6 +62,7 @@
+   EShaderFormat GetShaderFormat() override;
+ 
+   bool m_isVAAPIBuffer = true;
++  bool m_isQsvMappedBuffer = false;
+   bool m_nv12Allocated[NUM_BUFFERS]{};
+   // VA fourcc of the surfaces being received (NV12 / P010 / P012 / P016 /
+   // YUY2 / Y210 / Y212 / Y216). Captured at Configure and read by
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -7,6 +7,7 @@
+  */
+ 
+ #include "RendererVAAPIGLES.h"
++#include "cores/VideoPlayer/Buffers/QsvMappedBuffer.h"
+ 
+ #include "../RenderFactory.h"
+ #include "cores/VideoPlayer/DVDCodecs/DVDCodecUtils.h"
+@@ -82,6 +83,18 @@
+ 
+ CBaseRenderer* CRendererVAAPIGLES::Create(CVideoBuffer* buffer)
+ {
++  if (auto* qsv = dynamic_cast<CQsvMappedBuffer*>(buffer))
++  {
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_YBLOD_NATIVE_PLAYBACK)
++    const char* selected = std::getenv("DVBRIDGE_BASE_QSV");
++    const char* native = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++    if (selected && std::strcmp(selected, "1") == 0 && native && std::strcmp(native, "1") == 0 &&
++        m_pWinSystem && qsv->Valid(m_pWinSystem->GetVADisplay()))
++      return new CRendererVAAPIGLES();
++#endif
++    (void)qsv;
++    return nullptr;
++  }
+   CVaapiRenderPicture *vb = dynamic_cast<CVaapiRenderPicture*>(buffer);
+   if (vb)
+     return new CRendererVAAPIGLES();
+@@ -138,6 +151,18 @@
+ 
+ bool CRendererVAAPIGLES::Configure(const VideoPicture& picture, float fps, unsigned int orientation)
+ {
++  auto* qsv = dynamic_cast<CQsvMappedBuffer*>(picture.videoBuffer);
++  m_isQsvMappedBuffer = qsv != nullptr;
++  if (qsv)
++  {
++    if (!m_pWinSystem || !qsv->Valid(m_pWinSystem->GetVADisplay()) || orientation != 0 ||
++        picture.hdrType != StreamHdrType::HDR_TYPE_DOLBYVISION)
++      return false;
++    m_isVAAPIBuffer = true;
++    m_vaapiFourcc = VA_FOURCC_P010;
++  }
++  else
++  {
+   CVaapiRenderPicture *pic = dynamic_cast<CVaapiRenderPicture*>(picture.videoBuffer);
+   if (pic->procPic.videoSurface != VA_INVALID_ID)
+     m_isVAAPIBuffer = true;
+@@ -145,6 +170,7 @@
+     m_isVAAPIBuffer = false;
+ 
+   m_vaapiFourcc = pic->procPic.fourcc;
++  }
+ 
+   if (m_isVAAPIBuffer)
+   {
+@@ -172,6 +198,14 @@
+ 
+ bool CRendererVAAPIGLES::ConfigChanged(const VideoPicture& picture)
+ {
++  auto* qsv = dynamic_cast<CQsvMappedBuffer*>(picture.videoBuffer);
++  if (m_isQsvMappedBuffer || qsv)
++  {
++    if (!qsv || !m_isQsvMappedBuffer || !m_pWinSystem ||
++        !qsv->Valid(m_pWinSystem->GetVADisplay()))
++      return true;
++    return CLinuxRendererGLES::ConfigChanged(picture);
++  }
+   CVaapiRenderPicture *pic = dynamic_cast<CVaapiRenderPicture*>(picture.videoBuffer);
+   if ((pic->procPic.videoSurface != VA_INVALID_ID && !m_isVAAPIBuffer) ||
+       (pic->procPic.videoSurface == VA_INVALID_ID && m_isVAAPIBuffer))
+@@ -248,6 +282,7 @@
+         CServiceBroker::GetWinSystem()->GetGfxContext());
+ #endif
+   auto* sourcePicture = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer);
++  auto* qsvPicture = dynamic_cast<CQsvMappedBuffer*>(buffer.videoBuffer);
+   if (!window || !buffer.doviMetadata.Data() || buffer.doviPts == DVD_NOPTS_VALUE)
+     return false;
+   CDVBridgeGLES::Layer layer{};
+@@ -263,6 +298,14 @@
+   layer.height = m_sourceHeight;
+   layer.pts = buffer.doviPts;
+   layer.decodedSourcePts = buffer.doviSourcePts;
++  if (qsvPicture)
++  {
++    if (!qsvPicture->Valid(m_pWinSystem->GetVADisplay())) return false;
++    layer.vaDisplay = m_pWinSystem->GetVADisplay();
++    layer.vaSurface = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(qsvPicture->Frame()->data[3]));
++    layer.decodedFrame = qsvPicture->Frame();
++    layer.nativeOnly = true;
++  }
+   std::unique_ptr<AVBufferRef, NativeGuardDeleter> nativeGuard;
+   if (auto* pic = sourcePicture; pic && pic->valid)
+   {
+@@ -323,7 +366,9 @@
+       return true;
+     return rendered;
+   }
+-  return window->RenderDVBridge(layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
++  const bool rendered = window->RenderDVBridge(layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
++  const bool valid = rendered && (!qsvPicture || qsvPicture->Valid(m_pWinSystem->GetVADisplay()));
++  return valid;
+ }
+ #endif
+ 
+@@ -415,13 +460,26 @@
+   CPictureBuffer &buf = m_buffers[index];
+ 
+   CVaapiRenderPicture *pic = dynamic_cast<CVaapiRenderPicture*>(buf.videoBuffer);
++  auto* qsv = dynamic_cast<CQsvMappedBuffer*>(buf.videoBuffer);
+ 
++  if (qsv)
++  {
++    if (!m_pWinSystem || !qsv->Valid(m_pWinSystem->GetVADisplay())) return false;
++    const auto* frame = qsv->Frame();
++    const VAAPI::BorrowedSurfaceView view{m_pWinSystem->GetVADisplay(),
++        static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(frame->data[3])), frame->width, frame->height};
++    m_vaapiTextures[index] = m_texturePool.Get(view, m_vaapiTextures);
++    if (!qsv->Valid(view.display)) return false;
++  }
++  else
++  {
+   if (!pic || !pic->valid)
+   {
+     return false;
+   }
+ 
+   m_vaapiTextures[index] = m_texturePool.Get(pic, m_vaapiTextures);
++  }
+   if (!m_vaapiTextures[index])
+     return false;
+ 
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -34,6 +34,7 @@
+     // Borrowed for this call only. A custom VAAPI source is a public-property
+     // snapshot backed by nativeRenderGuard, not a fabricated HWFramesContext.
+     const AVFrame* decodedFrame = nullptr;
++    bool nativeOnly = false;
+     int64_t decodedSourcePts = AV_NOPTS_VALUE;
+     // DVDVideoCodecFFmpeg submits BL/EL packet timestamps in AV_TIME_BASE
+     // units. Keep that producer declaration, not a conversion from pts double.
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -982,6 +982,10 @@
+   if (m_nativeRequested && !m_nativeFailed && !nativeCleanupRetained.load() &&
+       PrepareNative(base, enhancement, metadata, geometry, allowPacked))
+     return true;
++  if (base.nativeOnly)
++  {
++    return Failure("qsv-base-native-required");
++  }
+   if (m_nativeFailed && !nativeCleanupRetained.load())
+     ReleaseNative();
+   if (m_nativeFailClosed)
+@@ -992,6 +996,8 @@
+                            base.nativeAllocationHeight)))
+     return false;
+ #endif
++  if (base.nativeOnly)
++    return Failure("qsv-base-native-unavailable");
+   // Quick Sync scaling on the Intel media engine (see dvbridge_vpp.c):
+   //  mode 1: the FEL enhancement layer is upscaled there (default);
+   //  mode 2: base layer colour is upsampled there too. Both layers then come back rotated by 180
