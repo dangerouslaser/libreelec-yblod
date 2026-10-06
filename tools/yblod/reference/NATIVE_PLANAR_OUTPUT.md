@@ -32,6 +32,12 @@ Requesting GLES 3.1, reported as GLES 3.2 by Mesa, exposed a missing precision q
 
 Set `YB_PLANAR_PROBE_GLES=1` to select the probe's GLES context and framebuffer `glReadPixels` readback; the default remains desktop OpenGL. Results, including the initial compiler failure, are in `NATIVE_PLANAR_SYNTHETIC_GLES_RESULTS.json`. This tests synthetic textures in one GLES context, not producer-to-consumer EGL sibling imports, movie playback or physical HDMI output.
 
+## Synthetic cross-context sibling check
+
+Generated 4 by 4 and 8 by 6 Y/Cb/Cr fixtures passed desktop OpenGL 4.6 to GLES 3.2 import using the production EGL bridge helpers. All three R16UI siblings remained live before any plane was read or released. All 96 integer samples matched exactly, including 0 and 4095; six timed releases completed, and the original consumer binding was preserved after every import and release. Peak memory was 66,351,104 bytes under the 512 MiB limit, with zero memory-limit or out-of-memory events and no swap.
+
+The source and SDK helper are `native_planar_output_candidate/native_planar_sibling_probe.c` and `build_native_planar_sibling_probe.sh`; scalar results are in `NATIVE_PLANAR_SYNTHETIC_SIBLING_RESULTS.json`. This qualifies generated cross-context texture imports, not the native context's atomic three-plane publication, decoded-surface ownership, movie playback or physical HDMI output.
+
 ## Host checks
 
 Run `python3 -m unittest discover -s tools/yblod/reference -p test_native_planar_math.py -v` for the arithmetic and source-contract checks. These are not device pixel tests.
