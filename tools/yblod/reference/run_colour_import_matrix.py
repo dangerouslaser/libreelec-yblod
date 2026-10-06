@@ -160,7 +160,8 @@ def main():
         'colour-imports', lambda flag: f'imports={IMPORTS[flag]}', validate_report)
 
 
-def run_configured_matrix(args, configs, label_prefix, describe, report_validator):
+def run_configured_matrix(args, configs, label_prefix, describe, report_validator,
+                          observer_route=None):
     """Shared bounded lifecycle; caller validates its exact two configurations."""
     if (command('systemctl', 'show', 'kodi', '-p', 'ActiveState', '--value').strip() != 'inactive'
             or command('systemctl', 'show', 'kodi', '-p', 'Result', '--value').strip() != 'success'):
@@ -190,7 +191,8 @@ def run_configured_matrix(args, configs, label_prefix, describe, report_validato
                 '--report', label + '.json', '--output-dir', str(args.root), '--label', label,
                 '--expected-binary-sha256', args.binary_sha256, '--movie-id', str(args.movie_id),
                 '--expected-title', args.expected_title, '--seek-seconds', str(args.seek_seconds),
-                '--expected-route', 'fp32', '--stop-on-complete']
+                '--expected-route', observer_route(flag) if observer_route else 'fp32',
+                '--stop-on-complete']
             with (args.root / (label + '.observer.log')).open('x') as log:
                 subprocess.run(observer, stdout=log, stderr=subprocess.STDOUT, check=True,
                                timeout=args.seconds + 100)

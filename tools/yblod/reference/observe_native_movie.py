@@ -21,7 +21,7 @@ parser.add_argument('--expected-binary-sha256', required=True)
 parser.add_argument('--movie-id', type=int, required=True)
 parser.add_argument('--expected-title', required=True)
 parser.add_argument('--seek-seconds', type=int, default=0)
-parser.add_argument('--expected-route', choices=('integer', 'fp32'), required=True)
+parser.add_argument('--expected-route', choices=('integer', 'fp32', 'legacy'), required=True)
 args = parser.parse_args()
 if (not 5 <= args.seconds <= 1800 or Path(args.report).name != args.report
         or args.movie_id <= 0 or not 0 <= args.seek_seconds <= 14400
@@ -156,6 +156,7 @@ identity = subprocess.check_output(
     ['systemctl', 'show', 'kodi', '-p', 'MainPID', '-p', 'ActiveEnterTimestampMonotonic'],
     text=True)
 position = LOG.stat().st_size
+route_start_position = position
 log_inode = LOG.stat().st_ino
 rpc('Player.Open', {'item': {'movieid': args.movie_id}, 'options': {'resume': False}})
 if args.seek_seconds:
@@ -245,7 +246,8 @@ while time.monotonic() - started < args.seconds:
             'DVBridge native reconstruction:', 'DVBridge playback health:', 'DVBridge native timing:',
             'DVBridge native composer:',
             'DVBridge native colour handoff:',
-            'DVBridge stream candidate:', 'DVBridge first frame:')):
+            'DVBridge stream candidate:', 'DVBridge first frame:', 'DVBridge: Quick Sync',
+            'DVBridge conversion:', 'DVBridge renderer summary:')):
             lines.append(line)
             print(line, flush=True)
             if 'fallback=release' in line or 'cleanup retained' in line:
@@ -256,7 +258,7 @@ while time.monotonic() - started < args.seconds:
                 selected = 1 if args.expected_route == 'fp32' else 0
                 required = {'fp32_selected', 'accepted_fp32', 'accepted_integer',
                             'shader_compile_failed', 'generate_failed'}
-                if (not required.issubset(counters)
+                if (args.expected_route == 'legacy' or not required.issubset(counters)
                         or counters.get('fp32_selected') != selected
                         or counters.get('shader_compile_failed', 0)
                         or counters.get('generate_failed', 0)
@@ -270,7 +272,14 @@ after = subprocess.check_output(
 runtime_after = runtime_snapshot()
 if identity != after or runtime_after['binary_sha256'] != args.expected_binary_sha256:
     failed = True
-if not any('DVBridge native composer:' in line for line in lines):
+with LOG.open('rb') as handle:
+    handle.seek(route_start_position)
+    route_text = handle.read().decode(errors='replace')
+route_lines = [line for line in route_text.splitlines() if any(marker in line for marker in (
+    'DVBridge: Quick Sync', 'DVBridge conversion:', 'DVBridge first frame:',
+    'DVBridge renderer summary:', 'DVBridge native composer:',
+    'DVBridge native reconstruction:', 'DVBridge renderer: stage='))]
+if args.expected_route != 'legacy' and not any('DVBridge native composer:' in line for line in lines):
     failed = True
 report = {'media': args.expected_title, 'movie_id': args.movie_id,
           'requested_seconds': args.seconds, 'seek_seconds': args.seek_seconds,
@@ -285,7 +294,7 @@ report = {'media': args.expected_title, 'movie_id': args.movie_id,
           'log_rotated_or_truncated': log_changed,
           'gpu_samples': gpu_samples,
           'gpu_intervals': [gpu_interval(a, b) for a, b in zip(gpu_samples, gpu_samples[1:])]}
-report.update({'label': args.label, 'runtime_before': runtime_before,
+report.update({'label': args.label, 'route_log_lines': route_lines, 'runtime_before': runtime_before,
                'runtime_after': runtime_after})
 with (ROOT / args.report).open('x') as handle:
     handle.write(json.dumps(report, indent=2) + '\n')

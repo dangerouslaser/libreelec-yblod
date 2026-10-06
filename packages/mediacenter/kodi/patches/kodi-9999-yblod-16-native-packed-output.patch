@@ -1,0 +1,242 @@
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -35,6 +35,7 @@
+     pl_shader native_shader;
+     bool early_mask;
+     bool direct_conversion;
++    bool native_packed;
+ };
+ 
+ void dvbridge_renderer_set_direct_conversion(struct dvbridge_renderer *r, bool enabled)
+@@ -93,12 +94,16 @@
+         {.var=pl_var_uint("flip_y"), .data=&mask->flip, .dynamic=true},
+         {.var=pl_var_vec3("ipt_offset"), .data=mask->ipt_offset, .dynamic=true}};
+     const int direct_conversion = mask->direct_conversion;
+-    const struct pl_shader_const direct_constant = {
++    const int native_packed = mask->native_packed;
++    const struct pl_shader_const constants[] = {{
+         .name = "dv_direct_conversion", .type = PL_VAR_SINT,
+         .data = &direct_conversion, .compile_time = true,
+-    };
++    }, {
++        .name = "dv_native_packed", .type = PL_VAR_SINT,
++        .data = &native_packed, .compile_time = true,
++    }};
+     struct pl_custom_shader shader = {
+-        .constants = &direct_constant, .num_constants = 1,
++        .constants = constants, .num_constants = 2,
+         .prelude="#extension GL_KHR_shader_subgroup_basic : require\n"
+                  "#extension GL_KHR_shader_subgroup_quad : require\n",
+         .header=
+@@ -128,7 +133,7 @@
+         "ivec2 p=ivec2(gl_FragCoord.xy); if(flip_y!=0u) p.y=2159-p.y;\n"
+         "bool inactive=float(p.x)<active_area.x || float(p.x)>=active_area.z || float(p.y)<active_area.y || float(p.y)>=active_area.w;\n"
+         /* IPT-PQ-c2 like Dolby hardware; co-sited 4:2:2 (P/T of the even pixel), as pack_gles300.frag */
+-        "vec3 self_k=inactive?vec3(0.0,2048.0,2048.0):dv_ipt_codes(color.rgb,ipt_offset);\n"
++        "vec3 self_k=inactive?(dv_native_packed!=0?dv_ipt_codes(vec3(0.0),ipt_offset):vec3(0.0,2048.0,2048.0)):dv_ipt_codes(color.rgb,ipt_offset);\n"
+         "vec3 peer_k=subgroupQuadSwapHorizontal(self_k);\n"
+         "vec3 even_k=(p.x&1)==0?self_k:peer_k;\n"
+         "uint y=uint(self_k.x);\n"
+@@ -236,7 +241,7 @@
+     dvbridge_candidate_destroy(r->pending);
+     r->pending = NULL;
+     if (native_association) {
+-        if (source || !reconstructed || packed || hdr10 ||
++        if (source || !reconstructed || hdr10 ||
+             !dvbridge_native_colour_association_valid(native_association) ||
+             native_association->width != (unsigned)geometry.source_width ||
+             native_association->height != (unsigned)geometry.source_height ||
+@@ -248,7 +253,7 @@
+         source->crop.x1 != geometry.source_width || source->crop.y1 != geometry.source_height)
+         return false;
+     if (reconstructed) {
+-        if (packed || hdr10 || (source && source->rotation) ||
++        if (hdr10 || (source && source->rotation) ||
+             reconstructed->params.w != geometry.source_width ||
+             reconstructed->params.h != geometry.source_height ||
+             !reconstructed->params.sampleable ||
+@@ -355,7 +360,7 @@
+         3.06441879f, -2.16597676f, 0.10155818f}, {
+         -0.65612108f, 1.78554118f, -0.12943749f}, {
+         0.01736321f, -0.04725154f, 1.03004253f}}};
+-    const bool direct = r->direct_conversion && packed && !hdr10 &&
++    const bool direct = !reconstructed && r->direct_conversion && packed && !hdr10 &&
+         !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
+         !geometry.x && !geometry.y && geometry.width == 3840 && geometry.height == 2160;
+     if (direct) {
+@@ -369,14 +374,16 @@
+     memcpy(mask.ipt_offset, r->ipt_offset, sizeof(mask.ipt_offset));
+     mask.flip = flip;
+     mask.direct_conversion = direct;
++    mask.native_packed = reconstructed != NULL;
+     mask.packets = dvbridge_packets(r->pending, &mask.count);
+-    mask.early_mask = packed && !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
++    mask.early_mask = !reconstructed && packed && !source->rotation && geometry.source_width == 3840 && geometry.source_height == 2160 &&
+                       (margins[0] || margins[1] || margins[2] || margins[3]);
+     const struct pl_hook hook = {
+         .stages = PL_HOOK_OUTPUT | (mask.early_mask ? PL_HOOK_NATIVE : 0),
+         .input = PL_HOOK_SIG_COLOR,
+         .priv = &mask, .hook = packed ? pack_active_area : mask_active_area,
+-        .signature = packed ? (direct ? 0x4456425246555303ULL : 0x4456425246555302ULL) : 0x445642524c350001ULL};
++        .signature = packed ? (reconstructed ? 0x4456425246555304ULL :
++                              (direct ? 0x4456425246555303ULL : 0x4456425246555302ULL)) : 0x445642524c350001ULL};
+     const struct pl_hook *hooks[] = {&hook};
+     params.hooks = hooks;
+     params.num_hooks = 1;
+@@ -441,18 +448,20 @@
+     return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true, NULL, NULL);
+ }
+ 
+-bool dvbridge_render_packed(struct dvbridge_renderer *r, const struct pl_frame *source,
++static bool render_packed(struct dvbridge_renderer *r, const struct pl_frame *source,
+                            const void *metadata, size_t bytes, double pts, double el_pts,
+-                           struct dvbridge_geometry geometry, pl_tex target, bool flip)
++                           struct dvbridge_geometry geometry, pl_tex target, bool flip,
++                           pl_tex reconstructed,
++                           const struct dvbridge_native_colour_association *association)
+ {
+     if (r)
+         r->ready = false;
+-    if (!r || !source || !target || !r->fragment_quad ||
++    if (!r || (!source && !association) || !target || !r->fragment_quad ||
+         target->params.w != 3840 || target->params.h != 2160 ||
+         !target->params.renderable || target->params.format->type != PL_FMT_UNORM ||
+         target->params.format->num_components != 4 ||
+         geometry.x || geometry.y || geometry.width != 3840 || geometry.height != 2160 ||
+-        source->num_overlays || (source->enhancement_layer && source->enhancement_layer->num_overlays))
++        (source && (source->num_overlays || (source->enhancement_layer && source->enhancement_layer->num_overlays))))
+         return false;
+     for (int c = 0; c < 4; ++c)
+         if (target->params.format->component_depth[c] != 8)
+@@ -472,7 +481,8 @@
+         glDisable(caps[i]);
+     }
+     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+-    bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false, NULL, NULL);
++    bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false,
++                     reconstructed, association);
+     ok = glGetError() == GL_NO_ERROR && ok;
+     glColorMask(mask[0], mask[1], mask[2], mask[3]);
+     for (unsigned i=0; i<sizeof(caps)/sizeof(*caps); ++i) {
+@@ -483,6 +493,25 @@
+     return r->ready;
+ }
+ 
++bool dvbridge_render_packed(struct dvbridge_renderer *r, const struct pl_frame *source,
++                           const void *metadata, size_t bytes, double pts, double el_pts,
++                           struct dvbridge_geometry geometry, pl_tex target, bool flip)
++{
++    return render_packed(r, source, metadata, bytes, pts, el_pts, geometry, target, flip,
++                         NULL, NULL);
++}
++
++bool dvbridge_render_native_reconstructed_packed(struct dvbridge_renderer *r,
++                        const struct dvbridge_native_colour_association *association,
++                        pl_tex reconstructed, const void *metadata, size_t bytes,
++                        struct dvbridge_geometry geometry, pl_tex target, bool flip)
++{
++    return render_packed(r, NULL, metadata, bytes,
++                        association ? association->presentation_pts : (double)NAN,
++                        association ? association->enhancement_presentation_pts : (double)NAN,
++                        geometry, target, flip, reconstructed, association);
++}
++
+ pl_tex dvbridge_render_texture(const struct dvbridge_renderer *r)
+ {
+     return r && r->ready && !r->packed ? r->rgb : NULL;
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -38,6 +38,11 @@
+                         const struct dvbridge_native_colour_association *association,
+                         pl_tex reconstructed, const void *metadata, size_t bytes,
+                         struct dvbridge_geometry geometry);
++/* Same native admission and release-RGB colour math, with fused transport packing. */
++bool dvbridge_render_native_reconstructed_packed(struct dvbridge_renderer *renderer,
++                        const struct dvbridge_native_colour_association *association,
++                        pl_tex reconstructed, const void *metadata, size_t bytes,
++                        struct dvbridge_geometry geometry, pl_tex target, bool flip_y);
+ /* Apply L1-guided tone mapping to the source mastering target before overlays. */
+ bool dvbridge_render_hdr10_rgb(struct dvbridge_renderer *renderer, const struct pl_frame *source,
+                               const void *metadata, size_t bytes, double pts, double el_pts,
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -437,6 +437,22 @@
+     bl.frame.enhancement_layer = &el.frame;
+     elPts = enhancement->pts;
+   }
++  const char* nativePacked = std::getenv("DVBRIDGE_NATIVE_PACKED_OUTPUT");
++  if (reconstructed && nativeAssociation && nativePacked && std::strcmp(nativePacked, "1") == 0 &&
++      !m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
++      geometry.source_width == 3840 && geometry.source_height == 2160 &&
++      geometry.width == 3840 && geometry.height == 2160)
++  {
++    m_direct = dvbridge_render_native_reconstructed_packed(
++        m_renderer, nativeAssociation, reconstructed, metadata.Data(), metadata.Size(),
++        geometry, m_scanout, true);
++    if (!m_direct)
++    {
++      CLog::Log(LOGWARNING, "DVBridge native packed output failed; using composition");
++      m_directUsable = false;
++      dvbridge_renderer_reset(m_renderer);
++    }
++  }
+   // The fast path produces the exact transport bytes directly. GUI/subtitle
+   // frames and non-fullscreen geometry retain the original 32F composition.
+   if (!reconstructed && !m_hdr10 && allowPacked && m_directUsable && m_scanout && !geometry.x && !geometry.y &&
+@@ -468,14 +484,14 @@
+     }
+   }
+   const auto renderRGB = m_hdr10 ? dvbridge_render_hdr10_rgb : dvbridge_render_rgb;
+-  m_prepared = reconstructed
++  m_prepared = m_direct || (reconstructed
+       ? (!m_hdr10 && (nativeAssociation
+           ? dvbridge_render_native_reconstructed_rgb(m_renderer, nativeAssociation, reconstructed,
+                                                     metadata.Data(), metadata.Size(), geometry)
+           : dvbridge_render_reconstructed_rgb(m_renderer, &bl.frame, reconstructed,
+                                              metadata.Data(), metadata.Size(), base.pts, elPts, geometry)))
+       : (m_direct || renderRGB(m_renderer, &bl.frame, metadata.Data(), metadata.Size(),
+-                              base.pts, elPts, geometry));
++                              base.pts, elPts, geometry)));
+   m_pendingInfo = 0;
+   if (m_prepared)
+   {
+@@ -561,7 +577,8 @@
+ }
+ 
+ bool CDVBridgeGLES::PrepareNative(const Layer& base, const AVFrame* enhancement,
+-                                const CDVMetadataBuffer& metadata, dvbridge_geometry geometry)
++                                const CDVMetadataBuffer& metadata, dvbridge_geometry geometry,
++                                bool allowPacked)
+ {
+   if (!base.decodedFrame || !enhancement || !base.vaDisplay ||
+       base.layout != DVBRIDGE_P010 || base.decodedSourcePts == AV_NOPTS_VALUE ||
+@@ -739,7 +756,7 @@
+     std::memcpy(proof.reconstructed_frame_id, output.frame_id, 32);
+     proof.presentation_pts = base.pts;
+     proof.enhancement_presentation_pts = static_cast<double>(enhancement->pts);
+-    prepared = Prepare(base, nullptr, metadata, geometry, false, reconstructed, &proof);
++    prepared = Prepare(base, nullptr, metadata, geometry, allowPacked, reconstructed, &proof);
+   }
+   else if (reconstructed && dvbridge_dmabuf_import(&imported, enhancement))
+   {
+@@ -797,7 +814,7 @@
+   m_nativePrepared = false;
+ #ifdef HAVE_YBLOD_NATIVE_PLAYBACK
+   if (m_nativeRequested && !m_nativeFailed && !nativeCleanupRetained.load() &&
+-      PrepareNative(base, enhancement, metadata, geometry))
++      PrepareNative(base, enhancement, metadata, geometry, allowPacked))
+     return true;
+   if (m_nativeFailed && !nativeCleanupRetained.load())
+     ReleaseNative();
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -74,7 +74,8 @@
+ 
+ private:
+   bool Failure(const char* stage);
+-  bool PrepareNative(const Layer&, const AVFrame*, const CDVMetadataBuffer&, dvbridge_geometry);
++  bool PrepareNative(const Layer&, const AVFrame*, const CDVMetadataBuffer&, dvbridge_geometry,
++                     bool allowPacked);
+   bool ReleaseNative();
+   yb_native_playback_context* m_native = nullptr;
+   bool m_nativeRequested = false;

@@ -1,0 +1,180 @@
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -208,6 +208,8 @@
+ #endif
+   const char* capture = std::getenv("DVBRIDGE_CAPTURE_PAIRS");
+   m_capturePairs = capture && std::strcmp(capture, "1") == 0;
++  const char* outputCapture = std::getenv("DVBRIDGE_CAPTURE_OUTPUTS");
++  m_captureOutputs = outputCapture && std::strcmp(outputCapture, "1") == 0;
+   pl_opengl_params params{};
+   params.get_proc_addr = reinterpret_cast<pl_voidfunc_t (*)(const char*)>(eglGetProcAddress);
+   params.egl_display = eglGetCurrentDisplay();
+@@ -280,6 +282,8 @@
+   m_conversionUsable = true;
+   m_lastConversionPath = -1;
+   m_captureWaiting = false;
++  m_outputCaptureMetadata.clear();
++  m_outputCaptureWaiting = false;
+   // Playback ended: free the media-engine surfaces and the decoder's VA device reference.
+   dvbridge_vpp_release(m_vpp);
+   m_vppFailed = false;
+@@ -520,6 +524,13 @@
+           enhancement != nullptr, bool(m_pendingInfo & CDVPlaybackInfo::FEL),
+           bool(m_pendingInfo & CDVPlaybackInfo::CM4), m_direct);
+     }
++  }
++  if (m_captureOutputs && m_prepared && !m_hdr10)
++  {
++    m_outputCapturePts = base.pts;
++    m_outputCaptureElPts = elPts;
++    const auto* bytes = static_cast<const unsigned char*>(metadata.Data());
++    m_outputCaptureMetadata.assign(bytes, bytes + metadata.Size());
+   }
+   return m_prepared;
+ }
+@@ -876,6 +887,105 @@
+   dvbridge_dmabuf_release(&elImported);
+   dvbridge_dmabuf_release(&baseImported);
+   return result;
++}
++
++void CDVBridgeGLES::CaptureOutput(unsigned int framebuffer, int width, int height, bool flipY)
++{
++  if (!m_captureOutputs || m_hdr10 || m_outputBits != 8 || framebuffer != 0 ||
++      width != 3840 || height != 2160 || !flipY || m_outputCaptureMetadata.empty())
++    return;
++  const uint64_t now = DVBRIDGE::DiagnosticNowMs();
++  if (!m_outputCaptureWaiting && now - m_lastOutputCapturePoll < 250)
++    return;
++  m_lastOutputCapturePoll = now;
++  constexpr const char* request = "/storage/dvbridge-output-captures/request";
++  struct stat status{};
++  if (lstat(request, &status) || !S_ISREG(status.st_mode))
++  {
++    m_outputCaptureWaiting = false;
++    return;
++  }
++  m_outputCaptureWaiting = true;
++  double requestedPts = 0;
++  int exact = 0;
++  FILE* file = std::fopen(request, "r");
++  if (!file)
++    return;
++  const bool parsed = std::fscanf(file, "%lf %d", &requestedPts, &exact) == 2;
++  std::fclose(file);
++  if (!parsed || !std::isfinite(requestedPts) || requestedPts < 0 ||
++      (exact != 0 && exact != 1) || !std::isfinite(m_outputCapturePts) ||
++      !std::isfinite(m_outputCaptureElPts) || m_outputCapturePts < requestedPts - 1000.0)
++    return;
++  char directory[] = "/storage/dvbridge-output-captures/frame-XXXXXX";
++  if (!mkdtemp(directory))
++    return;
++  const std::string prefix = std::string(directory) + "/";
++  if (std::rename(request, (prefix + "request").c_str()))
++    return;
++  m_outputCaptureWaiting = false;
++  auto write = [&](const char* name, const void* data, size_t bytes) {
++    FILE* output = std::fopen((prefix + name).c_str(), "wb");
++    if (!output)
++      return false;
++    const bool written = std::fwrite(data, 1, bytes, output) == bytes;
++    return std::fclose(output) == 0 && written;
++  };
++  const bool success = [&]() {
++    if (exact && std::fabs(m_outputCapturePts - requestedPts) > 1000.0)
++      return false;
++    struct statvfs space{};
++    if (statvfs(directory, &space) ||
++        static_cast<uint64_t>(space.f_bavail) * space.f_frsize < 64ULL * 1024 * 1024)
++      return false;
++    constexpr size_t bytes = 3840ULL * 2160 * 4;
++    std::unique_ptr<void, decltype(&std::free)> pixels(std::malloc(bytes), &std::free);
++    if (!pixels)
++      return false;
++    GLint readFbo = 0, readBuffer = 0, packBuffer = 0, alignment = 0;
++    GLint rowLength = 0, skipRows = 0, skipPixels = 0;
++    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readFbo);
++    glGetIntegerv(GL_READ_BUFFER, &readBuffer);
++    glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &packBuffer);
++    glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
++    glGetIntegerv(GL_PACK_ROW_LENGTH, &rowLength);
++    glGetIntegerv(GL_PACK_SKIP_ROWS, &skipRows);
++    glGetIntegerv(GL_PACK_SKIP_PIXELS, &skipPixels);
++    if (glGetError() != GL_NO_ERROR)
++      return false;
++    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
++    glReadBuffer(GL_BACK);
++    glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
++    glPixelStorei(GL_PACK_ALIGNMENT, 1);
++    glPixelStorei(GL_PACK_ROW_LENGTH, 0);
++    glPixelStorei(GL_PACK_SKIP_ROWS, 0);
++    glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
++    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.get());
++    const GLenum error = glGetError();
++    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(readFbo));
++    glReadBuffer(static_cast<GLenum>(readBuffer));
++    glBindBuffer(GL_PIXEL_PACK_BUFFER, static_cast<GLuint>(packBuffer));
++    glPixelStorei(GL_PACK_ALIGNMENT, alignment);
++    glPixelStorei(GL_PACK_ROW_LENGTH, rowLength);
++    glPixelStorei(GL_PACK_SKIP_ROWS, skipRows);
++    glPixelStorei(GL_PACK_SKIP_PIXELS, skipPixels);
++    if (error != GL_NO_ERROR || glGetError() != GL_NO_ERROR ||
++        !write("output.rgba", pixels.get(), bytes) ||
++        !write("metadata.bin", m_outputCaptureMetadata.data(), m_outputCaptureMetadata.size()))
++      return false;
++    char info[512];
++    const int length = std::snprintf(info, sizeof(info),
++        "{\"width\":3840,\"height\":2160,\"format\":\"RGBA8 DV tunnel bottom up\","
++        "\"pts\":%.17g,\"el_pts\":%.17g,\"requested_pts\":%.17g,\"exact\":%d,"
++        "\"native\":%d,\"direct_packed\":%d,\"qsv_mode\":%d}\n",
++        m_outputCapturePts, m_outputCaptureElPts, requestedPts, exact,
++        m_nativePrepared ? 1 : 0, m_direct ? 1 : 0, DVBRIDGE::playbackQsvMode.load());
++    return length > 0 && static_cast<size_t>(length) < sizeof(info) &&
++           write("frame.json", info, static_cast<size_t>(length));
++  }();
++  CLog::Log(success ? LOGINFO : LOGERROR,
++      "DVBridge output capture: success={} directory={} pts={} el_pts={} native={}",
++      success, directory, m_outputCapturePts, m_outputCaptureElPts, m_nativePrepared);
+ }
+ 
+ bool CDVBridgeGLES::Pack(unsigned int framebuffer, int width, int height, bool flipY)
+@@ -886,12 +996,16 @@
+   if (m_direct)
+   {
+     m_packed = framebuffer == 0 && width == 3840 && height == 2160 && flipY;
++    if (m_packed)
++      CaptureOutput(framebuffer, width, height, flipY);
+     return m_packed || Failure("direct-pack-target");
+   }
+   unsigned int count;
+   const auto* packets = dvbridge_packets(dvbridge_render_candidate(m_renderer), &count);
+   m_packed = dvbridge_gl_pack(m_packer, GetPQTexture(), framebuffer, width, height,
+                              packets, count, flipY);
++  if (m_packed)
++    CaptureOutput(framebuffer, width, height, flipY);
+   return m_packed || Failure("composition-pack");
+ }
+ 
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -3,6 +3,7 @@
+ 
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h"
+ #include "utils/DVBridgeDiagnosticState.h"
++#include <vector>
+ 
+ extern "C"
+ {
+@@ -82,6 +83,12 @@
+   void Summary(const char* event);
+   void CapturePair(const pl_frame& frame, const CDVMetadataBuffer& metadata,
+                    double pts, double elPts, dvbridge_geometry geometry);
++  void CaptureOutput(unsigned int framebuffer, int width, int height, bool flipY);
++  bool m_captureOutputs = false;
++  bool m_outputCaptureWaiting = false;
++  uint64_t m_lastOutputCapturePoll = 0;
++  double m_outputCapturePts = 0, m_outputCaptureElPts = 0;
++  std::vector<unsigned char> m_outputCaptureMetadata;
+   bool m_capturePairs = false;
+   bool m_captureWaiting = false;
+   uint64_t m_lastCapturePoll = 0;
