@@ -1,0 +1,48 @@
+#version 430 core
+/* Explicit bilinear-left-diagnostic policy, not a Dolby normative claim.
+ * Reconstructed integer 4:2:0 -> unrotated full-size Y/Cb/Cr/4096, alpha 1.
+ * Chroma centres: x=2*i, y=2*j+0.5; border extension clamps coordinates.
+ * No chroma rounding or colour conversion occurs here. */
+layout(local_size_x=8, local_size_y=8) in;
+layout(binding=0) uniform usampler2D reconstructed_y;
+layout(binding=1) uniform usampler2D reconstructed_cb;
+layout(binding=2) uniform usampler2D reconstructed_cr;
+layout(rgba32f,binding=0) writeonly uniform image2D output_ycc;
+layout(std430,binding=0) buffer FrameStatus { uint error_flags; };
+layout(location=0) uniform ivec2 full_size;
+layout(location=1) uniform uint sampling_contract; // 1 = explicit policy above
+layout(location=2) uniform uint reconstructed_depth; // This route is 12-bit only.
+
+float chroma(usampler2D plane, ivec2 first, vec2 fraction)
+{
+    ivec2 last=full_size/2-ivec2(1);
+    uint a=texelFetch(plane,clamp(first,ivec2(0),last),0).r;
+    uint b=texelFetch(plane,clamp(first+ivec2(0,1),ivec2(0),last),0).r;
+    uint c=texelFetch(plane,clamp(first+ivec2(1,0),ivec2(0),last),0).r;
+    uint d=texelFetch(plane,clamp(first+ivec2(1,1),ivec2(0),last),0).r;
+    if (max(max(a,b),max(c,d))>4095u) atomicOr(error_flags,2u);
+    float left=float(a)*(1.0-fraction.y)+float(b)*fraction.y;
+    float right=float(c)*(1.0-fraction.y)+float(d)*fraction.y;
+    return left*(1.0-fraction.x)+right*fraction.x;
+}
+void main()
+{
+    if (sampling_contract!=1u || reconstructed_depth!=12u ||
+        any(lessThan(full_size,ivec2(2))) ||
+        any(greaterThan(full_size,ivec2(3840,2160))) ||
+        any(notEqual(full_size%2,ivec2(0))) ||
+        any(notEqual(textureSize(reconstructed_y,0),full_size)) ||
+        any(notEqual(textureSize(reconstructed_cb,0),full_size/2)) ||
+        any(notEqual(textureSize(reconstructed_cr,0),full_size/2)) ||
+        any(notEqual(imageSize(output_ycc),full_size))) {
+        atomicOr(error_flags,1u); return;
+    }
+    ivec2 p=ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(p,full_size))) return;
+    uint y=texelFetch(reconstructed_y,p,0).r;
+    if (y>4095u) atomicOr(error_flags,2u);
+    ivec2 first=ivec2(p.x>>1, (p.y>>1)-(1-(p.y&1)));
+    vec2 fraction=vec2((p.x&1)==0 ? 0.0 : 0.5, (p.y&1)==0 ? 0.75 : 0.25);
+    imageStore(output_ycc,p,vec4(vec3(float(y),chroma(reconstructed_cb,first,fraction),
+                                    chroma(reconstructed_cr,first,fraction))/4096.0,1.0));
+}
