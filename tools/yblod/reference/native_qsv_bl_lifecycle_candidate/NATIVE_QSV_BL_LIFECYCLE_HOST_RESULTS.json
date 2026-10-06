@@ -1,0 +1,58 @@
+{
+  "scope": "Synthetic CPU lifecycle accounting, mocked decoder NULL-drain progression and CPU AVFrame ownership only",
+  "hardware_qualified": false,
+  "media_executed": false,
+  "kodi_qualified": false,
+  "original_off_runtime_equivalence_qualified": false,
+  "mapped_mfx_owner_lifetime_qualified": false,
+  "full_film_eof_qualified": false,
+  "container": {
+    "image": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "cpus": 1,
+    "network": "none",
+    "gpu_devices": []
+  },
+  "compiler_flags": ["-std=c11", "-D_DEFAULT_SOURCE", "-D_POSIX_C_SOURCE=200809L", "-Wall", "-Wextra", "-Werror", "-O2", "-fno-lto", "-fuse-ld=bfd"],
+  "abi": "Original LibreELEC FFmpeg 9.0.2 SDK public headers and libraries; fixture includes integrated probe with main renamed and send/receive compile-time mocks",
+  "attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 1,
+      "stage": "strict_compile",
+      "reason": "Nested array zero initializer triggered -Werror=missing-braces",
+      "fixture_executed": false,
+      "peak_bytes": 38641664,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "source_preserved": true
+    },
+    {
+      "attempt": 2,
+      "exit_code": 0,
+      "fixture_executed": true,
+      "peak_bytes": 35082240,
+      "memory_events_all_zero": true,
+      "swap_current_bytes": 0,
+      "swap_peak_bytes": 0,
+      "only_correction": "epochs[3]={{0}} changed to epochs[3]={0}; strict warning policy unchanged",
+      "binary_sha256": "5d33b679544a777fc80ca19d966f4ea337efdb3befff2ce7d38c94871edc8dd6",
+      "probe_source_sha256": "fa6fb0fda014f67937405ccfd1ab3c961751d7c24e00d0d0f619d32eec17b4f4",
+      "fixture_source_sha256": "b19ad8817f18b19860ec54f4f45ace81f2f2e7bf93e1ea287262e1aa2137831f"
+    }
+  ],
+  "tested": [
+    "Accounting requires both receive EOF states, accepted counts, every complete-picture AU mask 3, exact pair count and no pending snapshots or estimated snapshot bytes",
+    "Actual finish_window helper: mocked EAGAIN followed by NULL acceptance and EOF, fatal send, bounded send EAGAIN exhaustion, bounded receive EAGAIN exhaustion and expired deadline",
+    "Epoch reset clears selected CPU frames and counters while retaining a separate CPU owner reference and one-time handshake state",
+    "Absent selected pictures reject safely"
+  ],
+  "limits": [
+    "No real decoder, hardware device, mapped GPU surface, media or Dolby output executed",
+    "CPU AVFrame reference test does not prove QSV MFX mid lifetime across decoder destruction",
+    "Original OFF control flow is source-reviewed only, not actual runtime-equivalence evidence",
+    "Hardware lifecycle and fixed-window association remain unqualified; this is not natural full-film EOF testing"
+  ]
+}
