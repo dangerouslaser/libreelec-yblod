@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "scope": "CPU-only private first-AU/header parsing diagnostic using actual SDK dovi_split, hevc_mp4toannexb and native HEVC parser",
+  "actual_intercepted_first_au_content_equality_verified_privately": true,
+  "hevc_conf_present": false,
+  "split_extradata_inherited_equal": true,
+  "split_declared_dimensions": [1920, 1080],
+  "el_inband_coded_dimensions": [1920, 1080],
+  "el_inband_vps_sps_pps_present": [true, true, true],
+  "after_hevc_mp4toannexb_coded_dimensions": [1920, 1080],
+  "after_hevc_mp4toannexb_vps_sps_pps_present": [true, true, true],
+  "resources": {"memory_cap_bytes": 536870912, "peak_bytes": 23265280, "swap_cap_bytes": 0, "swap_current_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true},
+  "limits": ["No hardware decode or decoded sample comparison", "Input/parameter bytes and private first-AU hash not exported", "Native parser diagnoses 1080p EL packet; inherited configuration persists independently", "Does not yet establish which header the QSV decoder chooses during initialization"]
+}
