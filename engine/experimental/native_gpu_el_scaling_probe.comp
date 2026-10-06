@@ -1,0 +1,109 @@
+#version 430 core
+// Literal informative Annex-B example, not a universal DV scaler requirement.
+// Input chroma MUST already have the caller's explicitly chosen phase adapter.
+layout(local_size_x=8,local_size_y=8) in;
+layout(binding=0) uniform sampler2D native_plane;
+layout(binding=1) uniform usampler2D vertical_plane;
+layout(r16ui,binding=0) writeonly uniform uimage2D vertical_y;
+layout(rg16ui,binding=1) writeonly uniform uimage2D vertical_uv;
+layout(r16,binding=2) writeonly uniform image2D final_y;
+layout(rg16,binding=3) writeonly uniform image2D final_uv;
+layout(std430,binding=3) buffer ScalingStatus {uint failure;};
+layout(location=0) uniform uvec2 source_size; // plane size BEFORE vertical pass
+layout(location=1) uniform uint pass_kind; //0 vertical,1 horizontal
+layout(location=2) uniform uint component_kind; //0 Y,1 CbCr pair
+
+int floor_power_two(int v,int shift)
+{
+    return v>=0 ? v>>shift : -1-((-(v+1))>>shift);
+}
+ivec2 rounded(ivec2 v,int shift)
+{
+    v+=ivec2(1<<(shift-1));
+    return clamp(ivec2(floor_power_two(v.x,shift),floor_power_two(v.y,shift)),
+                 ivec2(0),ivec2(65535));
+}
+ivec2 code_at(ivec2 p,out bool valid)
+{
+    vec2 value=texelFetch(native_plane,clamp(p,ivec2(0),ivec2(source_size)-1),0).rg;
+    uvec2 raw=uvec2(floor(value*65535.0+0.5));
+    if(component_kind==0u)raw.y=0u;
+    valid=((raw.x|raw.y)&63u)==0u;
+    return ivec2(raw>>6u);
+}
+void main()
+{
+    uvec2 pixel=gl_GlobalInvocationID.xy;
+    if(any(equal(source_size,uvec2(0))) ||
+       any(greaterThan(source_size,uvec2(4096))) || pass_kind>1u || component_kind>1u) {
+        atomicOr(failure,2u);return;
+    }
+    uvec2 output_size=source_size*uvec2(pass_kind==0u ? 1u : 2u,2u);
+    if(any(greaterThanEqual(pixel,output_size)))return;
+    ivec2 p=ivec2(pixel);
+    if(pass_kind==0u) {
+        ivec2 extent=ivec2(source_size);
+        if(textureSize(native_plane,0)!=extent ||
+           (component_kind==0u ? imageSize(vertical_y) : imageSize(vertical_uv))!=ivec2(output_size)) {
+            atomicOr(failure,2u);return;
+        }
+        ivec2 center=ivec2(p.x,p.y/2),sum=ivec2(0);
+        bool all_valid=true;
+        if(component_kind==0u) {
+            const int even_offsets[4]=int[4](-2,-1,0,1);
+            const int odd_offsets[4]=int[4](-1,0,1,2);
+            const int even_weights[4]=int[4](-3,29,111,-9);
+            const int odd_weights[4]=int[4](-9,111,29,-3);
+            bool odd=(p.y&1)!=0;
+            for(int i=0;i<4;++i) {
+                bool valid;
+                sum+=code_at(center+ivec2(0,odd ? odd_offsets[i] : even_offsets[i]),valid)*
+                     (odd ? odd_weights[i] : even_weights[i]);
+                all_valid=valid&&all_valid;
+            }
+            sum=rounded(sum,7);
+        } else {
+            bool first_valid,second_valid;
+            bool odd=(p.y&1)!=0;
+            ivec2 first=code_at(center+ivec2(0,odd ? 0 : -1),first_valid);
+            ivec2 second=code_at(center+ivec2(0,odd ? 1 : 0),second_valid);
+            all_valid=first_valid&&second_valid;
+            sum=rounded(first*(odd ? 192 : 64)+second*(odd ? 64 : 192),8);
+        }
+        if(!all_valid) {atomicOr(failure,1u);return;}
+        if(component_kind==0u)imageStore(vertical_y,p,uvec4(uvec2(sum),0,1));
+        else imageStore(vertical_uv,p,uvec4(uvec2(sum),0,1));
+    } else {
+        ivec2 extent=ivec2(source_size*uvec2(1,2));
+        if(textureSize(vertical_plane,0)!=extent ||
+           (component_kind==0u ? imageSize(final_y) : imageSize(final_uv))!=ivec2(output_size)) {
+            atomicOr(failure,2u);return;
+        }
+        ivec2 center=ivec2(p.x/2,p.y),sum;
+        if((p.x&1)==0) {
+            uvec2 stored=texelFetch(vertical_plane,center,0).rg;
+            if(component_kind==0u)stored.y=0u;
+            if(any(greaterThan(stored,uvec2(65535)))) {atomicOr(failure,8u);return;}
+            sum=ivec2(stored);
+        }
+        else {
+            const int weights[8]=int[8](22,94,-524,2456,2456,-524,94,22);
+            sum=ivec2(0);
+            for(int i=0;i<8;++i) {
+                ivec2 at=clamp(center+ivec2(i-3,0),ivec2(0),extent-1);
+                uvec2 stored=texelFetch(vertical_plane,at,0).rg;
+                if(component_kind==0u)stored.y=0u;
+                if(any(greaterThan(stored,uvec2(65535)))) {atomicOr(failure,8u);return;}
+                sum+=ivec2(stored)*weights[i];
+            }
+            sum=rounded(sum,12);
+        }
+        if(component_kind==0u)sum.y=0;
+        // Preserve the written per-pass u16 bound. Reject unsupported native10
+        // overshoot rather than inventing a1023 clamp for the scaler itself.
+        if(any(greaterThan(sum,ivec2(1023)))) {atomicOr(failure,4u);return;}
+        vec4 value=vec4(vec2(sum<<6)/65535.0,0,1);
+        if(component_kind==0u)imageStore(final_y,p,value);
+        else imageStore(final_uv,p,value);
+    }
+}

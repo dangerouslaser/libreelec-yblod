@@ -1,0 +1,1752 @@
+{
+  "schema": "yblod.gpu-colour-synthetic-checkpoint.v1",
+  "scope": {
+    "public_synthetic_only": true,
+    "film_inputs": false,
+    "decoder_tested": false,
+    "playback_tested": false,
+    "sk4_fit": false,
+    "adoption_tolerance_selected": false
+  },
+  "sources": {
+    "engine/src/native_colour.c": "2d90cef334b5c0c32a59a7ed8b6a161171f13cc3719821c1395bb534a57753cb",
+    "engine/include/native_colour.h": "f44655c982da822c8db340155ea2b7694b5c399c4e195ed52e70aa39c088726d",
+    "engine/experimental/native_gpu_colour_runner.c": "a3703964950af74da5546aab3959bd548cc62e67ff80d26abbca64e31dcadf4f",
+    "engine/experimental/native_gpu_colour_probe.comp": "b5b42db3c63bd966415ff40bde6b8d89c680aa30b0366b09270827693f4efc6c"
+  },
+  "binary_sha256": "f902f17464557b77e30649e61aafa2f9c1a8d3a9d4e618a1a1cc22550b9ad8bd",
+  "resource_checks": {
+    "memory_max_bytes": 536870912,
+    "memory_peak_bytes": 38461440,
+    "swap_max_bytes": 0,
+    "swap_current_bytes": 0,
+    "memory_limit_events": 0,
+    "kodi_process_identity_unchanged": true,
+    "files_and_runtime_unchanged": true,
+    "runtime_pins": 9,
+    "timeout_seconds": 30
+  },
+  "measurement": {
+    "schema": "yblod.gpu-colour-synthetic-probe.v1",
+    "complete": true,
+    "cleanup_complete": true,
+    "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+    "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+    "native_cpu_oracle_first": true,
+    "float_bit_exact_claim": false,
+    "tolerance_selected": false,
+    "adoption_pass": null,
+    "configurations": 6,
+    "samples_per_configuration": 12,
+    "relative_error_floor": 1e-12,
+    "input_float_conversion_max_abs": 2.2351741811588166e-10,
+    "uniform_float_conversion_max_abs": 1.5865496383327127e-7,
+    "records": [
+      {
+        "configuration": 0,
+        "sample": 0,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            7.259800912183111e-13
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 1,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            0.000024944765789847168,
+            0.000024944765789847168
+          ],
+          [
+            0.000024944765789847168,
+            0.000024944765789847168,
+            0.000024944765789847168
+          ],
+          [
+            0.000004529952994936082,
+            0.000004529952994936082,
+            0.000004529952994936082
+          ]
+        ],
+        "cpu_codes": [
+          4095,
+          4095,
+          4095
+        ],
+        "gpu_codes": [
+          4095,
+          4095,
+          4095
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 2,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.5498777284836396e-7,
+            3.1455405862489128e-9,
+            3.4157752772101535e-7
+          ],
+          [
+            1.5498777284836396e-7,
+            3.1455405862489128e-9,
+            3.4157752772101535e-7
+          ],
+          [
+            3.874301917061729e-7,
+            9.536743153237826e-7,
+            0.0000014901161222713455
+          ]
+        ],
+        "cpu_codes": [
+          2048,
+          1024,
+          3072
+        ],
+        "gpu_codes": [
+          2048,
+          1024,
+          3072
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 3,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.1384713759267162e-16,
+            6.335737516885534e-12,
+            1.0098912556447695e-12
+          ],
+          [
+            1.1384713759267162e-16,
+            6.335737516885534e-12,
+            1.0098912556447695e-12
+          ],
+          [
+            1.6152625879634758e-9,
+            1.4435499916254368e-7,
+            1.0244548312790536e-7
+          ]
+        ],
+        "cpu_codes": [
+          1,
+          63,
+          64
+        ],
+        "gpu_codes": [
+          1,
+          63,
+          64
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 4,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.4556493255907244e-7,
+            5.068474833954707e-9,
+            0.00006999539256036247
+          ],
+          [
+            1.4556493255907244e-7,
+            5.068474833954707e-9,
+            0.00006999539256036247
+          ],
+          [
+            8.344650298530709e-7,
+            0.0000014007091532763916,
+            0.000004529953002818665
+          ]
+        ],
+        "cpu_codes": [
+          2048,
+          1024,
+          4095
+        ],
+        "gpu_codes": [
+          2049,
+          1024,
+          4095
+        ],
+        "code_signed_diff": [
+          1,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 5,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            6.167510958097312e-16,
+            1.1596057442522637e-14,
+            5.456968215719767e-14
+          ],
+          [
+            0,
+            0,
+            9.645078474343569e-21
+          ],
+          [
+            0,
+            0,
+            9.645078474343569e-21
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            3.583409127475614e-12
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 6,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            2.1078959694040278e-7,
+            1.5498777284836396e-7,
+            1.149145192145401e-7
+          ],
+          [
+            2.1078959694040278e-7,
+            1.5498777284836396e-7,
+            1.149145192145401e-7
+          ],
+          [
+            0.0000020265579198097683,
+            3.874301917061729e-7,
+            0.000004470348361929055
+          ]
+        ],
+        "cpu_codes": [
+          2047,
+          2048,
+          2049
+        ],
+        "gpu_codes": [
+          2047,
+          2048,
+          2049
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 7,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            0,
+            1.5498777284836396e-7
+          ],
+          [
+            0.000024944765789847168,
+            0,
+            1.5498777284836396e-7
+          ],
+          [
+            0.000004529952994936082,
+            7.259800912183111e-13,
+            3.874301917061729e-7
+          ]
+        ],
+        "cpu_codes": [
+          4095,
+          0,
+          2048
+        ],
+        "gpu_codes": [
+          4095,
+          0,
+          2048
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 0,
+        "sample": 8,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 0,
+        "sample": 9,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 0,
+        "sample": 10,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 0,
+        "sample": 11,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 1,
+        "sample": 0,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            7.259800912183111e-13
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 1,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            0.000024944765789847168,
+            0.000024944765789847168
+          ],
+          [
+            0.000024944765789847168,
+            0.000024944765789847168,
+            0.000024944765789847168
+          ],
+          [
+            0.000004529952994936082,
+            0.000004529952994936082,
+            0.000004529952994936082
+          ]
+        ],
+        "cpu_codes": [
+          4095,
+          4095,
+          4095
+        ],
+        "gpu_codes": [
+          4095,
+          4095,
+          4095
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 2,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.5498777284836396e-7,
+            3.1455405862489128e-9,
+            3.4157752772101535e-7
+          ],
+          [
+            1.5498777284836396e-7,
+            3.1455405862489128e-9,
+            3.4157752772101535e-7
+          ],
+          [
+            3.874301917061729e-7,
+            9.536743153237826e-7,
+            0.0000014901161222713455
+          ]
+        ],
+        "cpu_codes": [
+          2048,
+          1024,
+          3072
+        ],
+        "gpu_codes": [
+          2048,
+          1024,
+          3072
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 3,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.1384713759267162e-16,
+            6.335737516885534e-12,
+            1.0098912556447695e-12
+          ],
+          [
+            1.1384713759267162e-16,
+            6.335737516885534e-12,
+            1.0098912556447695e-12
+          ],
+          [
+            1.6152625879634758e-9,
+            1.4435499916254368e-7,
+            1.0244548312790536e-7
+          ]
+        ],
+        "cpu_codes": [
+          1,
+          63,
+          64
+        ],
+        "gpu_codes": [
+          1,
+          63,
+          64
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 4,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.4556493255907244e-7,
+            5.068474833954707e-9,
+            0.00006999539256036247
+          ],
+          [
+            1.4556493255907244e-7,
+            5.068474833954707e-9,
+            0.00006999539256036247
+          ],
+          [
+            8.344650298530709e-7,
+            0.0000014007091532763916,
+            0.000004529953002818665
+          ]
+        ],
+        "cpu_codes": [
+          2048,
+          1024,
+          4095
+        ],
+        "gpu_codes": [
+          2049,
+          1024,
+          4095
+        ],
+        "code_signed_diff": [
+          1,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 5,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            6.167510958097312e-16,
+            1.1596057442522637e-14,
+            5.456968215719767e-14
+          ],
+          [
+            0,
+            0,
+            9.645078474343569e-21
+          ],
+          [
+            0,
+            0,
+            9.645078474343569e-21
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            3.583409127475614e-12
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 6,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            2.1078959694040278e-7,
+            1.5498777284836396e-7,
+            1.149145192145401e-7
+          ],
+          [
+            2.1078959694040278e-7,
+            1.5498777284836396e-7,
+            1.149145192145401e-7
+          ],
+          [
+            0.0000020265579198097683,
+            3.874301917061729e-7,
+            0.000004470348361929055
+          ]
+        ],
+        "cpu_codes": [
+          2047,
+          2048,
+          2049
+        ],
+        "gpu_codes": [
+          2047,
+          2048,
+          2049
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 7,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            0,
+            1.5498777284836396e-7
+          ],
+          [
+            0.000024944765789847168,
+            0,
+            1.5498777284836396e-7
+          ],
+          [
+            0.000004529952994936082,
+            7.259800912183111e-13,
+            3.874301917061729e-7
+          ]
+        ],
+        "cpu_codes": [
+          4095,
+          0,
+          2048
+        ],
+        "gpu_codes": [
+          4095,
+          0,
+          2048
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 1,
+        "sample": 8,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 1,
+        "sample": 9,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 1,
+        "sample": 10,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 1,
+        "sample": 11,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 0,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 1,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            2.1078959694040278e-7,
+            2.1078959694040278e-7
+          ],
+          [
+            0.00002399444281964147,
+            7.036462109401287e-7,
+            7.036462109435981e-7
+          ],
+          [
+            0.000003291024448515145,
+            0.00004518354518889822,
+            0.000008130958426111334
+          ]
+        ],
+        "cpu_codes": [
+          3149,
+          4095,
+          3294
+        ],
+        "gpu_codes": [
+          3149,
+          4095,
+          3294
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 2,
+        "sample": 2,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 3,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 4,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 5,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 6,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            2.1078959694040278e-7,
+            0,
+            1.1384713759267162e-16
+          ],
+          [
+            2.026754292294014e-7,
+            4.206122842137809e-9,
+            4.194553266328267e-9
+          ],
+          [
+            0.0000025673961817074265,
+            0.000015841542496897176,
+            8.030264468938952e-7
+          ]
+        ],
+        "cpu_codes": [
+          1262,
+          4095,
+          3079
+        ],
+        "gpu_codes": [
+          1262,
+          4095,
+          3079
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 2,
+        "sample": 7,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 8,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 9,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 10,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 2,
+        "sample": 11,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 3,
+        "sample": 0,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            7.638048762382692e-13,
+            0,
+            0
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          2048,
+          2048
+        ],
+        "gpu_codes": [
+          0,
+          2048,
+          2048
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 1,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            2.1078959694040278e-7,
+            2.1078959694040278e-7
+          ],
+          [
+            0.00002399444281964147,
+            7.036462109401287e-7,
+            7.036462109435981e-7
+          ],
+          [
+            0.000003291024448515145,
+            0.00004518354518889822,
+            0.000008130958426111334
+          ]
+        ],
+        "cpu_codes": [
+          3149,
+          4095,
+          3294
+        ],
+        "gpu_codes": [
+          3149,
+          4095,
+          3294
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 2,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.5498777284836396e-7,
+            0,
+            3.1455405862489128e-9
+          ],
+          [
+            1.494472098677313e-7,
+            3.15316307851303e-9,
+            6.115017097503214e-9
+          ],
+          [
+            8.577414722932275e-7,
+            0.000007570070495344083,
+            6.13129252480249e-7
+          ]
+        ],
+        "cpu_codes": [
+          1339,
+          4095,
+          2672
+        ],
+        "gpu_codes": [
+          1339,
+          4095,
+          2672
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 3,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.1384713759267162e-16,
+            0,
+            0
+          ],
+          [
+            1.0082164458308428e-16,
+            2.1759378196984145e-18,
+            2.1759378196984145e-18
+          ],
+          [
+            1.8401646252239577e-10,
+            7.210695041059978e-9,
+            2.717212344016673e-8
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          2052,
+          2049
+        ],
+        "gpu_codes": [
+          0,
+          2052,
+          2049
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 4,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.4556493255907244e-7,
+            0,
+            2.1882885759862136e-7
+          ],
+          [
+            1.4447841715017895e-7,
+            7.2534223550429e-9,
+            2.1333133875048316e-7
+          ],
+          [
+            0.0000016802062353660219,
+            0.000010396244221055895,
+            9.103550405731298e-7
+          ]
+        ],
+        "cpu_codes": [
+          1595,
+          4095,
+          1653
+        ],
+        "gpu_codes": [
+          1595,
+          4095,
+          1653
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 5,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            6.167510958097312e-16,
+            5.72204589266434e-9,
+            2.384185793236071e-9
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            7.638048762382692e-13,
+            0,
+            0
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          2048,
+          2048
+        ],
+        "gpu_codes": [
+          0,
+          2048,
+          2048
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 6,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            2.1078959694040278e-7,
+            0,
+            1.1384713759267162e-16
+          ],
+          [
+            2.026754292294014e-7,
+            4.206122842137809e-9,
+            4.194553266328267e-9
+          ],
+          [
+            0.0000025673961817074265,
+            0.000015841542496897176,
+            8.030264468938952e-7
+          ]
+        ],
+        "cpu_codes": [
+          1262,
+          4095,
+          3079
+        ],
+        "gpu_codes": [
+          1262,
+          4095,
+          3079
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 7,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.000024944765789847168,
+            0,
+            0
+          ],
+          [
+            0.000023962121619702792,
+            4.969100204955945e-7,
+            4.969100204955945e-7
+          ],
+          [
+            0.0000036509215222135794,
+            0.000006120139500076505,
+            0.0000011122129961460558
+          ]
+        ],
+        "cpu_codes": [
+          3053,
+          4095,
+          3423
+        ],
+        "gpu_codes": [
+          3053,
+          4095,
+          3423
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 3,
+        "sample": 8,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 3,
+        "sample": 9,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 3,
+        "sample": 10,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 3,
+        "sample": 11,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 0,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            7.259800912183111e-13
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 4,
+        "sample": 1,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 2,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 3,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.0065541746084111e-14,
+            2.326489773687323e-12,
+            1.0656477918973304e-11
+          ],
+          [
+            1.0065541746084111e-14,
+            2.326489773687323e-12,
+            1.0656477918973304e-11
+          ],
+          [
+            4.831235855817795e-9,
+            5.587935445264258e-8,
+            2.570450305522387e-7
+          ]
+        ],
+        "cpu_codes": [
+          2,
+          126,
+          128
+        ],
+        "gpu_codes": [
+          2,
+          126,
+          128
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 4,
+        "sample": 4,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 5,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            1.2335021916194624e-15,
+            2.3192114885045275e-14,
+            1.0913936431439534e-13
+          ],
+          [
+            0,
+            0,
+            2.3217157089422876e-21
+          ],
+          [
+            0,
+            0,
+            2.3217157089422876e-21
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            8.003552815543584e-13
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 4,
+        "sample": 6,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 7,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 8,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 9,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 10,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 4,
+        "sample": 11,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 0,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            7.259800912183111e-13
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 5,
+        "sample": 1,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 2,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1.5498777284836396e-7,
+            0.02795524675764227
+          ],
+          [
+            0,
+            1.5498777284836396e-7,
+            0.02795524675764227
+          ],
+          [
+            0,
+            3.874301917061729e-7,
+            0.000009059905996089412
+          ]
+        ],
+        "cpu_codes": [
+          4095,
+          2048,
+          4095
+        ],
+        "gpu_codes": [
+          4095,
+          2048,
+          4095
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 5,
+        "sample": 3,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            1.0065541746084111e-14,
+            2.326489773687323e-12,
+            1.0656477918973304e-11
+          ],
+          [
+            1.0065541746084111e-14,
+            2.326489773687323e-12,
+            1.0656477918973304e-11
+          ],
+          [
+            4.831235855817795e-9,
+            5.587935445264258e-8,
+            2.570450305522387e-7
+          ]
+        ],
+        "cpu_codes": [
+          2,
+          126,
+          128
+        ],
+        "gpu_codes": [
+          2,
+          126,
+          128
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 5,
+        "sample": 4,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 5,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            1.2335021916194624e-15,
+            2.3192114885045275e-14,
+            1.0913936431439534e-13
+          ],
+          [
+            0,
+            0,
+            2.3217157089422876e-21
+          ],
+          [
+            0,
+            0,
+            2.3217157089422876e-21
+          ],
+          [
+            7.259800912183111e-13,
+            7.259800912183111e-13,
+            8.003552815543584e-13
+          ]
+        ],
+        "cpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "gpu_codes": [
+          0,
+          0,
+          0
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 5,
+        "sample": 6,
+        "cpu_status": 0,
+        "gpu_status": 0,
+        "stage_absolute_error": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.00005271054553501742,
+            0,
+            0.00005328603613752314
+          ],
+          [
+            0.00005271054553501742,
+            0,
+            0.00005328603613752314
+          ],
+          [
+            0.000009059905991204431,
+            0,
+            0.00000882148743386324
+          ]
+        ],
+        "cpu_codes": [
+          4094,
+          4095,
+          4095
+        ],
+        "gpu_codes": [
+          4094,
+          4095,
+          4095
+        ],
+        "code_signed_diff": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "configuration": 5,
+        "sample": 7,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 8,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 9,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 10,
+        "cpu_status": 3,
+        "gpu_status": 3
+      },
+      {
+        "configuration": 5,
+        "sample": 11,
+        "cpu_status": 3,
+        "gpu_status": 3
+      }
+    ],
+    "status_mismatches": 0,
+    "different_code_values": 2,
+    "maximum_code_difference": 1,
+    "stage_max_abs": [
+      5.72204589266434e-9,
+      0.02795524675764227,
+      0.02795524675764227,
+      0.00004518354518889822
+    ],
+    "stage_max_relative": [
+      4.749745128457272e-8,
+      0.00008900688729764116,
+      0.00008900688729764116,
+      0.000020709075637429603
+    ]
+  }
+}

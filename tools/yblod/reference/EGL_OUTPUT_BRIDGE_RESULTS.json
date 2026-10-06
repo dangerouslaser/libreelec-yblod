@@ -1,0 +1,48 @@
+{
+  "schema": "yblod.egl-output-bridge-checkpoint.v1",
+  "result": {
+    "schema": "yblod.egl-output-bridge-probe.v1",
+    "complete": true,
+    "width": 4,
+    "height": 4,
+    "rgba32f_words_exact": 64,
+    "rgba16ui_words_exact": 64,
+    "bindings_restored": true,
+    "producer_consumer_fences": true,
+    "playback_tested": false
+  },
+  "source_sha256": {
+    "engine/experimental/native_egl_output_bridge.c": "c3623ec327b3e38f922a308cd7b80ab494938bf84832eceb49c07175cb36d634",
+    "engine/experimental/native_egl_output_bridge.h": "fbbd73f2a61b049deb7603eacd05a8a81f6c93d2e9599f023c605282a539982e",
+    "engine/experimental/native_egl_output_bridge_probe.c": "157be106dce2b89a9ff532dce3e89af79d10823bf8bac0de95f31f97bd58fd28"
+  },
+  "binary_sha256": "7a8120ee7bc32b09127b98f1a2c20c02da040f2bc256495fc7c1d7a8eed32116",
+  "resources_before": {
+    "memory.max": "536870912",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.peak": "7274496",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "resources_after": {
+    "memory.max": "536870912",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.peak": "48140288",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0"
+  },
+  "kodi_identity_unchanged": true,
+  "artifacts_unchanged": true,
+  "runtime_snapshot_sha256": {
+    "/usr/lib/libEGL.so.1.1.0": "e96c0e60601984ea832a6b8184ce1f299e0f60023c4a4c52c03bf4fe7ee319a0",
+    "/usr/lib/libEGL_mesa.so.0.0.0": "a6e80958ace576414e239775d6871aff1b3e53ba68a85c5eab08a081d765f192",
+    "/usr/lib/libGLdispatch.so.0.0.0": "cd8c7e4d03802fe9661dd7d35d55b24e796cb1f679ae3fafbdc192ffd3c2d91a",
+    "/usr/lib/libgallium-26.2.4.so": "0437d7fcd34d05143baec659b6fa998b66e95673b74fd40a2ca449230a22e41f",
+    "/usr/lib/libgbm.so.1.0.0": "1cc8dc6eca4b7a6a9bc27bccda01c45ee83aa4e3d04185f8710be73183c2bcb2",
+    "/usr/lib/libdrm.so.2.134.0": "4aef0c2cd85b60b8ca1080f47a26d415a51adb4e44324d7a8f0396b7369e1363",
+    "/usr/lib/libc.so.6": "d16d617f8f3d8b18bd933ab259d50c8e829650c1d0da4d5c1b1815acd9d5f5e8",
+    "/usr/lib/ld-linux-x86-64.so.2": "3bd22d737cff5359c57bd420318561e34a9cffb9738a65feb5d0b56ded9f0126"
+  },
+  "runtime_scope": "Selected installed libraries pinned before/after; not a complete loaded-module inventory.",
+  "scope": "Two 4x4 public synthetic patterns only. Standalone-owned contexts/display, not Kodi integration or playback, not exhaustive format preservation or zero-copy proof."
+}

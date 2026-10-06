@@ -1,0 +1,82 @@
+--- a/tools/dvbridge/dvbridge_render.c
++++ b/tools/dvbridge/dvbridge_render.c
+@@ -227 +227,2 @@
+-                        struct dvbridge_geometry geometry, pl_tex packed, bool flip, bool hdr10)
++                        struct dvbridge_geometry geometry, pl_tex packed, bool flip, bool hdr10,
++                        pl_tex reconstructed)
+@@ -239,0 +241,12 @@
++    if (reconstructed) {
++        if (packed || hdr10 || source->rotation ||
++            reconstructed->params.w != geometry.source_width ||
++            reconstructed->params.h != geometry.source_height ||
++            !reconstructed->params.sampleable ||
++            reconstructed->params.format->type != PL_FMT_FLOAT ||
++            reconstructed->params.format->num_components != 4)
++            return false;
++        for (int c=0;c<4;++c)
++            if (reconstructed->params.format->component_depth[c] != 32)
++                return false;
++    }
+@@ -266,0 +280,17 @@
++    if (reconstructed) {
++        /* Experimental engine has already performed mapping and NLQ. Keep the
++         * original paired source above solely for validated metadata/packets.
++         * The output remains an inherited colour-only stage, not native colour
++         * conformance. Values are reconstructed12-bit codes divided by4096. */
++        for (int c=0;c<3;++c)
++            mapped.dovi.comp[c].num_pivots=0;
++        mapped.dovi.nlq_active=false;
++        image.enhancement_layer=NULL;
++        image.num_planes=1;
++        memset(image.planes,0,sizeof(image.planes));
++        image.planes[0]=(struct pl_plane){.texture=reconstructed,.components=4,
++            .component_mapping={0,1,2,3}};
++        image.repr.bits=(struct pl_bit_encoding){.sample_depth=12,.color_depth=12};
++        image.repr.levels=PL_COLOR_LEVELS_FULL;
++        image.repr.alpha=PL_ALPHA_INDEPENDENT;
++    }
+@@ -361 +391 @@
+-    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, false);
++    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, false, NULL);
+@@ -363,0 +394,20 @@
++bool dvbridge_render_reconstructed_rgb(struct dvbridge_renderer *r,
++                        const struct pl_frame *paired_source, pl_tex reconstructed,
++                        const void *metadata, size_t bytes, double pts, double el_pts,
++                        struct dvbridge_geometry geometry)
++{
++    if (!reconstructed)
++    {
++        if (r) {
++            r->ready=false;
++            r->packed=false;
++            r->used_direct_conversion=false;
++            dvbridge_candidate_destroy(r->pending);
++            r->pending=NULL;
++        }
++        return false;
++    }
++    return render(r, paired_source, metadata, bytes, pts, el_pts, geometry,
++                  NULL, false, false, reconstructed);
++}
++
+@@ -368 +418 @@
+-    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true);
++    return render(r, source, metadata, bytes, pts, el_pts, geometry, NULL, false, true, NULL);
+@@ -402 +452 @@
+-    bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false);
++    bool ok = render(r, source, metadata, bytes, pts, el_pts, geometry, target, flip, false, NULL);
+--- a/tools/dvbridge/dvbridge_render.h
++++ b/tools/dvbridge/dvbridge_render.h
+@@ -20,0 +21,12 @@
++/* Experimental colour-only handoff. paired_source retains the original BL/EL
++ * association for metadata/packets. reconstructed is borrowed RGBA32F, full
++ * source size, unrotated Y/Cb/Cr reconstructed12-bit codes divided by4096,
++ * alpha1 (caller invariant, not scanned by this entry point). Rotated sources
++ * are rejected; alpha is explicitly independent, not inherited from source.
++ * Caller owns colour-plane expansion, exactness, synchronization and lifetime.
++ * This bypasses reshaping/NLQ, NOT inherited colour conversion or output packing.
++ * No default caller is switched to this API. Commit only after presentation. */
++bool dvbridge_render_reconstructed_rgb(struct dvbridge_renderer *renderer,
++                        const struct pl_frame *paired_source, pl_tex reconstructed,
++                        const void *metadata, size_t bytes, double pts, double el_pts,
++                        struct dvbridge_geometry geometry);

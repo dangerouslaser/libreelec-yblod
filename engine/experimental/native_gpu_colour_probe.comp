@@ -1,0 +1,101 @@
+#version 430
+/* Experimental FLOAT colour stage: not bit-exact native-double arithmetic.
+ * Caller supplies validated configuration; no target/display defaults. */
+layout(local_size_x=64) in;
+layout(std430,binding=0) readonly buffer Inputs { vec4 input_codes[]; };
+struct ColourOutput {
+    vec4 source_nonlinear;
+    vec4 common_linear_lms;
+    vec4 target_linear;
+    vec4 transport_before_quantization;
+    uvec4 status_codes; /* status, code0, code1, code2; zero stages on failure */
+};
+layout(std430,binding=1) writeonly buffer Outputs { ColourOutput output_samples[]; };
+uniform uint sample_count;
+uniform mat3 source_ycc;
+uniform vec3 source_offset;
+uniform mat3 source_lms;
+uniform mat3 target_lms_inverse;
+uniform mat3 target_ycc_inverse;
+uniform vec3 target_offset;
+uniform int pq_policy; /*0 reject outside unit;1 positive extension/negative→0 */
+uniform int code_scale; /*must4096; no inferred normalization*/
+bool finite_value(float v) {return !isnan(v)&&!isinf(v);}
+bool finite_vector(vec3 v) {return all(not(isnan(v)))&&all(not(isinf(v)));}
+bool finite_matrix(mat3 v) {return finite_vector(v[0])&&finite_vector(v[1])&&finite_vector(v[2]);}
+vec3 matrix_multiply(mat3 matrix,vec3 v)
+{
+    precise vec3 result=vec3(0);
+    for(int row=0;row<3;++row) {
+        precise float sum=0;
+        for(int col=0;col<3;++col) {precise float term=matrix[col][row]*v[col];sum=sum+term;}
+        result[row]=sum;
+    }
+    return result;
+}
+bool pq_input(float v,out float bounded)
+{
+    if(!finite_value(v)||(pq_policy==0&&(v<0||v>1))) return false;
+    bounded=max(v,0);return true;
+}
+bool decode_pq(float v,out float result)
+{
+    float value;
+    if(!pq_input(v,value)) return false;
+    precise float p=pow(value,1.0/(2523.0/32.0));
+    precise float denominator=(2413.0/128.0)-(2392.0/128.0)*p;
+    if(!finite_value(denominator)||denominator<=0) return false;
+    precise float numerator=max(p-(3424.0/4096.0),0);
+    result=pow(numerator/denominator,1.0/(2610.0/16384.0));
+    return finite_value(result);
+}
+bool encode_pq(float v,out float result)
+{
+    float value;
+    if(!pq_input(v,value)) return false;
+    precise float p=pow(value,2610.0/16384.0);
+    precise float ratio=((3424.0/4096.0)+(2413.0/128.0)*p)/(1.0+(2392.0/128.0)*p);
+    result=pow(ratio,2523.0/32.0);return finite_value(result);
+}
+void main()
+{
+    uint index=gl_GlobalInvocationID.x;
+    if(index>=sample_count) return;
+    ColourOutput result;
+    result.source_nonlinear=vec4(0);result.common_linear_lms=vec4(0);
+    result.target_linear=vec4(0);result.transport_before_quantization=vec4(0);
+    result.status_codes=uvec4(0);
+    if(code_scale!=4096||(pq_policy!=0&&pq_policy!=1)||
+        !finite_matrix(source_ycc)||!finite_matrix(source_lms)||
+        !finite_matrix(target_lms_inverse)||!finite_matrix(target_ycc_inverse)||
+        !finite_vector(source_offset)||!finite_vector(target_offset)) {
+        result.status_codes.x=2;output_samples[index]=result;return;
+    }
+    vec3 codes=input_codes[index].xyz;
+    if(!finite_vector(codes)||any(lessThan(codes,vec3(0)))||any(greaterThan(codes,vec3(4095)))) {
+        result.status_codes.x=3;output_samples[index]=result;return;
+    }
+    precise vec3 nonlinear=matrix_multiply(source_ycc,codes/4096.0-source_offset);
+    vec3 source_linear=vec3(0),target_nonlinear=vec3(0);
+    bool success=finite_vector(nonlinear);
+    for(int i=0;i<3&&success;++i) success=decode_pq(nonlinear[i],source_linear[i]);
+    precise vec3 common_lms=matrix_multiply(source_lms,source_linear);
+    precise vec3 target=matrix_multiply(target_lms_inverse,common_lms);
+    success=success&&finite_vector(common_lms)&&finite_vector(target);
+    for(int i=0;i<3&&success;++i) success=encode_pq(target[i],target_nonlinear[i]);
+    precise vec3 transport=matrix_multiply(target_ycc_inverse,target_nonlinear)+target_offset;
+    success=success&&finite_vector(transport);
+    if(!success) {result.status_codes.x=3;output_samples[index]=result;return;}
+    uvec3 quantized_codes=uvec3(0);
+    for(int i=0;i<3;++i) {
+        precise float unrounded=transport[i]*4096.0+.5;
+        if(!finite_value(unrounded)) {result.status_codes.x=3;output_samples[index]=result;return;}
+        float rounded=floor(unrounded);
+        float quantized=rounded<0?0:(rounded>4095?4095:rounded);
+        quantized_codes[i]=uint(quantized);
+    }
+    result.source_nonlinear=vec4(nonlinear,0);result.common_linear_lms=vec4(common_lms,0);
+    result.target_linear=vec4(target,0);result.transport_before_quantization=vec4(transport,0);
+    result.status_codes.yzw=quantized_codes;
+    output_samples[index]=result;
+}

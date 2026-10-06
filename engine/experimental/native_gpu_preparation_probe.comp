@@ -1,0 +1,99 @@
+#version 430 core
+// Explicit experimental preparation only. Not an inferred Dolby-player rule.
+layout(local_size_x=8,local_size_y=8) in;
+layout(binding=0) uniform sampler2D native_plane;
+layout(r16,binding=0) writeonly uniform image2D guide_output;
+layout(rg16,binding=1) writeonly uniform image2D chroma_output;
+layout(std430,binding=3) buffer PreparationStatus {
+    uint failure;
+    uint phase_below_zero;
+    uint phase_above_native;
+};
+layout(location=0) uniform uvec2 native_luma_size;
+layout(location=1) uniform uint operation; //0 guide,1 linear-phase,2 cubic128-phase
+layout(location=2) uniform uint chroma_location; //0 left,1 top-left; explicit caller choice
+
+int floor_power_two(int v,int shift)
+{
+    return v>=0 ? v>>shift : -1-((-(v+1))>>shift);
+}
+uvec2 raw_words(ivec2 p,ivec2 extent)
+{
+    vec2 value=texelFetch(native_plane,clamp(p,ivec2(0),extent-1),0).rg;
+    return uvec2(floor(value*65535.0+0.5));
+}
+bool native_codes(ivec2 p,ivec2 extent,out ivec2 codes)
+{
+    uvec2 words=raw_words(p,extent);
+    if(operation==0u)words.y=0u;
+    if(((words.x|words.y)&63u)!=0u) {
+        atomicOr(failure,1u);
+        codes=ivec2(0);
+        return false;
+    }
+    codes=ivec2(words>>6u);
+    return true;
+}
+bool horizontal_row(ivec2 p,ivec2 extent,out int value)
+{
+    ivec2 left,center,right;
+    bool valid=native_codes(p+ivec2(-1,0),extent,left);
+    valid=native_codes(p,extent,center)&&valid;
+    valid=native_codes(p+ivec2(1,0),extent,right)&&valid;
+    value=(left.x+2*center.x+right.x+2)>>2;
+    return valid;
+}
+void main()
+{
+    uvec2 pixel=gl_GlobalInvocationID.xy;
+    uvec2 output_size=native_luma_size/2u;
+    if(any(equal(native_luma_size,uvec2(0))) ||
+       any(greaterThan(native_luma_size,uvec2(8192))) ||
+       any(notEqual(native_luma_size&1u,uvec2(0))) ||
+       operation>2u || chroma_location>1u) {
+        atomicOr(failure,2u);return;
+    }
+    if(any(greaterThanEqual(pixel,output_size)))return;
+    ivec2 input_size=ivec2(operation==0u ? native_luma_size : output_size);
+    if(textureSize(native_plane,0)!=input_size) {
+        atomicOr(failure,2u);return;
+    }
+    ivec2 p=ivec2(pixel);
+    if(operation==0u) {
+        if(imageSize(guide_output)!=ivec2(output_size)) {
+            atomicOr(failure,2u);return;
+        }
+        int first,second;
+        bool valid=horizontal_row(2*p,input_size,first);
+        valid=horizontal_row(2*p+ivec2(0,1),input_size,second)&&valid;
+        if(!valid)return;
+        // Two independent horizontal roundings precede the row-pair rounding.
+        uint guide=uint((first+second+1)>>1);
+        // Guide stores native codes, not P010 Q6 words.
+        imageStore(guide_output,p,vec4(float(guide)/65535.0,0,0,1));
+    } else {
+        if(imageSize(chroma_output)!=ivec2(output_size)) {
+            atomicOr(failure,2u);return;
+        }
+        ivec2 a,b,c,d,result;
+        bool valid=native_codes(p,input_size,b);
+        if(chroma_location==0u)result=b;
+        else if(operation==1u) {
+            valid=native_codes(p+ivec2(0,1),input_size,c)&&valid;
+            result=(3*b+c+2)>>2;
+        } else {
+            valid=native_codes(p+ivec2(0,-1),input_size,a)&&valid;
+            valid=native_codes(p+ivec2(0,1),input_size,c)&&valid;
+            valid=native_codes(p+ivec2(0,2),input_size,d)&&valid;
+            ivec2 total=-9*a+111*b+29*c-3*d+64;
+            result=ivec2(floor_power_two(total.x,7),floor_power_two(total.y,7));
+        }
+        if(!valid)return;
+        uint below=uint(result.x<0)+uint(result.y<0);
+        uint above=uint(result.x>1023)+uint(result.y>1023);
+        if(below!=0u)atomicAdd(phase_below_zero,below);
+        if(above!=0u)atomicAdd(phase_above_native,above);
+        result=clamp(result,ivec2(0),ivec2(1023));
+        imageStore(chroma_output,p,vec4(vec2(result<<6)/65535.0,0,1));
+    }
+}

@@ -1,0 +1,289 @@
+{
+  "schema": "yblod.native-gpu-texture-streamed-frame-checkpoint.v1",
+  "status": "complete",
+  "claims": {
+    "full_frame_matches_unchanged_native_reference": true,
+    "licensed_dolby_conformance": false,
+    "real_time_playback": false,
+    "kodi_integration": false,
+    "vaapi_zero_copy_import": false,
+    "cpu_expanded_sample_ssbo": false,
+    "input_planes_resident": true,
+    "private_pixels_metadata_and_input_hashes_omitted": true,
+    "pure_kernel_timing": false,
+    "per_new_frame_preparation_upload_in_warm_timing": false,
+    "interpretation": "Uploaded normalized plane ABI and resident execution checkpoint; warm timings exclude preparation/completed plane upload and do not measure movie playback or live VA import."
+  },
+  "provenance": {
+    "source_sha256": {
+      "engine/experimental/native_gpu_guard.c": "7a183ea2fd925863ad6f944c07ecd5cc822e835e16f21a26b02bc5a4f23dc315",
+      "engine/experimental/native_gpu_guard.h": "f79d7af042b6d70685fe01bd783cd366bc5e34f717aeae53b9cae77fdb8b8c52",
+      "engine/experimental/native_gpu_probe_fixture.c": "f28bbfe1e2d239fec196e9695b4e845efe9402d6e97ec4021079af3f48b490b3",
+      "engine/experimental/native_gpu_probe_fixture.h": "3a7903adca60641d0cee559e329435a7474b9b8d059be8fb9fb9780d32baf6d8",
+      "engine/experimental/native_gpu_probe.comp": "a708d8c27ff75effdf166fbfe3f5cae88ffaec34a784f234441ed1cc96d166bb",
+      "engine/experimental/native_mmr_composer.c": "3999d2ecba442ae3e2303f66f96befc7ff1ea8530f425733b0f45c322b58778b",
+      "engine/experimental/native_mmr_composer.h": "58623a7128d24b1969297639d3062c968b6e1aa4232436082ab61fb0932015e6",
+      "engine/experimental/native_scaled_surface.c": "d38c4ac1e9d6b660bd82b6e290bb5d1cac3315c66affb74f79f3bd0f86a93f5a",
+      "engine/experimental/native_scaled_surface.h": "1a2f4cfd8d1613534ab79870c9f14d809fb748191b6d254ca87370a007a34daf",
+      "engine/experimental/native_decoder_frame_bridge.c": "19b93d721f8c282f78c15c1600c944992077a2703ac55481f4b6a07af4f5d423",
+      "engine/experimental/native_decoder_frame_bridge.h": "69461e8fbf6175c367ec0ced75da7bbf9051063311efa78deb7b72b6c38545f7",
+      "engine/experimental/native_dovi_adapter.h": "6937002ae285ef2dff8bf131e634407f615cd552c8dafb02664facd59a5ea094",
+      "engine/experimental/native_integration_probe.c": "aae6850e84e5c51abeb4cf2a7a4918a3c04cafd46def9401b1f38b86ed312c33",
+      "engine/experimental/native_integration_probe.h": "3deedc069005435ec775e296310e84b3edbbd1b71411b10df01b9edc6469f73d",
+      "engine/experimental/native_sampling_probe.c": "ac461804596c1950c2a613d93337e24595ddfceace8102311e77dfc0c816812a",
+      "engine/experimental/native_sampling_probe.h": "9fd9a4ff613e2a973c8c06594ecd373e0335d68d5794a5c63bd689316a71d505",
+      "engine/src/native_composer.c": "29d8eb549bf00a752ec3d28c99b9a16ce8a256faceec91411b89a46fc3612369",
+      "engine/include/native_composer.h": "86b17fa07a271419995ac29d9572f767164b6547c21e6d0d5bb5cd69ed748838",
+      "engine/experimental/native_gpu_scaled_frame_output_probe.c": "a0d454d73a8f776734608a735aefbc0392e4a3219208ff5ce52a98944fc28075",
+      "engine/experimental/native_gpu_scaled_frame_single_wait_probe.c": "2bffde3262974160e748571af83cd0a75bc13175320291e8537c8eb0dc548834",
+      "engine/experimental/native_gpu_streamed_mmr_probe.comp": "5c58ab7ae0f7220a360026153f4d4e5d0592bf00c9d660ce570cb553f531b64a",
+      "engine/experimental/native_gpu_texture_streamed_probe.c": "4ba9647b63ab3a841b8b39a5a8223d0a8d9244ae03913944c84c6db5a74c3935",
+      "engine/experimental/native_gpu_texture_streamed_probe.comp": "abe708c107e32a5e95af6d8c69785128cb316d6d260f9baaacfa3687682e1c76"
+    },
+    "binary_sha256": "747e0500eb80a4af69b616826acb2b6fb397c50eac5f3d7adc1f3d31e45cad09",
+    "private_wrapper_sha256": "d8f6ee65ef61e54a5f0510ca7acf4ec111df71f743a05827a9320f8028885df6",
+    "input_scope": "Unchanged prepared whole-code P010 inputs; 2296 Intel-scaled,1406 software-linear-scaled; explicit prepared guide; not a scaler comparison.",
+    "timing_scope": "Cold setup includes context/program and combined host plane preparation/completed upload. Warm work includes metadata updates,48compute batches/fences and one final suffix readback; not full warm output verification."
+  },
+  "all_cpu_preflights_completed_before_gpu": true,
+  "runs": [
+    {
+      "frame_label": "2296",
+      "order": 1,
+      "variant": "texture",
+      "result": {
+        "schema": "yblod.native-gpu-texture-streamed-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "warm_preload_waits_per_batch": 0,
+        "warm_completion_waits_per_batch": 1,
+        "warm_output_sentinel_uploads": 0,
+        "warm_readbacks_per_pass": 1,
+        "warm_readback_bytes": 671744,
+        "texture_input_abi": "normalized-R16-RG16-P010-plus-explicit-native-guide",
+        "texture_input_uploaded_checkpoint": true,
+        "vaapi_zero_copy_import": false,
+        "cpu_expanded_sample_ssbo": false,
+        "input_planes_resident": true,
+        "warm_input_plane_uploads": 0,
+        "resident_texture_setup_wall_ns": 38131350,
+        "resident_texture_setup_cpu_ns": 33174810,
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 174762640,
+        "teardown_wall_ns": 2274608,
+        "warmups": 1,
+        "wall_ns": [
+          51583409,
+          49506834,
+          45836928
+        ],
+        "cpu_ns": [
+          2972718,
+          2984697,
+          1711176
+        ],
+        "preloaded_chunk_dispatch_measurement": false,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of dispatch, barrier, fence and host wait; may include pending upload work; excludes preparation, upload API calls and readback",
+        "preload_wait_wall_ns": [
+          0,
+          0,
+          0
+        ],
+        "dispatch_wall_ns": [
+          50931634,
+          48852082,
+          45513225
+        ],
+        "dispatch_cpu_ns": [
+          2354453,
+          2363188,
+          1403530
+        ],
+        "status": "complete"
+      },
+      "resources_before": {
+        "memory.max": "536870912",
+        "memory.peak": "65978368",
+        "memory.swap.max": "0",
+        "memory.swap.current": "0",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "cpu.stat": "usage_usec 2474104\nuser_usec 2340820\nsystem_usec 133283\nnice_usec 0"
+      },
+      "resources_after": {
+        "memory.max": "536870912",
+        "memory.peak": "259481600",
+        "memory.swap.max": "0",
+        "memory.swap.current": "0",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "cpu.stat": "usage_usec 4394753\nuser_usec 4174742\nsystem_usec 220010\nnice_usec 0"
+      },
+      "kodi_before": [
+        [
+          15567,
+          "4670326"
+        ]
+      ],
+      "kodi_after": [
+        [
+          15567,
+          "4670326"
+        ]
+      ],
+      "private_inputs_and_runtime_unchanged": true
+    },
+    {
+      "frame_label": "1406",
+      "order": 1,
+      "variant": "texture",
+      "result": {
+        "schema": "yblod.native-gpu-texture-streamed-probe.v1",
+        "gpu_attempted": true,
+        "cpu_full_frame_gate": true,
+        "cpu_dispatches": 191,
+        "cpu_stage_values": 49766400,
+        "counts": [
+          8294400,
+          2073600,
+          2073600
+        ],
+        "golden_suffix_offset": 196608,
+        "cpu_chunk_samples": 65536,
+        "timed_crosscheck_scope": "final-CPU-subchunk-suffix-only",
+        "gpu_batch_samples": 262144,
+        "gpu_batch_dispatches": 48,
+        "golden_suffix_samples": 41984,
+        "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+        "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+        "shader_log": "",
+        "link_log": "",
+        "warm_preload_waits_per_batch": 0,
+        "warm_completion_waits_per_batch": 1,
+        "warm_output_sentinel_uploads": 0,
+        "warm_readbacks_per_pass": 1,
+        "warm_readback_bytes": 671744,
+        "texture_input_abi": "normalized-R16-RG16-P010-plus-explicit-native-guide",
+        "texture_input_uploaded_checkpoint": true,
+        "vaapi_zero_copy_import": false,
+        "cpu_expanded_sample_ssbo": false,
+        "input_planes_resident": true,
+        "warm_input_plane_uploads": 0,
+        "resident_texture_setup_wall_ns": 29227394,
+        "resident_texture_setup_cpu_ns": 25570230,
+        "device_binding_verified": true,
+        "observed_gl_error": 0,
+        "observed_egl_error": 12288,
+        "cleanup_succeeded": true,
+        "full_frame_gpu_exact": true,
+        "gpu_verified_dispatches": 48,
+        "gpu_oracle_dispatches": 191,
+        "gpu_verified_stage_values": 49766400,
+        "cold_setup_wall_ns": 54677266,
+        "teardown_wall_ns": 1482778,
+        "warmups": 1,
+        "wall_ns": [
+          51689707,
+          49117068,
+          42332194
+        ],
+        "cpu_ns": [
+          2139462,
+          1598658,
+          2474007
+        ],
+        "preloaded_chunk_dispatch_measurement": false,
+        "whole_frame_resident": false,
+        "dispatch_timing_is_device_kernel_time": false,
+        "dispatch_timing_scope": "sum of dispatch, barrier, fence and host wait; may include pending upload work; excludes preparation, upload API calls and readback",
+        "preload_wait_wall_ns": [
+          0,
+          0,
+          0
+        ],
+        "dispatch_wall_ns": [
+          51242370,
+          48798741,
+          41846841
+        ],
+        "dispatch_cpu_ns": [
+          1717447,
+          1294940,
+          2014305
+        ],
+        "status": "complete"
+      },
+      "resources_before": {
+        "memory.max": "536870912",
+        "memory.peak": "259481600",
+        "memory.swap.max": "0",
+        "memory.swap.current": "0",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "cpu.stat": "usage_usec 4546481\nuser_usec 4299702\nsystem_usec 246779\nnice_usec 0"
+      },
+      "resources_after": {
+        "memory.max": "536870912",
+        "memory.peak": "259481600",
+        "memory.swap.max": "0",
+        "memory.swap.current": "0",
+        "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+        "cpu.stat": "usage_usec 6225651\nuser_usec 5905057\nsystem_usec 320593\nnice_usec 0"
+      },
+      "kodi_before": [
+        [
+          15567,
+          "4670326"
+        ]
+      ],
+      "kodi_after": [
+        [
+          15567,
+          "4670326"
+        ]
+      ],
+      "private_inputs_and_runtime_unchanged": true
+    }
+  ],
+  "resources_before": {
+    "memory.max": "536870912",
+    "memory.peak": "9048064",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+    "cpu.stat": "usage_usec 34276\nuser_usec 28044\nsystem_usec 6232\nnice_usec 0"
+  },
+  "resources_after": {
+    "memory.max": "536870912",
+    "memory.peak": "259481600",
+    "memory.swap.max": "0",
+    "memory.swap.current": "0",
+    "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\nsock_throttled 0",
+    "cpu.stat": "usage_usec 6374007\nuser_usec 6023447\nsystem_usec 350559\nnice_usec 0"
+  },
+  "kodi_unchanged": true,
+  "private_inputs_runtime_unchanged": true
+}
