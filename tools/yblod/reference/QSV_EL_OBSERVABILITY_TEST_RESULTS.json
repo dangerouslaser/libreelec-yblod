@@ -1,0 +1,29 @@
+{
+  "schema": "yblod-qsv-el-observability-source-tests-v1",
+  "status": "CPU_contracts_and_SDK_syntax_passed_hardware_unqualified",
+  "patch_chain": [19, 20],
+  "actual_kodi_source_modified": false,
+  "actual_VM_or_GPU_work": false,
+  "resource_limits_per_test_container": {"memory_bytes": 536870912, "extra_swap_bytes": 0, "cpus": 1, "network": "none", "gpu_passthrough": false},
+  "checks": {
+    "strict_isolated_patch_chain": true,
+    "SDK_EL_C_syntax": true,
+    "SDK_renderer_native_enabled_syntax": true,
+    "SDK_renderer_native_disabled_syntax": true,
+    "SDK_codec_syntax": true,
+    "real_AVFrame_mock_marker_and_pairing_contract": true,
+    "capture_JSON_buffer_bytes": 512,
+    "capture_JSON_conservative_extent_including_NUL": 464
+  },
+  "observed_controller_peak_memory_displays": ["2.7M", "256.0K"],
+  "container_peak_memory_measured": false,
+  "counter_scope": "Decoder-instance mapped/paired and renderer-instance preparation/native-input operation counters are cumulative across reset, not unique HDMI frames. The native-used counter is updated after successful colour preparation and release, so summary intervals need consistent endpoints.",
+  "native_used_definition": "The current genuinely mapped EL frame was supplied to the exact native request that successfully submitted, finished, passed association checks, prepared colour output and released. This does not prove metadata enabled EL residual processing or that a nonzero residual affected pixels.",
+  "scope": [
+    "Initial opt-in feature is restricted to Profile7 enhancement-layer playback. Requesting QSV with no enhancement frame fails route admission; not qualified for all Dolby profiles.",
+    "Reserved markers are removed from all decoder output first, so propagated input metadata cannot spoof selection. They are set only after successful direct mapping, parsed strictly, and required on QSV paired/renderer inputs.",
+    "CPU mocks verify marker survival through AVFrame cloning and queue/context reset, spoof cleanup, exact pairing, malformed values, timestamps and ownership. Decoder and hardware mapping are mocked.",
+    "Hardware decode, MFX timestamp propagation, direct-map correctness, native residual use, pixel equivalence and playback performance remain unqualified.",
+    "Initial observability mock linkage failed due to an unstubbed send symbol; the corrected receive/pair-only fixture explicitly prohibits submissions and passed."
+  ]
+}
