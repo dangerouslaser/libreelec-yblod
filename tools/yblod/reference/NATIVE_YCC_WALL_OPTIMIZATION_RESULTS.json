@@ -1,0 +1,1703 @@
+{
+  "schema": "yblod.ycc-wall-optimization-results.v1",
+  "date": "2026-10-06",
+  "run_count": 20,
+  "unique_input_frames": 2,
+  "renderer": "Mesa Intel(R) Iris(R) Xe Graphics (TGL GT2)",
+  "gl_version": "4.6 (Core Profile) Mesa 26.2.4",
+  "same_probe_binary_all_runs": true,
+  "initial_baseline_shader_content_matches": true,
+  "row_readback_bytes_max": 61440,
+  "same_frame1943_input_across_initial_and_confirmatory_tests": true,
+  "float_component_bit_comparisons_total": 1327104000,
+  "full_image_oracle_checks_total": 40,
+  "accuracy_scope": "Repeated complete RGBA float-component bit checks on two saved frames; not twenty independent accuracy frames, SK4 agreement, or display accuracy.",
+  "maximum_scoped_memory_peak_bytes": 241565696,
+  "all_resource_events_zero": true,
+  "all_swap_zero": true,
+  "all_cleanup_complete": true,
+  "scope": "Resident-input YCC expansion host submit/finish wall and process CPU time; not exclusive GPU kernel timing or real playback. Upload/oracle readback excluded.",
+  "decision": "Keep the production 8x8 workgroup and original coordinates; neither tested change showed a repeatable wall-time improvement.",
+  "matrices": [
+    {
+      "name": "workgroups",
+      "frame_number": 1943,
+      "order": "ABCCBA",
+      "baseline": "8x8",
+      "pooled": {
+        "8x8": {
+          "sample_count": 24,
+          "median_ms": 5.438014,
+          "mean_ms": 5.438892583333333,
+          "minimum_ms": 4.932049,
+          "maximum_ms": 6.021161,
+          "first_run_median_ms": 5.36595,
+          "last_run_median_ms": 5.5316535,
+          "run_median_drift_percent": 3.0880552371900682,
+          "median_change_vs_baseline_percent": 0,
+          "mean_change_vs_baseline_percent": 0
+        },
+        "16x8": {
+          "sample_count": 24,
+          "median_ms": 6.012415,
+          "mean_ms": 6.063330041666667,
+          "minimum_ms": 5.439569,
+          "maximum_ms": 6.929581,
+          "first_run_median_ms": 6.4465705,
+          "last_run_median_ms": 5.6447555,
+          "run_median_drift_percent": -12.437853584320536,
+          "median_change_vs_baseline_percent": 10.562698073230404,
+          "mean_change_vs_baseline_percent": 11.480966920487257
+        },
+        "16x16": {
+          "sample_count": 24,
+          "median_ms": 5.7153265,
+          "mean_ms": 6.748794916666667,
+          "minimum_ms": 5.150885,
+          "maximum_ms": 10.678006,
+          "first_run_median_ms": 5.5534225,
+          "last_run_median_ms": 7.953668,
+          "run_median_drift_percent": 43.22101370821328,
+          "median_change_vs_baseline_percent": 5.099517949015953,
+          "mean_change_vs_baseline_percent": 24.08398976930217
+        }
+      },
+      "runs": [
+        {
+          "order": 1,
+          "variant": "8x8",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.36595,
+            "mean_ms": 5.332728916666667,
+            "minimum_ms": 5.110636,
+            "maximum_ms": 5.524606
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.149085,
+            "mean_ms": 0.16114966666666666,
+            "minimum_ms": 0.117366,
+            "maximum_ms": 0.23645
+          },
+          "wall_samples_ns": [
+            5427510,
+            5117128,
+            5448711,
+            5409179,
+            5466645,
+            5169264,
+            5524606,
+            5322721,
+            5301727,
+            5268049,
+            5110636,
+            5426571
+          ],
+          "cpu_samples_ns": [
+            202505,
+            138386,
+            194351,
+            236450,
+            189407,
+            127586,
+            140759,
+            146920,
+            157008,
+            131808,
+            117366,
+            151250
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240250880,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 2,
+          "variant": "16x8",
+          "linked_workgroup": [
+            16,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 6.4465705,
+            "mean_ms": 6.447406333333333,
+            "minimum_ms": 6.051398,
+            "maximum_ms": 6.929581
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.3188185,
+            "mean_ms": 0.31537275,
+            "minimum_ms": 0.188753,
+            "maximum_ms": 0.412421
+          },
+          "wall_samples_ns": [
+            6929581,
+            6554397,
+            6354546,
+            6656864,
+            6609461,
+            6616748,
+            6294865,
+            6051398,
+            6448484,
+            6444657,
+            6328799,
+            6079076
+          ],
+          "cpu_samples_ns": [
+            188753,
+            258965,
+            375591,
+            280582,
+            412421,
+            326694,
+            331285,
+            296900,
+            357598,
+            291385,
+            353356,
+            310943
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 241283072,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 3,
+          "variant": "16x16",
+          "linked_workgroup": [
+            16,
+            16,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.5534225,
+            "mean_ms": 5.549409666666667,
+            "minimum_ms": 5.150885,
+            "maximum_ms": 5.954987
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.22784,
+            "mean_ms": 0.24414933333333333,
+            "minimum_ms": 0.144957,
+            "maximum_ms": 0.381879
+          },
+          "wall_samples_ns": [
+            5555509,
+            5233061,
+            5450228,
+            5891920,
+            5551336,
+            5954987,
+            5607391,
+            5813080,
+            5652411,
+            5384305,
+            5150885,
+            5347803
+          ],
+          "cpu_samples_ns": [
+            245671,
+            203921,
+            270760,
+            381879,
+            336466,
+            348189,
+            268973,
+            145349,
+            210009,
+            175862,
+            144957,
+            197756
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 241270784,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 4,
+          "variant": "16x16",
+          "linked_workgroup": [
+            16,
+            16,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 7.953668,
+            "mean_ms": 7.948180166666667,
+            "minimum_ms": 5.209091,
+            "maximum_ms": 10.678006
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.157314,
+            "mean_ms": 0.18869291666666665,
+            "minimum_ms": 0.115128,
+            "maximum_ms": 0.296071
+          },
+          "wall_samples_ns": [
+            9930893,
+            5362775,
+            10275092,
+            5788163,
+            10534275,
+            5349675,
+            10678006,
+            5209091,
+            5778242,
+            10378968,
+            5976443,
+            10116539
+          ],
+          "cpu_samples_ns": [
+            242525,
+            226626,
+            253649,
+            296071,
+            290243,
+            138438,
+            131757,
+            115128,
+            124992,
+            134649,
+            176190,
+            134047
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240300032,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 5,
+          "variant": "16x8",
+          "linked_workgroup": [
+            16,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.6447555,
+            "mean_ms": 5.67925375,
+            "minimum_ms": 5.439569,
+            "maximum_ms": 5.973432
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.289702,
+            "mean_ms": 0.2920554166666667,
+            "minimum_ms": 0.259771,
+            "maximum_ms": 0.343831
+          },
+          "wall_samples_ns": [
+            5942980,
+            5678454,
+            5973432,
+            5618745,
+            5576849,
+            5765283,
+            5502145,
+            5670766,
+            5617537,
+            5612792,
+            5439569,
+            5752493
+          ],
+          "cpu_samples_ns": [
+            303352,
+            266921,
+            272064,
+            302965,
+            259771,
+            315609,
+            288911,
+            318444,
+            278283,
+            264021,
+            343831,
+            290493
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240312320,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 6,
+          "variant": "8x8",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.5316535,
+            "mean_ms": 5.54505625,
+            "minimum_ms": 4.932049,
+            "maximum_ms": 6.021161
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.1479335,
+            "mean_ms": 0.17461975,
+            "minimum_ms": 0.077269,
+            "maximum_ms": 0.26894
+          },
+          "wall_samples_ns": [
+            4932049,
+            5222447,
+            5531442,
+            5164663,
+            5930604,
+            5531865,
+            5512836,
+            5448518,
+            5886846,
+            5732930,
+            6021161,
+            5625314
+          ],
+          "cpu_samples_ns": [
+            78144,
+            77269,
+            132612,
+            198908,
+            253555,
+            248411,
+            268940,
+            266519,
+            140242,
+            146119,
+            149748,
+            134970
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240197632,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coordinates_initial",
+      "frame_number": 1943,
+      "order": "ABCCBA",
+      "baseline": "original",
+      "pooled": {
+        "original": {
+          "sample_count": 24,
+          "median_ms": 5.52676,
+          "mean_ms": 6.879955333333333,
+          "minimum_ms": 5.087939,
+          "maximum_ms": 11.74288,
+          "first_run_median_ms": 8.020979,
+          "last_run_median_ms": 5.494574,
+          "run_median_drift_percent": -31.497464336959368,
+          "median_change_vs_baseline_percent": 0,
+          "mean_change_vs_baseline_percent": 0
+        },
+        "integer": {
+          "sample_count": 24,
+          "median_ms": 5.483146,
+          "mean_ms": 5.556194458333333,
+          "minimum_ms": 5.212527,
+          "maximum_ms": 6.140204,
+          "first_run_median_ms": 5.554095,
+          "last_run_median_ms": 5.4534735,
+          "run_median_drift_percent": -1.8116632862779647,
+          "median_change_vs_baseline_percent": -0.7891422822775107,
+          "mean_change_vs_baseline_percent": -19.240835308717607
+        },
+        "bit": {
+          "sample_count": 24,
+          "median_ms": 5.8955345,
+          "mean_ms": 5.967999,
+          "minimum_ms": 5.485465,
+          "maximum_ms": 7.142907,
+          "first_run_median_ms": 5.7765215,
+          "last_run_median_ms": 6.0069225,
+          "run_median_drift_percent": 3.9885768623902695,
+          "median_change_vs_baseline_percent": 6.67252603695474,
+          "mean_change_vs_baseline_percent": -13.25526532003648
+        }
+      },
+      "runs": [
+        {
+          "order": 1,
+          "variant": "original",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 8.020979,
+            "mean_ms": 8.153942916666667,
+            "minimum_ms": 5.087939,
+            "maximum_ms": 11.74288
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.139352,
+            "mean_ms": 0.13972033333333334,
+            "minimum_ms": 0.109828,
+            "maximum_ms": 0.173897
+          },
+          "wall_samples_ns": [
+            5300130,
+            10504303,
+            5087939,
+            11107651,
+            5328085,
+            10909489,
+            5476161,
+            10909986,
+            5184918,
+            10758118,
+            5537655,
+            11742880
+          ],
+          "cpu_samples_ns": [
+            142424,
+            146676,
+            143999,
+            134804,
+            123381,
+            135661,
+            173897,
+            145400,
+            125124,
+            109828,
+            136280,
+            159170
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240439296,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 2,
+          "variant": "integer",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.554095,
+            "mean_ms": 5.577563583333333,
+            "minimum_ms": 5.212527,
+            "maximum_ms": 6.140204
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2446465,
+            "mean_ms": 0.2635235,
+            "minimum_ms": 0.213368,
+            "maximum_ms": 0.319598
+          },
+          "wall_samples_ns": [
+            5726349,
+            6140204,
+            5511265,
+            5212527,
+            5596925,
+            5366385,
+            5881953,
+            5337222,
+            5437496,
+            5796175,
+            5270539,
+            5653723
+          ],
+          "cpu_samples_ns": [
+            270712,
+            317570,
+            319144,
+            243923,
+            228462,
+            213368,
+            242677,
+            295517,
+            245370,
+            319598,
+            231673,
+            234268
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 241565696,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 3,
+          "variant": "bit",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.7765215,
+            "mean_ms": 5.756904083333333,
+            "minimum_ms": 5.485465,
+            "maximum_ms": 5.98809
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.282145,
+            "mean_ms": 0.29144975,
+            "minimum_ms": 0.256252,
+            "maximum_ms": 0.372423
+          },
+          "wall_samples_ns": [
+            5977369,
+            5652302,
+            5727469,
+            5625996,
+            5988090,
+            5485465,
+            5837733,
+            5893521,
+            5830305,
+            5665129,
+            5573896,
+            5825574
+          ],
+          "cpu_samples_ns": [
+            256252,
+            293158,
+            308359,
+            279686,
+            267077,
+            256785,
+            372423,
+            332754,
+            284604,
+            273389,
+            293698,
+            279212
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 241524736,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 4,
+          "variant": "bit",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 6.0069225,
+            "mean_ms": 6.179093916666667,
+            "minimum_ms": 5.863378,
+            "maximum_ms": 7.142907
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2837815,
+            "mean_ms": 0.2680859166666667,
+            "minimum_ms": 0.11784,
+            "maximum_ms": 0.431728
+          },
+          "wall_samples_ns": [
+            7142907,
+            6491564,
+            6524699,
+            5863378,
+            6368765,
+            6048797,
+            6028670,
+            5892778,
+            5955023,
+            5897548,
+            5949823,
+            5985175
+          ],
+          "cpu_samples_ns": [
+            326882,
+            292358,
+            275205,
+            292752,
+            367769,
+            350412,
+            235295,
+            136095,
+            119518,
+            117840,
+            431728,
+            271177
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240332800,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 5,
+          "variant": "integer",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.4534735,
+            "mean_ms": 5.534825333333333,
+            "minimum_ms": 5.266844,
+            "maximum_ms": 6.013892
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.242408,
+            "mean_ms": 0.2666875833333333,
+            "minimum_ms": 0.223591,
+            "maximum_ms": 0.396533
+          },
+          "wall_samples_ns": [
+            6013892,
+            5603324,
+            5443501,
+            5455027,
+            5806480,
+            5420172,
+            5592999,
+            5312361,
+            5266844,
+            5406282,
+            5451920,
+            5645102
+          ],
+          "cpu_samples_ns": [
+            396533,
+            250340,
+            231565,
+            260115,
+            367736,
+            230115,
+            236001,
+            223646,
+            223591,
+            243413,
+            295793,
+            241403
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240107520,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 6,
+          "variant": "original",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.494574,
+            "mean_ms": 5.60596775,
+            "minimum_ms": 5.338108,
+            "maximum_ms": 6.20908
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2580125,
+            "mean_ms": 0.266588,
+            "minimum_ms": 0.228596,
+            "maximum_ms": 0.348256
+          },
+          "wall_samples_ns": [
+            5448899,
+            5679358,
+            5383196,
+            5843226,
+            5338108,
+            5515865,
+            6209080,
+            5473283,
+            5863755,
+            5420655,
+            5733550,
+            5362638
+          ],
+          "cpu_samples_ns": [
+            248023,
+            245994,
+            348256,
+            269332,
+            267444,
+            272084,
+            321001,
+            228596,
+            248581,
+            239966,
+            234285,
+            275494
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240111616,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coordinates_confirmatory_1943",
+      "frame_number": 1943,
+      "order": "ABBA",
+      "baseline": "original",
+      "pooled": {
+        "original": {
+          "sample_count": 24,
+          "median_ms": 5.679072,
+          "mean_ms": 5.709836333333333,
+          "minimum_ms": 5.343495,
+          "maximum_ms": 6.169586,
+          "first_run_median_ms": 5.5905385,
+          "last_run_median_ms": 5.7833935,
+          "run_median_drift_percent": 3.4496676840701346,
+          "median_change_vs_baseline_percent": 0,
+          "mean_change_vs_baseline_percent": 0
+        },
+        "integer": {
+          "sample_count": 24,
+          "median_ms": 5.725892,
+          "mean_ms": 5.714218125,
+          "minimum_ms": 5.380684,
+          "maximum_ms": 6.183857,
+          "first_run_median_ms": 5.7427925,
+          "last_run_median_ms": 5.6689205,
+          "run_median_drift_percent": -1.286342837565535,
+          "median_change_vs_baseline_percent": 0.8244304703303618,
+          "mean_change_vs_baseline_percent": 0.0767411079909186
+        }
+      },
+      "runs": [
+        {
+          "order": 1,
+          "variant": "original",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.5905385,
+            "mean_ms": 5.598378333333333,
+            "minimum_ms": 5.343495,
+            "maximum_ms": 5.868832
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.298101,
+            "mean_ms": 0.30253575,
+            "minimum_ms": 0.264529,
+            "maximum_ms": 0.405391
+          },
+          "wall_samples_ns": [
+            5868832,
+            5606457,
+            5574620,
+            5536908,
+            5664631,
+            5866825,
+            5428121,
+            5636567,
+            5361627,
+            5343495,
+            5769112,
+            5523345
+          ],
+          "cpu_samples_ns": [
+            405391,
+            271401,
+            264529,
+            297665,
+            304443,
+            280902,
+            298537,
+            312321,
+            289292,
+            288511,
+            303874,
+            313563
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240189440,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 2,
+          "variant": "integer",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.7427925,
+            "mean_ms": 5.704468666666667,
+            "minimum_ms": 5.381323,
+            "maximum_ms": 5.900735
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2726515,
+            "mean_ms": 0.2599555,
+            "minimum_ms": 0.120697,
+            "maximum_ms": 0.383013
+          },
+          "wall_samples_ns": [
+            5767038,
+            5381323,
+            5793318,
+            5621268,
+            5819800,
+            5718547,
+            5900735,
+            5676261,
+            5669766,
+            5845706,
+            5435676,
+            5824186
+          ],
+          "cpu_samples_ns": [
+            120697,
+            172775,
+            303581,
+            321201,
+            284434,
+            295377,
+            383013,
+            279015,
+            266288,
+            236772,
+            213657,
+            242656
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240431104,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 3,
+          "variant": "integer",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.6689205,
+            "mean_ms": 5.723967583333333,
+            "minimum_ms": 5.380684,
+            "maximum_ms": 6.183857
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2197435,
+            "mean_ms": 0.23239141666666666,
+            "minimum_ms": 0.144081,
+            "maximum_ms": 0.384853
+          },
+          "wall_samples_ns": [
+            5403886,
+            5380684,
+            5604604,
+            5603056,
+            5547840,
+            5561861,
+            5956305,
+            5788276,
+            6027262,
+            5733237,
+            6183857,
+            5896743
+          ],
+          "cpu_samples_ns": [
+            167881,
+            144081,
+            175748,
+            273060,
+            384853,
+            263214,
+            312752,
+            311318,
+            258862,
+            159423,
+            180625,
+            156880
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240627712,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 4,
+          "variant": "original",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.7833935,
+            "mean_ms": 5.821294333333333,
+            "minimum_ms": 5.586117,
+            "maximum_ms": 6.169586
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.297951,
+            "mean_ms": 0.27221425,
+            "minimum_ms": 0.119945,
+            "maximum_ms": 0.358406
+          },
+          "wall_samples_ns": [
+            6056851,
+            5689004,
+            5845228,
+            5761419,
+            5872176,
+            5586117,
+            5781268,
+            5986302,
+            5669140,
+            6169586,
+            5785519,
+            5652922
+          ],
+          "cpu_samples_ns": [
+            183416,
+            277373,
+            358406,
+            341162,
+            284096,
+            347846,
+            312148,
+            311806,
+            324996,
+            272890,
+            132487,
+            119945
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240283648,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "coordinates_confirmatory_1960",
+      "frame_number": 1960,
+      "order": "ABBA",
+      "baseline": "original",
+      "pooled": {
+        "original": {
+          "sample_count": 24,
+          "median_ms": 5.473777,
+          "mean_ms": 5.502356375,
+          "minimum_ms": 5.082476,
+          "maximum_ms": 6.018219,
+          "first_run_median_ms": 5.6032235,
+          "last_run_median_ms": 5.4320085,
+          "run_median_drift_percent": -3.055651804715631,
+          "median_change_vs_baseline_percent": 0,
+          "mean_change_vs_baseline_percent": 0
+        },
+        "integer": {
+          "sample_count": 24,
+          "median_ms": 5.5479065,
+          "mean_ms": 5.563190583333333,
+          "minimum_ms": 5.030767,
+          "maximum_ms": 6.007893,
+          "first_run_median_ms": 5.42106,
+          "last_run_median_ms": 5.7207955,
+          "run_median_drift_percent": 5.529093941037377,
+          "median_change_vs_baseline_percent": 1.3542659848948757,
+          "mean_change_vs_baseline_percent": 1.1056028397167017
+        }
+      },
+      "runs": [
+        {
+          "order": 1,
+          "variant": "original",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.6032235,
+            "mean_ms": 5.5836855,
+            "minimum_ms": 5.302402,
+            "maximum_ms": 6.018219
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2645215,
+            "mean_ms": 0.239239,
+            "minimum_ms": 0.121403,
+            "maximum_ms": 0.315474
+          },
+          "wall_samples_ns": [
+            5302402,
+            5712231,
+            5327881,
+            5789441,
+            5659943,
+            5617245,
+            5637570,
+            5589202,
+            6018219,
+            5426984,
+            5469261,
+            5453847
+          ],
+          "cpu_samples_ns": [
+            148955,
+            310256,
+            148635,
+            278476,
+            250567,
+            315474,
+            300173,
+            311742,
+            303435,
+            121403,
+            135839,
+            245913
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240082944,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 2,
+          "variant": "integer",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.42106,
+            "mean_ms": 5.4402475,
+            "minimum_ms": 5.030767,
+            "maximum_ms": 5.824925
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.1434015,
+            "mean_ms": 0.1463915,
+            "minimum_ms": 0.10102,
+            "maximum_ms": 0.199545
+          },
+          "wall_samples_ns": [
+            5238254,
+            5824925,
+            5287884,
+            5399039,
+            5736040,
+            5443081,
+            5030767,
+            5542681,
+            5553132,
+            5524470,
+            5372093,
+            5330604
+          ],
+          "cpu_samples_ns": [
+            121036,
+            143506,
+            168559,
+            141581,
+            185407,
+            143297,
+            101020,
+            103114,
+            166755,
+            128995,
+            199545,
+            153883
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240189440,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 3,
+          "variant": "integer",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.7207955,
+            "mean_ms": 5.686133666666667,
+            "minimum_ms": 5.419684,
+            "maximum_ms": 6.007893
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.2859845,
+            "mean_ms": 0.2891118333333333,
+            "minimum_ms": 0.15949,
+            "maximum_ms": 0.391639
+          },
+          "wall_samples_ns": [
+            6007893,
+            5883828,
+            5523230,
+            5745218,
+            5419684,
+            5696373,
+            5505886,
+            5804447,
+            5748219,
+            5764941,
+            5569293,
+            5564592
+          ],
+          "cpu_samples_ns": [
+            347697,
+            287881,
+            306099,
+            391639,
+            246993,
+            284088,
+            255663,
+            281925,
+            323717,
+            311501,
+            272649,
+            159490
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240295936,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        },
+        {
+          "order": 4,
+          "variant": "original",
+          "linked_workgroup": [
+            8,
+            8,
+            1
+          ],
+          "wall": {
+            "sample_count": 12,
+            "median_ms": 5.4320085,
+            "mean_ms": 5.42102725,
+            "minimum_ms": 5.082476,
+            "maximum_ms": 5.824264
+          },
+          "cpu": {
+            "sample_count": 12,
+            "median_ms": 0.1123975,
+            "mean_ms": 0.12783283333333334,
+            "minimum_ms": 0.082287,
+            "maximum_ms": 0.205293
+          },
+          "wall_samples_ns": [
+            5082476,
+            5344788,
+            5224737,
+            5510987,
+            5248663,
+            5824264,
+            5647485,
+            5495129,
+            5331488,
+            5405634,
+            5478293,
+            5458383
+          ],
+          "cpu_samples_ns": [
+            97163,
+            82287,
+            108793,
+            103010,
+            108191,
+            116002,
+            205293,
+            145249,
+            103122,
+            134080,
+            156338,
+            174466
+          ],
+          "warmups": 8,
+          "float_component_bit_comparisons": 66355200,
+          "full_image_oracle_checks": 2,
+          "output_bit_exact_to_independent_oracle": true,
+          "cleanup_complete": true,
+          "probe_exit": 0,
+          "gpu_timer_query_requested": false,
+          "identity_and_idle_guards_passed": true,
+          "resources": {
+            "memory_limit_bytes": 536870912,
+            "memory_peak_bytes": 240209920,
+            "memory_swap_current_bytes": 0,
+            "memory_swap_max_bytes": 0,
+            "cpu_quota_us": 100000,
+            "cpu_period_us": 100000,
+            "memory_events_delta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0,
+              "sock_throttled": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

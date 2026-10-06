@@ -110,5 +110,26 @@ restoration. It must not be used for ordinary playback stop or mode changes.
 Both branches of the modified `Application.cpp` passed isolated SDK compilation
 under a 1 GiB/no-extra-swap, one-CPU, network-disabled cap: 866,189,312 B peak
 with DVBridge and 842,633,216 B without. Both had zero memory-limit/OOM events
-and zero swap. Repeated real menu/playback shutdown and restart qualification
-is still pending; compilation is not runtime validation.
+and zero swap. Subsequent runtime checks are summarized below; compilation
+alone remains separate from runtime validation.
+
+## Completed lifecycle checks and remaining timeout
+
+The safeguard build completed player-stop and clean service-shutdown checks
+for three original/resumed matrix cases and a separate FP32-only Saving Private
+Ryan window at the 20-minute point. The integer control's clean exit does not
+qualify its visibly dropping playback as smooth. See the
+[completed and interrupted playback evidence](PARTIAL_LONG_FP32_PLAYBACK_RESULTS.md)
+for the case boundaries and counters; the eight-case matrix was not completed.
+
+After the clean Saving Private Ryan shutdown, a separate menu-only short start
+was stopped approximately three seconds after launch. That stop timed out and
+systemd force-killed Kodi with SIGKILL. The bounded journal showed no explicit
+heap abort, but this was not a clean exit. Shutdown is not generally resolved.
+
+Overlap between early startup/add-on activity and shutdown before EGL teardown
+is a possible explanation for this separate timeout, not an established cause.
+The timeout does not prove that the earlier EGL heap corruption recurred, or
+that the exit-only ownership safeguard repairs its origin. Preserve the
+mitigation while investigating both cases with actual shutdown stacks and
+ownership state; do not remove waits or retention checks to hide the symptoms.
