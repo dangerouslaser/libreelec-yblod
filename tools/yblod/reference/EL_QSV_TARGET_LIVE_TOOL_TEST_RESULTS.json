@@ -1,0 +1,19 @@
+{
+  "schema": "yblod-el-qsv-target-live-tool-tests-v1",
+  "scope": "CPU-only mocked target closure and scoped controller contracts; no Petunia transfer, probe execution or hardware qualification",
+  "tests_passed": 16,
+  "test_suites": ["test_target_el_qsv_runtime_identity", "test_petunia_el_qsv_live_probe"],
+  "memory_limit_bytes": 536870912,
+  "memory_peak_bytes": 25280512,
+  "cpu_limit": 1,
+  "network_disabled": true,
+  "memory_events_all_zero": true,
+  "swap_current_bytes": 0,
+  "swap_peak_bytes": 0,
+  "target_loader_core_and_driver_not_replaced": true,
+  "imported_source_actual_paths_and_hashes_required": true,
+  "independent_target_identity_required": true,
+  "literal_three_frame_sample_equality_required": true,
+  "scoped_unit_ownership_and_terminal_cleanup_required": true,
+  "hardware_test_run": false
+}
