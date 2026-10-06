@@ -13,7 +13,7 @@ RUN nasm -v && ./configure --prefix=/opt/ffmpeg9 \
     --enable-pthreads --enable-vaapi --enable-libvpl \
     --enable-ffmpeg --enable-ffprobe --enable-demuxer=matroska,mov \
     --enable-parser=hevc --enable-decoder=hevc,hevc_qsv --enable-hwaccel=hevc_vaapi \
-    --enable-encoder=wrapped_avframe --enable-muxer=null --enable-protocol=file \
+    --enable-encoder=wrapped_avframe --enable-muxer=null --enable-protocol=file,pipe \
     --enable-filter=null,format && make -j1 && make install
 WORKDIR /opt/ffmpeg9
 ENV LIBVA_DRIVER_NAME=iHD

@@ -211,6 +211,8 @@ def run_case(api, path, seconds, seek, image, name):
     if (progress.get('progress') != 'end' or int(progress.get('frame', 0)) < 4000 or
             int(progress.get('out_time_us', 0)) < 179_000_000):
         raise RuntimeError('Incomplete requested decode scene')
+    if progress.get('dup_frames') != '0' or progress.get('drop_frames') != '0':
+        raise RuntimeError('Frame duplication/drop counter failed passthrough qualification')
     timer = re.search(r'__YB_TIME__ ([\d.]+) ([\d.]+) ([\d.]+) (\d+) (\d+)', stderr)
     if not timer or timer[5] != '0':
         raise RuntimeError('Missing completed process accounting')
@@ -219,6 +221,7 @@ def run_case(api, path, seconds, seek, image, name):
     if state['OOMKilled'] or state['ExitCode'] != 0 or not memory or memory['memory_swap_current_bytes']:
         raise RuntimeError('Decode container memory/process qualification failed')
     return dict(api=api, completed_frames=int(progress['frame']),
+        duplicate_frames=0, dropped_frames=0,
         output_time_microseconds=int(progress['out_time_us']),
         output_time_seconds=int(progress['out_time_us'])/1e6, wall_seconds=elapsed,
         process_cpu_seconds=user+system, process_cpu_percent_one_core=100*(user+system)/elapsed,
@@ -285,7 +288,8 @@ def main():
         content=title, movie_id=args.movie_id, seconds_of_source=180, seek_seconds=1200,
         ffmpeg_version=version.splitlines()[0], ffmpeg_configuration=version.splitlines()[2],
         ffmpeg_binary_sha256=binary, container_image_id=image, cases=cases,
-        container_runtime_versions=runtime_versions, source_stream=streams[0],
+        container_runtime_versions=runtime_versions,
+        source_stream={key: streams[0][key] for key in ('codec_name','width','height','pix_fmt','avg_frame_rate')},
         source_frame_rate=dict(numerator=rate.numerator, denominator=rate.denominator),
         resource_limits=dict(memory_bytes=536870912, extra_swap_bytes=0, cpus=1, network='none'),
         same_input_unchanged=True, same_ffmpeg_binary=True,

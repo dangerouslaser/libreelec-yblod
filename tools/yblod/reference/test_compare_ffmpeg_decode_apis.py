@@ -1,9 +1,15 @@
 import unittest
+from pathlib import Path
 
 from compare_ffmpeg_decode_apis import command, gpu_metrics
 
 
 class Tests(unittest.TestCase):
+    def test_progress_pipe_is_explicit_build_dependency(self):
+        recipe = Path(__file__).with_name('Dockerfile.ffmpeg9-decode-apis').read_text()
+        self.assertIn('--enable-protocol=file,pipe', recipe)
+        self.assertNotIn('--disable-x86asm', recipe)
+
     def test_same_source_settings_resident_frames_no_encode_transfer(self):
         for api in ('vaapi', 'qsv'):
             args = command(api, 180, 1200)

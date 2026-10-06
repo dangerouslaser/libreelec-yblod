@@ -1,0 +1,278 @@
+{
+  "schema": "yblod.ffmpeg-decode-api-scalar-results.v1",
+  "content": "Saving Private Ryan",
+  "movie_id": 3391,
+  "seconds_of_source": 180,
+  "seek_seconds": 1200,
+  "ffmpeg_version": "ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "ffmpeg_configuration": "configuration: --prefix=/opt/ffmpeg9 --disable-everything --disable-autodetect --disable-doc --disable-debug --disable-network --disable-ffplay --disable-shared --enable-static --enable-pthreads --enable-vaapi --enable-libvpl --enable-ffmpeg --enable-ffprobe --enable-demuxer='matroska,mov' --enable-parser=hevc --enable-decoder='hevc,hevc_qsv' --enable-hwaccel=hevc_vaapi --enable-encoder=wrapped_avframe --enable-muxer=null --enable-protocol='file,pipe' --enable-filter='null,format'",
+  "ffmpeg_binary_sha256": "4bb8d771d6c61a745bf8982324244e27dc237c2e72f389cd8344192abb887521",
+  "container_image_id": "sha256:33c6601e0e65d900edc712bdb6f40bb1e680669d5ffb76ecd014c8e6f2ec0e1e",
+  "cases": [
+    {
+      "api": "vaapi",
+      "completed_frames": 4315,
+      "output_time_microseconds": 180013167,
+      "output_time_seconds": 180.013167,
+      "wall_seconds": 13.01,
+      "process_cpu_seconds": 5.16,
+      "process_cpu_percent_one_core": 39.661798616448884,
+      "maximum_rss_bytes": 91332608,
+      "hardware_resident_output_verified": true,
+      "gpu": {
+        "covered_seconds": 12.723083382,
+        "valid_intervals": 55,
+        "sampled_engine_seconds": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 12.681749444,
+          "video-enhance": 0.0
+        },
+        "engine_activity_percent": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 99.6751264079706,
+          "video-enhance": 0.0
+        },
+        "scope": "Deduplicated FFmpeg DRM-client engine time over stable sampled intervals; not whole-GPU utilization."
+      },
+      "memory": {
+        "memory_peak_bytes": 318885888,
+        "memory_swap_current_bytes": 0,
+        "events": {
+          "max": 0,
+          "high": 0,
+          "oom": 0,
+          "oom_kill": 0
+        },
+        "cpu_throttled_intervals": 0
+      },
+      "decode_process_exit_code": 0,
+      "order": 1,
+      "duplicate_frames": 0,
+      "dropped_frames": 0
+    },
+    {
+      "api": "qsv",
+      "completed_frames": 4315,
+      "output_time_microseconds": 180013167,
+      "output_time_seconds": 180.013167,
+      "wall_seconds": 13.49,
+      "process_cpu_seconds": 2.9699999999999998,
+      "process_cpu_percent_one_core": 22.01630837657524,
+      "maximum_rss_bytes": 52551680,
+      "hardware_resident_output_verified": true,
+      "gpu": {
+        "covered_seconds": 13.456968791,
+        "valid_intervals": 61,
+        "sampled_engine_seconds": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 13.271213696,
+          "video-enhance": 0.0
+        },
+        "engine_activity_percent": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 98.61963642864184,
+          "video-enhance": 0.0
+        },
+        "scope": "Deduplicated FFmpeg DRM-client engine time over stable sampled intervals; not whole-GPU utilization."
+      },
+      "memory": {
+        "memory_peak_bytes": 342794240,
+        "memory_swap_current_bytes": 0,
+        "events": {
+          "max": 0,
+          "high": 0,
+          "oom": 0,
+          "oom_kill": 0
+        },
+        "cpu_throttled_intervals": 1
+      },
+      "decode_process_exit_code": 0,
+      "order": 2,
+      "duplicate_frames": 0,
+      "dropped_frames": 0
+    },
+    {
+      "api": "qsv",
+      "completed_frames": 4315,
+      "output_time_microseconds": 180013167,
+      "output_time_seconds": 180.013167,
+      "wall_seconds": 13.05,
+      "process_cpu_seconds": 2.66,
+      "process_cpu_percent_one_core": 20.383141762452105,
+      "maximum_rss_bytes": 50651136,
+      "hardware_resident_output_verified": true,
+      "gpu": {
+        "covered_seconds": 12.859727113,
+        "valid_intervals": 59,
+        "sampled_engine_seconds": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 12.748805524,
+          "video-enhance": 0.0
+        },
+        "engine_activity_percent": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 99.13744990056695,
+          "video-enhance": 0.0
+        },
+        "scope": "Deduplicated FFmpeg DRM-client engine time over stable sampled intervals; not whole-GPU utilization."
+      },
+      "memory": {
+        "memory_peak_bytes": 343801856,
+        "memory_swap_current_bytes": 0,
+        "events": {
+          "max": 0,
+          "high": 0,
+          "oom": 0,
+          "oom_kill": 0
+        },
+        "cpu_throttled_intervals": 0
+      },
+      "decode_process_exit_code": 0,
+      "order": 3,
+      "duplicate_frames": 0,
+      "dropped_frames": 0
+    },
+    {
+      "api": "vaapi",
+      "completed_frames": 4315,
+      "output_time_microseconds": 180013167,
+      "output_time_seconds": 180.013167,
+      "wall_seconds": 12.24,
+      "process_cpu_seconds": 3.96,
+      "process_cpu_percent_one_core": 32.35294117647059,
+      "maximum_rss_bytes": 91201536,
+      "hardware_resident_output_verified": true,
+      "gpu": {
+        "covered_seconds": 12.14116768,
+        "valid_intervals": 55,
+        "sampled_engine_seconds": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 11.87185974,
+          "video-enhance": 0.0
+        },
+        "engine_activity_percent": {
+          "render": 0.0,
+          "copy": 0.0,
+          "video": 97.78186129128562,
+          "video-enhance": 0.0
+        },
+        "scope": "Deduplicated FFmpeg DRM-client engine time over stable sampled intervals; not whole-GPU utilization."
+      },
+      "memory": {
+        "memory_peak_bytes": 314372096,
+        "memory_swap_current_bytes": 0,
+        "events": {
+          "max": 0,
+          "high": 0,
+          "oom": 0,
+          "oom_kill": 0
+        },
+        "cpu_throttled_intervals": 0
+      },
+      "decode_process_exit_code": 0,
+      "order": 4,
+      "duplicate_frames": 0,
+      "dropped_frames": 0
+    }
+  ],
+  "container_runtime_versions": {
+    "intel-media-va-driver": "26.1.2+dfsg1-1",
+    "libmfx-gen1.2": "26.1.2-1",
+    "libva-drm2": "2.23.0-1ubuntu1",
+    "libva2": "2.23.0-1ubuntu1",
+    "libvpl2": "1:2.16.0-1"
+  },
+  "source_stream": {
+    "codec_name": "hevc",
+    "width": 3840,
+    "height": 2160,
+    "pix_fmt": "yuv420p10le",
+    "avg_frame_rate": "24000/1001"
+  },
+  "source_frame_rate": {
+    "numerator": 24000,
+    "denominator": 1001
+  },
+  "resource_limits": {
+    "memory_bytes": 536870912,
+    "extra_swap_bytes": 0,
+    "cpus": 1,
+    "network": "none"
+  },
+  "same_input_unchanged": true,
+  "same_ffmpeg_binary": true,
+  "scopes": [
+    "Maximum-throughput base video decode to resident wrapped-frame null sink; no audio/subtitles, enhancement-layer reconstruction, Dolby composition, display or encode.",
+    "Disposable minimal FFmpeg9.0.2 container is separate from Kodi patched FFmpeg9.0.2 and the full DV pipeline.",
+    "Both APIs use the same Intel render node; QSV derives from VAAPI and uses async_depth4.",
+    "Each decode container is limited to512MiB/no swap/one CPU; a separate lightweight host observer is not included in FFmpeg process accounting. CPU quota can constrain throughput.",
+    "No pixel equivalence or full-playback efficiency claim; no private paths, logs, frames or media hashes exported."
+  ],
+  "pooled": {
+    "vaapi": {
+      "total_completed_frames": 8630,
+      "total_decode_wall_seconds": 25.25,
+      "total_process_cpu_seconds": 9.120000000000001,
+      "average_process_cpu_percent_one_core": 36.11881188118812,
+      "average_decode_frames_per_second": 341.7821782178218,
+      "mean_wall_seconds_per180seconds_source": 12.625,
+      "process_cpu_seconds_per_decoded_frame": 0.0010567786790266513,
+      "maximum_process_rss_bytes": 91332608,
+      "maximum_container_memory_peak_bytes": 318885888,
+      "gpu_covered_seconds": 24.864251062,
+      "gpu_engine_activity_percent": {
+        "copy": 0.0,
+        "render": 0.0,
+        "video": 98.75064856276826,
+        "video-enhance": 0.0
+      },
+      "cpu_quota_throttled_intervals": 0,
+      "memory_limit_events": 0,
+      "swap_bytes": 0
+    },
+    "qsv": {
+      "total_completed_frames": 8630,
+      "total_decode_wall_seconds": 26.54,
+      "total_process_cpu_seconds": 5.63,
+      "average_process_cpu_percent_one_core": 21.21326299924642,
+      "average_decode_frames_per_second": 325.16955538809344,
+      "mean_wall_seconds_per180seconds_source": 13.27,
+      "process_cpu_seconds_per_decoded_frame": 0.0006523754345307068,
+      "maximum_process_rss_bytes": 52551680,
+      "maximum_container_memory_peak_bytes": 343801856,
+      "gpu_covered_seconds": 26.316695904,
+      "gpu_engine_activity_percent": {
+        "copy": 0.0,
+        "render": 0.0,
+        "video": 98.87266743103984,
+        "video-enhance": 0.0
+      },
+      "cpu_quota_throttled_intervals": 1,
+      "memory_limit_events": 0,
+      "swap_bytes": 0
+    }
+  },
+  "completed_matrix": [
+    "vaapi",
+    "qsv",
+    "qsv",
+    "vaapi"
+  ],
+  "all_frames_and_output_endpoints_equal": true,
+  "duplicate_drop_counters_verified_all_cases": true,
+  "initial_setup_attempt": {
+    "qualified": false,
+    "decoded_cases_completed": 0,
+    "failed_option": "progress",
+    "reason": "Minimal build initially omitted pipe protocol; fixed before completed ABBA",
+    "process_exit_code": 8,
+    "oom_killed": false
+  }
+}
