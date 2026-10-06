@@ -92,6 +92,8 @@ with serial compile/link scheduling. Peak build memory was 2,334,003,200 bytes,
 with zero recorded memory events and swap. Build resource checks are separate
 from live-player memory observations.
 
-The option remains off by default. A second film and broader real metadata/lifecycle
-coverage are needed before adoption. Exact scalar windows and per-case guards
+The option remains off by default. The subsequent
+[Saving Private Ryan matrix](NATIVE_NLQ_LUT_SPR_PLAYBACK_RESULTS.md) also reduced
+composer waiting and passed four clean lifecycle cases. Broader real metadata,
+seek, and lifecycle coverage remain needed before adoption. Exact scalar windows and per-case guards
 are retained in the [machine-readable results](NATIVE_NLQ_LUT_1917_PLAYBACK_RESULTS.json).
