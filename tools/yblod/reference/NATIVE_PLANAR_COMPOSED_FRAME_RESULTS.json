@@ -1,0 +1,163 @@
+{
+  "schema": "yblod.native-planar-composed-frame-scalar-results.v1",
+  "content": "Saving Private Ryan",
+  "seek_seconds": 1200,
+  "candidate_binary_sha256": "2f636c24c0ade31d838aa849ab98123d3f9cb308d69bee87851aad0d3f6b18c1",
+  "same_installed_binary": true,
+  "frames": [
+    {
+      "frame_label": "frame1",
+      "pts_microseconds": 1210000000,
+      "el_pts_microseconds": 1210000000,
+      "source_timestamps_equal": true,
+      "source_metadata_equal": true,
+      "complete_captured_rgba_equal": false,
+      "before": {
+        "native": 1,
+        "direct_packed": 0,
+        "native_planar": 0,
+        "qsv_mode": 1
+      },
+      "after": {
+        "native": 1,
+        "direct_packed": 0,
+        "native_planar": 1,
+        "qsv_mode": 1
+      },
+      "differing_tunnel_rgb_bytes": 48,
+      "literal_tunnel_rgb_equal": false,
+      "picture_and_payload_preserved": true,
+      "maximum_absolute_12bit_codes": {
+        "I": 0,
+        "P": 0,
+        "T": 0
+      },
+      "exact_picture_percent": {
+        "I": 100,
+        "P": 100,
+        "T": 100
+      },
+      "resources": {
+        "memory_peak_bytes": 86261760,
+        "memory_limit_bytes": 536870912,
+        "swap_limit_bytes": 0,
+        "swap_current_bytes": 0,
+        "cpu_limit": 1,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        }
+      }
+    },
+    {
+      "frame_label": "frame2",
+      "pts_microseconds": 1220010000,
+      "el_pts_microseconds": 1220010000,
+      "source_timestamps_equal": true,
+      "source_metadata_equal": true,
+      "complete_captured_rgba_equal": true,
+      "before": {
+        "native": 1,
+        "direct_packed": 0,
+        "native_planar": 0,
+        "qsv_mode": 1
+      },
+      "after": {
+        "native": 1,
+        "direct_packed": 0,
+        "native_planar": 1,
+        "qsv_mode": 1
+      },
+      "differing_tunnel_rgb_bytes": 0,
+      "literal_tunnel_rgb_equal": true,
+      "picture_and_payload_preserved": true,
+      "maximum_absolute_12bit_codes": {
+        "I": 0,
+        "P": 0,
+        "T": 0
+      },
+      "exact_picture_percent": {
+        "I": 100,
+        "P": 100,
+        "T": 100
+      },
+      "resources": {
+        "memory_peak_bytes": 79343616,
+        "memory_limit_bytes": 536870912,
+        "swap_limit_bytes": 0,
+        "swap_current_bytes": 0,
+        "cpu_limit": 1,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        }
+      }
+    },
+    {
+      "frame_label": "frame3",
+      "pts_microseconds": 1230020000,
+      "el_pts_microseconds": 1230020000,
+      "source_timestamps_equal": true,
+      "source_metadata_equal": true,
+      "complete_captured_rgba_equal": true,
+      "before": {
+        "native": 1,
+        "direct_packed": 0,
+        "native_planar": 0,
+        "qsv_mode": 1
+      },
+      "after": {
+        "native": 1,
+        "direct_packed": 0,
+        "native_planar": 1,
+        "qsv_mode": 1
+      },
+      "differing_tunnel_rgb_bytes": 0,
+      "literal_tunnel_rgb_equal": true,
+      "picture_and_payload_preserved": true,
+      "maximum_absolute_12bit_codes": {
+        "I": 0,
+        "P": 0,
+        "T": 0
+      },
+      "exact_picture_percent": {
+        "I": 100,
+        "P": 100,
+        "T": 100
+      },
+      "resources": {
+        "memory_peak_bytes": 44838912,
+        "memory_limit_bytes": 536870912,
+        "swap_limit_bytes": 0,
+        "swap_current_bytes": 0,
+        "cpu_limit": 1,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        }
+      }
+    }
+  ],
+  "scopes": [
+    "Source/report/frameJSON/binary/route associations independently checked read-only; private hashes remain inside VM memory and only equality booleans are exported.",
+    "Pixel, Dolby payload, CRC/orientation and resource outcomes validated against retained scalar comparator results, not re-run or inferred from missing transient-unit properties.",
+    "Both conditions use composed output (direct_packed=0); only native_planar switches 0 to 1.",
+    "First frame differs by validated transport update IDs/CRCs only; other two tunnel RGB frames are literally identical.",
+    "Captured output equality is not whole-media identity, display calibration, or Dolby conformance; these are accuracy checks, not performance measurements."
+  ]
+}
