@@ -1,10 +1,10 @@
 # Native colour and transport packing results
 
-The opt-in packing candidate preserves every transmitted RGB byte on three
-matched Saving Private Ryan frames while eliminating a full-resolution RGB
-intermediate write/read and a separate packing draw during eligible playback.
-Its utilization benefit is being measured separately; production default remains
-disabled.
+The opt-in packing candidate reduces GPU render-client activity by 30.74 percent
+and whole Kodi CPU by 16.24 percent on the matched Saving Private Ryan scene.
+It preserves every transmitted RGB byte on three matched frames while eliminating
+a full-resolution RGB intermediate write/read and a separate packing draw during
+eligible playback. Production default remains disabled pending broader checks.
 
 ## Output preservation
 
@@ -43,7 +43,45 @@ hardware, not universal equivalence, licensed Dolby accuracy, or conformance.
 Offset-disabled output, other metadata, additional scenes, and overlay transitions
 remain qualification targets before default adoption.
 
-## Build and playback measurement
+## Matched playback results
+
+The same candidate binary played the scene at 20 minutes for 180 seconds per
+case in disabled/enabled/enabled/disabled order, with a clean restart and at least
+20 seconds of startup settling each time. Only the explicit native packing option
+changed; layer and output captures were disabled.
+
+| Balanced measurement | Composed output | Packed output | Change |
+| --- | ---: | ---: | ---: |
+| GPU render client busy percent | 59.4510 | 41.1742 | Minus 18.2768 percentage points |
+| Whole Kodi CPU percent of one core | 19.6927 | 16.4948 | Minus 16.24 percent |
+| Video decode client busy percent | 5.3478 | 5.3423 | Minus 0.0055 percentage points |
+| Video enhancement client busy percent | 9.4635 | 9.5095 | Plus 0.0461 percentage points |
+| Consumer release helper wait ms | 7.4075 | 3.9558 | Minus 46.60 percent |
+
+Render activity in test order was 59.6232, 41.4122, 40.9361, and 59.2788 percent.
+Both enabled cases are below both controls. Whole Kodi CPU was 19.8669, 16.6099,
+16.3797, and 19.5185 percent of one core. All four cases recorded zero drops and
+skips, including startup/seek, normal steady playback speed, no stalls, and clean
+player-stop and service shutdown. The controller exited zero and restored its
+prior override without restarting Kodi.
+
+Renderer counters prove exclusive packed preparations between the first and last
+periodic summaries in enabled cases, and exclusive composition in controls.
+Actual colour conversion remained release RGB; FP32, lookup and metadata-only
+handoff qualification passed without fallback or stage failure.
+
+CPU pools process CPU seconds over elapsed seconds. GPU counters are deduplicated
+Kodi client activity weighted by interval duration; copy activity was zero. Helper
+waits pool cumulative timing differences over 8,160 control and 8,400 candidate
+released operations. They are host completion waits, not exclusive shader latency
+or FPS, and should not be summed. Only two repeats per route and one scene were
+measured. Playback counters do not establish output accuracy; separate pixel
+checks above establish preservation for the captured frames.
+
+The [playback measurements](NATIVE_PACKED_OUTPUT_SPR_PLAYBACK_RESULTS.json) retain
+per-case route, health, lifecycle, timing, memory and counter records.
+
+## Build and reproduction
 
 Strict native and non-native C/C++ SDK compilation passed under a 512 MiB,
 one-CPU, no-extra-swap cap. The full serial build passed under a four-GiB cap,
