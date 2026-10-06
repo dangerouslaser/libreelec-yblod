@@ -1,0 +1,40 @@
+{
+  "schema": "yblod.el-qsv-candidate-off-capture-attempt.v1",
+  "candidate_sha256": "aff416779620c4cba8cecb6e6c71a6fb3b228e4bab7e397aaeeba4556166067f",
+  "retained_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "pass": false,
+  "capture_error": true,
+  "completed_capture_report": false,
+  "first_readback_observed": {
+    "pts_microseconds": 1210000000,
+    "el_pts_microseconds": 1210000000,
+    "native": 1,
+    "direct_packed": 1,
+    "native_planar": 1,
+    "batched_planes": 0,
+    "immutable_instructions": 0,
+    "el_decoder_qsv": 0,
+    "el_qsv_map_sequence": 0,
+    "el_qsv_native_used": 0
+  },
+  "failure_localization": "First readback existed with requested route; library admission failed before capture helper recorded the frame. Exact rejected library was not retained in this attempt.",
+  "restoration": {
+    "original_top_source_and_layer_count_restored": true,
+    "original_override_restored": true,
+    "retained_binary_restored": true,
+    "original_runtime_maps_restored": true,
+    "restored_idle": true
+  },
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1.0,
+    "peak_memory_bytes": 33873920,
+    "all_memory_events_zero": true,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0,
+    "elapsed_seconds": 48.18839874700643,
+    "controller_exit_code": 1
+  },
+  "scope": "Failed QSV-OFF preservation capture attempt, not output equality, QSV1, playback performance, or clean display restoration qualification. Controller limits do not encompass Kodi. Private input and capture buffers retained on target."
+}
