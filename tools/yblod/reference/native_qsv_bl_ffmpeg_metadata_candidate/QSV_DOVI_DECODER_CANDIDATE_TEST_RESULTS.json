@@ -1,0 +1,78 @@
+{
+  "schema": "yblod.qsv-dovi-decoder-candidate-cpu.v1",
+  "all_passed": true,
+  "scope": "source-only; actual decoder bodies with mocked MFX; real dynamic allocator callback bodies with mocked session registration; strict SDK object and actual configure selection",
+  "source_sha256": {
+    "qsv-bl-metadata-source-only.patch": "ef079ad0f9ac273babbbad1db7a74e42c8bcf75b64b5c84adb20b013bcec009f",
+    "test_qsv_dovi_mfx.c": "1d5ca4ac11c9d9eaa6a306a1ee31f40b47913d3c0ac402765a6a60b088ebb84a",
+    "test_qsv_dovi_allocator.c": "c8dd68e7f8f2769ecaa9b35ce96448e4a6a529d5313d98e7d7b33ac8952faf33",
+    "test_qsv_dovi_gate.c": "b3ca302289b722f1a9771d36dcbe3f76062558f7f4750b10f3d2bf4b48ad90b9",
+    "test_qsv_dovi_config.h": "9f01aadf2a9be0916bf1eec4dc9d542d24d94694ffeba1d57fa3f3c171765f0b",
+    "test_qsv_dovi_nogpl_config.h": "ae0f5847010a7d762d4118c47d35dd12f7f479d9b78ddf434baf60f85392bdfe",
+    "check_qsv_dovi_decoder_cpu.sh": "7705c765574a5362623b82db8ff500a595c6662546ca2505dc06956188c79f02",
+    "check_qsv_dovi_decoder_candidate.sh": "4a8a4f163f37911f0f4d18dd9d9680821c10803e137d94bbbb9c75cf8398fc78",
+    "stage_qsv_dovi_decoder_fixture.py": "d3b43978f44ee6459eddf361aa2c00ccca111f48bd25f3c5435c84441fc6e287",
+    "compile_qsv_dovi_sdk.py": "58826b7b60d68952019308c30d0d2429eb3ea86f61984c50c4b3bd65617366e4",
+    "prepare_qsv_allocator_fixture.py": "1fcaf056bb4f477dcb32182170592e6c1432b97f34cb9effd044856a766357d5",
+    "check_qsv_dovi_configure.py": "7c743cf79e48d8c382bbfbf2428be07abc570b30d80e12645731d149140d0404"
+  },
+  "generated_source_sha256": {
+    "libavcodec/qsvdec.c": "54dbd795aa7948ca842b08246391f18a1fe604b271f7b82c35cfdb7ce9f16123",
+    "libavcodec/qsv_dovi.h": "c7a409ec09971a745fbba8b5d87e14e770d501e8ef8f57a232029415f8254293"
+  },
+  "tests": {
+    "actual_decoder_mfx_mock": {
+      "cases": 24,
+      "parent_process_decode_calls": 62,
+      "quarantine_child_cases": 4,
+      "memory_peak_bytes": 40275968
+    },
+    "actual_dynamic_allocator_callbacks": {
+      "callbacks_after_original_privdata_release": 5,
+      "valid_and_invalid_external_decode_allocation": true,
+      "same_opaque_address": true,
+      "memory_peak_bytes": 37015552
+    },
+    "unsupported_gpl_gate": {
+      "default_off": true,
+      "requested_on_rejected": true,
+      "memory_peak_bytes": 29495296
+    },
+    "strict_authoritative_sdk_object": {
+      "memory_peak_bytes": 47939584
+    },
+    "actual_configure": {
+      "gpl_version3_selects_dolby_parser": true,
+      "no_gpl_excludes_dolby_parser": true,
+      "memory_peak_bytes": 27025408
+    }
+  },
+  "limits": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "gpu_devices_mounted": false,
+    "sdk_mount_read_only": true
+  },
+  "resources": {
+    "all_memory_events_zero": true,
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0
+  },
+  "qualification": {
+    "hardware_decode": false,
+    "kodi_playback": false,
+    "picture_accuracy": false,
+    "performance": false,
+    "dolby_conformance": false,
+    "previous_rpu_references": false,
+    "graceful_parameter_change": false
+  },
+  "notes": [
+    "DEVICE_BUSY uses a five-second monotonic deadline and reuses the same surface; CPU deadline is tested with scripted monotonic time.",
+    "MORE_SURFACE may request at most 16 surfaces per decode call; default-OFF retry logic remains unchanged.",
+    "Unknown hardware completion retains stable heap owner and input storage; process-wide poison prevents repeated uncertain generations.",
+    "Parameter-change notifications currently reject safely; graceful drain/reinitialization remains subsequent work."
+  ]
+}

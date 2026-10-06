@@ -1,0 +1,948 @@
+diff --git a/configure b/configure
+index 0436370..36d4a25 100755
+--- a/configure
++++ b/configure
+@@ -4839,6 +4839,8 @@ enabled gpl && map "die_license_disabled_gpl nonfree" $EXTERNAL_LIBRARY_NONFREE_
+ map "die_license_disabled nonfree" $HWACCEL_LIBRARY_NONFREE_LIST
+ 
+ enabled version3 && { enabled gpl && enable gplv3 || enable lgplv3; }
++enabled gpl && enabled version3 &&
++    hevc_qsv_decoder_select="$hevc_qsv_decoder_select dovi_rpudec hevcparse"
+ enabled gpl && enable lgpl_gpl # Files that are marked as LGPL but some developers prefer only building them with --enable-gpl
+ 
+ if enabled nonfree; then
+diff --git a/libavcodec/qsvdec.c b/libavcodec/qsvdec.c
+index 5aacde9..76db912 100644
+--- a/libavcodec/qsvdec.c
++++ b/libavcodec/qsvdec.c
+@@ -53,6 +53,15 @@
+ #include "qsv_internal.h"
+ #include "libavutil/refstruct.h"
+ 
++#if CONFIG_HEVC_QSV_DECODER && CONFIG_GPL && CONFIG_VERSION3
++#define QSV_DOVI_SUPPORTED 1
++#include "qsv_dovi.h"
++#include <stdatomic.h>
++static atomic_int qsv_dovi_process_quarantined;
++#else
++#define QSV_DOVI_SUPPORTED 0
++#endif
++
+ #if QSV_ONEVPL
+ #include <mfxdispatcher.h>
+ #else
+@@ -108,6 +117,13 @@ typedef struct QSVContext {
+     int async_depth;
+     int iopattern;
+     int gpu_copy;
++    int dovi_metadata;
++#if QSV_DOVI_SUPPORTED
++    QSVDOVIContext dovi;
++    AVBufferRef *dovi_device_ref, *dovi_initial_frames_ref;
++    mfxSyncPoint *dovi_untracked_sync;
++    int dovi_quarantined, dovi_submitted;
++#endif
+ 
+     char *load_plugins;
+ 
+@@ -785,6 +801,62 @@ static int qsv_export_hdr_side_data_av1(AVCodecContext *avctx, mfxExtMasteringDi
+ 
+ #endif
+ 
++#if QSV_DOVI_SUPPORTED
++static int qsv_dovi_sync(QSVContext *q, mfxSyncPoint sync)
++{
++    int status;
++    for (int i = 0; i < 5; i++) {
++        status = MFXVideoCORE_SyncOperation(q->session, sync, 1000);
++        if (status != MFX_WRN_IN_EXECUTION)
++            return status == MFX_ERR_NONE ? 0 : AVERROR_EXTERNAL;
++    }
++    return AVERROR_EXTERNAL;
++}
++
++static int qsv_dovi_poison(QSVContext *q)
++{
++    q->dovi.failed = q->dovi_quarantined = 1;
++    atomic_store(&qsv_dovi_process_quarantined, 1);
++    return AVERROR_EXTERNAL;
++}
++
++static int qsv_dovi_retire_hardware(QSVContext *q)
++{
++    if (q->dovi_quarantined)
++        return AVERROR_EXTERNAL;
++    if (q->dovi_untracked_sync &&
++        qsv_dovi_sync(q, *q->dovi_untracked_sync) < 0)
++        return qsv_dovi_poison(q);
++    if (q->async_fifo) {
++        for (size_t i = 0; i < av_fifo_can_read(q->async_fifo); i++) {
++            QSVAsyncFrame aframe;
++            av_fifo_peek(q->async_fifo, &aframe, 1, i);
++            if (qsv_dovi_sync(q, *aframe.sync) < 0)
++                return qsv_dovi_poison(q);
++        }
++    }
++    if (q->session && (q->initialized || q->dovi_submitted) &&
++        MFXVideoDECODE_Close(q->session) != MFX_ERR_NONE)
++        return qsv_dovi_poison(q);
++    q->dovi_submitted = 0;
++    av_freep(&q->dovi_untracked_sync);
++    return 0;
++}
++
++static int qsv_dovi_reject_output(QSVContext *q, mfxSyncPoint **sync, int error)
++{
++    q->dovi.failed = 1;
++    if (**sync) {
++        av_assert0(!q->dovi_untracked_sync);
++        q->dovi_untracked_sync = *sync;
++        *sync = NULL;
++    } else {
++        av_freep(sync);
++    }
++    return error;
++}
++#endif
++
+ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+                       AVFrame *frame, int *got_frame,
+                       const AVPacket *avpkt)
+@@ -794,12 +866,28 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+     mfxSyncPoint *sync;
+     mfxBitstream bs = { { { 0 } } };
+     int ret;
++#if QSV_DOVI_SUPPORTED
++    int decode_status;
++    int dovi_surface_attempts = 0;
++    int64_t dovi_retry_started = q->dovi_metadata ? av_gettime_relative() : 0;
++#endif
+ 
++#if QSV_DOVI_SUPPORTED
++    if (q->dovi_metadata && avpkt->size) {
++        ret = qsv_dovi_prepare(&q->dovi, avpkt, avctx->err_recognition);
++        if (ret < 0)
++            return ret;
++    }
++#endif
+     if (avpkt->size) {
+         bs.Data       = avpkt->data;
+         bs.DataLength = avpkt->size;
+         bs.MaxLength  = bs.DataLength;
+         bs.TimeStamp  = PTS_TO_MFX_PTS(avpkt->pts, avctx->pkt_timebase);
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata)
++            bs.TimeStamp = q->dovi.pending.token;
++#endif
+         if (avctx->field_order == AV_FIELD_PROGRESSIVE)
+             bs.DataFlag   |= MFX_BITSTREAM_COMPLETE_FRAME;
+     }
+@@ -811,20 +899,45 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+     }
+ 
+     do {
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata && av_gettime_relative() - dovi_retry_started >= 5000000)
++            return qsv_dovi_reject_output(q, &sync, AVERROR(ETIMEDOUT));
++        /* DEVICE_BUSY has not accepted this surface: retry the same one. */
++        if (!q->dovi_metadata || !dovi_surface_attempts || ret != MFX_WRN_DEVICE_BUSY) {
++            if (q->dovi_metadata && ++dovi_surface_attempts > 16)
++                return qsv_dovi_reject_output(q, &sync, AVERROR(ETIMEDOUT));
++#endif
+         ret = get_surface(avctx, q, &insurf);
+         if (ret < 0) {
+             av_freep(&sync);
+             return ret;
+         }
++#if QSV_DOVI_SUPPORTED
++        }
++#endif
+ 
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata)
++            q->dovi_submitted = 1;
++#endif
+         ret = MFXVideoDECODE_DecodeFrameAsync(q->session, avpkt->size ? &bs : NULL,
+                                               insurf, &outsurf, sync);
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata && *sync &&
++            (ret == MFX_WRN_DEVICE_BUSY || ret == MFX_ERR_MORE_SURFACE))
++            return qsv_dovi_reject_output(q, &sync, AVERROR_INVALIDDATA);
++#endif
+         if (ret == MFX_WRN_DEVICE_BUSY)
+             av_usleep(500);
+ 
+     } while (ret == MFX_WRN_DEVICE_BUSY || ret == MFX_ERR_MORE_SURFACE);
+ 
+     if (ret == MFX_ERR_INCOMPATIBLE_VIDEO_PARAM) {
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata) {
++            return qsv_dovi_reject_output(q, &sync, AVERROR_INVALIDDATA);
++        }
++#endif
+         q->reinit_flag = 1;
+         av_log(avctx, AV_LOG_DEBUG, "Video parameter change\n");
+         av_freep(&sync);
+@@ -835,10 +948,33 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+         ret != MFX_ERR_MORE_DATA &&
+         ret != MFX_WRN_VIDEO_PARAM_CHANGED &&
+         ret != MFX_ERR_MORE_SURFACE) {
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata)
++            return qsv_dovi_reject_output(q, &sync,
++                                         ff_qsv_print_error(avctx, ret, "Error during QSV decoding."));
++#endif
+         av_freep(&sync);
+         return ff_qsv_print_error(avctx, ret,
+                                   "Error during QSV decoding.");
+     }
++#if QSV_DOVI_SUPPORTED
++    decode_status = ret;
++#endif
++
++#if QSV_DOVI_SUPPORTED
++    if (q->dovi_metadata) {
++        if (ret == MFX_WRN_VIDEO_PARAM_CHANGED ||
++            (avpkt->size && !*sync && !bs.DataOffset)) {
++            return qsv_dovi_reject_output(q, &sync, AVERROR_INVALIDDATA);
++        }
++        if (avpkt->size) {
++            ret = qsv_dovi_consume(&q->dovi, bs.DataOffset);
++            if (ret < 0) {
++                return qsv_dovi_reject_output(q, &sync, ret);
++            }
++        }
++    }
++#endif
+ 
+     /* make sure we do not enter an infinite loop if the SDK
+      * did not consume any data and did not return anything */
+@@ -860,6 +996,12 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+         if (!out_frame) {
+             av_log(avctx, AV_LOG_ERROR,
+                    "The returned surface does not correspond to any frame\n");
++#if QSV_DOVI_SUPPORTED
++            if (q->dovi_metadata) {
++                q->dovi_untracked_sync = sync;
++                return qsv_dovi_poison(q);
++            }
++#endif
+             av_freep(&sync);
+             return AVERROR_BUG;
+         }
+@@ -877,10 +1019,17 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+         QSVAsyncFrame aframe;
+         AVFrame *src_frame;
+ 
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata) {
++            av_fifo_peek(q->async_fifo, &aframe, 1, 0);
++            if (qsv_dovi_sync(q, *aframe.sync) < 0)
++                return qsv_dovi_poison(q);
++        }
++#endif
+         av_fifo_read(q->async_fifo, &aframe, 1);
+         aframe.frame->queued -= 1;
+ 
+-        if (avctx->pix_fmt != AV_PIX_FMT_QSV) {
++        if (!q->dovi_metadata && avctx->pix_fmt != AV_PIX_FMT_QSV) {
+             do {
+                 ret = MFXVideoCORE_SyncOperation(q->session, *aframe.sync, 1000);
+             } while (ret == MFX_WRN_IN_EXECUTION);
+@@ -896,6 +1045,16 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+ 
+         outsurf = &aframe.frame->surface;
+ 
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata) {
++            ret = qsv_dovi_output(&q->dovi, outsurf->Data.TimeStamp, frame);
++            if (ret < 0) {
++                q->dovi.failed = 1;
++                av_frame_unref(frame);
++                return ret;
++            }
++        } else
++#endif
+         frame->pts = MFX_PTS_TO_PTS(outsurf->Data.TimeStamp, avctx->pkt_timebase);
+ #if QSV_VERSION_ATLEAST(1, 34)
+         if ((avctx->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN) &&
+@@ -931,6 +1090,13 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+             !!(outsurf->Info.PicStruct & MFX_PICSTRUCT_FIELD_TFF);
+         frame->flags |= AV_FRAME_FLAG_INTERLACED *
+             !(outsurf->Info.PicStruct & MFX_PICSTRUCT_PROGRESSIVE);
++#if QSV_DOVI_SUPPORTED
++        if (q->dovi_metadata && (frame->flags & AV_FRAME_FLAG_INTERLACED)) {
++            q->dovi.failed = 1;
++            av_frame_unref(frame);
++            return AVERROR_INVALIDDATA;
++        }
++#endif
+         frame->pict_type = ff_qsv_map_pictype(aframe.frame->dec_info.FrameType);
+ 
+         if (avctx->codec_id == AV_CODEC_ID_H264 ||
+@@ -958,13 +1124,27 @@ static int qsv_decode(AVCodecContext *avctx, QSVContext *q,
+         *got_frame = 1;
+     }
+ 
++#if QSV_DOVI_SUPPORTED
++    if (q->dovi_metadata && !avpkt->size && !*got_frame &&
++        decode_status == MFX_ERR_MORE_DATA && !av_fifo_can_read(q->async_fifo) &&
++        (q->dovi.pending.token || q->dovi.count)) {
++        q->dovi.failed = 1;
++        return AVERROR_INVALIDDATA;
++    }
++#endif
+     return bs.DataOffset;
+ }
+ 
+-static void qsv_decode_close_qsvcontext(QSVContext *q)
++static int qsv_decode_close_qsvcontext(QSVContext *q)
+ {
+     QSVFrame *cur = q->work_frames;
+ 
++#if QSV_DOVI_SUPPORTED
++    if (q->dovi_metadata) {
++        if (qsv_dovi_retire_hardware(q) < 0)
++            return AVERROR_EXTERNAL;
++    } else
++#endif
+     if (q->session)
+         MFXVideoDECODE_Close(q->session);
+ 
+@@ -987,6 +1167,7 @@ static void qsv_decode_close_qsvcontext(QSVContext *q)
+     av_buffer_unref(&q->frames_ctx.hw_frames_ctx);
+     av_refstruct_unref(&q->frames_ctx.mids);
+     av_buffer_pool_uninit(&q->pool);
++    return 0;
+ }
+ 
+ static int qsv_process_data(AVCodecContext *avctx, QSVContext *q,
+@@ -996,6 +1177,11 @@ static int qsv_process_data(AVCodecContext *avctx, QSVContext *q,
+     mfxVideoParam param = { 0 };
+     enum AVPixelFormat pix_fmt = AV_PIX_FMT_NV12;
+ 
++#if QSV_DOVI_SUPPORTED
++    if (q->dovi_metadata && (q->dovi.failed || q->reinit_flag))
++        return AVERROR_INVALIDDATA;
++#endif
++
+     if (!pkt->size)
+         return qsv_decode(avctx, q, frame, got_frame, pkt);
+ 
+@@ -1058,6 +1244,15 @@ static int qsv_process_data(AVCodecContext *avctx, QSVContext *q,
+         q->initialized = 1;
+     }
+ 
++#if QSV_DOVI_SUPPORTED
++    if (q->dovi_metadata && (avctx->field_order != AV_FIELD_PROGRESSIVE ||
++                            avctx->pix_fmt != AV_PIX_FMT_QSV ||
++                            avctx->sw_pix_fmt != AV_PIX_FMT_P010)) {
++        q->dovi.failed = 1;
++        return AVERROR_INVALIDDATA;
++    }
++#endif
++
+     return qsv_decode(avctx, q, frame, got_frame, pkt);
+ 
+ reinit_fail:
+@@ -1080,36 +1275,118 @@ typedef struct QSVDecContext {
+     AVFifo *packet_fifo;
+ 
+     AVPacket buffer_pkt;
++    int dovi_queued_bytes;
++#if QSV_DOVI_SUPPORTED
++    struct QSVDecContext *dovi_owner;
++#endif
+ } QSVDecContext;
+ 
++static QSVDecContext *qsv_decoder_owner(AVCodecContext *avctx)
++{
++    QSVDecContext *s = avctx->priv_data;
++#if QSV_DOVI_SUPPORTED
++    if (s->dovi_owner)
++        return s->dovi_owner;
++#endif
++    return s;
++}
++
+ static void qsv_clear_buffers(QSVDecContext *s)
+ {
+     AVPacket pkt;
+-    while (av_fifo_read(s->packet_fifo, &pkt, 1) >= 0)
++    while (s->packet_fifo && av_fifo_read(s->packet_fifo, &pkt, 1) >= 0)
+         av_packet_unref(&pkt);
+ 
+     av_packet_unref(&s->buffer_pkt);
++    s->dovi_queued_bytes = 0;
+ }
+ 
+ static av_cold int qsv_decode_close(AVCodecContext *avctx)
+ {
+-    QSVDecContext *s = avctx->priv_data;
++    QSVDecContext *original = avctx->priv_data;
++    QSVDecContext *s = qsv_decoder_owner(avctx);
+ 
+-    qsv_decode_close_qsvcontext(&s->qsv);
++#if QSV_DOVI_SUPPORTED
++    if (s == original && s->qsv.dovi_quarantined)
++        return AVERROR_EXTERNAL;
++#endif
++    int status = qsv_decode_close_qsvcontext(&s->qsv);
++#if QSV_DOVI_SUPPORTED
++    if (status < 0) {
++        /* Retain the SAME allocator/packet owner address, not a copied context. */
++        av_assert0(s != original && s->dovi_owner == s);
++        s->qsv.frames_ctx.logctx = NULL;
++        s->qsv.dovi.active.logctx = s->qsv.dovi.prepared.logctx = NULL;
++        original->dovi_owner = NULL;
++        original->qsv.dovi.failed = original->qsv.dovi_quarantined = 1;
++        return status;
++    }
++    qsv_dovi_uninit(&s->qsv.dovi);
++    av_buffer_unref(&s->qsv.dovi_device_ref);
++    av_buffer_unref(&s->qsv.dovi_initial_frames_ref);
++#endif
+ 
+     qsv_clear_buffers(s);
+ 
+     av_fifo_freep2(&s->packet_fifo);
++#if QSV_DOVI_SUPPORTED
++    if (s != original) {
++        original->dovi_owner = NULL;
++        av_opt_free(s);
++        av_free(s);
++    }
++#else
++    (void)original;
++#endif
+ 
+-    return 0;
++    return status;
+ }
+ 
+ static av_cold int qsv_decode_init(AVCodecContext *avctx)
+ {
+-    QSVDecContext *s = avctx->priv_data;
++    QSVDecContext *original = avctx->priv_data;
++    QSVDecContext *s = original;
+     int ret;
+     const char *uid = NULL;
+ 
++    if (s->qsv.dovi_metadata) {
++#if QSV_DOVI_SUPPORTED
++        const AVPacketSideData *sd;
++        const AVHWDeviceContext *device;
++        if (atomic_load(&qsv_dovi_process_quarantined))
++            return AVERROR_EXTERNAL;
++        if (avctx->codec_id != AV_CODEC_ID_HEVC)
++            return AVERROR(EINVAL);
++        if (avctx->hwaccel_context || !avctx->hw_device_ctx || !avctx->hw_device_ctx->data)
++            return AVERROR(EINVAL);
++        device = (const AVHWDeviceContext *)avctx->hw_device_ctx->data;
++        if (device->type != AV_HWDEVICE_TYPE_QSV)
++            return AVERROR(EINVAL);
++        s = av_mallocz(sizeof(*s));
++        if (!s)
++            return AVERROR(ENOMEM);
++        *s = *original;
++        s->dovi_owner = s;
++        original->dovi_owner = s;
++        original->qsv.load_plugins = NULL;
++        s->qsv.dovi_device_ref = av_buffer_ref(avctx->hw_device_ctx);
++        if (!s->qsv.dovi_device_ref)
++            goto dovi_init_nomem;
++        if (avctx->hw_frames_ctx) {
++            s->qsv.dovi_initial_frames_ref = av_buffer_ref(avctx->hw_frames_ctx);
++            if (!s->qsv.dovi_initial_frames_ref)
++                goto dovi_init_nomem;
++        }
++        s->qsv.dovi.active.logctx = avctx;
++        sd = ff_get_coded_side_data(avctx, AV_PKT_DATA_DOVI_CONF);
++        if (sd && sd->size >= sizeof(s->qsv.dovi.active.cfg))
++            s->qsv.dovi.active.cfg = *(const AVDOVIDecoderConfigurationRecord *)sd->data;
++#else
++        av_log(avctx, AV_LOG_ERROR, "QSV Dolby metadata requires a GPL/version3-enabled build\n");
++        return AVERROR(ENOSYS);
++#endif
++    }
++
+     if (avctx->codec_id == AV_CODEC_ID_VP8) {
+         uid = "f622394d8d87452f878c51f2fc9b4131";
+     } else if (avctx->codec_id == AV_CODEC_ID_VP9) {
+@@ -1133,8 +1410,13 @@ static av_cold int qsv_decode_init(AVCodecContext *avctx)
+     if (uid) {
+         av_freep(&s->qsv.load_plugins);
+         s->qsv.load_plugins = av_strdup(uid);
+-        if (!s->qsv.load_plugins)
++        if (!s->qsv.load_plugins) {
++            if (s->qsv.dovi_metadata) {
++                ret = AVERROR(ENOMEM);
++                goto fail;
++            }
+             return AVERROR(ENOMEM);
++        }
+     }
+ 
+     s->qsv.orig_pix_fmt = AV_PIX_FMT_NV12;
+@@ -1149,6 +1431,15 @@ static av_cold int qsv_decode_init(AVCodecContext *avctx)
+         av_log(avctx, AV_LOG_WARNING, "Invalid pkt_timebase, passing timestamps as-is.\n");
+ 
+     return 0;
++#if QSV_DOVI_SUPPORTED
++dovi_init_nomem:
++    av_buffer_unref(&s->qsv.dovi_device_ref);
++    av_buffer_unref(&s->qsv.dovi_initial_frames_ref);
++    original->dovi_owner = NULL;
++    av_opt_free(s);
++    av_free(s);
++    return AVERROR(ENOMEM);
++#endif
+ fail:
+     qsv_decode_close(avctx);
+     return ret;
+@@ -1157,17 +1448,36 @@ fail:
+ static int qsv_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+                             int *got_frame, AVPacket *avpkt)
+ {
+-    QSVDecContext *s = avctx->priv_data;
++    QSVDecContext *s = qsv_decoder_owner(avctx);
+     int ret;
+ 
++#if QSV_DOVI_SUPPORTED
++    if (s->qsv.dovi_metadata && s->qsv.dovi.failed)
++        return AVERROR_INVALIDDATA;
++#endif
++
+     /* buffer the input packet */
+     if (avpkt->size) {
+         AVPacket input_ref;
+ 
++#if QSV_DOVI_SUPPORTED
++        if (s->qsv.dovi_metadata &&
++            (avpkt->size < 0 || avpkt->size > 64 * 1024 * 1024 - s->dovi_queued_bytes ||
++             av_fifo_can_read(s->packet_fifo) + s->qsv.dovi.count +
++             !!(s->qsv.dovi.pending.token || s->buffer_pkt.size > 0) >= QSV_DOVI_MAX)) {
++            s->qsv.dovi.failed = 1;
++            return AVERROR(ENOBUFS);
++        }
++#endif
++
+         ret = av_packet_ref(&input_ref, avpkt);
+         if (ret < 0)
+             return ret;
+         av_fifo_write(s->packet_fifo, &input_ref, 1);
++#if QSV_DOVI_SUPPORTED
++        if (s->qsv.dovi_metadata)
++            s->dovi_queued_bytes += avpkt->size;
++#endif
+     }
+ 
+     /* process buffered data */
+@@ -1176,7 +1486,18 @@ static int qsv_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+         if (s->buffer_pkt.size <= 0) {
+             /* no more data */
+             if (!av_fifo_can_read(s->packet_fifo))
+-                return avpkt->size ? avpkt->size : qsv_process_data(avctx, &s->qsv, frame, got_frame, avpkt);
++            {
++                if (avpkt->size)
++                    return avpkt->size;
++                ret = qsv_process_data(avctx, &s->qsv, frame, got_frame, avpkt);
++#if QSV_DOVI_SUPPORTED
++                if (s->qsv.dovi_metadata && ret < 0) {
++                    s->qsv.dovi.failed = 1;
++                    qsv_dovi_cancel(&s->qsv.dovi);
++                }
++#endif
++                return ret;
++            }
+             /* in progress of reinit, no read from fifo and keep the buffer_pkt */
+             if (!s->qsv.reinit_flag) {
+                 av_packet_unref(&s->buffer_pkt);
+@@ -1186,6 +1507,15 @@ static int qsv_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+ 
+         ret = qsv_process_data(avctx, &s->qsv, frame, got_frame, &s->buffer_pkt);
+         if (ret < 0){
++#if QSV_DOVI_SUPPORTED
++            if (s->qsv.dovi_metadata) {
++                if (ret == AVERROR(EAGAIN) && s->qsv.dovi.pending.token)
++                    return avpkt->size;
++                s->qsv.dovi.failed = 1;
++                /* Keep AU storage until hardware retirement is verified. */
++                return ret;
++            }
++#endif
+             if (ret == AVERROR(EAGAIN))
+                 ret = 0;
+ 
+@@ -1199,6 +1529,10 @@ static int qsv_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+ 
+         s->buffer_pkt.size -= ret;
+         s->buffer_pkt.data += ret;
++#if QSV_DOVI_SUPPORTED
++        if (s->qsv.dovi_metadata)
++            s->dovi_queued_bytes -= ret;
++#endif
+     }
+ 
+     return avpkt->size;
+@@ -1206,7 +1540,18 @@ static int qsv_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+ 
+ static void qsv_decode_flush(AVCodecContext *avctx)
+ {
+-    QSVDecContext *s = avctx->priv_data;
++    QSVDecContext *s = qsv_decoder_owner(avctx);
++
++#if QSV_DOVI_SUPPORTED
++    if (s->qsv.dovi_metadata) {
++        /* Retire pending hardware output before clearing identity associations. */
++        if (qsv_decode_close_qsvcontext(&s->qsv) < 0)
++            return;
++        s->qsv.session = NULL;
++        s->qsv.reinit_flag = 0;
++        qsv_dovi_flush(&s->qsv.dovi);
++    }
++#endif
+ 
+     qsv_clear_buffers(s);
+ 
+@@ -1246,6 +1591,7 @@ const FFCodec ff_##x##_qsv_decoder = { \
+ 
+ #if CONFIG_HEVC_QSV_DECODER
+ static const AVOption hevc_options[] = {
++    { "dovi_metadata", "Attach per-picture Dolby metadata using exact QSV timestamp association (restricted input)", OFFSET(qsv.dovi_metadata), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VD },
+     { "async_depth", "Internal parallelization depth, the higher the value the higher the latency.", OFFSET(qsv.async_depth), AV_OPT_TYPE_INT, { .i64 = ASYNC_DEPTH_DEFAULT }, 1, INT_MAX, VD },
+ 
+     { "load_plugin", "A user plugin to load in an internal session", OFFSET(load_plugin), AV_OPT_TYPE_INT, { .i64 = LOAD_PLUGIN_HEVC_HW }, LOAD_PLUGIN_NONE, LOAD_PLUGIN_HEVC_HW, VD, .unit = "load_plugin" },
+diff --git a/libavcodec/qsv_dovi.h b/libavcodec/qsv_dovi.h
+new file mode 100644
+--- /dev/null
++++ b/libavcodec/qsv_dovi.h
+@@ -0,0 +1,328 @@
++/*
++ * Transactional HEVC QSV Dolby metadata association.
++ * SPDX-License-Identifier: GPL-3.0-or-later
++ *
++ * Original project-owned integration code, adapting the ownership algorithms
++ * qualified by the earlier QSV association and independent-context fixtures.
++ * Included only by a GPL/version3-enabled FFmpeg build.
++ */
++#ifndef AVCODEC_QSV_DOVI_H
++#define AVCODEC_QSV_DOVI_H
++
++#include "dovi_rpu.h"
++#include "h2645_parse.h"
++#include "libavutil/mem.h"
++#include "libavutil/refstruct.h"
++
++#define QSV_DOVI_MAX 64
++
++typedef struct QSVDOVIEntry {
++    uint64_t token;
++    int64_t pts, duration;
++    AVBufferRef *metadata, *rpu;
++} QSVDOVIEntry;
++
++typedef struct QSVDOVIContext {
++    DOVIContext active, prepared;
++    H2645Packet nals;
++    QSVDOVIEntry entries[QSV_DOVI_MAX], pending;
++    unsigned count;
++    uint64_t next;
++    const uint8_t *remaining_data;
++    int remaining_size;
++    int failed;
++} QSVDOVIContext;
++
++static void qsv_dovi_entry_unref(QSVDOVIEntry *entry)
++{
++    av_buffer_unref(&entry->metadata);
++    av_buffer_unref(&entry->rpu);
++    *entry = (QSVDOVIEntry){0};
++}
++
++/* The native parser mutates refstructs in place: replacement is not cloning. */
++static int qsv_dovi_clone(const DOVIContext *src, DOVIContext *out)
++{
++    DOVIContext copy = *src;
++    int mapping = -1;
++    for (int i = 0; i <= DOVI_MAX_DM_ID; i++)
++        if (src->mapping && src->mapping == src->vdr[i])
++            mapping = i;
++    if ((src->mapping && mapping < 0) ||
++        (src->color && src->color != src->dm && src->color != &ff_dovi_color_default))
++        return AVERROR(EINVAL);
++    memset(copy.vdr, 0, sizeof(copy.vdr));
++    copy.dm = NULL;
++    copy.ext_blocks = NULL;
++    copy.mapping = NULL;
++    copy.color = NULL;
++    copy.rpu_buf = NULL;
++    copy.rpu_buf_sz = 0;
++    for (int i = 0; i <= DOVI_MAX_DM_ID; i++) {
++        if (!src->vdr[i])
++            continue;
++        copy.vdr[i] = av_refstruct_allocz(sizeof(*copy.vdr[i]));
++        if (!copy.vdr[i])
++            goto nomem;
++        *copy.vdr[i] = *src->vdr[i];
++    }
++    if (src->dm) {
++        copy.dm = av_refstruct_allocz(sizeof(*copy.dm));
++        if (!copy.dm)
++            goto nomem;
++        *copy.dm = *src->dm;
++    }
++    if (src->ext_blocks) {
++        copy.ext_blocks = av_refstruct_allocz(sizeof(*copy.ext_blocks));
++        if (!copy.ext_blocks)
++            goto nomem;
++        *copy.ext_blocks = *src->ext_blocks;
++    }
++    if (mapping >= 0)
++        copy.mapping = copy.vdr[mapping];
++    if (src->color)
++        copy.color = src->color == &ff_dovi_color_default ? &ff_dovi_color_default : copy.dm;
++    *out = copy;
++    return 0;
++nomem:
++    ff_dovi_ctx_unref(&copy);
++    return AVERROR(ENOMEM);
++}
++
++/* Header preflight prevents the splitter silently discarding malformed NALs. */
++static int qsv_dovi_annexb_headers(const uint8_t *data, int size)
++{
++    int start = -1, count = 0;
++    for (int i = 0; i < size - 2; i++) {
++        if (data[i] || data[i + 1] || data[i + 2] != 1)
++            continue;
++        if (start < 0) {
++            for (int j = 0; j < i; j++)
++                if (data[j])
++                    return AVERROR_INVALIDDATA;
++        } else if (i - start < 2) {
++            return AVERROR_INVALIDDATA;
++        }
++        start = i + 3;
++        if (size - start < 2 || (data[start] & 0x80) || !(data[start + 1] & 7))
++            return AVERROR_INVALIDDATA;
++        count++;
++        i = start + 1;
++    }
++    return count ? count : AVERROR_INVALIDDATA;
++}
++
++/* Restricted complete, single layer-zero picture. UNSPEC63 is opaque EL. */
++static int qsv_dovi_admit(QSVDOVIContext *s, const AVPacket *pkt, H2645NAL **rpu)
++{
++    int first = 0, seen_vcl = 0, trailer = 0, ended = 0, nal_count, ret;
++    int picture_type = -1, picture_temporal = -1;
++    *rpu = NULL;
++    if (!pkt->data || pkt->size <= 0 || pkt->size > 64 * 1024 * 1024)
++        return AVERROR_INVALIDDATA;
++    nal_count = qsv_dovi_annexb_headers(pkt->data, pkt->size);
++    if (nal_count < 0)
++        return nal_count;
++    ret = ff_h2645_packet_split(&s->nals, pkt->data, pkt->size, s->active.logctx,
++                               0, AV_CODEC_ID_HEVC, 0);
++    if (ret < 0)
++        return ret;
++    if (s->nals.nb_nals != nal_count)
++        return AVERROR_INVALIDDATA;
++    for (int i = 0; i < s->nals.nb_nals; i++) {
++        H2645NAL *nal = &s->nals.nals[i];
++        if (nal->nuh_layer_id || nal->size < 2)
++            return AVERROR_INVALIDDATA;
++        if (ended && nal->type != 36 && nal->type != 37)
++            return AVERROR_INVALIDDATA;
++        if (nal->type <= 31) {
++            if (trailer || nal->size < 3 || nal->size_bits <= 16)
++                return AVERROR_INVALIDDATA;
++            if (nal->data[2] & 0x80) {
++                if (++first != 1)
++                    return AVERROR_INVALIDDATA;
++                picture_type = nal->type;
++                picture_temporal = nal->temporal_id;
++            } else if (!first) {
++                return AVERROR_INVALIDDATA;
++            }
++            if (nal->type != picture_type || nal->temporal_id != picture_temporal)
++                return AVERROR_INVALIDDATA;
++            seen_vcl = 1;
++        } else if (nal->type == 62) {
++            if (!seen_vcl || nal->size <= 2 || nal->temporal_id)
++                return AVERROR_INVALIDDATA;
++            trailer = 1;
++        } else if (nal->type == 63) {
++            if (!seen_vcl || trailer)
++                return AVERROR_INVALIDDATA;
++        } else if (nal->type == 36 || nal->type == 37 || nal->type == 40) {
++            if (!seen_vcl)
++                return AVERROR_INVALIDDATA;
++            trailer = 1;
++            if (nal->type != 40)
++                ended = 1;
++        } else if ((nal->type >= 32 && nal->type <= 35) || nal->type == 39) {
++            if (seen_vcl || trailer)
++                return AVERROR_INVALIDDATA;
++        } else {
++            return AVERROR_INVALIDDATA;
++        }
++    }
++    if (first != 1)
++        return AVERROR_INVALIDDATA;
++    /* Exactly the native backwards selection, including its i > 0 bound. */
++    for (int i = s->nals.nb_nals - 1; i > 0; i--) {
++        H2645NAL *nal = &s->nals.nals[i];
++        if (nal->type == 62 && nal->size > 2 && !nal->nuh_layer_id && !nal->temporal_id) {
++            *rpu = nal;
++            break;
++        }
++    }
++    return 0;
++}
++
++static void qsv_dovi_cancel(QSVDOVIContext *s)
++{
++    if (s->pending.token)
++        s->next = s->pending.token;
++    qsv_dovi_entry_unref(&s->pending);
++    ff_dovi_ctx_unref(&s->prepared);
++    s->remaining_data = NULL;
++    s->remaining_size = 0;
++}
++
++static int qsv_dovi_prepare(QSVDOVIContext *s, const AVPacket *pkt, int err_recognition)
++{
++    H2645NAL *rpu;
++    AVDOVIMetadata *metadata = NULL;
++    DOVIContext candidate = {0};
++    QSVDOVIEntry entry = {0};
++    size_t cfg_size;
++    const uint8_t *cfg;
++    int ret;
++    if (s->failed)
++        return AVERROR_INVALIDDATA;
++    if (s->pending.token)
++        return pkt->data == s->remaining_data && pkt->size == s->remaining_size ?
++               0 : AVERROR_INVALIDDATA;
++    if (s->count == QSV_DOVI_MAX || s->next >= INT64_MAX)
++        return AVERROR(ENOSPC);
++    ret = qsv_dovi_admit(s, pkt, &rpu);
++    if (ret < 0)
++        return ret;
++    ret = qsv_dovi_clone(&s->active, &candidate);
++    if (ret < 0)
++        return ret;
++    cfg = av_packet_get_side_data(pkt, AV_PKT_DATA_DOVI_CONF, &cfg_size);
++    if (cfg && cfg_size >= sizeof(candidate.cfg))
++        candidate.cfg = *(const AVDOVIDecoderConfigurationRecord *)cfg;
++    if (rpu) {
++        /* Native ignores parse errors but retains the resulting parser state. */
++        ret = ff_dovi_rpu_parse(&candidate, rpu->data + 2, rpu->size - 2, err_recognition);
++        if (ret >= 0) {
++            entry.rpu = av_buffer_alloc(rpu->raw_size - 2);
++            if (!entry.rpu) {
++                ret = AVERROR(ENOMEM);
++                goto fail;
++            }
++            memcpy(entry.rpu->data, rpu->raw_data + 2, rpu->raw_size - 2);
++        }
++    }
++    ret = ff_dovi_get_metadata(&candidate, &metadata);
++    if (ret < 0)
++        goto fail;
++    if (ret) {
++        entry.metadata = av_buffer_create((uint8_t *)metadata, ret, NULL, NULL, 0);
++        if (!entry.metadata) {
++            av_free(metadata);
++            ret = AVERROR(ENOMEM);
++            goto fail;
++        }
++    }
++    entry.token = s->next + 1;
++    entry.pts = pkt->pts;
++    entry.duration = pkt->duration;
++    s->pending = entry;
++    s->prepared = candidate;
++    s->remaining_data = pkt->data;
++    s->remaining_size = pkt->size;
++    return 0;
++fail:
++    qsv_dovi_entry_unref(&entry);
++    ff_dovi_ctx_unref(&candidate);
++    return ret;
++}
++
++/* Called only for real MFX consumption, before processing any returned frame. */
++static int qsv_dovi_consume(QSVDOVIContext *s, unsigned consumed)
++{
++    if (!s->pending.token || consumed > (unsigned)s->remaining_size)
++        return AVERROR_INVALIDDATA;
++    s->remaining_data += consumed;
++    s->remaining_size -= consumed;
++    if (s->remaining_size)
++        return 0;
++    s->entries[s->count++] = s->pending;
++    s->next = s->pending.token;
++    s->pending = (QSVDOVIEntry){0};
++    ff_dovi_ctx_replace(&s->active, &s->prepared);
++    ff_dovi_ctx_unref(&s->prepared);
++    return 0;
++}
++
++static int qsv_dovi_output(QSVDOVIContext *s, uint64_t token, AVFrame *frame)
++{
++    QSVDOVIEntry *entry = NULL;
++    for (unsigned i = 0; i < s->count; i++)
++        if (s->entries[i].token == token) {
++            entry = &s->entries[i];
++            break;
++        }
++    if (!entry || !token) {
++        s->failed = 1;
++        return AVERROR_INVALIDDATA;
++    }
++    av_frame_remove_side_data(frame, AV_FRAME_DATA_DOVI_METADATA);
++    av_frame_remove_side_data(frame, AV_FRAME_DATA_DOVI_RPU_BUFFER);
++    for (int i = 0; i < 2; i++) {
++        AVBufferRef *buf = i ? entry->rpu : entry->metadata;
++        AVBufferRef *ref;
++        if (!buf)
++            continue;
++        ref = av_buffer_ref(buf);
++        if (!ref)
++            return AVERROR(ENOMEM);
++        if (!av_frame_new_side_data_from_buf(frame, i ? AV_FRAME_DATA_DOVI_RPU_BUFFER :
++                                                       AV_FRAME_DATA_DOVI_METADATA, ref)) {
++            av_buffer_unref(&ref);
++            return AVERROR(ENOMEM);
++        }
++    }
++    frame->pts = entry->pts;
++    frame->duration = entry->duration;
++    qsv_dovi_entry_unref(entry);
++    for (unsigned i = entry - s->entries; i + 1 < s->count; i++)
++        s->entries[i] = s->entries[i + 1];
++    s->entries[--s->count] = (QSVDOVIEntry){0};
++    return 0;
++}
++
++/* Caller must discard/close the old MFX output generation before seek reuse. */
++static void qsv_dovi_flush(QSVDOVIContext *s)
++{
++    qsv_dovi_cancel(s);
++    for (unsigned i = 0; i < s->count; i++)
++        qsv_dovi_entry_unref(&s->entries[i]);
++    s->count = 0;
++    ff_dovi_ctx_flush(&s->active);
++    s->failed = 0;
++}
++
++static void qsv_dovi_uninit(QSVDOVIContext *s)
++{
++    qsv_dovi_flush(s);
++    ff_dovi_ctx_unref(&s->active);
++    ff_h2645_packet_uninit(&s->nals);
++}
++#endif
