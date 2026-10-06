@@ -60,7 +60,34 @@ details are separate from playback speed. The baseline remains unchanged.
 The first opt-in rendered candidate may use a declared whole-code P010 route,
 falling back for fractional Y416. This avoids making selection of a hypothetical
 fractional rule a prerequisite for the first playback test. Live GPU sampling,
-colour-only output and desktopGL/GLES ownership still require implementations.
+and live output orchestration still require implementations.
+
+## Current completion boundary
+
+- Native live metadata adapters and an explicit inherited colour-only renderer
+  entry point are published. No existing default renderer was switched.
+- Actual desktop-GL to GLES EGLImage handoff passed all 128 synthetic component
+  values. This is a component test, not an installed Kodi handoff.
+- GPU guide/phase recipes passed all 304 synthetic words and 33 status fields.
+  The declared software enhancement scaler passed all 1440 intermediate/final
+  words and 10 statuses. These are explicit recipes, not universal Dolby rules.
+- The resident-frame production compositor API passed every reconstructed code
+  in two prepared frames: 12,441,600 codes per frame. Warm submit/finish measured
+  approximately 15–18 ms with three full-plane dispatches, one frame fence and
+  four-byte error readback. It excludes new-frame preparation/import and colour
+  output; it is not a playback rate.
+
+Remaining before the first genuine playback test:
+
+1. Complete reusable borrowed decoded-surface import, preparation, reconstruction
+   and full-size Y/Cb/Cr texture orchestration. Preserve decoded references until
+   producers and GLES consumers finish; test rejection and cleanup paths.
+2. Connect that path to Kodi behind an explicit opt-in. Preserve exact integer
+   decoder timestamps and frame associations; disable old reconstruction for
+   reconstructed inputs, retain existing colour/output and explicit fallback.
+3. Build/install the candidate safely, then play 1917 or Saving Private Ryan.
+   Logs must establish that new-engine frames were actually presented, not just
+   that the old renderer successfully fell back.
 
 This checklist is a work plan, not a claim that a rendered candidate is ready
 or that the remaining work has a reliable calendar estimate.
