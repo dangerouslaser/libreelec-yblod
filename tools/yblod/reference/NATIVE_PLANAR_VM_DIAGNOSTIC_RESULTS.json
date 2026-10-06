@@ -1,0 +1,52 @@
+{
+  "schema": "yblod.native-planar-vm-diagnostic-results.v1",
+  "complete": true,
+  "evidence_source": "Root agent's completed bounded VM diagnostics",
+  "gpu": "Mesa Intel Iris Xe Graphics (TGL)",
+  "mesa_version": "26.2.4",
+  "common_resource_limits": {
+    "memory_limit_bytes": 536870912,
+    "swap_limit_bytes": 0,
+    "cpu_limit": 1,
+    "memory_events_all_zero": true,
+    "exit_code": 0
+  },
+  "validator": {
+    "complete": true,
+    "binary_sha256": "2cae4ce13480fcb7ea44ecc8b36a76b9583c09ba7ecdf3cad17e48f5b27a955b",
+    "exact_float_channel_values": 512,
+    "fixtures": 2,
+    "validation_passes": 10,
+    "memory_peak_bytes": 26726400
+  },
+  "sibling_bridge": {
+    "complete": true,
+    "binary_sha256": "d2149e9f2aaf6645115eea6a99370dc2edeb9cddf0908ba6dd4c8bdd34ee318d",
+    "exact_r16ui_samples": 96,
+    "successful_releases": 6,
+    "bindings_restored": true,
+    "fences_passed": true,
+    "three_simultaneous_imports": true,
+    "memory_peak_bytes": 30031872
+  },
+  "comparator": {
+    "suite": "test_compare_renderer_frames",
+    "python_version": "3.14.8",
+    "numpy_version": "2.3.5",
+    "official_numpy_wheel_sha256": "fffe29a1ef00883599d1dc2c51aa2e5d80afe49523c261a74933df395c15c520",
+    "tests_run": 10,
+    "tests_passed": 10,
+    "memory_peak_bytes": 28958720
+  },
+  "qualification": {
+    "synthetic_validator": true,
+    "synthetic_sibling_texture_preservation": true,
+    "vm_comparator_dependency_compatibility": true,
+    "actual_movie_capture_comparison": false,
+    "native_context_atomic_publication": false,
+    "whole_pipeline_pixel_accuracy": false,
+    "movie_playback": false,
+    "physical_hdmi_output": false,
+    "performance": false
+  }
+}
