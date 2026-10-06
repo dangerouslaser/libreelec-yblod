@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "scope": "Actual helper QSV-only persistent-normalizer strict compile/CPU contracts; no hardware decode or playback qualification",
+  "comparison_probe_binary_sha256": "39134b55bb9a99ef78bb7c2f6abf041b4a45d481ab1f531919b425e031b8b915",
+  "cpu_test_binary_sha256": "1369d5278dc98f1f3ef0e5864a725e10c6cc93b528638aff22ec520a151c8dcd",
+  "strict_sdk_compile_passed": true,
+  "cpu_contracts_passed": ["DefaultOFF bypasses normalizer and preserves copied decoder extradata", "Absent EL configuration clears copied BL headers while retaining length-parser filter", "Structural EL configuration is retained in decoder and survives reset", "Empty/missing required EL configuration parameter sets reject creation", "Normalization failure rejects before decoder submission", "Normalized queue entry reused across two decoder EAGAIN retries with no new filter calls or token commit", "Missing/invalid header masks reject bootstrap", "Reset clears accumulated inband headers; actual filter teardown executes"],
+  "structural_configuration_fixture_limit": "Synthetic VPS/SPS/PPS container fixture tests ownership/preservation, not valid SPS semantics; actual native parser must validate each EL picture and geometry before hardware submission",
+  "resources": {"memory_cap_bytes": 536870912, "peak_bytes": 24678400, "swap_cap_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "cpu": 1, "network": "none", "memory_events_all_zero": true, "terminal_gates_enforced": true},
+  "limits": ["No actual Piers helper or SDK build source changed", "Standalone fixed-helper raw comparison binary compiled but not yet run", "No raw EL sample, reconstructed output, metadata or performance equivalence demonstrated by CPU tests"]
+}

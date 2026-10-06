@@ -1,0 +1,163 @@
+diff --git a/tools/dvbridge/dvbridge_fel.c b/tools/dvbridge/dvbridge_fel.c
+index 685fa1a..2ee2d93 100644
+--- a/tools/dvbridge/dvbridge_fel.c
++++ b/tools/dvbridge/dvbridge_fel.c
+@@ -4,6 +4,7 @@
+ #include "dvbridge_fel_qsv_tokens.h"
+ #include <libavcodec/bsf.h>
+ #include <libavutil/hwcontext.h>
++#include <libavutil/intreadwrite.h>
+ #include <limits.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -48,6 +49,9 @@ static bool picture_identity(struct picture_order *order, const AVPacket *packet
+ 
+ struct dvbridge_fel {
+     AVBSFContext *split;
++    AVBSFContext *qsv_normalizer;
++    bool qsv_configuration_present;
++    unsigned qsv_inband_headers;
+     AVCodecContext *decoder;
+     AVPacket *packets[QUEUE_MAX];
+     AVFrame *frames[QUEUE_MAX];
+@@ -70,6 +74,31 @@ struct dvbridge_fel {
+     AVBufferRef *mapping_source, *mapping_frames;
+ };
+ 
++static unsigned qsv_parameter_headers(const AVPacket *packet)
++{
++    unsigned mask = 0;
++    for (int i = 0; i + 4 < packet->size; ++i) {
++        int header = -1;
++        if (!packet->data[i] && !packet->data[i+1] && !packet->data[i+2] && packet->data[i+3] == 1)
++            header = i + 4;
++        else if (!packet->data[i] && !packet->data[i+1] && packet->data[i+2] == 1)
++            header = i + 3;
++        if (header >= 0 && header + 1 < packet->size &&
++            !(packet->data[header] & 0x80) && (packet->data[header+1] & 7)) {
++            int type = (packet->data[header] >> 1) & 63;
++            if (type >= 32 && type <= 34)
++                mask |= 1u << (type - 32);
++        }
++    }
++    return mask;
++}
++
++static bool qsv_configuration_has_parameters(const AVCodecParameters *parameters)
++{
++    AVPacket packet = {.data = parameters->extradata, .size = parameters->extradata_size};
++    return packet.data && packet.size > 0 && qsv_parameter_headers(&packet) == 7;
++}
++
+ static enum AVPixelFormat hardware_format(AVCodecContext *ctx, const enum AVPixelFormat *formats)
+ {
+     /* QSV allocates its own hardware pool from the derived device. Never
+@@ -137,6 +166,9 @@ void dvbridge_fel_reset(struct dvbridge_fel *f)
+     }
+     if (f->split)
+         av_bsf_flush(f->split);
++    if (f->qsv_normalizer)
++        av_bsf_flush(f->qsv_normalizer);
++    f->qsv_inband_headers = 0;
+     if (f->opened)
+         avcodec_flush_buffers(f->decoder);
+ }
+@@ -153,6 +185,7 @@ void dvbridge_fel_destroy(struct dvbridge_fel *f)
+     avcodec_free_context(&f->decoder);
+     av_buffer_unref(&f->source_device);
+     av_bsf_free(&f->split);
++    av_bsf_free(&f->qsv_normalizer);
+     free(f);
+ }
+ 
+@@ -182,8 +215,29 @@ struct dvbridge_fel *dvbridge_fel_create(const AVCodecParameters *p, AVRational
+     f->split->time_base_in = time_base;
+     if (av_bsf_init(f->split) < 0)
+         goto fail;
++    const AVCodecParameters *decoder_parameters = f->split->par_out;
++    if (qsv) {
++        const AVPacketSideData *configuration = av_packet_side_data_get(p->coded_side_data,
++            p->nb_coded_side_data, AV_PKT_DATA_HEVC_CONF);
++        f->qsv_configuration_present = configuration && configuration->size >= 23;
++        if (av_bsf_alloc(av_bsf_get_by_name("hevc_mp4toannexb"), &f->qsv_normalizer) < 0 ||
++            avcodec_parameters_copy(f->qsv_normalizer->par_in, f->split->par_out) < 0)
++            goto fail;
++        f->qsv_normalizer->time_base_in = time_base;
++        if (av_bsf_init(f->qsv_normalizer) < 0)
++            goto fail;
++        if (f->qsv_configuration_present && !qsv_configuration_has_parameters(f->qsv_normalizer->par_out))
++            goto fail;
++        /* dovi_split keeps BL extradata when no separate EL configuration is
++         * supplied. Preserve its initialized length parser, not those BL SPS. */
++        if (!f->qsv_configuration_present) {
++            av_freep(&f->qsv_normalizer->par_out->extradata);
++            f->qsv_normalizer->par_out->extradata_size = 0;
++        }
++        decoder_parameters = f->qsv_normalizer->par_out;
++    }
+     f->decoder = avcodec_alloc_context3(codec);
+-    if (!f->decoder || avcodec_parameters_to_context(f->decoder, f->split->par_out) < 0)
++    if (!f->decoder || avcodec_parameters_to_context(f->decoder, decoder_parameters) < 0)
+         goto fail;
+     f->decoder->pkt_timebase = qsv ? (AVRational){1, 90000} : time_base;
+     f->decoder->get_format = hardware_format;
+@@ -191,7 +245,7 @@ struct dvbridge_fel *dvbridge_fel_create(const AVCodecParameters *p, AVRational
+     if (qsv)
+         f->decoder->extra_hw_frames = QUEUE_MAX + 4;
+     struct picture_order *orders[] = {&f->base_order, &f->enhancement_order};
+-    const AVCodecParameters *parameters[] = {p, f->split->par_out};
++    const AVCodecParameters *parameters[] = {p, decoder_parameters};
+     for (unsigned i = 0; i < 2; ++i) {
+         orders[i]->parser = av_parser_init(AV_CODEC_ID_HEVC);
+         orders[i]->context = avcodec_alloc_context3(NULL);
+@@ -398,6 +452,19 @@ bool dvbridge_fel_device(struct dvbridge_fel *f, AVBufferRef *device)
+ }
+ 
+ 
++static bool normalize_qsv_packet(struct dvbridge_fel *f, AVPacket *packet)
++{
++    if (!f->qsv)
++        return true;
++    if (!f->qsv_normalizer || av_bsf_send_packet(f->qsv_normalizer, packet) < 0 ||
++        av_bsf_receive_packet(f->qsv_normalizer, packet) < 0)
++        return false;
++    /* MP4-to-AnnexB is a non-buffering one-packet filter. Inspect only NAL
++     * headers; payloads, timestamp properties and picture order are retained. */
++    f->qsv_inband_headers |= qsv_parameter_headers(packet);
++    return true;
++}
++
+ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+ {
+     if (!f || !packet || f->failed || f->draining || packet->size <= 0 ||
+@@ -429,12 +496,19 @@ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+                 return pump(f);
+             goto fail;
+         }
+-        if (f->num_packets == QUEUE_MAX || copy->size <= 0 ||
++        if (!normalize_qsv_packet(f, copy) || f->num_packets == QUEUE_MAX || copy->size <= 0 ||
+             (size_t)copy->size > PACKET_BYTES_MAX - f->packet_bytes ||
+             !picture_identity(&f->enhancement_order, copy, &f->packet_order[f->num_packets])) {
+             av_packet_free(&copy);
+             goto fail;
+         }
++        /* The native HEVC parser validates the actual EL headers before any
++         * hardware submission; reject configuration/source geometry mismatch. */
++        if (f->qsv && (f->enhancement_order.parser->width != f->decoder->width ||
++                       f->enhancement_order.parser->height != f->decoder->height)) {
++            av_packet_free(&copy);
++            goto fail;
++        }
+         if (f->synchronizing) {
+             const AVCodecParserContext *bp = f->base_order.parser;
+             const AVCodecParserContext *ep = f->enhancement_order.parser;
+@@ -444,7 +518,8 @@ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+              * time. Never use this shortcut for a BL with reordered pictures. */
+             bool el_idr = ep->key_frame == 1 && ep->output_picture_number == 0 &&
+                           f->base_order.context->has_b_frames == 0;
+-            if (!common_key && !el_idr) {
++            bool bootstrap = !f->qsv || f->qsv_configuration_present || f->qsv_inband_headers == 7;
++            if ((!common_key && !el_idr) || !bootstrap) {
+                 av_packet_free(&copy);
+                 f->num_times = 0;
+                 if (++f->preroll_packets > 1024)
