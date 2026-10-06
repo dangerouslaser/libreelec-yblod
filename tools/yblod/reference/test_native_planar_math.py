@@ -17,6 +17,12 @@ def expand(samples, x, y):
 
 
 class PlanarMath(unittest.TestCase):
+    def test_gles_integer_sampler_precision_explicit(self):
+        root = Path(__file__).resolve().parents[3]
+        adapter = (root/'packages/mediacenter/kodi/patches/kodi-9999-yblod-17-native-planar-output.patch').read_text()
+        self.assertIn('float native_chroma(highp usampler2D plane,ivec2 p)', adapter)
+        self.assertNotIn('float native_chroma(usampler2D plane,ivec2 p)', adapter)
+
     def test_all_phases_extreme_and_neighbor_codes_exact(self):
         for samples in itertools.product((0, 1, 2047, 2048, 4094, 4095), repeat=4):
             for x, y in itertools.product((0, .5), (.25, .75)):

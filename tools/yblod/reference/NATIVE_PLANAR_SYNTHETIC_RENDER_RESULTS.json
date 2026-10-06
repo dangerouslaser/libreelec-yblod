@@ -1,0 +1,28 @@
+{
+  "scope": "Desktop OpenGL synthetic small-source RGBA32F component comparison including alpha, not movie playback or packed scanout",
+  "context_request": "OpenGL 4.5 core",
+  "actual_graphics_version": "4.6 (Core Profile) Mesa 26.2.4",
+  "gpu_renderer": "Mesa Intel(R) Graphics (RPL-S)",
+  "mesa_version": "26.2.4",
+  "libplacebo_version": "7.372.0",
+  "sequence": ["reconstructed_rgba32f", "native_planar", "reconstructed_rgba32f"],
+  "literal_bit_exact": true,
+  "cases": [
+    {"source_size": [4, 4], "compared_float_values": 128, "compared_packet_words": 256, "rejection_checks": 3},
+    {"source_size": [8, 12], "compared_float_values": 768, "compared_packet_words": 256, "rejection_checks": 3},
+    {"source_size": [60, 44], "compared_float_values": 21120, "compared_packet_words": 256, "rejection_checks": 3},
+    {"source_size": [64, 64], "compared_float_values": 32768, "compared_packet_words": 256, "rejection_checks": 3}
+  ],
+  "compared_float_values_total": 54784,
+  "compared_packet_words_total": 1024,
+  "rejection_checks_total": 12,
+  "cleanup_complete": true,
+  "limits": {"memory_bytes": 536870912, "extra_swap_bytes": 0, "cpus": 1, "network": "none"},
+  "memory_peak_bytes": 167624704,
+  "memory_max_events": 0,
+  "oom_events": 0,
+  "oom_kill_events": 0,
+  "swap_bytes": 0,
+  "probe_binary_sha256": "8a3bbe8a7b40e5c961df3fca1c109c8573c4fd3e980ca4417f9286d9048e03c3",
+  "cli_source_size_limit": [64, 64]
+}

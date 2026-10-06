@@ -1,0 +1,53 @@
+{
+  "schema": "yblod.native-planar-validator-ollie-checkpoint.v1",
+  "scope": "Tiny synthetic 4x4 and 8x6 validator tests on a second Intel GPU; not Kodi playback, performance, planar-colour or whole-pipeline qualification.",
+  "result": {
+    "schema": "yblod.gpu-ycc-validation-synthetic-probe.v1",
+    "complete": true,
+    "cleanup_complete": true,
+    "native_cpu_oracle_first": true,
+    "float_values_bit_exact_checked": 512,
+    "fixtures": 2,
+    "validation_passes": 10,
+    "range_rejections": 6,
+    "extent_rejections": 6,
+    "format_rejections": 6,
+    "wrong_finish_method_rejections": 10,
+    "allocation_reuse_checks": 4,
+    "existing_normal_range_rejections": 2,
+    "existing_normal_filter_rejections": 4,
+    "renderer": "Mesa Intel(R) Graphics (RPL-S)",
+    "gl_version": "4.6 (Core Profile) Mesa 26.2.4"
+  },
+  "device": "/dev/dri/renderD128",
+  "binary_sha256": "2cae4ce13480fcb7ea44ecc8b36a76b9583c09ba7ecdf3cad17e48f5b27a955b",
+  "compiled_backend_sha256": "f64259f1ad6ca24880fe3a889e944a0d1a2906c96f1118318321081a843212d3",
+  "compiled_probe_sha256": "623dd66c1a602793b0e44af8cbf60b9ec068da640fc1f618feb92adfedd0ea39",
+  "resources": {
+    "memory_max_bytes": 536870912,
+    "memory_swap_max_bytes": 0,
+    "cpu_max": "100000 100000",
+    "memory_peak_bytes": 24940544,
+    "memory_swap_current_bytes": 0,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    },
+    "network": "none",
+    "exit_code": 0,
+    "oom_killed": false
+  },
+  "setup_failures": {
+    "count": 3,
+    "all_before_gpu_cases": true,
+    "reason": "SDK container user lacked render-device supplementary group 109; adding that group only inside the isolated container resolved access."
+  },
+  "additional_diagnostic_pass": true,
+  "host_services_changed": false,
+  "vm_used": false
+}

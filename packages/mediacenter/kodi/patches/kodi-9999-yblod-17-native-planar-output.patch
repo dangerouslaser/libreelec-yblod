@@ -44,7 +44,7 @@
 +        .descriptors=descriptors,.num_descriptors=3,
 +        .description="native 4:2:0 exact expansion",
 +        .header=
-+            "float native_chroma(usampler2D plane,ivec2 p){\n"
++            "float native_chroma(highp usampler2D plane,ivec2 p){\n"
 +            "vec2 position=vec2(float(p.x)*0.5,(float(p.y)-0.5)*0.5);\n"
 +            "ivec2 first=ivec2(floor(position));vec2 fraction=position-vec2(first);\n"
 +            "ivec2 last=textureSize(plane,0)-ivec2(1);\n"

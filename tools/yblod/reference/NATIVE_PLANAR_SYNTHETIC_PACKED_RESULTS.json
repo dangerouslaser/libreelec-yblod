@@ -1,0 +1,40 @@
+{
+  "scope": "Desktop OpenGL generated 3840x2160 packed RGBA8 transport comparison, not movie playback or physical HDMI",
+  "context_request": "OpenGL 4.5 core",
+  "actual_graphics_version": "4.6 (Core Profile) Mesa 26.2.4",
+  "gpu_renderer": "Mesa Intel(R) Graphics (RPL-S)",
+  "mesa_version": "26.2.4",
+  "libplacebo_version": "7.372.0",
+  "source_size": [3840, 2160],
+  "sequence": ["reconstructed_rgba32f_packed", "native_planar_packed", "reconstructed_rgba32f_packed"],
+  "literal_bit_exact": true,
+  "all_transport_bytes_including_metadata_rows": true,
+  "compared_transport_bytes": 66355200,
+  "compared_candidate_packet_words": 256,
+  "rejection_checks": 2,
+  "target_flip_y": true,
+  "ipt_offsets": [-5.07, -7.94, 3.62],
+  "active_area_margins_left_right_top_bottom": [31, 42, 17, 30],
+  "cleanup_complete": true,
+  "limits": {"memory_bytes": 536870912, "extra_swap_bytes": 0, "cpus": 1, "network": "none"},
+  "initial_probe": {
+    "literal_bit_exact": true,
+    "memory_peak_bytes": 536870912,
+    "memory_max_events": 11,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "swap_bytes": 0,
+    "probe_binary_sha256": "4cde3d3b72a5f86f3a5ebf1d8aec4484644a6f0da2c225f8a1f769e5ae767e8a"
+  },
+  "final_probe": {
+    "diagnostic_only_change": "Drain GPU upload work every 64 rows and after all uploads; playback pipeline unchanged",
+    "literal_bit_exact": true,
+    "memory_peak_bytes": 406188032,
+    "memory_max_events": 0,
+    "oom_events": 0,
+    "oom_kill_events": 0,
+    "swap_bytes": 0,
+    "probe_binary_sha256": "242449306e649eeef272b4ae9a916c50def80174edddf974cd6544d4335e2e69"
+  },
+  "performance_claim": false
+}
