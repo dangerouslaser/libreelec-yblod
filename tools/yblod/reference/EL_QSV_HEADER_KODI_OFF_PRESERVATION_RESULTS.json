@@ -1,0 +1,38 @@
+{
+  "schema": "yblod-el-qsv-header-kodi-off-preservation-v1",
+  "pass": true,
+  "movie": "Saving Private Ryan",
+  "seek_seconds": 1200,
+  "before_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "after_binary_sha256": "9615b6b660bbb295b5200c3960e19dd716131c010065697cdd360c4a291e581b",
+  "scope": "Three-frame new-candidate QSV-OFF preservation against retained current playback output. Not QSV-ON playback, whole-film conformance, HDMI display accuracy or performance qualification.",
+  "routes": {"native": 1, "native_planar": 1, "direct_packed": 1, "batched_planes": 0, "immutable_instructions": 0, "el_decoder_qsv": 0, "el_qsv_map_sequence": 0, "el_qsv_native_used": 0},
+  "identity": {
+    "actual_candidate_process_identity_same_before_after": true,
+    "actual_isolated_ffmpeg_and_vpl_maps_verified_each_frame": true,
+    "independent_target_identity_matches_baseline": true,
+    "source_stat_identity_unchanged": true,
+    "source_identity_limit": "Private file device/inode/size/mtime state and exact captured BL/EL timestamps/RPU were checked. No whole-film immutable-content hash is claimed.",
+    "subtitles_temporarily_disabled_and_restored": true
+  },
+  "frames": [
+    {"frame": 1, "source_bl_pts_microseconds": 1210000000, "source_el_pts_microseconds": 1210000000, "source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_equal": false, "differing_tunnel_rgb_bytes": 48, "maximum_absolute_12bit_codes": {"I": 0, "P": 0, "T": 0}, "exact_picture_percent": {"I": 100, "P": 100, "T": 100}},
+    {"frame": 2, "source_bl_pts_microseconds": 1220010000, "source_el_pts_microseconds": 1220010000, "source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_equal": false, "differing_tunnel_rgb_bytes": 120, "maximum_absolute_12bit_codes": {"I": 0, "P": 0, "T": 0}, "exact_picture_percent": {"I": 100, "P": 100, "T": 100}},
+    {"frame": 3, "source_bl_pts_microseconds": 1230020000, "source_el_pts_microseconds": 1230020000, "source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_equal": false, "differing_tunnel_rgb_bytes": 120, "maximum_absolute_12bit_codes": {"I": 0, "P": 0, "T": 0}, "exact_picture_percent": {"I": 100, "P": 100, "T": 100}}
+  ],
+  "comparison": {
+    "picture_codes_per_frame": {"I": 8279040, "P": 4139520, "T": 4139520},
+    "full_raster_semantic_preservation_gate": true,
+    "transport_difference_scope": "Only validated repeated metadata-packet update IDs and their CRC bits differ. Complete payload/header semantics and all other raster bits are exact; alpha is excluded. No scene-refresh or picture tolerance was permitted.",
+    "memory_limit_bytes": 536870912,
+    "cpu_limit": 1,
+    "peak_memory_bytes": 78553088,
+    "memory_events_all_zero": true,
+    "swap_limit_bytes": 0,
+    "swap_current_bytes": 0,
+    "swap_peak_bytes": 0
+  },
+  "capture": {"elapsed_seconds": 71.94788875899394, "memory_limit_bytes": 536870912, "cpu_limit": 1, "peak_memory_bytes": 20230144, "memory_events_all_zero": true, "swap_limit_bytes": 0, "swap_current_bytes": 0, "swap_peak_bytes": 0, "owned_argv_pid_generation_cgroup_and_invocation_admitted": true, "main_exit_status": 0, "owned_unit_terminal": true},
+  "rollback": {"original_top_source_and_mount_layer_count_restored": true, "original_override_bytes_restored": true, "retained_19379_binary_restored": true, "original_runtime_maps_restored": true, "subtitles_restored": true, "retained_idle": true},
+  "limitations": "Captures diagnose engine output; they do not measure sustained playback health, CPU/GPU utilization or successful display restoration. Existing qualified captures and rollback artifacts were preserved."
+}
