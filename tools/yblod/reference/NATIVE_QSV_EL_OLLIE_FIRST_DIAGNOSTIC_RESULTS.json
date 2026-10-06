@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "scope": "First Ollie Intel UHD770 Raptor Lake EL diagnostic only; not Petunia Tiger Lake, Kodi output or performance qualification",
+  "source_commit": "957747ae21",
+  "probe_binary_sha256": "7e503d456fd7d03d7f19d28fc4bd0b9fc9ac0a3d8c337d8c50397d3c0d345de4",
+  "exit_code": 1,
+  "oom_killed": false,
+  "aborted": false,
+  "frame_report_emitted": false,
+  "raw_el_equality_qualified": false,
+  "runtime_identity_qualified": false,
+  "failure_stage": "Unlocalized silent diagnostic/helper validation; no decoder diagnostic messages",
+  "guards": {
+    "code_runtime_file_fingerprints_unchanged": true,
+    "private_input_stat_identity_unchanged": true,
+    "baseline_driver_expected": true,
+    "kodi_idle_before_and_after": true,
+    "kodi_active_player_monitor_interval_seconds": 1,
+    "wall_timeout_seconds": 180
+  },
+  "resources": {
+    "memory_limit_bytes": 536870912,
+    "memory_peak_bytes": 110886912,
+    "swap_limit_bytes": 0,
+    "swap_peak_bytes": 0,
+    "cpu_limit": 1,
+    "network": "none",
+    "memory_events": {"low": 0, "high": 0, "max": 0, "oom": 0, "oom_kill": 0, "oom_group_kill": 0, "sock_throttled": 0}
+  },
+  "limitations": ["Stat identity is not a media-content immutability proof", "Failure produced no per-frame equality evidence", "No Kodi or VM configuration changed", "Private diagnostics and input identities retained locally, not published"]
+}

@@ -92,6 +92,10 @@ int main(void)
     assert(setenv("EXPECTED_CPU_MAP", "/not-present-sdk-library", 1) == 0);
     assert(!loaded_exact("EXPECTED_CPU_MAP", "libavutil.so."));
     assert(!sdk_runtime_loaded()); /* No GPU implementation or driver loaded. */
+    record_frame(a);
+    failure_stage = "cpu_fixture";
+    failure_route = 0;
+    assert(diagnostic_failure(0) == 0); /* Formatter checked by host JSON parser. */
     av_frame_free(&a);
     av_frame_free(&b);
     puts("CPU-only geometry/bounds/properties/source-stat/Kodi-timestamp contracts PASS");
