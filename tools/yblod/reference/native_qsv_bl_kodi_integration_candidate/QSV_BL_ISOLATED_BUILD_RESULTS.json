@@ -1,0 +1,94 @@
+{
+  "schema": "yblod.qsv-bl-isolated-build-results.v1",
+  "build_completed": true,
+  "runtime_qualified": false,
+  "sdk_sources_unchanged": true,
+  "configuration_sha256": {
+    "ffbuild/config.mak": "accdbb733dfd890d3b8e567104d4c1fde0bfd48a5e23596dfe226b278a0d16c6",
+    "config.h": "bb8dbe51fe7071fd4e7f2e3adb2b749c69b69eff1149fda54f42aa9dae93f652",
+    "config_components.h": "29b975a2643e3c3c48526f5991b62f8ab4e29b9935474d43d13f4d7a6206da4c"
+  },
+  "native_source_and_abi_sha256": {
+    "libavcodec/hevc/hevcdec.c": "8bedbfeffb2ca42a32d4d2f231ec1b14d27ab1e607975369dbe7ec654baa9b74",
+    "libavcodec/hevc/parser.c": "0876fd1038b5e91130b9f15fe834e4d3db212ee4985fcd35b6b227faaba1dc3d",
+    "libavcodec/dovi_rpudec.c": "6fc14110e0ad8ccc0359ebc09fae9b8a3bfe3bf3e09e838384cc5ef5b0f27df8",
+    "libavcodec/dovi_rpu.c": "3979e6d60c35510f8e8275497d5f2980e794ac126452d1b5c1cb6e9e8e18e177",
+    "libavcodec/h2645_parse.c": "6a4cade0f22e2320db8f958df87d4af24f6e2f9b84d0fc70802e1012d27f6fac",
+    "libavcodec/vaapi_hevc.c": "bf466e4aa11b9251b26232e595506edc055db7be8655f58716638d7b20133975",
+    "libavcodec/version_major.h": "4ce6f0974cff7069900045ee551001bb57902a2f5ec0b5f538fbc1e4e9f6aa83",
+    "libavutil/version.h": "9173c3eae6d2a81d5db376784431768b37f436bfb42c00d70abc99d34d8ddbac",
+    "libavformat/version_major.h": "436db6c1b56db87e83682639fd0285e8b0138acc4fb572868c70a690eda7bb5e",
+    "libavfilter/version_major.h": "1e25372ff02d13346c534159d48d965e67cee1caa63400dc5074e76fe0bdb222"
+  },
+  "libraries": {
+    "libavcodec/libavcodec.so.63": {
+      "sha256": "b054d49b1206e35f240a57fad0a1492ded333b5c6431d42906ac541ced67d0e4",
+      "bytes": 18839480
+    },
+    "libavdevice/libavdevice.so.63": {
+      "sha256": "001b2440448fa8dbf15922f8fe1101d38c5dce9d5032085c3bffc97ff6883fc1",
+      "bytes": 22456
+    },
+    "libavfilter/libavfilter.so.12": {
+      "sha256": "dd8c0733d9767fa9447a6ee0a09f7676016aff97ff8108cf608117dc9db21a18",
+      "bytes": 6892552
+    },
+    "libavformat/libavformat.so.63": {
+      "sha256": "6f828067d64d53dd0913e7a1ce6fb09da531e882ff344c90e9c6e74d2aa88264",
+      "bytes": 2820480
+    },
+    "libavutil/libavutil.so.61": {
+      "sha256": "8b3dde1845c399463c55c8740060f18b2f223db69ed48dc262aad89c1b272d78",
+      "bytes": 1203576
+    },
+    "libpostproc/libpostproc.so.59": {
+      "sha256": "e1b69e7b729875c9efc8c6b94b16e6075468276ca2dcbd8c6020c51f14d4732b",
+      "bytes": 96744
+    },
+    "libswresample/libswresample.so.7": {
+      "sha256": "4397adfa4442cfbf09122d7c2e3129ee7707d8838ba46ec1b5ac1c08186d6587",
+      "bytes": 200312
+    },
+    "libswscale/libswscale.so.10": {
+      "sha256": "89337b56de5969a2f5da2da55b26ef907c523158fee7542b61af091d9d80c31e",
+      "bytes": 2303848
+    }
+  },
+  "ltrans_workers_max_observed": 1,
+  "resources": {
+    "memory_peak_bytes": 589225984,
+    "memory_events": {
+      "low": 0,
+      "high": 0,
+      "max": 0,
+      "oom": 0,
+      "oom_kill": 0,
+      "oom_group_kill": 0,
+      "sock_throttled": 0
+    },
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0
+  },
+  "image": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "limits": {
+    "memory_max_bytes": 4294967296,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "sdk_mount_read_only": true,
+    "gpu_devices_mounted": false
+  },
+  "terminal": {
+    "exit_code": 0,
+    "oom_killed": false,
+    "exact_container_identity_verified": true,
+    "immutable_image_verified": true,
+    "exact_mounts_verified": true
+  },
+  "source_commit": "e9fa91b09e",
+  "notes": [
+    "This is an isolated shared-library build, not hardware decode, movie playback, pixel accuracy or performance qualification.",
+    "SDK sources and libraries were not replaced; original native decoder/parser sources and ABI headers match the source SDK.",
+    "Configuration and source guards were identical before and after make; all original enabled configuration macros were preserved."
+  ]
+}
