@@ -1,0 +1,518 @@
+{
+  "schema": "yblod.fp32-workgroup-diagnostic.v1",
+  "resolution": [
+    3840,
+    2160
+  ],
+  "output_depth": 12,
+  "input": "one private frame; no frame data, metadata or hashes published",
+  "renderer": "Intel Iris Xe TGL GT2 / Mesa 26.2.4",
+  "timing_scope": "resident-input three-dispatch submit+finish wall time, not exclusive GPU kernel time",
+  "sequence": [
+    "1-8x8",
+    "2-16x8",
+    "3-16x16",
+    "4-16x16",
+    "5-16x8",
+    "6-8x8"
+  ],
+  "runs": [
+    {
+      "run": "1-8x8",
+      "geometry": "8x8",
+      "wall_ns": [
+        33740246,
+        21973554,
+        9148994,
+        34730813,
+        22771579,
+        9199641,
+        33918701,
+        22260246,
+        8935821,
+        33943366,
+        34019196,
+        21595033
+      ],
+      "cpu_ns": [
+        335071,
+        274143,
+        148145,
+        197440,
+        355229,
+        170619,
+        245265,
+        306639,
+        151034,
+        185316,
+        302837,
+        260960
+      ],
+      "median_wall_ms": 22.5159125,
+      "minimum_wall_ms": 8.935821,
+      "maximum_wall_ms": 34.730813,
+      "accuracy_vs_integer_cpu": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 6176,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2750,
+          "squared_error_sum": 6176,
+          "mean_bias": 0.001326195987654321,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3737,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -105,
+          "squared_error_sum": 3737,
+          "mean_bias": -5.063657407407407e-05,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true
+    },
+    {
+      "run": "2-16x8",
+      "geometry": "16x8",
+      "wall_ns": [
+        9157023,
+        47370104,
+        34367475,
+        34587455,
+        33980106,
+        33851288,
+        33659694,
+        46534880,
+        34012319,
+        34478766,
+        34292446,
+        34121354
+      ],
+      "cpu_ns": [
+        314184,
+        476152,
+        256585,
+        420778,
+        343794,
+        131045,
+        176647,
+        321754,
+        185680,
+        482181,
+        300101,
+        377117
+      ],
+      "median_wall_ms": 34.2069,
+      "minimum_wall_ms": 9.157023,
+      "maximum_wall_ms": 47.370104,
+      "accuracy_vs_integer_cpu": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 6176,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2750,
+          "squared_error_sum": 6176,
+          "mean_bias": 0.001326195987654321,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3737,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -105,
+          "squared_error_sum": 3737,
+          "mean_bias": -5.063657407407407e-05,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true
+    },
+    {
+      "run": "3-16x16",
+      "geometry": "16x16",
+      "wall_ns": [
+        34686571,
+        8934577,
+        9306245,
+        34019290,
+        45669350,
+        34015931,
+        34313604,
+        33796671,
+        33897031,
+        46293024,
+        21613357,
+        46621344
+      ],
+      "cpu_ns": [
+        287185,
+        256873,
+        317932,
+        361097,
+        278359,
+        344902,
+        515605,
+        382902,
+        329390,
+        324918,
+        210371,
+        276485
+      ],
+      "median_wall_ms": 34.0176105,
+      "minimum_wall_ms": 8.934577,
+      "maximum_wall_ms": 46.621344,
+      "accuracy_vs_integer_cpu": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 6176,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2750,
+          "squared_error_sum": 6176,
+          "mean_bias": 0.001326195987654321,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3737,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -105,
+          "squared_error_sum": 3737,
+          "mean_bias": -5.063657407407407e-05,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true
+    },
+    {
+      "run": "4-16x16",
+      "geometry": "16x16",
+      "wall_ns": [
+        33997326,
+        49501599,
+        34358531,
+        34044603,
+        34133786,
+        48224157,
+        46656118,
+        35578462,
+        34682108,
+        34768223,
+        47714817,
+        8864929
+      ],
+      "cpu_ns": [
+        290552,
+        230536,
+        164973,
+        208451,
+        132798,
+        215714,
+        149101,
+        148826,
+        175192,
+        315039,
+        328417,
+        191064
+      ],
+      "median_wall_ms": 34.7251655,
+      "minimum_wall_ms": 8.864929,
+      "maximum_wall_ms": 49.501599,
+      "accuracy_vs_integer_cpu": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 6176,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2750,
+          "squared_error_sum": 6176,
+          "mean_bias": 0.001326195987654321,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3737,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -105,
+          "squared_error_sum": 3737,
+          "mean_bias": -5.063657407407407e-05,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true
+    },
+    {
+      "run": "5-16x8",
+      "geometry": "16x8",
+      "wall_ns": [
+        9042609,
+        24889824,
+        8999045,
+        24897689,
+        9064038,
+        25044386,
+        25468393,
+        9013746,
+        25265059,
+        9165819,
+        25012482,
+        9042589
+      ],
+      "cpu_ns": [
+        329483,
+        259657,
+        145831,
+        207415,
+        296757,
+        246609,
+        146691,
+        149048,
+        190456,
+        202019,
+        278706,
+        286265
+      ],
+      "median_wall_ms": 17.0278215,
+      "minimum_wall_ms": 8.999045,
+      "maximum_wall_ms": 25.468393,
+      "accuracy_vs_integer_cpu": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 6176,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2750,
+          "squared_error_sum": 6176,
+          "mean_bias": 0.001326195987654321,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3737,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -105,
+          "squared_error_sum": 3737,
+          "mean_bias": -5.063657407407407e-05,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true
+    },
+    {
+      "run": "6-8x8",
+      "geometry": "8x8",
+      "wall_ns": [
+        21473958,
+        45677040,
+        22260011,
+        8940212,
+        35452949,
+        33721222,
+        34250015,
+        34375238,
+        33791317,
+        33671450,
+        34542433,
+        46487920
+      ],
+      "cpu_ns": [
+        218062,
+        289674,
+        304460,
+        285606,
+        277041,
+        144253,
+        195300,
+        343956,
+        253461,
+        247242,
+        402285,
+        315864
+      ],
+      "median_wall_ms": 34.020666,
+      "minimum_wall_ms": 8.940212,
+      "maximum_wall_ms": 46.48792,
+      "accuracy_vs_integer_cpu": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 6176,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2750,
+          "squared_error_sum": 6176,
+          "mean_bias": 0.001326195987654321,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3737,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -105,
+          "squared_error_sum": 3737,
+          "mean_bias": -5.063657407407407e-05,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true
+    }
+  ],
+  "pooled": {
+    "8x8": {
+      "samples": 24,
+      "median_wall_ms": 33.730734,
+      "minimum_wall_ms": 8.935821,
+      "maximum_wall_ms": 46.48792
+    },
+    "16x8": {
+      "samples": 24,
+      "median_wall_ms": 25.366726,
+      "minimum_wall_ms": 8.999045,
+      "maximum_wall_ms": 47.370104
+    },
+    "16x16": {
+      "samples": 24,
+      "median_wall_ms": 34.3360675,
+      "minimum_wall_ms": 8.864929,
+      "maximum_wall_ms": 49.501599
+    }
+  },
+  "exact_output_equality_all_workgroups": true,
+  "exact_output_equality_evidence": "full output files privately hashed, all six equal",
+  "cpu_throttling": {
+    "3-16x16": {
+      "nr_throttled": 2,
+      "throttled_usec": 99694
+    },
+    "other_runs": "zero throttling; cumulative full-job counters, not timed-only"
+  },
+  "confounds": [
+    "Kodi running with connected 4K60 display",
+    "slideshow screensaver activation logged; contention suspected, not isolated",
+    "frequency snapshots vary; no controlled frequency lock"
+  ],
+  "decision": "Keep 8x8. Timing jitter is large; no reliable workgroup improvement established."
+}
