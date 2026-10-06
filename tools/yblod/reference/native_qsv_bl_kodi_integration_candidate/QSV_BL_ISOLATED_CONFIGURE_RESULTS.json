@@ -1,0 +1,59 @@
+{
+  "schema": "yblod.qsv-bl-isolated-configure.v1",
+  "configuration_completed": true,
+  "build_completed": false,
+  "runtime_qualified": false,
+  "sdk_sources_unchanged": true,
+  "all_original_enabled_configuration_macros_preserved": true,
+  "assembly_preserved": true,
+  "last_effective_cflags_and_ldflags_lto_workers": 1,
+  "source_sha256": {
+    "configure": "7abcd38af3a96b29f440e969dd8ac369ecfbbdec17f3a664e287c74874e3dba5",
+    "libavcodec/qsvdec.c": "bd88929d56c2105d1f9987c23b343c4b8fd468105b0b319061a105f885217226",
+    "libavcodec/qsv_dovi.h": "c7a409ec09971a745fbba8b5d87e14e770d501e8ef8f57a232029415f8254293"
+  },
+  "patch_sha256": {
+    "qsv-bl-metadata-source-only.patch": "ef079ad0f9ac273babbbad1db7a74e42c8bcf75b64b5c84adb20b013bcec009f",
+    "qsv-bl-metadata-real-init-fix.patch": "eaa6a505e8ab852eb42262ff12fc7d22a7146163a7d22cf563ec1f8e3d67795a"
+  },
+  "configuration_sha256": {
+    "ffbuild/config.mak": "accdbb733dfd890d3b8e567104d4c1fde0bfd48a5e23596dfe226b278a0d16c6",
+    "config.h": "bb8dbe51fe7071fd4e7f2e3adb2b749c69b69eff1149fda54f42aa9dae93f652",
+    "config_components.h": "29b975a2643e3c3c48526f5991b62f8ab4e29b9935474d43d13f4d7a6206da4c"
+  },
+  "native_reference_sources_unchanged": true,
+  "native_reference_source_sha256": {
+    "libavcodec/hevc/hevcdec.c": "8bedbfeffb2ca42a32d4d2f231ec1b14d27ab1e607975369dbe7ec654baa9b74",
+    "libavcodec/hevc/parser.c": "0876fd1038b5e91130b9f15fe834e4d3db212ee4985fcd35b6b227faaba1dc3d",
+    "libavcodec/dovi_rpudec.c": "6fc14110e0ad8ccc0359ebc09fae9b8a3bfe3bf3e09e838384cc5ef5b0f27df8",
+    "libavcodec/dovi_rpu.c": "3979e6d60c35510f8e8275497d5f2980e794ac126452d1b5c1cb6e9e8e18e177",
+    "libavcodec/h2645_parse.c": "6a4cade0f22e2320db8f958df87d4af24f6e2f9b84d0fc70802e1012d27f6fac",
+    "libavcodec/vaapi_hevc.c": "bf466e4aa11b9251b26232e595506edc055db7be8655f58716638d7b20133975"
+  },
+  "limits": {
+    "memory_max_bytes": 4294967296,
+    "memory_swap_max_bytes": 0,
+    "cpu_max_cores": 1,
+    "network": "none",
+    "gpu_devices_mounted": false,
+    "sdk_mount_read_only": true
+  },
+  "resources": {
+    "memory_peak_bytes": 217227264,
+    "all_memory_events_zero": true,
+    "memory_swap_current_bytes": 0,
+    "memory_swap_peak_bytes": 0,
+    "exit_code": 0,
+    "oom_killed": false
+  },
+  "prior_attempts": [
+    {"stage": "configure", "passed": false, "cause": "SDK assembler PATH missing", "memory_peak_bytes": 71299072, "all_memory_events_zero": true, "swap_peak_bytes": 0},
+    {"stage": "configure", "passed": false, "cause": "Target pkg-config environment missing", "memory_peak_bytes": 177971200, "all_memory_events_zero": true, "swap_peak_bytes": 0}
+  ],
+  "image": "sha256:40b586615eae489cab72f139f659b81360da4c9e0b0787fadc5cba0119d9b29e",
+  "notes": [
+    "Only source copying and configuration ran. No make, install, SDK replacement or hardware decoding occurred.",
+    "The standard LibreELEC target environment was reproduced; cached features were not disabled to bypass failed dependency checks.",
+    "Previous private failed copies and logs were retained."
+  ]
+}
