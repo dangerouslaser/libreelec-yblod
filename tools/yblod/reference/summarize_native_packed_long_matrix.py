@@ -6,12 +6,12 @@ from pathlib import Path
 import re
 
 from run_colour_import_matrix import CRASH, NATIVE_FAILURE
-from run_native_packed_matrix import validate_packed_report
+from run_native_packed_long_matrix import validate_long_report
 from summarize_long_playback import summarize
 from summarize_native_packed_matrix import SHUTDOWN, pool, qualify_stage_window, raw_health_summary
 
 
-def aggregate(root, binary_hash, movie_id, title, seconds=600, seek_seconds=1200):
+def aggregate(root, binary_hash, movie_id, title, seconds=600, seek_seconds=1200, allow_mixed=False):
     if (not re.fullmatch(r'[a-f0-9]{64}', binary_hash) or
             {51: '1917', 3391: 'Saving Private Ryan'}.get(movie_id) != title or
             not 300 <= seconds <= 900 or not 0 <= seek_seconds <= 14400):
@@ -31,7 +31,7 @@ def aggregate(root, binary_hash, movie_id, title, seconds=600, seek_seconds=1200
         if not isinstance(elapsed, (float, int)) or not math.isfinite(elapsed) or elapsed < seconds:
             raise ValueError('Observer did not cover the requested long duration')
         stopped = json.loads((root/(stem+'.json.stop.json')).read_text())
-        qualification = validate_packed_report(raw, stopped, flag, binary_hash)
+        qualification = validate_long_report(raw, stopped, flag, binary_hash, allow_mixed)
         journal = (root/(stem+'.journal.log')).read_text()
         kodi = (root/(stem+'.kodi.log')).read_text()
         shutdown = json.loads((root/(stem+'.shutdown.json')).read_text())
@@ -63,16 +63,24 @@ def aggregate(root, binary_hash, movie_id, title, seconds=600, seek_seconds=1200
     if any(set(row['gpu']['time_weighted_busy_percent']) !=
            set(cases[0]['gpu']['time_weighted_busy_percent']) for row in cases):
         raise ValueError('GPU engine sets differ across the matrix')
+    pooled = {flag: pool(cases, flag) for flag in (0, 1)}
+    for flag in (0, 1):
+        counts = {key: sum(row['qualification']['packed_output']['interval_delta'][key]
+                  for row in cases if row['packed_output_flag'] == flag)
+                  for key in ('prepared', 'direct', 'composed')}
+        counts['direct_percent'] = 100*counts['direct']/counts['prepared']
+        pooled[flag]['renderer_preparation_routes'] = counts
     return dict(schema='yblod.native-packed-long-playback-comparison.v1',
                 content=title, movie_id=movie_id, seek_seconds=seek_seconds, seconds_per_case=seconds,
                 matrix=[0, 1, 1, 0], same_installed_binary=True, binary_sha256=binary_hash,
-                before=pool(cases, 0), after=pool(cases, 1), cases=cases,
+                mixed_routes_allowed=allow_mixed, before=pooled[0], after=pooled[1], cases=cases,
                 scopes=['Native FP32/LUT, metadata-only handoff and release-RGB colour math in both conditions.',
                         'Exact frame preservation is separately qualified, not established by playback counters.',
                         'GPU is time-weighted deduplicated Kodi DRM client activity; CPU is all Kodi threads normalized to one core.',
                         'Helper timing is cumulative-sum subtraction weighted by released operations, not latency percentiles or HDMI flips.',
                         'Raw startup/seek drop/skip maxima remain separate from steady-window deltas.',
                         'Whole-service memory snapshots/peaks are not engine-only usage.',
+                        'Actual packed/composed preparation exposure is reported; mixed-mode performance is whole playback, not exclusive packed shader work, and route counts do not prove subtitle causation.',
                         'Readback capture logs are rejected; requested duration, source progress and all four clean lifecycles must qualify.'])
 
 
@@ -84,6 +92,9 @@ if __name__ == '__main__':
     parser.add_argument('--expected-title', required=True)
     parser.add_argument('--seconds', type=int, default=600)
     parser.add_argument('--seek-seconds', type=int, default=1200)
+    parser.add_argument('--allow-mixed-overlay-routes', action='store_true',
+                        help='Explicit mixed-route qualification; no attribution to visible subtitle cues.')
     args = parser.parse_args()
     print(json.dumps(aggregate(args.root, args.binary_sha256, args.movie_id,
-                              args.expected_title, args.seconds, args.seek_seconds), indent=2, allow_nan=False))
+                              args.expected_title, args.seconds, args.seek_seconds,
+                              args.allow_mixed_overlay_routes), indent=2, allow_nan=False))

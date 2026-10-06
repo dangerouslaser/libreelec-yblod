@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import run_native_packed_long_matrix as module
 from run_native_packed_matrix import validate_packed_report
-from test_native_packed_matrix import frame_qualification
+from test_native_packed_matrix import frame_qualification, full_report
 
 
 class Tests(unittest.TestCase):
@@ -71,6 +71,31 @@ class Tests(unittest.TestCase):
             self.assertEqual(label, 'native-packed-long-movie51')
             self.assertIs(validator, validate_packed_report)
             self.assertEqual(describe(1), 'native-fp32-lut release-rgb packed_output=1')
+
+    def test_mixed_routes_require_explicit_mode_and_packed_work(self):
+        report, stopped = full_report(1)
+        report['selected_log_lines'] = [line.replace('direct=460 composed=20', 'direct=400 composed=80')
+                                         for line in report['selected_log_lines']]
+        with self.assertRaises(ValueError):
+            module.validate_long_report(report, stopped, 1, '0'*64)
+        result = module.validate_long_report(report, stopped, 1, '0'*64, True)['packed_output']
+        self.assertEqual(result['interval_delta']['direct'], 300)
+        self.assertEqual(result['interval_delta']['composed'], 60)
+        self.assertTrue(result['mixed_routes_observed'])
+        for change in ('direct=100 composed=380', 'direct=99 composed=381'):
+            changed = copy.deepcopy(report)
+            changed['selected_log_lines'] = [line.replace('direct=400 composed=80', change)
+                                             for line in changed['selected_log_lines']]
+            with self.assertRaises(ValueError):
+                module.validate_long_report(changed, stopped, 1, '0'*64, True)
+        report['selected_log_lines'].append('DVBridge native packed output failed; using composition')
+        with self.assertRaises(ValueError):
+            module.validate_long_report(report, stopped, 1, '0'*64, True)
+
+    def test_mixed_mode_control_still_disallows_any_direct_work(self):
+        report, stopped = full_report(1)
+        with self.assertRaises(ValueError):
+            module.validate_long_report(report, stopped, 0, '0'*64, True)
 
 
 if __name__ == '__main__':

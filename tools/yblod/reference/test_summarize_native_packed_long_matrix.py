@@ -91,6 +91,24 @@ class Tests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 aggregate(root, '0'*64, 51, '1917')
 
+    def test_explicit_mixed_route_summary_reports_actual_exposure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_long_matrix(root)
+            for order in (2, 3):
+                path = root/f'native-packed-long-movie51-{order}-flag1.json'
+                raw = json.loads(path.read_text())
+                raw['selected_log_lines'] = [line.replace('direct=460 composed=20', 'direct=400 composed=80')
+                                             for line in raw['selected_log_lines']]
+                path.write_text(json.dumps(raw))
+            with self.assertRaises(ValueError):
+                aggregate(root, '0'*64, 51, '1917')
+            result = aggregate(root, '0'*64, 51, '1917', allow_mixed=True)
+            self.assertTrue(result['mixed_routes_allowed'])
+            exposure = result['after']['renderer_preparation_routes']
+            self.assertEqual((exposure['direct'], exposure['composed'], exposure['prepared']), (600, 120, 720))
+            self.assertAlmostEqual(exposure['direct_percent'], 100*600/720)
+
 
 if __name__ == '__main__':
     unittest.main()
