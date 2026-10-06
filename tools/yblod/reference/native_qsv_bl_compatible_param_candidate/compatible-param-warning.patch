@@ -1,0 +1,56 @@
+--- a/libavcodec/qsvdec.c
++++ b/libavcodec/qsvdec.c
+@@ -840,6 +840,43 @@
+         return qsv_dovi_poison(q);
+     q->dovi_submitted = 0;
+     av_freep(&q->dovi_untracked_sync);
++    return 0;
++}
++
++static int qsv_dovi_validate_param_warning(AVCodecContext *avctx, QSVContext *q)
++{
++    mfxVideoParam param = { 0 };
++    const mfxFrameInfo *info = &param.mfx.FrameInfo;
++    const mfxFrameInfo *old = &q->frame_info;
++    const AVHWFramesContext *frames;
++
++    if (!q->initialized || !q->session || q->session != q->internal_qs.session ||
++        q->pool || !avctx->hw_frames_ctx || !avctx->hw_frames_ctx->data ||
++        !q->frames_ctx.hw_frames_ctx ||
++        q->frames_ctx.hw_frames_ctx->data != avctx->hw_frames_ctx->data ||
++        !q->dovi_device_ref || !avctx->hw_device_ctx ||
++        q->dovi_device_ref->data != avctx->hw_device_ctx->data)
++        return AVERROR_INVALIDDATA;
++    frames = (const AVHWFramesContext *)avctx->hw_frames_ctx->data;
++    if (frames->format != AV_PIX_FMT_QSV || frames->sw_format != AV_PIX_FMT_P010 ||
++        !frames->device_ref || frames->device_ref->data != q->dovi_device_ref->data)
++        return AVERROR_INVALIDDATA;
++    if (MFXVideoDECODE_GetVideoParam(q->session, &param) != MFX_ERR_NONE)
++        return AVERROR_INVALIDDATA;
++    if (param.mfx.CodecId != MFX_CODEC_HEVC ||
++        param.IOPattern != MFX_IOPATTERN_OUT_VIDEO_MEMORY ||
++        q->iopattern != MFX_IOPATTERN_OUT_VIDEO_MEMORY ||
++        info->FourCC != MFX_FOURCC_P010 || info->BitDepthLuma != 10 ||
++        info->BitDepthChroma != 10 || info->ChromaFormat != MFX_CHROMAFORMAT_YUV420 ||
++        info->PicStruct != MFX_PICSTRUCT_PROGRESSIVE ||
++        info->Width != old->Width || info->Height != old->Height ||
++        info->CropX != old->CropX || info->CropY != old->CropY ||
++        info->CropW != old->CropW || info->CropH != old->CropH ||
++        !info->CropW || !info->CropH ||
++        info->CropX + info->CropW > info->Width ||
++        info->CropY + info->CropH > info->Height ||
++        frames->width < info->Width || frames->height < info->Height)
++        return AVERROR_INVALIDDATA;
+     return 0;
+ }
+ 
+@@ -963,7 +1000,8 @@
+ 
+ #if QSV_DOVI_SUPPORTED
+     if (q->dovi_metadata) {
+-        if (ret == MFX_WRN_VIDEO_PARAM_CHANGED ||
++        if ((ret == MFX_WRN_VIDEO_PARAM_CHANGED &&
++             qsv_dovi_validate_param_warning(avctx, q) < 0) ||
+             (avpkt->size && !*sync && !bs.DataOffset)) {
+             return qsv_dovi_reject_output(q, &sync, AVERROR_INVALIDDATA);
+         }

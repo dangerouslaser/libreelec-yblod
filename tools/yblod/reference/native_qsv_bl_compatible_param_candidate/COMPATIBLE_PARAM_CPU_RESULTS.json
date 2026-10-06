@@ -1,0 +1,23 @@
+{
+  "schema": "yblod.qsv-bl-compatible-param-cpu-results.v1",
+  "scope": "Actual candidate qsv_decode CPU fixture with scripted MFX; not hardware or playback qualification",
+  "all_passed": true,
+  "cases": 53,
+  "parent_process_decode_calls": 79,
+  "quarantine_child_cases": 4,
+  "source_sha256": "ffe1541b756e835ca2384d50192f3a244c59e68a5bd24e39de4ee5dcd9e9378d",
+  "fixture_sha256": "4e526cb591dca24dc5d82830fc24f35a8d3ed87623bd622f7cf2acc0ef172c5f",
+  "memory_limit_bytes": 536870912,
+  "peak_memory_bytes": 39956480,
+  "memory_events_all_zero": true,
+  "swap_limit_bytes": 0,
+  "swap_peak_bytes": 0,
+  "cpu_limit": 1,
+  "network": "none",
+  "hardware_qualified": false,
+  "prior_failed_attempts": [
+    {"type": "normal fixture", "exit_code": 139, "oom_killed": false, "final_resource_peak_available": false},
+    {"type": "ASAN fixture", "exit_code": 1, "oom_killed": false, "cause": "New owned-session mock reached real MFXClose with a fake handle", "final_resource_peak_available": false}
+  ],
+  "fixture_correction": "Explicit mocked MFXClose asserts fake-session identity; direct flush asserts exactly one dispatcher close. Product source was unchanged."
+}
