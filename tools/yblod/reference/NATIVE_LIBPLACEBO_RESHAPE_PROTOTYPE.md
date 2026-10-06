@@ -1,0 +1,89 @@
+# Isolated libplacebo reshape experiment
+
+This candidate reuses **actual libplacebo-generated GLSL**, through
+`pl_shader_dovi_reshape`, instead of copying its polynomial/MMR equations.
+It is a hybrid diagnostic, not a full libplacebo renderer or replacement Dolby
+Vision engine. The production integer composer and Kodi are unchanged.
+
+## Reproduce
+
+Build `native_libplacebo_reshape_generate.c` against the pinned LibreELEC SDK
+libplacebo headers/library, using the SDK compiler and `-lplacebo -lm`.
+The available dependency is revision
+`e2972fdd09adacd383656738d7d280f0cd84a761` with the project's existing patches;
+do not describe this checkout as unmodified upstream.
+
+1. Export all three canonical metadata blocks from a validated fixture using
+   `native_gpu_metadata_export` (3 × 419 signed little-endian 64-bit words,
+   10,056 bytes total).
+2. Run the generator with the exported file as its sole argument. Capture stdout
+   to a fresh GLSL fragment, and accept it only if the generator exits zero.
+3. Run `native_libplacebo_reshape_splice.py canonical.comp fragment.glsl
+   NEW_OUTPUT.comp`. This refuses overwrite and checks the canonical replacement
+   boundaries. Use a fresh candidate shader for each metadata fixture.
+4. Execute baseline and candidate sequentially using the same isolated GPU
+   fixture runner, same inputs, and bounded resource scope. Compare complete
+   reconstructed Y, Cb, and Cr planes before interpreting timing results.
+
+For the runtime-numerical-metadata control, run the same generator with
+`--runtime metadata.bin`. It keeps the upstream-generated function text but
+declares its variables as per-invocation private values populated from the
+existing canonical metadata SSBO. Coefficients, pivots and input/output bounds
+are fetched at runtime; numerical coefficients are not baked into shader text.
+Only the active component initializes its variables. No backend ABI or GL
+uniform-upload changes are required. Compare this candidate with the original
+integer shader before making speed claims.
+
+The runtime candidate still specializes **topology**: segment count, polynomial
+versus MMR method, and polynomial degree/MMR order. This matches the upstream
+generator's topology choices. Runtime guards reject a changed topology by setting
+the existing frame error flag; topology changes require regeneration. Uniform
+coefficient updates within that topology use the SSBO without recompilation.
+Initialization costs are included in the GPU operation and may be higher than an
+eventual packed-float uniform implementation; this is not an optimized final API.
+The runtime wrapper independently rejects coefficient denominators outside 1…32
+before `exp2`, as well as wrong component/depth/topology. Coefficient magnitude,
+pivot ordering and bounds validity remain enforced by the unchanged canonical
+backend metadata validator; the generated fragment is not a standalone validator
+for arbitrary untrusted SSBO contents.
+
+## What changes and what does not
+
+Unchanged: whole-code P010 recovery, prepared luma guide, native 4:2:0 plane
+geometry, enhancement-layer samples/scaling, metadata buffer, integer NLQ,
+Q16-to-output final rounding, output limits, GL synchronization and output format.
+
+Changed: BL polynomial/MMR evaluation uses upstream FP32 GLSL and upstream float
+segment comparisons. The generated function retains upstream's mapped-output
+clamp to the first and last pivots; the integer engine instead clamps mapped
+Q16 values to 0…65,535. It also removes the integer engine's intermediate feature
+floors. Differences cannot be attributed solely to float representation.
+
+This domain-preserving adapter supplies both sample inputs and pivots divided
+by **1,024**, matching the integer engine's ten-bit feature domain. The normal
+upstream metadata mapper divides pivots by **1,023**. The experiment therefore
+does not predict the output of libplacebo's default complete playback pipeline.
+Input features retain the native per-component pivot bounds before entering
+upstream's additional 0…1 clamp. Signed integer coefficients are converted using
+`ldexp` and then rounded once to float; denominator 32 is supported without an
+undefined integer shift.
+
+Upstream returns normalized mapped values. The adapter multiplies by **65,536**,
+floors, and bounds to 0…65,535 before the existing integer NLQ and final rounding.
+Using 65,535 here would be a different arithmetic experiment.
+
+## Limits of the measurement
+
+The default GLSL coefficients are fixture-specialized constants. This exposes the actual
+generated upstream operations but allows compiler constant optimization. The
+`--runtime` control removes numerical constant specialization, not topology
+specialization. Shader
+generation/compilation, per-RPU cache churn, decoding, frame preparation, scaling,
+colour conversion and display are outside a composer-only timed region. A faster
+fixture test is not proof of a faster full playback pipeline.
+
+Neither similarity to the integer engine nor similarity to an SK4 capture proves
+Dolby conformance. Report per-plane exact count, maximum code delta, error
+distribution and PSNR, together with metadata/filter/domain details and timings.
+Never publish private film layers or RPU payloads; public synthetic fixtures and
+their derived outputs are suitable for reproducible sharing.
