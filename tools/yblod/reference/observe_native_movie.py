@@ -237,7 +237,8 @@ while time.monotonic() - started < args.seconds:
     for raw_line in complete_lines:
         line = raw_line.decode(errors='replace')
         if 'DVBridge' in line and any(marker in line for marker in
-                ('fallback=release', 'cleanup retained', 'quarantine retained')):
+                ('fallback=release', 'cleanup retained', 'quarantine retained',
+                 'DVBridge native packed output failed')):
             failed = True
             if line not in lines:
                 lines.append(line)
@@ -278,7 +279,8 @@ with LOG.open('rb') as handle:
 route_lines = [line for line in route_text.splitlines() if any(marker in line for marker in (
     'DVBridge: Quick Sync', 'DVBridge conversion:', 'DVBridge first frame:',
     'DVBridge renderer summary:', 'DVBridge native composer:',
-    'DVBridge native reconstruction:', 'DVBridge renderer: stage='))]
+    'DVBridge native reconstruction:', 'DVBridge renderer: stage=',
+    'DVBridge native packed output failed'))]
 if args.expected_route != 'legacy' and not any('DVBridge native composer:' in line for line in lines):
     failed = True
 report = {'media': args.expected_title, 'movie_id': args.movie_id,

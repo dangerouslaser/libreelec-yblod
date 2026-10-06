@@ -25,16 +25,30 @@ def command(*args):
 
 
 def process_identity():
-    pid = int(command('systemctl', 'show', 'kodi', '-p', 'MainPID', '--value').strip())
-    if pid <= 0:
+    service_pid = int(command('systemctl', 'show', 'kodi', '-p', 'MainPID', '--value').strip())
+    if service_pid <= 0:
         raise RuntimeError('No Kodi service process')
-    proc = Path('/proc') / str(pid)
-    fields = (proc / 'stat').read_text().rsplit(')', 1)[1].split()
+    matches = []
+    for proc in Path('/proc').iterdir():
+        if not proc.name.isdecimal():
+            continue
+        try:
+            if (proc / 'comm').read_text().strip() != 'kodi.bin':
+                continue
+            fields = (proc / 'stat').read_text().rsplit(')', 1)[1].split()
+            if int(fields[1]) == service_pid:
+                matches.append((proc, int(fields[19])))
+        except FileNotFoundError:
+            continue
+    if len(matches) != 1:
+        raise RuntimeError('Expected exactly one kodi.bin child of the Kodi service process')
+    proc, start_ticks = matches[0]
     digest = hashlib.sha256()
     with (proc / 'exe').open('rb') as binary:
         for block in iter(lambda: binary.read(1024 * 1024), b''):
             digest.update(block)
-    return dict(pid=pid, start_ticks=int(fields[19]), binary_sha256=digest.hexdigest())
+    return dict(service_pid=service_pid, pid=int(proc.name), start_ticks=start_ticks,
+                binary_sha256=digest.hexdigest())
 
 
 def main():
