@@ -42,7 +42,7 @@ python3 -c 'import sys;sys.path.insert(0,"/lab");from prepare_qsv_el_kodi_build 
 "$sdk/bin/ninja" -j1 kodi &
 build_pid=$!
 while kill -0 "$build_pid" 2>/dev/null; do
-  workers=$(ps -eo comm,args | awk '$1=="lto1" && /-fltrans/ {n++} END {print n+0}')
+  workers=$(ps -eo comm | awk '/^lto1(-ltrans)?$/ {n++} END {print n+0}')
   if test "$workers" -gt 1; then
     echo STOP_parallel_LTRANS_workers="$workers"
     kill "$build_pid"
