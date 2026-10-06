@@ -16,7 +16,7 @@ from target_el_qsv_live_handshake import process_record
 
 PIN_NAMES = {'observe_live_el_qsv_probe.py','collect_el_qsv_target_identity.py',
              'target_el_qsv_live_handshake.py','run_target_el_qsv_probe.py','capture_scene.py',
-             'collect_el_qsv_target_manifest.py'}
+             'collect_el_qsv_target_manifest.py','observe_subtitle_fixture.py'}
 
 
 def verify_source_pins(values):

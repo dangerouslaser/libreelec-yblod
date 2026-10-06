@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from run_petunia_el_qsv_live_probe import command, literal_raw_pass, cleanup_unit, own_live_unit
+from run_petunia_el_qsv_live_probe import command, literal_raw_pass, cleanup_unit, own_live_unit, PIN_NAMES
 
 
 def raw_fixture():
@@ -22,6 +22,9 @@ def raw_fixture():
 
 
 class TargetProbeTests(unittest.TestCase):
+    def test_published_capture_transitive_import_pinned(self):
+        self.assertIn('observe_subtitle_fixture.py',PIN_NAMES)
+
     def test_exact_raw(self):
         self.assertTrue(literal_raw_pass(raw_fixture()))
 
