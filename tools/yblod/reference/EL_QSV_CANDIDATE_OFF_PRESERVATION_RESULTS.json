@@ -1,0 +1,61 @@
+{
+  "schema": "yblod.el-qsv-candidate-off-preservation.v1",
+  "pass": true,
+  "title": "Saving Private Ryan",
+  "movie_id": 3391,
+  "seek_seconds": 1200,
+  "before_binary_sha256": "19379de491c0f53d835424edeae20191869854a5eeeacfcf5cc8a9c81b9ee9aa",
+  "after_binary_sha256": "aff416779620c4cba8cecb6e6c71a6fb3b228e4bab7e397aaeeba4556166067f",
+  "candidate_attempt": 3,
+  "route_both": {
+    "native": 1, "direct_packed": 1, "native_planar": 1,
+    "batched_planes": 0, "immutable_instructions": 0
+  },
+  "candidate_actual_el_route": {
+    "el_decoder_qsv": 0, "el_qsv_map_sequence": 0, "el_qsv_native_used": 0
+  },
+  "identity": {
+    "actual_candidate_executable_verified_before_and_after": true,
+    "actual_isolated_ffmpeg_vpl_maps_and_code_hashes_verified_each_frame": true,
+    "independent_target_identity_matches_baseline": true,
+    "source_stat_unchanged": true,
+    "existing_target_driver_unchanged": true,
+    "source_identity_scope": "Same target host/GPU observations and private file stat identity; not immutable whole-film content verification.",
+    "mapped_candidate_family_names": ["libavcodec.so.63.1.102", "libavfilter.so.12.1.102", "libavformat.so.63.1.102", "libavutil.so.61.1.102", "libswresample.so.7.1.102", "libswscale.so.10.1.102", "libvpl.so.2.17"],
+    "mfx_runtime_loaded_claimed": false
+  },
+  "frames": [
+    {"frame": 1, "source_pts_microseconds": 1210000000, "source_el_pts_microseconds": 1210000000, "exact_source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_preserved": false, "differing_tunnel_rgb_bytes": 66, "I_max_absolute_codes": 0, "P_max_absolute_codes": 0, "T_max_absolute_codes": 0, "I_exact_percent": 100, "P_exact_percent": 100, "T_exact_percent": 100},
+    {"frame": 2, "source_pts_microseconds": 1220010000, "source_el_pts_microseconds": 1220010000, "exact_source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_preserved": false, "differing_tunnel_rgb_bytes": 132, "I_max_absolute_codes": 0, "P_max_absolute_codes": 0, "T_max_absolute_codes": 0, "I_exact_percent": 100, "P_exact_percent": 100, "T_exact_percent": 100},
+    {"frame": 3, "source_pts_microseconds": 1230020000, "source_el_pts_microseconds": 1230020000, "exact_source_timestamps_equal": true, "source_metadata_equal": true, "picture_and_payload_preserved": true, "literal_tunnel_rgb_preserved": false, "differing_tunnel_rgb_bytes": 132, "I_max_absolute_codes": 0, "P_max_absolute_codes": 0, "T_max_absolute_codes": 0, "I_exact_percent": 100, "P_exact_percent": 100, "T_exact_percent": 100}
+  ],
+  "permitted_transport_difference": "Only validated four-bit packet update IDs and corresponding CRCs. All picture samples, remaining packet headers, and complete reassembled payload unchanged; scene-refresh changes not waived.",
+  "subtitle_fixture": {"original_enabled": true, "original_index": 0, "temporarily_disabled": true, "restored_both_captures": true},
+  "restoration": {
+    "original_top_source_and_layer_count_restored": true,
+    "original_override_bytes_restored": true,
+    "retained_best_binary_restored": true,
+    "original_runtime_maps_restored": true,
+    "restored_idle": true,
+    "original_system_launcher_unchanged": true
+  },
+  "private_launcher": {
+    "original_sha256": "761173c6fcc7ef579f98478f18542a51105e7a766ae811298b3500d3aa22693c",
+    "copy_sha256": "83b658d1b348841b9c519cdc152a67f6ad339ecb3c994b52feb4e115b70d169b",
+    "only_final_invocation_library_environment_changed": true,
+    "reason": "System profile resets LD_LIBRARY_PATH. Private diagnostic launcher prepends candidate libraries after profile initialization while preserving normal startup arguments. Original profiles and launcher unchanged."
+  },
+  "resources": {
+    "memory_limit_bytes": 536870912, "swap_limit_bytes": 0, "cpu_limit": 1,
+    "baseline_controller_peak_bytes": 18440192,
+    "candidate_controller_peak_bytes": 20054016,
+    "comparison_peak_bytes": 142995456,
+    "all_memory_events_zero": true,
+    "swap_current_bytes": 0, "swap_peak_bytes": 0,
+    "candidate_controller_elapsed_seconds": 70.68083960097283,
+    "candidate_controller_exit_code": 0, "comparison_exit_code": 0,
+    "limits_scope": "Capture controllers and comparison unit only, not the separate Kodi service."
+  },
+  "comparator_runtime": {"numpy_version": "2.3.5", "existing_approved_site_import_verified": true},
+  "scope": "Three matched readback frames show new candidate plus isolated runtime with EL-QSV disabled preserves retained output exactly, apart from validated transport counters/CRCs. Not QSV-enabled decoding, raw EL equality, smooth playback, performance, Dolby conformance, display quality or clean DV display restoration qualification. Private media, metadata and buffers remain on target."
+}
