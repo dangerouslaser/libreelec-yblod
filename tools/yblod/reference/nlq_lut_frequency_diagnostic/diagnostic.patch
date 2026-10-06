@@ -1,0 +1,305 @@
+--- a/native_gpu_composer_backend_libplacebo.c
++++ b/native_gpu_composer_backend_libplacebo.c
+@@ -1,5 +1,6 @@
+ #include "native_gpu_composer_backend.h"
+ #include "native_gpu_guard.h"
++#include "native_gpu_diag_nlq_lut.h"
+ #include <ctype.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -111,7 +112,9 @@
+     struct backend_gl gl;
+     yb_gpu_backend_create_info owner;
+     uintptr_t context;
+-    GLuint program,buffers[2],outputs[3];
++    GLuint program,buffers[3],outputs[3];
++    int diagnostic_nlq_lut,lut_valid;
++    struct yb_nlq_config lut_configs[3];
+     GLsync fence;
+     uint32_t width,height,output_depth;
+     uint8_t frame_id[32];
+@@ -233,7 +236,7 @@
+ }
+ static void delete_owned(yb_gpu_composer_backend *b)
+ {
+-    b->gl.DeleteTextures(3,b->outputs);b->gl.DeleteBuffers(2,b->buffers);
++    b->gl.DeleteTextures(3,b->outputs);b->gl.DeleteBuffers(b->diagnostic_nlq_lut?3:2,b->buffers);
+     if(b->program)b->gl.DeleteProgram(b->program);
+ }
+ 
+@@ -246,6 +249,7 @@
+     const uint16_t endian=1;if(*(const uint8_t *)&endian!=1)return YB_GPU_BACKEND_UNSUPPORTED;
+     yb_gpu_composer_backend *b=calloc(1,sizeof(*b));if(!b)return YB_GPU_BACKEND_GL_FAILURE;
+     b->owner=*info;b->context=context;
++    b->diagnostic_nlq_lut=strstr(info->shader_source,YB_DIAG_NLQ_SHADER_MARKER)!=NULL;
+     if(!fp_parse_shader(b,info)){free(b);return YB_GPU_BACKEND_METADATA;}
+ #define LOAD(field,type) b->gl.field=(type)info->get_proc("gl" #field,info->opaque);if(!b->gl.field){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
+     GL_PROCS(LOAD)
+@@ -266,6 +270,15 @@
+     g->GetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS,&invocations);
+     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,0,&sx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE,1,&sy);
+     if(!supported||units<5||images<3||invocations<64||sx<8||sy<8||g->GetError()!=GL_NO_ERROR){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
++    if(b->diagnostic_nlq_lut){
++        GLint blocks=0,bindings=0;GLint64 bytes=0;
++        g->GetIntegerv(GL_MAX_COMPUTE_SHADER_STORAGE_BLOCKS,&blocks);
++        g->GetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS,&bindings);
++        /* Core4.3 minimum block size far exceeds12KiB; query lower bounds
++         * through GLint to avoid requiring a new diagnostic GL entrypoint. */
++        GLint storage_bytes=0;g->GetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE,&storage_bytes);bytes=storage_bytes;
++        if(blocks<3||bindings<3||bytes<(GLint64)(YB_DIAG_NLQ_ENTRIES*sizeof(int32_t))||g->GetError()!=GL_NO_ERROR){free(b);return YB_GPU_BACKEND_UNSUPPORTED;}
++    }
+     GLuint shader=g->CreateShader(GL_COMPUTE_SHADER);
+     if(!shader){free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+     GLint length=(GLint)info->shader_bytes;
+@@ -281,13 +294,16 @@
+         free(b);return YB_GPU_BACKEND_GL_FAILURE;
+     }
+     if(!fp_cache_locations(b)){g->DeleteProgram(b->program);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+-    g->GenBuffers(2,b->buffers);
+-    for(unsigned i=0;i<2;i++){
++    g->GenBuffers(b->diagnostic_nlq_lut?3:2,b->buffers);
++    for(unsigned i=0;i<(b->diagnostic_nlq_lut?3U:2U);i++){
+         if(!b->buffers[i]){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+         g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[i]);
+-        g->BufferData(GL_SHADER_STORAGE_BUFFER,i?4:(GLsizeiptr)(BACKEND_WORDS*sizeof(int64_t)),NULL,GL_DYNAMIC_COPY);
++        GLsizeiptr bytes=i==2?(GLsizeiptr)(YB_DIAG_NLQ_ENTRIES*sizeof(int32_t)):
++                            i?4:(GLsizeiptr)(BACKEND_WORDS*sizeof(int64_t));
++        g->BufferData(GL_SHADER_STORAGE_BUFFER,bytes,NULL,GL_DYNAMIC_COPY);
+     }
+     if(g->GetError()!=GL_NO_ERROR){delete_owned(b);free(b);return YB_GPU_BACKEND_GL_FAILURE;}
++    if(b->diagnostic_nlq_lut)yb_diag_nlq_record_shader();
+     *output=b;return YB_GPU_BACKEND_OK;
+ }
+ 
+@@ -320,6 +336,19 @@
+     if(!fp_same_topology(b,p))return YB_GPU_BACKEND_METADATA;
+     struct backend_gl *g=&b->gl;
+     if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
++    if(b->diagnostic_nlq_lut){
++        if(!b->lut_valid||!yb_diag_nlq_configs_equal(p->nlq,b->lut_configs)){
++            int32_t table[YB_DIAG_NLQ_ENTRIES];
++            if(yb_diag_nlq_lut_build(p->nlq,table)!=YB_OK)return YB_GPU_BACKEND_METADATA;
++            yb_diag_nlq_record_build();
++            g->BindBuffer(GL_SHADER_STORAGE_BUFFER,b->buffers[2]);
++            g->BufferSubData(GL_SHADER_STORAGE_BUFFER,0,(GLsizeiptr)sizeof(table),table);
++            if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
++            yb_diag_nlq_record_upload();memcpy(b->lut_configs,p->nlq,sizeof(b->lut_configs));b->lut_valid=1;
++        }else yb_diag_nlq_record_hit();
++        g->BindBufferBase(GL_SHADER_STORAGE_BUFFER,2,b->buffers[2]);
++        if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
++    }
+     GLint limit=0,gx=0,gy=0;
+     g->GetIntegerv(GL_MAX_TEXTURE_SIZE,&limit);
+     g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,0,&gx);g->GetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT,1,&gy);
+@@ -395,7 +424,7 @@
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+         b->outputs[i]=0;
+     }
+-    for(unsigned i=0;i<2;i++)if(b->buffers[i]){
++    for(unsigned i=0;i<(b->diagnostic_nlq_lut?3U:2U);i++)if(b->buffers[i]){
+         g->DeleteBuffers(1,&b->buffers[i]);
+         if(g->GetError()!=GL_NO_ERROR)return YB_GPU_BACKEND_GL_FAILURE;
+         b->buffers[i]=0;
+--- a/native_gpu_composer_fp32.c
++++ b/native_gpu_composer_fp32.c
+@@ -1,5 +1,6 @@
+ #include "native_gpu_composer_fp32.h"
+ #include "native_libplacebo_reshape.h"
++#include "native_gpu_diag_nlq_lut.h"
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -20,6 +21,7 @@
+     yb_gpu_composer_backend *staged;
+     int active,pending,failed,closing;
+     unsigned next;
++    int diagnostic_nlq_lut;
+     yb_gpu_fp32_stats stats;
+ };
+ static void increment(uint64_t *value){if(*value!=UINT64_MAX)(*value)++;}
+@@ -57,13 +59,22 @@
+     memcpy(text,b->canonical,a);memcpy(text+a,fragment,n);text[a+n]='\n';
+     memcpy(text+a+n+1,main,z);memcpy(text+a+n+1+z,replacement,r);
+     memcpy(text+a+n+1+z+r,end,tail+1);
+-    free(fragment);*out=text;*size=length;return 1;
++    free(fragment);
++    if(b->diagnostic_nlq_lut){
++        char *patched=NULL;size_t patched_bytes=0;
++        if(!yb_diag_nlq_shader_patch(text,length,&patched,&patched_bytes)){free(text);return 0;}
++        free(text);text=patched;length=patched_bytes;
++    }
++    *out=text;*size=length;return 1;
+ }
+ int yb_gpu_fp32_create(const yb_gpu_backend_create_info *i,yb_gpu_fp32 **out)
+ {
+     if(!i||!out||*out||!i->shader_source||!i->shader_bytes||i->shader_bytes>1048576U||
+        memchr(i->shader_source,0,i->shader_bytes))return YB_GPU_BACKEND_ARGUMENT;
+     yb_gpu_fp32 *b=calloc(1,sizeof(*b));if(!b)return YB_GPU_BACKEND_GL_FAILURE;
++    const char *diagnostic=getenv("YB_GPU_DIAG_NLQ_LUT");
++    if(diagnostic&&strcmp(diagnostic,"0")&&strcmp(diagnostic,"1")){free(b);return YB_GPU_BACKEND_ARGUMENT;}
++    b->diagnostic_nlq_lut=diagnostic&&!strcmp(diagnostic,"1");
+     b->canonical=malloc(i->shader_bytes+1);
+     if(!b->canonical){free(b);return YB_GPU_BACKEND_GL_FAILURE;}
+     memcpy(b->canonical,i->shader_source,i->shader_bytes);b->canonical[i->shader_bytes]=0;
+@@ -102,6 +113,8 @@
+             }
+         } else increment(&b->stats.generate_failed);
+     }
++    /* A requested diagnostic must never report a fallback as LUT success. */
++    if(b->diagnostic_nlq_lut&&index<0)return YB_GPU_BACKEND_UNSUPPORTED;
+     status=index<0?yb_gpu_backend_submit(b->integer,p):yb_fp_backend_submit(b->entries[index].backend,p);
+     /* GL failure may leave queued work; never switch backend or destroy it. */
+     if(status!=YB_GPU_BACKEND_OK){if(status==YB_GPU_BACKEND_GL_FAILURE)b->failed=1;return status;}
+--- a/native_gpu_composer_fp32_compare_probe.c
++++ b/native_gpu_composer_fp32_compare_probe.c
+@@ -5,6 +5,7 @@
+ #include "native_scaled_surface.h"
+ #include "native_decoder_frame_bridge.h"
+ #include "native_mmr_composer.h"
++#include "native_gpu_diag_nlq_lut.h"
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <inttypes.h>
+@@ -321,20 +322,53 @@
+     }
+     return value;
+ }
++/* Optional read-only i915 frequency snapshots, outside measured clocks.
++ * -1 means unavailable, not zero frequency. Never writes sysfs or policy. */
++static int frequency_mhz(const char *path)
++{
++    FILE *file=fopen(path,"r");if(!file)return -1;
++    char text[64];char *end=NULL;int answer=-1;
++    if(fgets(text,sizeof(text),file)){
++        errno=0;long value=strtol(text,&end,10);
++        if(!errno&&end!=text&&(*end=='\n'||*end=='\0')&&value>=0&&value<=10000)answer=(int)value;
++    }
++    if(fclose(file))answer=-1;
++    return answer;
++}
++static int frequency_device_verified(void)
++{
++    struct stat card,render;
++    return !stat("/sys/class/drm/card0/device",&card)&&
++           !stat("/sys/class/drm/renderD128/device",&render)&&
++           card.st_dev==render.st_dev&&card.st_ino==render.st_ino;
++}
+ static int gpu_run(const char *node,const char *shader_path,const struct workload *w,struct yb_probe_fixture *f,struct stages *scratch,const struct stages *golden,uint32_t last_count,const char *dump_path)
+ {
+     struct timespec cold_begin,cold_end,teardown_begin,teardown_end;
+     unsigned warmups=iteration_setting("YB_COMPARE_WARMUPS",1);
+     unsigned samples=iteration_setting("YB_COMPARE_SAMPLES",3);
+     if(!warmups||!samples)return 0;
++    const char *sequence_setting=getenv("YB_GPU_DIAG_NLQ_LUT_SEQUENCE");
++    if(sequence_setting&&strcmp(sequence_setting,"0")&&strcmp(sequence_setting,"1"))return 0;
++    const int metadata_sequence=sequence_setting&&!strcmp(sequence_setting,"1");
++    const char *frequency_setting=getenv("YB_GPU_DIAG_FREQUENCY");
++    if(frequency_setting&&strcmp(frequency_setting,"0")&&strcmp(frequency_setting,"1"))return 0;
++    const int frequency_requested=frequency_setting&&!strcmp(frequency_setting,"1");
++    const int frequency_verified=frequency_requested&&frequency_device_verified();
++    struct frequency_snapshot {int before_act,before_cur,after_act,after_cur;} frequencies[32];
++    for(unsigned i=0;i<32;i++)frequencies[i]=(struct frequency_snapshot){-1,-1,-1,-1};
++    if(metadata_sequence&&warmups<2)return 0;
+     unsigned timed_start=1U+warmups;
+     struct measurement times[32]={{0}};
+     uint64_t cold_ns=0,teardown_ns=0,verified=0,oracle_dispatches=0,values=0;
+     struct comparison {uint64_t count,changed,over_one,squared;int64_t signed_sum;uint32_t max_abs;uint64_t histogram[4096];} differences[3]={{0}};
+     FILE *dump=NULL;
++    uint64_t restored_a_values=0;
+     (void)golden;(void)last_count;
+     yb_gpu_composer_backend *backend=NULL;
+     yb_gpu_backend_plan plan={0};yb_gpu_backend_output image_output={0};
++    struct yb_nlq_config original_nlq[3];
++    memcpy(original_nlq,((yb_dovi_integer_instructions *)w->blob)->nlq,sizeof(original_nlq));
+ 
+     uint64_t texture_setup_wall=0,texture_setup_cpu=0;
+     const uint32_t width=w->descriptor.width,height=w->descriptor.height;
+@@ -356,7 +390,8 @@
+     struct stat requested;
+     const uint16_t endian=1;
+     if (!image_codes || *(const unsigned char *)&endian!=1 || !node_valid(node)) goto cleanup;
+-    if(dump_path){dump=fopen(dump_path,"wbx");if(!dump)goto cleanup;}
++    if(metadata_sequence&&!dump_path)goto cleanup;
++    if(dump_path){dump=fopen(dump_path,"wb+x");if(!dump)goto cleanup;}
+ 
+     source=read_shader(shader_path);
+     if (!source) goto cleanup;
+@@ -502,7 +537,18 @@
+     /* Pass zero validates every reconstructed output code. Warm passes include
+      * API submit/finish and only the four-byte frame error readback. */
+     for(unsigned pass=0;pass<timed_start+samples;pass++){
++        /* A/B/A is an explicit synthetic metadata cache-admission test, not
++         * provenance for a real RPU. Files and all other metadata remain fixed.
++         * B perturbs each offset by one; later timed passes restore original A. */
++        memcpy(plan.nlq,original_nlq,sizeof(original_nlq));
++        if(metadata_sequence&&pass==1)for(unsigned c=0;c<3;c++)
++            plan.nlq[c].offset+=plan.nlq[c].offset<1023?1:-1;
++        memcpy(((yb_dovi_integer_instructions *)w->blob)->nlq,plan.nlq,sizeof(plan.nlq));
+         struct timespec begin,begin_cpu,finish,finish_cpu;
++        if(pass>=timed_start&&frequency_verified){
++            frequencies[pass-timed_start].before_act=frequency_mhz("/sys/class/drm/card0/gt_act_freq_mhz");
++            frequencies[pass-timed_start].before_cur=frequency_mhz("/sys/class/drm/card0/gt_cur_freq_mhz");
++        }
+         if(pass>=timed_start&&(clock_gettime(CLOCK_MONOTONIC,&begin)||
+             clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&begin_cpu)))goto cleanup;
+         operation="three plane backend submit";
+@@ -519,8 +565,12 @@
+         if(pass>=timed_start){
+             if(clock_gettime(CLOCK_MONOTONIC,&finish)||clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&finish_cpu)||
+                !ns(&begin,&finish,&times[pass-timed_start].wall)||!ns(&begin_cpu,&finish_cpu,&times[pass-timed_start].cpu))goto cleanup;
++            if(frequency_verified){
++                frequencies[pass-timed_start].after_act=frequency_mhz("/sys/class/drm/card0/gt_act_freq_mhz");
++                frequencies[pass-timed_start].after_cur=frequency_mhz("/sys/class/drm/card0/gt_cur_freq_mhz");
++            }
+         }
+-        if(pass==0){
++        if(pass==0||(metadata_sequence&&pass<3)){
+             yb_integration_context reference={0};yb_integration_completion completion={0};int gate_ok=0;
+             if(yb_decoder_frame_bridge_init(&reference,&w->descriptor,w->blob,9216))goto cleanup;
+             for(uint32_t c=0;c<3;c++){
+@@ -529,7 +579,18 @@
+                 gl.PixelStorei(GL_PACK_ALIGNMENT,2);gl.PixelStorei(GL_PACK_ROW_LENGTH,0);
+                 gl.GetTexImage(GL_TEXTURE_2D,0,GL_RED_INTEGER,GL_UNSIGNED_SHORT,image_codes);
+                 if(gl.GetError()!=GL_NO_ERROR)goto image_gate_cleanup;
+-                if(dump&&fwrite(image_codes,sizeof(*image_codes),(size_t)w->counts[c],dump)!=(size_t)w->counts[c])goto image_gate_cleanup;
++                if(dump&&pass==0&&fwrite(image_codes,sizeof(*image_codes),(size_t)w->counts[c],dump)!=(size_t)w->counts[c])goto image_gate_cleanup;
++                if(metadata_sequence&&pass==2){
++                    uint16_t original_codes[CHUNK];
++                    uint64_t offset=0;for(uint32_t prior=0;prior<c;prior++)offset+=w->counts[prior];
++                    if(fflush(dump)||fseek(dump,(long)(offset*sizeof(*image_codes)),SEEK_SET))goto image_gate_cleanup;
++                    for(uint64_t start=0;start<w->counts[c];start+=CHUNK){
++                        size_t n=(size_t)(w->counts[c]-start);if(n>CHUNK)n=CHUNK;
++                        if(fread(original_codes,sizeof(*original_codes),n,dump)!=n||
++                           memcmp(original_codes,image_codes+(size_t)start,n*sizeof(*original_codes)))goto image_gate_cleanup;
++                        restored_a_values+=n;
++                    }
++                }
+                 for(uint64_t start=0;start<w->counts[c];start+=CHUNK){
+                     uint32_t n=(uint32_t)(w->counts[c]-start);if(n>CHUNK)n=CHUNK;
+                     if(yb_scaled_surface_extract(&w->surface,w->frame,w->provenance,c,start,n,
+@@ -560,6 +621,7 @@
+     printf(",\"texture_input_abi\":\"normalized-R16-RG16-P010-plus-explicit-native-guide\",\"texture_input_uploaded_checkpoint\":true,\"vaapi_zero_copy_import\":false,\"cpu_expanded_sample_ssbo\":false,\"input_planes_resident\":true,\"warm_input_plane_uploads\":0,\"resident_texture_setup_wall_ns\":%" PRIu64 ",\"resident_texture_setup_cpu_ns\":%" PRIu64,texture_setup_wall,texture_setup_cpu);
+     ok=1;
+ cleanup:
++    memcpy(((yb_dovi_integer_instructions *)w->blob)->nlq,original_nlq,sizeof(original_nlq));
+     if(backend) {
+         yb_gpu_fp32_stats route={0};
+         if(yb_gpu_fp32_get_stats(backend,&route)!=YB_GPU_BACKEND_OK)ok=0;
+@@ -602,6 +664,17 @@
+            bound ? "true" : "false",(unsigned)observed_gl_error,(unsigned)observed_egl_error,cleanup_ok ? "true" : "false");
+     if(!teardown_clock||clock_gettime(CLOCK_MONOTONIC,&teardown_end)||!ns(&teardown_begin,&teardown_end,&teardown_ns))cleanup_ok=0;
+     if(ok&&cleanup_ok){
++        yb_diag_nlq_report();
++        printf(",\"gpu_frequency_requested\":%s,\"gpu_frequency_device_verified\":%s,\"gpu_frequency_scope\":\"read-only card0 i915 sysfs before/after each timed submission, outside host clocks; MHz; -1 unavailable; not average kernel frequency\",\"gpu_frequency_samples\":[",
++               frequency_requested?"true":"false",frequency_verified?"true":"false");
++        if(frequency_requested)for(unsigned i=0;i<samples;i++)printf("%s{\"before_act_mhz\":%d,\"before_cur_mhz\":%d,\"after_act_mhz\":%d,\"after_cur_mhz\":%d}",
++            i?",":"",frequencies[i].before_act,frequencies[i].before_cur,frequencies[i].after_act,frequencies[i].after_cur);
++        printf("]");
++        printf(",\"nlq_lut_restored_a_bit_exact\":%s,\"nlq_lut_restored_a_values\":%" PRIu64 ",\"raw_dump_scope\":\"original-A-only\"",
++               metadata_sequence&&restored_a_values==w->counts[0]+w->counts[1]+w->counts[2]?"true":"false",restored_a_values);
++        printf(",\"nlq_lut_metadata_sequence\":%s,\"nlq_lut_gpu_full_frame_oracles\":%u,\"nlq_lut_metadata_scope\":\"%s\"",
++               metadata_sequence?"true":"false",metadata_sequence?3U:1U,
++               metadata_sequence?"synthetic NLQ-offset A/B/A then original A; same pinned input files, not a real-RPU sequence":"original supplied metadata");
+         int exact=differences[0].changed==0&&differences[1].changed==0&&differences[2].changed==0;
+         printf(",\"comparison_reference\":\"native-integer-CPU-composer-not-licensed-hardware\",\"output_depth\":%d,\"difference_units\":\"native-output-code-values\",\"full_frame_reconstructed_exact\":%s,\"all_output_codes_compared\":true,\"difference_metrics\":[",f->output_depth,exact?"true":"false");
+         for(unsigned c=0;c<3;c++){

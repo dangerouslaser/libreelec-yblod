@@ -1,0 +1,3298 @@
+{
+  "date": "2026-10-06",
+  "controller_exit_status": 0,
+  "frames": 2,
+  "runs": 8,
+  "order_per_frame": [
+    0,
+    1,
+    1,
+    0
+  ],
+  "warmups_per_run": 32,
+  "samples_per_run": 32,
+  "timing_scope": "Resident-input host submit/finish wall and diagnostic process CPU (CLOCK_PROCESS_CPUTIME_ID, all process threads); excludes preparation/upload and full-image readback; not GPU kernel time or player frame time.",
+  "metadata_scope": "Original metadata only; no synthetic or real-media RPU transitions.",
+  "output_scope": "Original A cross-mode output hashes privately verified equal per frame; no fixture hashes or raw output published.",
+  "cpu_reference": "Native integer CPU composer, not licensed Dolby hardware.",
+  "total_cpu_oracle_values": 99532800,
+  "unique_input_frames": 2,
+  "instrumentation_output_unchanged_vs_previous_uninstrumented": true,
+  "kodi_state": "inactive, no actual Kodi process, no RPC idle claim",
+  "frequency_scope": "Read-only actual/requested MHz endpoints before and after submissions; not time-weighted or exclusive kernel frequency; reading may perturb scheduling/power.",
+  "cases": [
+    {
+      "frame": 1943,
+      "slot": 1,
+      "lut_mode": 0,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            8462345,
+            9165227,
+            8542528,
+            9482092,
+            8502116,
+            9250437,
+            8712984,
+            9493040,
+            8663686,
+            9299718,
+            8491522,
+            9756783,
+            8500379,
+            9334724,
+            8407062,
+            9202282,
+            8490322,
+            9177921,
+            8535351,
+            9396056,
+            8778239,
+            9269645,
+            9029334,
+            9669456,
+            8583697,
+            9017396,
+            8653985,
+            9444500,
+            8486356,
+            9317626,
+            8542416,
+            9365758
+          ],
+          "median": 9023365,
+          "minimum": 8407062,
+          "maximum": 9756783,
+          "mean": 8969530.71875
+        },
+        "cpu_ns": {
+          "samples": [
+            141996,
+            142030,
+            154836,
+            187607,
+            333833,
+            308250,
+            333433,
+            316204,
+            260532,
+            187128,
+            176176,
+            238950,
+            161311,
+            145692,
+            143087,
+            135294,
+            142272,
+            194113,
+            167424,
+            137473,
+            152850,
+            256226,
+            304800,
+            364999,
+            307531,
+            163771,
+            185102,
+            318183,
+            159519,
+            143488,
+            145149,
+            149497
+          ],
+          "median": 171800,
+          "minimum": 135294,
+          "maximum": 364999,
+          "mean": 208086.125
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 0,
+      "lut_uploads": 0,
+      "lut_cache_hits": 0,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 22,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 21,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2166,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 1000,
+          "squared_error_sum": 2166,
+          "mean_bias": 0.00048225308641975306,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3153,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -3087,
+          "squared_error_sum": 3153,
+          "mean_bias": -0.0014887152777777778,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 263217152,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 0,
+        "quota_throttled_usec": 0
+      }
+    },
+    {
+      "frame": 1943,
+      "slot": 2,
+      "lut_mode": 1,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            6490885,
+            6858611,
+            6635596,
+            7006300,
+            6534453,
+            6675001,
+            6448215,
+            6809550,
+            6578991,
+            7005525,
+            6627350,
+            7164314,
+            6603508,
+            7164319,
+            6623553,
+            7027764,
+            6642957,
+            6782264,
+            6432728,
+            6865639,
+            6550255,
+            6720432,
+            6600172,
+            6757540,
+            6440076,
+            6621108,
+            6382593,
+            6685233,
+            6289590,
+            6651438,
+            6250814,
+            6652269
+          ],
+          "median": 6639276.5,
+          "minimum": 6250814,
+          "maximum": 7164319,
+          "mean": 6674345.09375
+        },
+        "cpu_ns": {
+          "samples": [
+            165234,
+            178180,
+            348217,
+            405281,
+            287007,
+            189505,
+            156852,
+            176837,
+            262141,
+            282748,
+            346413,
+            329871,
+            337461,
+            405915,
+            336621,
+            315355,
+            372252,
+            403768,
+            290852,
+            360080,
+            372338,
+            333488,
+            385576,
+            261618,
+            272958,
+            283851,
+            268272,
+            162135,
+            170985,
+            149315,
+            163939,
+            136089
+          ],
+          "median": 285429,
+          "minimum": 136089,
+          "maximum": 405915,
+          "mean": 278473.5625
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 1,
+      "lut_uploads": 1,
+      "lut_cache_hits": 64,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 18,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 17,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2166,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 1000,
+          "squared_error_sum": 2166,
+          "mean_bias": 0.00048225308641975306,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3153,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -3087,
+          "squared_error_sum": 3153,
+          "mean_bias": -0.0014887152777777778,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261529600,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 1,
+        "quota_throttled_usec": 1223
+      }
+    },
+    {
+      "frame": 1943,
+      "slot": 3,
+      "lut_mode": 1,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            6387197,
+            6623230,
+            6400633,
+            6819824,
+            6413666,
+            6543499,
+            6409717,
+            6866181,
+            6411750,
+            6924423,
+            6520069,
+            6929277,
+            6658797,
+            6996953,
+            6662726,
+            6990598,
+            6519925,
+            6560593,
+            6403680,
+            6955802,
+            6568588,
+            6711309,
+            6524122,
+            7010710,
+            6434018,
+            6623791,
+            6533729,
+            7043334,
+            6502414,
+            7039463,
+            6565867,
+            7003551
+          ],
+          "median": 6595909,
+          "minimum": 6387197,
+          "maximum": 7043334,
+          "mean": 6673732.375
+        },
+        "cpu_ns": {
+          "samples": [
+            178399,
+            181952,
+            182485,
+            196396,
+            223210,
+            146497,
+            146012,
+            162750,
+            160389,
+            167455,
+            156525,
+            181385,
+            175551,
+            171607,
+            201096,
+            198921,
+            183294,
+            166000,
+            154702,
+            150369,
+            235050,
+            175931,
+            212938,
+            188911,
+            183095,
+            163786,
+            234521,
+            185441,
+            169541,
+            180202,
+            229785,
+            180814
+          ],
+          "median": 180508,
+          "minimum": 146012,
+          "maximum": 235050,
+          "mean": 182031.5625
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 1,
+      "lut_uploads": 1,
+      "lut_cache_hits": 64,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1267
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1267,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 18,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1267,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 17,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1267,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2166,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 1000,
+          "squared_error_sum": 2166,
+          "mean_bias": 0.00048225308641975306,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3153,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -3087,
+          "squared_error_sum": 3153,
+          "mean_bias": -0.0014887152777777778,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261529600,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 1,
+        "quota_throttled_usec": 174
+      }
+    },
+    {
+      "frame": 1943,
+      "slot": 4,
+      "lut_mode": 0,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            8598441,
+            9038420,
+            8582614,
+            9385599,
+            8510527,
+            9213838,
+            8554961,
+            9366462,
+            8655179,
+            9414869,
+            8806064,
+            9554389,
+            8647581,
+            9470770,
+            8586463,
+            9330735,
+            8332885,
+            9062363,
+            8414157,
+            9176403,
+            8437029,
+            8986302,
+            8379825,
+            9181541,
+            8535527,
+            9074268,
+            8502203,
+            9663363,
+            8645122,
+            9432651,
+            8709283,
+            9577874
+          ],
+          "median": 8896183,
+          "minimum": 8332885,
+          "maximum": 9663363,
+          "mean": 8932115.875
+        },
+        "cpu_ns": {
+          "samples": [
+            311972,
+            270515,
+            280414,
+            282966,
+            305769,
+            288872,
+            342834,
+            299912,
+            340616,
+            298907,
+            318206,
+            317217,
+            337134,
+            321023,
+            329815,
+            309049,
+            135884,
+            150534,
+            158270,
+            153865,
+            119421,
+            111583,
+            155768,
+            147484,
+            144613,
+            161720,
+            183125,
+            191940,
+            306637,
+            311875,
+            417403,
+            436182
+          ],
+          "median": 293889.5,
+          "minimum": 111583,
+          "maximum": 436182,
+          "mean": 257547.65625
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 0,
+      "lut_uploads": 0,
+      "lut_cache_hits": 0,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 21,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 20,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2166,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 1000,
+          "squared_error_sum": 2166,
+          "mean_bias": 0.00048225308641975306,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 3153,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -3087,
+          "squared_error_sum": 3153,
+          "mean_bias": -0.0014887152777777778,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261287936,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 0,
+        "quota_throttled_usec": 0
+      }
+    },
+    {
+      "frame": 1960,
+      "slot": 1,
+      "lut_mode": 0,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            8688035,
+            9430284,
+            8883204,
+            9496697,
+            8734192,
+            9167777,
+            8842888,
+            9551331,
+            8741349,
+            9590544,
+            8594663,
+            9355723,
+            8461533,
+            9543400,
+            8692469,
+            9376937,
+            8543375,
+            9124515,
+            8638554,
+            9366815,
+            8616984,
+            9274363,
+            8622124,
+            9557550,
+            8738796,
+            9334202,
+            8809627,
+            9516947,
+            8670296,
+            9433194,
+            8856528,
+            9636402
+          ],
+          "median": 9003859.5,
+          "minimum": 8461533,
+          "maximum": 9636402,
+          "mean": 9059103.0625
+        },
+        "cpu_ns": {
+          "samples": [
+            350460,
+            339310,
+            250897,
+            322127,
+            389752,
+            336691,
+            319622,
+            356748,
+            338563,
+            328660,
+            295018,
+            384443,
+            149805,
+            180532,
+            313179,
+            303906,
+            153079,
+            160952,
+            150585,
+            160032,
+            181010,
+            179734,
+            202712,
+            325800,
+            332918,
+            328435,
+            293594,
+            303675,
+            332281,
+            336872,
+            350080,
+            290235
+          ],
+          "median": 316400.5,
+          "minimum": 149805,
+          "maximum": 389752,
+          "mean": 282553.34375
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 0,
+      "lut_uploads": 0,
+      "lut_cache_hits": 0,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1100,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 30,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 30,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2514,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2114,
+          "squared_error_sum": 2514,
+          "mean_bias": 0.001019483024691358,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 1855,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -857,
+          "squared_error_sum": 1855,
+          "mean_bias": -0.00041329089506172837,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261378048,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 0,
+        "quota_throttled_usec": 0
+      }
+    },
+    {
+      "frame": 1960,
+      "slot": 2,
+      "lut_mode": 1,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            6492982,
+            6533967,
+            6303500,
+            6719430,
+            6380679,
+            6547797,
+            6375934,
+            6847501,
+            6414136,
+            6786686,
+            6540346,
+            6961765,
+            6673797,
+            7195309,
+            6615317,
+            7180001,
+            6709110,
+            6835490,
+            6616579,
+            7149314,
+            6805775,
+            7357902,
+            6509556,
+            7057684,
+            6350135,
+            6813503,
+            6536081,
+            7047343,
+            6836748,
+            7018743,
+            6512308,
+            6841977
+          ],
+          "median": 6714270,
+          "minimum": 6303500,
+          "maximum": 7357902,
+          "mean": 6736481.09375
+        },
+        "cpu_ns": {
+          "samples": [
+            350101,
+            150706,
+            149699,
+            153273,
+            193068,
+            195705,
+            187546,
+            181474,
+            141860,
+            108859,
+            186602,
+            266627,
+            285018,
+            178226,
+            318521,
+            329690,
+            329830,
+            398525,
+            140128,
+            194486,
+            393405,
+            548461,
+            196841,
+            157277,
+            145982,
+            132794,
+            188383,
+            158445,
+            266843,
+            333744,
+            297324,
+            199341
+          ],
+          "median": 193777,
+          "minimum": 108859,
+          "maximum": 548461,
+          "mean": 233087
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 1,
+      "lut_uploads": 1,
+      "lut_cache_hits": 64,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 31,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 30,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 0
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2514,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2114,
+          "squared_error_sum": 2514,
+          "mean_bias": 0.001019483024691358,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 1855,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -857,
+          "squared_error_sum": 1855,
+          "mean_bias": -0.00041329089506172837,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261595136,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 0,
+        "quota_throttled_usec": 0
+      }
+    },
+    {
+      "frame": 1960,
+      "slot": 3,
+      "lut_mode": 1,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            6441491,
+            6746123,
+            6566112,
+            7011788,
+            6616153,
+            6694784,
+            6526600,
+            6845166,
+            6510197,
+            6810280,
+            6454777,
+            6842295,
+            6475506,
+            6777619,
+            6465713,
+            6928169,
+            6477320,
+            6857594,
+            6439584,
+            7041948,
+            6590825,
+            6743808,
+            6669136,
+            7051938,
+            6595748,
+            6762135,
+            6649421,
+            6816523,
+            6536999,
+            7021213,
+            6455691,
+            7079237
+          ],
+          "median": 6681960,
+          "minimum": 6439584,
+          "maximum": 7079237,
+          "mean": 6703184.15625
+        },
+        "cpu_ns": {
+          "samples": [
+            283697,
+            297382,
+            275539,
+            284441,
+            302113,
+            322215,
+            292632,
+            307259,
+            165495,
+            217450,
+            263985,
+            284816,
+            334242,
+            261056,
+            286802,
+            282980,
+            279196,
+            324689,
+            276854,
+            354029,
+            306397,
+            311601,
+            288763,
+            275800,
+            281241,
+            274966,
+            295199,
+            277210,
+            343776,
+            285767,
+            286134,
+            330915
+          ],
+          "median": 285950.5,
+          "minimum": 165495,
+          "maximum": 354029,
+          "mean": 289207.53125
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 1,
+      "lut_uploads": 1,
+      "lut_cache_hits": 64,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1300,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 1,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1283,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2514,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2114,
+          "squared_error_sum": 2514,
+          "mean_bias": 0.001019483024691358,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 1855,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -857,
+          "squared_error_sum": 1855,
+          "mean_bias": -0.00041329089506172837,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261541888,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 0,
+        "quota_throttled_usec": 0
+      }
+    },
+    {
+      "frame": 1960,
+      "slot": 4,
+      "lut_mode": 0,
+      "timing": {
+        "wall_ns": {
+          "samples": [
+            8871666,
+            9027252,
+            8478000,
+            9197402,
+            8388911,
+            8999341,
+            8462201,
+            9279297,
+            8427341,
+            9586975,
+            8491933,
+            9869533,
+            8609627,
+            9400582,
+            8652438,
+            9419648,
+            8489434,
+            9141566,
+            8630188,
+            9389456,
+            8553172,
+            9094702,
+            8761433,
+            9572009,
+            8655733,
+            9289628,
+            9204552,
+            9565140,
+            8782725,
+            9606233,
+            8710340,
+            9578241
+          ],
+          "median": 9013296.5,
+          "minimum": 8388911,
+          "maximum": 9869533,
+          "mean": 9005834.34375
+        },
+        "cpu_ns": {
+          "samples": [
+            155268,
+            179008,
+            220982,
+            187095,
+            156429,
+            149661,
+            163165,
+            211371,
+            167777,
+            169285,
+            170381,
+            563547,
+            278167,
+            260207,
+            287903,
+            332288,
+            296494,
+            269723,
+            270930,
+            325949,
+            315524,
+            280158,
+            347153,
+            322571,
+            306815,
+            353649,
+            282746,
+            191191,
+            373025,
+            343904,
+            310247,
+            343801
+          ],
+          "median": 279162.5,
+          "minimum": 149661,
+          "maximum": 563547,
+          "mean": 268325.4375
+        }
+      },
+      "cpu_oracle_values": 12441600,
+      "restored_a_exact_values": 0,
+      "lut_builds": 0,
+      "lut_uploads": 0,
+      "lut_cache_hits": 0,
+      "route_stats": {
+        "accepted_fp32": 65,
+        "accepted_integer": 0,
+        "cache_hits": 64,
+        "cache_misses": 1,
+        "shader_compile_failed": 0,
+        "generate_failed": 0
+      },
+      "frequency": {
+        "device_verified": true,
+        "samples": [
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1100,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 1300,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1283
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1283,
+            "after_act_mhz": 1300,
+            "after_cur_mhz": 1250
+          },
+          {
+            "before_act_mhz": 100,
+            "before_cur_mhz": 1250,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1267
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1267,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          },
+          {
+            "before_act_mhz": 0,
+            "before_cur_mhz": 1300,
+            "after_act_mhz": 0,
+            "after_cur_mhz": 1300
+          }
+        ],
+        "endpoint_summary": {
+          "before_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 15,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 600
+          },
+          "before_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1250,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_act_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 14,
+            "minimum": 0,
+            "maximum": 1300,
+            "median": 1300
+          },
+          "after_cur_mhz": {
+            "usable_readings": 32,
+            "missing_readings": 0,
+            "zero_readings": 0,
+            "minimum": 1250,
+            "maximum": 1300,
+            "median": 1300
+          }
+        }
+      },
+      "difference_metrics": [
+        {
+          "plane": 0,
+          "count": 8294400,
+          "changed": 0,
+          "over_one": 0,
+          "max_abs": 0,
+          "signed_sum": 0,
+          "squared_error_sum": 0,
+          "mean_bias": 0,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 1,
+          "count": 2073600,
+          "changed": 2514,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": 2114,
+          "squared_error_sum": 2514,
+          "mean_bias": 0.001019483024691358,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        },
+        {
+          "plane": 2,
+          "count": 2073600,
+          "changed": 1855,
+          "over_one": 0,
+          "max_abs": 1,
+          "signed_sum": -857,
+          "squared_error_sum": 1855,
+          "mean_bias": -0.00041329089506172837,
+          "abs_p50": 0,
+          "abs_p95": 0,
+          "abs_p99": 0
+        }
+      ],
+      "cleanup_succeeded": true,
+      "guards_passed": true,
+      "resources": {
+        "peak_bytes": 261283840,
+        "events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0,
+          "sock_throttled": 0
+        },
+        "swap_bytes": 0,
+        "quota_throttled_periods": 0,
+        "quota_throttled_usec": 0
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "frame": 1943,
+      "before": {
+        "wall_ns": {
+          "median": 9001849,
+          "minimum": 8332885,
+          "maximum": 9756783,
+          "mean": 8950823.296875,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 193026.5,
+          "minimum": 111583,
+          "maximum": 436182,
+          "mean": 232816.890625,
+          "count": 64
+        }
+      },
+      "after": {
+        "wall_ns": {
+          "median": 6625570.5,
+          "minimum": 6250814,
+          "maximum": 7164319,
+          "mean": 6674038.734375,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 187176,
+          "minimum": 136089,
+          "maximum": 405915,
+          "mean": 230252.5625,
+          "count": 64
+        }
+      },
+      "median_change_percent": {
+        "wall_ns": -26.397671189552284,
+        "cpu_ns": -3.03093098615993
+      }
+    },
+    {
+      "frame": 1960,
+      "before": {
+        "wall_ns": {
+          "median": 9013296.5,
+          "minimum": 8388911,
+          "maximum": 9869533,
+          "mean": 9032468.703125,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 295756,
+          "minimum": 149661,
+          "maximum": 563547,
+          "mean": 275439.390625,
+          "count": 64
+        }
+      },
+      "after": {
+        "wall_ns": {
+          "median": 6701947,
+          "minimum": 6303500,
+          "maximum": 7357902,
+          "mean": 6719832.625,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 280218.5,
+          "minimum": 108859,
+          "maximum": 548461,
+          "mean": 261147.265625,
+          "count": 64
+        }
+      },
+      "median_change_percent": {
+        "wall_ns": -25.643775282439673,
+        "cpu_ns": -5.253485981687611
+      }
+    }
+  ],
+  "post_matrix_kodi_restore_confirmed": true,
+  "prior_active_comparisons": [
+    {
+      "frame": 1943,
+      "before": {
+        "wall_ns": {
+          "median": 8913346.5,
+          "minimum": 8274402,
+          "maximum": 9905316,
+          "mean": 8962505.984375,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 256758.5,
+          "minimum": 138334,
+          "maximum": 391317,
+          "mean": 246203.984375,
+          "count": 64
+        }
+      },
+      "after": {
+        "wall_ns": {
+          "median": 6723401.5,
+          "minimum": 6274516,
+          "maximum": 23212371,
+          "mean": 9669936.109375,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 279662.5,
+          "minimum": 131661,
+          "maximum": 615349,
+          "mean": 261145.0625,
+          "count": 64
+        }
+      },
+      "median_change_percent": {
+        "wall_ns": -24.569279338573903,
+        "cpu_ns": 8.92044469803337
+      }
+    },
+    {
+      "frame": 1960,
+      "before": {
+        "wall_ns": {
+          "median": 8908767,
+          "minimum": 8422269,
+          "maximum": 9631277,
+          "mean": 8991262.515625,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 304105.5,
+          "minimum": 149860,
+          "maximum": 457796,
+          "mean": 290055.671875,
+          "count": 64
+        }
+      },
+      "after": {
+        "wall_ns": {
+          "median": 6751306.5,
+          "minimum": 6313551,
+          "maximum": 7579899,
+          "mean": 6767716.234375,
+          "count": 64
+        },
+        "cpu_ns": {
+          "median": 317060,
+          "minimum": 123235,
+          "maximum": 566819,
+          "mean": 288421.890625,
+          "count": 64
+        }
+      },
+      "median_change_percent": {
+        "wall_ns": -24.217273838231492,
+        "cpu_ns": 4.259870341049399
+      }
+    }
+  ]
+}
