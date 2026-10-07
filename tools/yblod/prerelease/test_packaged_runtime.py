@@ -19,6 +19,10 @@ def identity():
 result={'pass':False,'cases':[]};player=None
 try:
  assert 'VERSION="yblod-0.2-pre1"' in Path('/etc/os-release').read_text()
+ result['system_sha256']=sha('/flash/SYSTEM')
+ assert result['system_sha256']=='5df539024235e716168e2c345b60dcb05a6fc837fbdfbcf161071d56f4c30fcb'
+ helper=Path('/usr/lib/dbus/dbus-daemon-launch-helper').stat()
+ assert helper.st_uid==0 and helper.st_gid==81 and helper.st_mode & 0o7777==0o4750
  assert not any(row.split()[4]=='/usr/lib/kodi/kodi.bin' for row in Path('/proc/self/mountinfo').read_text().splitlines())
  assert not Path('/run/systemd/system/kodi.service.d/yblod-native-playback.conf').exists()
  stable=None
