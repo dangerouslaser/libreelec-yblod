@@ -17,6 +17,7 @@ build=sdk/'build.LibreELEC-Generic.x86_64-13.0-devel'
 sysroot=build/'toolchain/x86_64-libreelec-linux-gnu/sysroot'
 kodi=public/'target/qsv-bl-el-kodi-selection-20261006/kodi'
 ffmpeg=public/'target/qsv-bl-keyflag-library-handoff-20261006/ffmpeg-bl-qsv-candidate'
+runtime_input=public/'target/release-yblod-0.2-runtime-input'
 def sha(path):
  h=hashlib.sha256()
  with Path(path).open('rb') as f:
@@ -37,7 +38,7 @@ pins=json.loads(Path(__file__).with_name('ffmpeg-artifacts.json').read_text())
 files={}
 for name,item in pins.items():
  if name=='kodi.bin':continue
- src=ffmpeg/name.split('.so')[0]/name
+ src=runtime_input/name
  assert sha(src)==item['sha256'],name
  shutil.copyfile(src,runtime/name);os.chmod(runtime/name,0o755)
  files['usr/lib/yblod/runtime/'+name]=item['sha256']
@@ -103,7 +104,7 @@ sources=out/'yblod-0.2-pre1-playback-sources.tar.gz'
 trees={'kodi-22.0rc1-Piers':kodi,'ffmpeg-9.0.2':ffmpeg,'libvpl-2.17.0':build/'build/libvpl-2.17.0','vpl-gpu-rt-26.3.5':build/'build/vpl-gpu-rt-26.3.5'}
 def source_filter(item):
  parts=Path(item.name).parts
- if any(x.startswith(('.x86_64-','.git')) or x in ('__pycache__','CMakeFiles') for x in parts):return None
+ if any(x.startswith(('.x86_64-','.git')) or x in ('__pycache__','CMakeFiles','ffbuild') for x in parts):return None
  if re.search(r'\.(o|a|so)(\.|$)',item.name) or item.name.endswith(('.pyc','.bin')):return None
  if item.issym() and item.linkname.startswith('/'):return None
  return item
