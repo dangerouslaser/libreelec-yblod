@@ -1,0 +1,86 @@
+--- a/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.h
++++ b/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.h
+@@ -22,6 +22,7 @@
+   ~CQsvMappedBuffer() override { av_frame_free(&m_frame); }
+   const AVFrame* Frame() const { return m_frame; }
+   bool Valid(VADisplay display) const;
++  VADisplay Display() const;
+ private:
+   friend class CQsvMappedBufferPool;
+   AVFrame* m_frame{};
+--- a/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.cpp
++++ b/xbmc/cores/VideoPlayer/Buffers/QsvMappedBuffer.cpp
+@@ -2,6 +2,20 @@
+ #include "QsvMappedBuffer.h"
+ #include <limits>
+ 
++VADisplay CQsvMappedBuffer::Display() const
++{
++  if (!m_frame || !m_frame->hw_frames_ctx || !m_frame->hw_frames_ctx->data)
++    return nullptr;
++  const auto* frames = reinterpret_cast<const AVHWFramesContext*>(m_frame->hw_frames_ctx->data);
++  if (!frames->device_ctx || frames->device_ctx->type != AV_HWDEVICE_TYPE_VAAPI ||
++      !frames->device_ctx->hwctx)
++    return nullptr;
++  const auto display = static_cast<const AVVAAPIDeviceContext*>(frames->device_ctx->hwctx)->display;
++  // GetMapped admits only the decoder's shared VAAPI device. Its AVFrame keeps
++  // that device and display owner alive; a fresh window-proxy lookup does not.
++  return display && Valid(display) ? display : nullptr;
++}
++
+ bool CQsvMappedBuffer::Valid(VADisplay display) const
+ {
+   if (!m_generation || !m_generation->valid || m_generation->quarantined || !m_frame ||
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -89,7 +89,7 @@
+     const char* selected = std::getenv("DVBRIDGE_BASE_QSV");
+     const char* native = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
+     if (selected && std::strcmp(selected, "1") == 0 && native && std::strcmp(native, "1") == 0 &&
+-        m_pWinSystem && qsv->Valid(m_pWinSystem->GetVADisplay()))
++        m_pWinSystem && qsv->Display())
+       return new CRendererVAAPIGLES();
+ #endif
+     (void)qsv;
+@@ -155,7 +155,7 @@
+   m_isQsvMappedBuffer = qsv != nullptr;
+   if (qsv)
+   {
+-    if (!m_pWinSystem || !qsv->Valid(m_pWinSystem->GetVADisplay()) || orientation != 0 ||
++    if (!m_pWinSystem || !qsv->Display() || orientation != 0 ||
+         picture.hdrType != StreamHdrType::HDR_TYPE_DOLBYVISION)
+       return false;
+     m_isVAAPIBuffer = true;
+@@ -202,7 +202,7 @@
+   if (m_isQsvMappedBuffer || qsv)
+   {
+     if (!qsv || !m_isQsvMappedBuffer || !m_pWinSystem ||
+-        !qsv->Valid(m_pWinSystem->GetVADisplay()))
++        !qsv->Display())
+       return true;
+     return CLinuxRendererGLES::ConfigChanged(picture);
+   }
+@@ -300,8 +300,8 @@
+   layer.decodedSourcePts = buffer.doviSourcePts;
+   if (qsvPicture)
+   {
+-    if (!qsvPicture->Valid(m_pWinSystem->GetVADisplay())) return false;
+-    layer.vaDisplay = m_pWinSystem->GetVADisplay();
++    layer.vaDisplay = qsvPicture->Display();
++    if (!layer.vaDisplay) return false;
+     layer.vaSurface = static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(qsvPicture->Frame()->data[3]));
+     layer.decodedFrame = qsvPicture->Frame();
+     layer.nativeOnly = true;
+@@ -464,9 +464,10 @@
+ 
+   if (qsv)
+   {
+-    if (!m_pWinSystem || !qsv->Valid(m_pWinSystem->GetVADisplay())) return false;
++    const auto display = qsv->Display();
++    if (!m_pWinSystem || !display) return false;
+     const auto* frame = qsv->Frame();
+-    const VAAPI::BorrowedSurfaceView view{m_pWinSystem->GetVADisplay(),
++    const VAAPI::BorrowedSurfaceView view{display,
+         static_cast<VASurfaceID>(reinterpret_cast<uintptr_t>(frame->data[3])), frame->width, frame->height};
+     m_vaapiTextures[index] = m_texturePool.Get(view, m_vaapiTextures);
+     if (!qsv->Valid(view.display)) return false;
