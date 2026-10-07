@@ -89,8 +89,11 @@ image=out/(stem+'.img')
 with gzip.open(str(base)+'.img.gz','rb') as src,image.open('xb') as dst:shutil.copyfileobj(src,dst,1048576)
 with image.open('rb') as stream:mbr=stream.read(512)
 assert mbr[510:]==b'\x55\xaa'
-part=mbr[446:462];assert part[4] in (0x0b,0x0c,0x0e,0x06)
-sector=struct.unpack_from('<I',part,8)[0];assert sector>=2048
+table=json.loads(subprocess.check_output(['sfdisk','--json',str(image)]))['partitiontable']
+assert table['unit']=='sectors' and table.get('sectorsize',512)==512
+part=table['partitions'][0]
+assert part['type'].lower() in ('b','c','e','6','c12a7328-f81f-11d2-ba4b-00a0c93ec93b','ebd0a0a2-b9e5-4433-87c0-68b6b72699c7')
+sector=part['start'];assert sector>=2048
 fat=str(image)+'@@'+str(sector*512);mcopy=build/'toolchain/bin/mcopy';mdir=build/'toolchain/bin/mdir'
 run(mdir,'-i',fat,'::/')
 for name,src in [('SYSTEM',system),('KERNEL',kernel),('SYSTEM.md5',target/'SYSTEM.md5'),('KERNEL.md5',target/'KERNEL.md5')]:run(mcopy,'-o','-i',fat,src,'::/'+name)
