@@ -23,5 +23,15 @@ The factory, configuration, reconfiguration, texture import, and native
 reconstruction now consistently use that validated owned display. EGL still
 uses the registered window proxy. Normal VAAPI buffers are unchanged.
 
-Status: source candidate; bounded incremental build started. No successful
-playback, accuracy equality, or performance improvement claimed yet.
+Measured follow-up on Petunia: bounded build and library checks passed;
+binary a9c537064d3aacde4267a09ae4ea19ad836f5105d0aed6e8a2ec94f268b08894.
+Renderer selection advanced beyond the previous unsupported-format error.
+BL and EL decoded/mapped over 1,000 paired frames, including after seeking.
+However native reconstruction rejected the base frame with
+undeclared-base-chroma-location, followed by qsv-base-native-required. The
+user observed frozen video. Exact-frame capture timed out; test FAILED.
+Decoder progress is NOT proof of displayed playback or output accuracy.
+Working binary 19379 and original mount stack/settings/runtime/idle state
+were restored. No OOM, swap, accuracy equality, or performance claim.
+Further automatic iterations stopped pending reassessment of metadata
+propagation from the software metadata parser into QSV returned frames.
