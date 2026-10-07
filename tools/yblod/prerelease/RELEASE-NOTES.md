@@ -31,7 +31,19 @@ branch. N100 performance and compatibility are NOT yet validated.
 This package combines the matching direct-test4 base OS with the tested new
 Kodi/decoder libraries. It is not a fresh rebuild of every operating-system
 package. Source snapshots and a runtime/checksum manifest are included.
-The packaged image must also pass a boot/playback smoke check before publication.
+The final packaged update installed and booted on Petunia, then passed short
+P7 and P8 playback checks without temporary executable/library overrides.
+The uploaded USB image contains the identical verified SYSTEM and KERNEL.
+
+| Final packaged smoke check | Decode route | Drops | Skips | Stalls |
+| --- | --- | --- | --- | --- |
+| Saving Private Ryan, P7 | BL + EL QSV | 0 | 0 | 0 |
+| 12 Angry Men, P8 | VA-API | 0 | 1 at startup | 0 |
+
+Each check was approximately 30 seconds. `PACKAGED-RUNTIME-TEST.json` records
+the installed SYSTEM and runtime hashes and scalar test results. TV appearance
+was not visually confirmed remotely, and N100 testing remains the purpose of
+this prerelease, not a result already established.
 
 ## Install
 

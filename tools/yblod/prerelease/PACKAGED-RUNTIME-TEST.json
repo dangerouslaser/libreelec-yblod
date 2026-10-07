@@ -1,0 +1,55 @@
+{
+  "pass": true,
+  "cases": [
+    {
+      "title": "Saving Private Ryan",
+      "profile": 7,
+      "decoder": "ff-hevc_qsv",
+      "timeline_advance_seconds": 28.060000000000002,
+      "stalls": false,
+      "drops": 0,
+      "skips_max": 0,
+      "output_attempts": 725,
+      "runtime_loaded_sha256": {
+        "libmfx-gen.so.1.2.17": "a0e2acafa74214e7d6247dca26168a0814a51065aa08d09e99ad0990c3baf13c",
+        "libvpl.so.2.17": "299c300702dff1464781bbaba3cb6037bd8ddabdfd9241708a9ba877baca02d0",
+        "libpostproc.so.59": "1f9d7856c3bbf069bbf4f2c96a7d5e16f3157a22f81b21d8f10beea83dba8f75",
+        "libswresample.so.7": "72ee1b7f34ca9b7231a290e96362f668370d3e6cf201e126961f5289f287a634",
+        "libswscale.so.10": "ad867d0a6cff3b0b4cd93b33d7aa7e924d04908f87492185ef56dca9591f02bd",
+        "libavformat.so.63": "c2efe42da66a6abe79b8decf299a7c8d7ac6c975f75858a54518e8b833de2660",
+        "libavfilter.so.12": "61d43c0e242dd9eb4c56697ed6e6dcc8f16976f536a462d96add5407016028cf",
+        "libavutil.so.61": "87c9577f0ede0948ce199dbb54a1380c20b5ae9b4e8a6ee0a6ddf1aa450719c1",
+        "libavcodec.so.63": "65654b04276e60696a75a90b557cef046b893ea8a4e3ade210e579ae8872b704"
+      }
+    },
+    {
+      "title": "12 Angry Men",
+      "profile": 8,
+      "decoder": "ff-hevc-vaapi",
+      "timeline_advance_seconds": 28.032999999999998,
+      "stalls": false,
+      "drops": 0,
+      "skips_max": 1,
+      "output_attempts": 486,
+      "runtime_loaded_sha256": {
+        "libvpl.so.2.17": "299c300702dff1464781bbaba3cb6037bd8ddabdfd9241708a9ba877baca02d0",
+        "libpostproc.so.59": "1f9d7856c3bbf069bbf4f2c96a7d5e16f3157a22f81b21d8f10beea83dba8f75",
+        "libswresample.so.7": "72ee1b7f34ca9b7231a290e96362f668370d3e6cf201e126961f5289f287a634",
+        "libswscale.so.10": "ad867d0a6cff3b0b4cd93b33d7aa7e924d04908f87492185ef56dca9591f02bd",
+        "libavformat.so.63": "c2efe42da66a6abe79b8decf299a7c8d7ac6c975f75858a54518e8b833de2660",
+        "libavfilter.so.12": "61d43c0e242dd9eb4c56697ed6e6dcc8f16976f536a462d96add5407016028cf",
+        "libavutil.so.61": "87c9577f0ede0948ce199dbb54a1380c20b5ae9b4e8a6ee0a6ddf1aa450719c1",
+        "libavcodec.so.63": "65654b04276e60696a75a90b557cef046b893ea8a4e3ade210e579ae8872b704"
+      }
+    }
+  ],
+  "system_sha256": "5df539024235e716168e2c345b60dcb05a6fc837fbdfbcf161071d56f4c30fcb",
+  "installed_version": "0.2-pre1",
+  "temporary_overrides_absent": true,
+  "identity": {
+    "pid": 791,
+    "binary_sha256": "14f96e58da6f72274c0e9eac368bfa165795506d18126b287bd0f14f5e2517cb"
+  },
+  "idle": true,
+  "scope": "Short VM decoder/renderer smoke checks; not TV visual or N100 validation"
+}
