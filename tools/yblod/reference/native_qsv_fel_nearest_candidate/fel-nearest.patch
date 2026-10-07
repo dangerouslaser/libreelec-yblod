@@ -1,0 +1,55 @@
+--- a/tools/native_engine/experimental/native_vaapi_el_scaler.c
++++ b/tools/native_engine/experimental/native_vaapi_el_scaler.c
+@@ -25,7 +25,8 @@
+         c->output_width != c->input_width * 2 ||
+         c->output_height != c->input_height * 2 ||
+         ((c->input_width | c->input_height) & 1U) ||
+-        (c->filter != YB_VPP_FAST && c->filter != YB_VPP_BILINEAR) ||
++        (c->filter != YB_VPP_FAST && c->filter != YB_VPP_BILINEAR &&
++         c->filter != YB_VPP_NEAREST) ||
+         c->pipeline_fast > 1 ||
+         (c->colour_range != VA_SOURCE_RANGE_FULL &&
+          c->colour_range != VA_SOURCE_RANGE_REDUCED) ||
+@@ -167,7 +168,9 @@
+     VARectangle dst={0,0,(uint16_t)c->output_width,(uint16_t)c->output_height};
+     VAProcPipelineParameterBuffer p={0};
+     p.surface=input; p.surface_region=&src; p.output_region=&dst;
+-    p.filter_flags=c->filter==YB_VPP_FAST ? VA_FILTER_SCALING_FAST : VA_FILTER_INTERPOLATION_BILINEAR;
++    p.filter_flags=c->filter==YB_VPP_FAST ? VA_FILTER_SCALING_FAST :
++        c->filter==YB_VPP_NEAREST ? VA_FILTER_INTERPOLATION_NEAREST_NEIGHBOR :
++        VA_FILTER_INTERPOLATION_BILINEAR;
+     p.pipeline_flags=c->pipeline_fast ? VA_PROC_PIPELINE_FAST : 0;
+     p.surface_color_standard=p.output_color_standard=VAProcColorStandardBT2020;
+     p.input_color_properties.color_range=(uint8_t)c->colour_range;
+--- a/tools/native_engine/experimental/native_vaapi_el_scaler.h
++++ b/tools/native_engine/experimental/native_vaapi_el_scaler.h
+@@ -8,7 +8,7 @@
+ struct yb_vaapi_el_scaler;
+ enum { YB_VPP_OK=0, YB_VPP_INVALID=1, YB_VPP_UNSUPPORTED=2,
+        YB_VPP_DRIVER=3, YB_VPP_PENDING=4, YB_VPP_QUARANTINED=5 };
+-enum { YB_VPP_FAST=1, YB_VPP_BILINEAR=2 };
++enum { YB_VPP_FAST=1, YB_VPP_BILINEAR=2, YB_VPP_NEAREST=3 };
+ struct yb_vaapi_el_scale_config {
+     uint32_t input_width, input_height, output_width, output_height;
+     uint32_t filter, pipeline_fast, colour_range;
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -658,7 +658,7 @@
+   info.enhancement_scaler = {
+       static_cast<uint32_t>(enhancement->width), static_cast<uint32_t>(enhancement->height),
+       static_cast<uint32_t>(base.width), static_cast<uint32_t>(base.height),
+-      YB_VPP_BILINEAR, 1, VA_SOURCE_RANGE_FULL,
++      YB_VPP_NEAREST, 1, VA_SOURCE_RANGE_FULL,
+       VA_CHROMA_SITING_VERTICAL_TOP | VA_CHROMA_SITING_HORIZONTAL_LEFT,
+       VA_CHROMA_SITING_VERTICAL_CENTER | VA_CHROMA_SITING_HORIZONTAL_LEFT};
+   info.base_chroma_location = base.decodedFrame->chroma_location == AVCHROMA_LOC_LEFT ? 0u : 1u;
+@@ -668,7 +668,8 @@
+   info.ycc_expansion = {YBLOD_NATIVE::ycc, sizeof(YBLOD_NATIVE::ycc)-1};
+   std::memcpy(info.guide_contract_id, "guide-quarter-round-each-pass-v1", 32);
+   std::memcpy(info.phase_contract_id, "phase-cubic128-left-explicit-v1", 31);
+-  std::memcpy(info.enhancement_scale_contract_id, "va-bilinear-fast-top-left-v1", 28);
++  std::memcpy(info.enhancement_scale_contract_id, "va-nearest-fast-top-left-v1",
++              sizeof("va-nearest-fast-top-left-v1") - 1);
+   if (!m_native)
+   {
+     m_nativeColourCalls = m_nativeColourWallNs = m_nativeColourCpuNs = 0;
