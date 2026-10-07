@@ -29,5 +29,14 @@ Peak memory 64544768 bytes. Earlier harness compilation/synthetic-bitstream
 mistakes are retained privately; they do not constitute successful tests.
 
 Only private qsv_dovi.h and qsvdec.c change; public ABI and reconstruction
-math remain unchanged. Fresh serial library build is in progress. No target
-playback, output accuracy, or performance improvement is claimed yet.
+math remain unchanged. Fresh serial library build passed, with unchanged
+public ABI and peak memory 752807936 bytes, no OOM or swap.
+
+Petunia short dual-QSV test: base-chroma admission advanced, but native output
+failed at undeclared-enhancement-chroma-location. Both decoders continued
+mapping/paired output; the screen remained frozen and capture timed out.
+No successful playback, output equality, or performance claim. The working
+19379 binary, mount stack, settings, runtime maps and idle state were restored.
+Automatic retries stopped. The separate EL decoder is initialized through
+dvbridge_fel.c and is not covered by the BL Dolby metadata-token option; its
+own parameter-set metadata propagation needs assessment before another test.
