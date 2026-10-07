@@ -1,0 +1,141 @@
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -1390,6 +1390,23 @@
+   pVideoPicture->qscale_type = 0;
+ 
+   pVideoPicture->hdrType = m_hints.hdrType;
++#if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
++  if (m_dvBaseQsv)
++  {
++    // Picture-scoped properties, not the codec context's latest SPS generation.
++    pVideoPicture->pixelFormat = AV_PIX_FMT_P010;
++    pVideoPicture->colorBits = 10;
++    pVideoPicture->chroma_position = m_pFrame->chroma_location;
++    pVideoPicture->color_primaries = m_pFrame->color_primaries == AVCOL_PRI_UNSPECIFIED
++        ? m_hints.colorPrimaries : m_pFrame->color_primaries;
++    pVideoPicture->m_originalColorPrimaries = pVideoPicture->color_primaries;
++    pVideoPicture->color_transfer = m_pFrame->color_trc == AVCOL_TRC_UNSPECIFIED
++        ? m_hints.colorTransferCharacteristic : m_pFrame->color_trc;
++    pVideoPicture->color_space = m_pFrame->colorspace == AVCOL_SPC_UNSPECIFIED
++        ? m_hints.colorSpace : m_pFrame->colorspace;
++    pVideoPicture->color_range = m_pFrame->color_range == AVCOL_RANGE_JPEG ? 1 : 0;
++  }
++#endif
+ 
+   AVFrameSideData* sd;
+ 
+--- a/tools/dvbridge/dvbridge_fel.c
++++ b/tools/dvbridge/dvbridge_fel.c
+@@ -60,6 +60,7 @@
+     bool opened, failed, draining, sent_eof, eof;
+     struct picture_order base_order, enhancement_order;
+     int64_t packet_order[QUEUE_MAX];
++    struct dvbridge_qsv_properties packet_properties[QUEUE_MAX];
+     struct { int64_t order, pts; } times[MAP_MAX];
+     unsigned num_times;
+     bool synchronizing;
+@@ -326,6 +327,22 @@
+             /* DTS is unknown for this POC-associated EL AU, as before. */
+             mapped->pkt_dts = AV_NOPTS_VALUE;
+             mapped->duration = stamp.duration;
++            if (!stamp.properties_valid || mapped->width != stamp.properties.width ||
++                mapped->height != stamp.properties.height ||
++                stamp.properties.format != AV_PIX_FMT_YUV420P10LE ||
++                (mapped->flags & AV_FRAME_FLAG_INTERLACED) || mapped->crop_top ||
++                mapped->crop_bottom || mapped->crop_left || mapped->crop_right) {
++                av_frame_free(&mapped);
++                av_frame_free(&frame);
++                return false;
++            }
++            mapped->chroma_location = stamp.properties.chroma_location;
++            mapped->color_range = stamp.properties.color_range;
++            mapped->color_primaries = stamp.properties.color_primaries;
++            mapped->color_trc = stamp.properties.color_trc;
++            mapped->colorspace = stamp.properties.colorspace;
++            mapped->sample_aspect_ratio = (AVRational){stamp.properties.sar_num,
++                                                       stamp.properties.sar_den};
+             /* Match the existing VAAPI AVFrame convention: time_base is
+              * unspecified; restored timestamps use the helper's externally
+              * supplied source_time_base, not the QSV token time base. */
+@@ -391,7 +408,8 @@
+             break;
+         if (result < 0)
+             goto fail;
+-        if (f->qsv && !dvbridge_qsv_token_commit(&f->tokens, token, original_pts, packet->duration))
++        if (f->qsv && !dvbridge_qsv_token_commit_properties(&f->tokens, token, original_pts,
++                packet->duration, &f->packet_properties[0]))
+             goto fail;
+         --f->num_times;
+         memmove(f->times + match, f->times + match + 1,
+@@ -401,6 +419,8 @@
+         --f->num_packets;
+         memmove(f->packets, f->packets + 1, f->num_packets * sizeof(*f->packets));
+         memmove(f->packet_order, f->packet_order + 1, f->num_packets * sizeof(*f->packet_order));
++        memmove(f->packet_properties, f->packet_properties + 1,
++                f->num_packets * sizeof(*f->packet_properties));
+         if (!receive_frames(f))
+             goto fail;
+     }
+@@ -535,6 +555,20 @@
+             f->anchor_pts = packet->pts;
+             f->synchronizing = false;
+         }
++        if (f->qsv) {
++            const AVCodecParserContext *ep = f->enhancement_order.parser;
++            const AVCodecContext *ec = f->enhancement_order.context;
++            if (ec->chroma_sample_location == AVCHROMA_LOC_UNSPECIFIED) {
++                av_packet_free(&copy);
++                goto fail;
++            }
++            f->packet_properties[f->num_packets] = (struct dvbridge_qsv_properties){
++                .width=ep->width, .height=ep->height, .format=ep->format,
++                .chroma_location=ec->chroma_sample_location, .color_range=ec->color_range,
++                .color_primaries=ec->color_primaries, .color_trc=ec->color_trc,
++                .colorspace=ec->colorspace, .sar_num=ec->sample_aspect_ratio.num,
++                .sar_den=ec->sample_aspect_ratio.den};
++        }
+         f->packet_bytes += copy->size;
+         f->packets[f->num_packets++] = copy;
+     }
+--- a/tools/dvbridge/dvbridge_fel_qsv_tokens.h
++++ b/tools/dvbridge/dvbridge_fel_qsv_tokens.h
+@@ -12,8 +12,15 @@
+     *enabled = value && !strcmp(value, "1");
+     return true;
+ }
++struct dvbridge_qsv_properties {
++    int width, height, format, chroma_location;
++    int color_range, color_primaries, color_trc, colorspace;
++    int sar_num, sar_den;
++};
+ struct dvbridge_qsv_timestamp {
+     int64_t token, pts, duration;
++    struct dvbridge_qsv_properties properties;
++    bool properties_valid;
+ };
+ struct dvbridge_qsv_tokens {
+     struct dvbridge_qsv_timestamp entries[DVBRIDGE_QSV_TOKEN_MAX];
+@@ -39,10 +46,22 @@
+     int64_t expected;
+     if (!dvbridge_qsv_token_peek(map, pts, &expected) || token != expected)
+         return false;
+-    map->entries[map->count++] = (struct dvbridge_qsv_timestamp){token, pts, duration};
++    map->entries[map->count++] = (struct dvbridge_qsv_timestamp){
++        .token=token, .pts=pts, .duration=duration};
+     map->next = token;
+     return true;
+ }
++static inline bool dvbridge_qsv_token_commit_properties(struct dvbridge_qsv_tokens *map,
++        int64_t token, int64_t pts, int64_t duration,
++        const struct dvbridge_qsv_properties *properties)
++{
++    if (!properties || properties->width <= 0 || properties->height <= 0 ||
++        !dvbridge_qsv_token_commit(map, token, pts, duration))
++        return false;
++    map->entries[map->count-1].properties = *properties;
++    map->entries[map->count-1].properties_valid = true;
++    return true;
++}
+ static inline bool dvbridge_qsv_token_take(struct dvbridge_qsv_tokens *map,
+                                           int64_t token, struct dvbridge_qsv_timestamp *result)
+ {
