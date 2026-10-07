@@ -13,7 +13,10 @@ assert os.geteuid()==0 and image.is_file() and system.is_file() and kernel.is_fi
 # Preserve any unpublished previous artifact, then regenerate its packaging.
 for name in (stem+'.tar',stem+'.img.gz','yblod-0.2-pre1-playback-sources.tar.gz'):
  previous=out/name
- if previous.exists():previous.rename(out/(name+'.checksum-format-rejected'))
+ if previous.exists():
+  suffix=1
+  while (out/(name+'.rejected-'+str(suffix))).exists():suffix+=1
+  previous.rename(out/(name+'.rejected-'+str(suffix)))
 bundle=out/stem
 for name,src in [('SYSTEM',system),('KERNEL',kernel)]:
  (bundle/'target'/(name+'.md5')).write_text(hashlib.md5(src.read_bytes()).hexdigest()+'  target/'+name+'\n')

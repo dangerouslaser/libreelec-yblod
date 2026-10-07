@@ -64,7 +64,7 @@ manifest={'version':'0.2-pre1','source_commit':revision,'packaging':'Pinned dire
 (out/'RUNTIME-MANIFEST.json').write_text(json.dumps(manifest,indent=2)+'\n')
 (root/'usr/share/yblod').mkdir(exist_ok=True);shutil.copyfile(out/'RUNTIME-MANIFEST.json',root/'usr/share/yblod/runtime-manifest.json')
 system=out/(stem+'.system')
-run('mksquashfs',root,system,'-noappend','-comp','zstd','-Xcompression-level','19','-b','1048576','-processors','4','-mem','512M','-no-xattrs','-all-root')
+run('mksquashfs',root,system,'-noappend','-comp','zstd','-Xcompression-level','19','-b','1048576','-processors','4','-mem','512M','-no-xattrs')
 for name,expected in files.items():
  result=subprocess.check_output(['unsquashfs','-cat',str(system),name]);assert hashlib.sha256(result).hexdigest()==expected,name
 kernel=out/(stem+'.kernel');shutil.copyfile(str(base)+'.kernel',kernel)
