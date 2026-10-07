@@ -71,7 +71,7 @@ kernel=out/(stem+'.kernel');shutil.copyfile(str(base)+'.kernel',kernel)
 bundle=out/stem;bundle.mkdir();target=bundle/'target';target.mkdir()
 for name,src in [('SYSTEM',system),('KERNEL',kernel)]:
  shutil.copyfile(src,target/name)
- (target/(name+'.md5')).write_text(hashlib.md5(src.read_bytes()).hexdigest()+'  '+name+'\n')
+ (target/(name+'.md5')).write_text(hashlib.md5(src.read_bytes()).hexdigest()+'  target/'+name+'\n')
 (bundle/'RELEASE').write_text('Generic.x86_64-yblod-0.2-pre1\nKodi commit: 22.0rc1-Piers\n')
 notes=Path(__file__).with_name('RELEASE-NOTES.md').read_text();(bundle/'README.md').write_text(notes);(bundle/'CHANGELOG').write_text(notes)
 with tarfile.open(str(base)+'.tar') as old:

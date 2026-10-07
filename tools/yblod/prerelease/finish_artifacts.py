@@ -10,7 +10,18 @@ def sha(path):
  return h.hexdigest()
 def run(*args):return subprocess.run(list(map(str,args)),check=True)
 assert os.geteuid()==0 and image.is_file() and system.is_file() and kernel.is_file()
-assert not (out/(stem+'.img.gz')).exists()
+# Preserve any unpublished previous artifact, then regenerate its packaging.
+for name in (stem+'.tar',stem+'.img.gz','yblod-0.2-pre1-playback-sources.tar.gz'):
+ previous=out/name
+ if previous.exists():previous.rename(out/(name+'.checksum-format-rejected'))
+bundle=out/stem
+for name,src in [('SYSTEM',system),('KERNEL',kernel)]:
+ (bundle/'target'/(name+'.md5')).write_text(hashlib.md5(src.read_bytes()).hexdigest()+'  target/'+name+'\n')
+with tarfile.open(out/(stem+'.tar'),'w') as tar:tar.add(bundle,arcname=stem)
+for name in ('SYSTEM','KERNEL'):
+ text=(bundle/'target'/(name+'.md5')).read_text()
+ checked=text.replace('target/KERNEL','/storage/.update/KERNEL') if name=='KERNEL' else text.replace('target','/storage/.update')
+ assert checked.endswith('  /storage/.update/'+name+'\n')
 table=json.loads(subprocess.check_output(['sfdisk','--json',str(image)]))['partitiontable'];part=table['partitions'][0]
 assert table['unit']=='sectors' and table.get('sectorsize',512)==512
 assert part['type'].lower() in ('b','c','e','6','c12a7328-f81f-11d2-ba4b-00a0c93ec93b','ebd0a0a2-b9e5-4433-87c0-68b6b72699c7')
@@ -19,7 +30,7 @@ fat=str(image)+'@@'+str(part['start']*512);mcopy=build/'toolchain/bin/mcopy';mdi
 run(mdir,'-i',fat,'::/')
 for name,src in [('SYSTEM',system),('KERNEL',kernel),('SYSTEM.md5',out/stem/'target/SYSTEM.md5'),('KERNEL.md5',out/stem/'target/KERNEL.md5')]:run(mcopy,'-o','-i',fat,src,'::/'+name)
 for name,expected in [('SYSTEM',sha(system)),('KERNEL',sha(kernel))]:
- check=out/('image-check-'+name);run(mcopy,'-i',fat,'::/'+name,check);assert sha(check)==expected
+ check=out/('image-check-'+name);run(mcopy,'-o','-i',fat,'::/'+name,check);assert sha(check)==expected
 compressed=out/(stem+'.img.gz')
 with image.open('rb') as src,compressed.open('xb') as dst:
  with gzip.GzipFile(filename='',mode='wb',fileobj=dst,mtime=0,compresslevel=6) as gz:shutil.copyfileobj(src,gz,1048576)
