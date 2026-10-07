@@ -9,6 +9,7 @@ from pathlib import Path
 
 p=argparse.ArgumentParser();p.add_argument('--public',type=Path,required=True);p.add_argument('--sdk',type=Path,required=True);p.add_argument('--output',type=Path,required=True)
 a=p.parse_args();public=a.public.resolve();sdk=a.sdk.resolve();out=a.output.absolute()
+assert os.geteuid()==0, 'Root required to preserve protected stock OS files while packaging'
 assert out.parent.resolve()==public/'target' and out.name=='release-yblod-0.2-pre1'
 assert not out.exists();out.mkdir()
 stem='LibreELEC-Generic.x86_64-13.0-yblod-0.2-pre1'
@@ -104,7 +105,7 @@ sources=out/'yblod-0.2-pre1-playback-sources.tar.gz'
 trees={'kodi-22.0rc1-Piers':kodi,'ffmpeg-9.0.2':ffmpeg,'libvpl-2.17.0':build/'build/libvpl-2.17.0','vpl-gpu-rt-26.3.5':build/'build/vpl-gpu-rt-26.3.5'}
 def source_filter(item):
  parts=Path(item.name).parts
- if any(x.startswith(('.x86_64-','.git')) or x in ('__pycache__','CMakeFiles','ffbuild') for x in parts):return None
+ if any(x.startswith(('.x86_64-','.git')) or x in ('__pycache__','CMakeFiles') for x in parts):return None
  if re.search(r'\.(o|a|so)(\.|$)',item.name) or item.name.endswith(('.pyc','.bin')):return None
  if item.issym() and item.linkname.startswith('/'):return None
  return item
