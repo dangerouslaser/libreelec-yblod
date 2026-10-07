@@ -57,7 +57,7 @@ assert text.count(line)==1
 launcher.write_text(text.replace(line,'LD_LIBRARY_PATH=/usr/lib/yblod/runtime:$LD_LIBRARY_PATH ONEVPL_PRIORITY_PATH=/usr/lib/yblod/runtime '+line));os.chmod(launcher,0o755)
 service=root/'usr/lib/systemd/system/kodi.service.d';service.mkdir(exist_ok=True)
 (service/'yblod-prerelease.conf').write_text('[Service]\nLimitCORE=256M\n')
-revision=subprocess.check_output(['git','-C',str(public),'rev-parse','HEAD'],text=True).strip()
+revision=subprocess.check_output(['git','-c','safe.directory='+str(public),'-C',str(public),'rev-parse','HEAD'],text=True).strip()
 osrelease=root/'etc/os-release';text=osrelease.read_text().replace('yblod-0.1-direct-test4','yblod-0.2-pre1');text=re.sub(r'^BUILD_ID="[^"]+"',f'BUILD_ID="{revision}"',text,flags=re.M);osrelease.write_text(text)
 if (root/'etc/release').exists():(root/'etc/release').write_text('LibreELEC (yblod): yblod-0.2-pre1\n')
 manifest={'version':'0.2-pre1','source_commit':revision,'packaging':'Pinned direct-test4 OS + exact tested Kodi/FFmpeg/VPL runtime; not a fresh full OS rebuild','base_system_sha256':sha(str(base)+'.system'),'base_kernel_sha256':sha(str(base)+'.kernel'),'runtime_files':files,'environment':flags,'el_scaling':'Intel VAAPI media-engine bilinear; not proven nearest-neighbour','n100_validated':False,'native_reconstruction_scope':'Profile 7 FEL; other supported streams use existing route'}
