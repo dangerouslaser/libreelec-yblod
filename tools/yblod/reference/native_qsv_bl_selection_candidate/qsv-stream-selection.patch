@@ -1,0 +1,26 @@
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -427,15 +427,16 @@
+   const AVCodec* pCodec = nullptr;
+ #if defined(HAVE_DVBRIDGE) && defined(HAVE_LIBVA)
+   const char* baseQsv = std::getenv("DVBRIDGE_BASE_QSV");
+-  m_dvBaseQsv = baseQsv && std::string(baseQsv) == "1";
++  const char* reconstruction = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
++  // The experiment selects only its supported stream class. Other profiles and
++  // codecs must continue through Kodi's existing decoder-selection path.
++  m_dvBaseQsv = baseQsv && std::string(baseQsv) == "1" &&
++                reconstruction && std::string(reconstruction) == "1" &&
++                m_dvNativeOutput && hints.codec == AV_CODEC_ID_HEVC &&
++                hints.dovi.dv_profile == 7 && hints.dovi.el_present_flag &&
++                !hints.orientation && !(hints.codecOptions & CODEC_FORCE_SOFTWARE);
+   if (m_dvBaseQsv)
+   {
+-    const char* reconstruction = std::getenv("DVBRIDGE_NATIVE_RECONSTRUCTION");
+-    if (!reconstruction || std::string(reconstruction) != "1" || !m_dvNativeOutput ||
+-        hints.codec != AV_CODEC_ID_HEVC || hints.dovi.dv_profile != 7 ||
+-        !hints.dovi.el_present_flag || hints.orientation ||
+-        (hints.codecOptions & CODEC_FORCE_SOFTWARE))
+-      return false;
+     pCodec = avcodec_find_decoder_by_name("hevc_qsv");
+     if (!pCodec)
+       return false;

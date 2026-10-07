@@ -1,0 +1,31 @@
+{
+  "schema": "yblod.qsv-stream-selection-inputs.v1",
+  "sdk_kodi_binary_sha256": "db2ada4e0646f845c3bfa2dd96fab3f73dbc161fdfc0944691084753e30f104b",
+  "source_sha256": {
+    "xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp": "a858b935b930640e46f21f9b355bb3c26ded45aca14e9d954e26ae50c318bb14",
+    "tools/dvbridge/dvbridge_fel.c": "0da8c9bdf0618c7f12346fb246367491a45367828e7fe5cc00df1f98603592c3",
+    "tools/dvbridge/dvbridge_fel_qsv_tokens.h": "3361b4106ad0a00cdbc73c407e4b6778cb8979dab5b5e1d046df1df9928e56ea"
+  },
+  "patch_sha256": {
+    "qsv-stream-selection.patch": "f81d6d79bc31eb6658741c63de478d97bec50a75a7da4363307d5e9676e66b18"
+  },
+  "prepared_decoder_sha256": "be0b1ba1f64ecb3a9b171d6bd3b1b69ac24ce0c5cc2eec6f2ba80e7d34849ec4",
+  "prepared_source_sha256": {
+    "tools/dvbridge/dvbridge_fel.c": "0da8c9bdf0618c7f12346fb246367491a45367828e7fe5cc00df1f98603592c3",
+    "tools/dvbridge/dvbridge_fel_qsv_tokens.h": "3361b4106ad0a00cdbc73c407e4b6778cb8979dab5b5e1d046df1df9928e56ea"
+  },
+  "compatible_build_report_sha256": "d46b736f6288ada414b1384bdf7cba43094b5e7fe7dae4b0f008ad7c99a14cae",
+  "qualified_closure_report_sha256": "1796c36d51f6db27e63cb13927a40c5df1578044d6cb2f481cfc20508838f50c",
+  "qualified_libavcodec_sha256": "c0eee175512c06ae4138b7bf1cf7dbbaaf317b3f406f0413d0ac987262e09466",
+  "budgets": {
+    "maximum_copy_bytes": 1342177280,
+    "maximum_copy_files": 20000,
+    "minimum_free_disk_bytes": 6442450944,
+    "minimum_host_available_memory_bytes": 6442450944,
+    "abort_host_available_memory_below_bytes": 2147483648,
+    "container_memory_bytes": 4294967296,
+    "container_swap_bytes": 0,
+    "container_cpus": 4,
+    "build_timeout_seconds": 5400
+  }
+}
