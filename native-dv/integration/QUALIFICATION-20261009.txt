@@ -57,6 +57,20 @@ every reconstructed sample. Readback perturbs cadence; these are not timing runs
 The first P7 harness run lacked its required FEL route diagnostic and failed
 that assertion; rerunning with the route log enabled passed the unchanged gate.
 
+Additional lifecycle and startup isolation
+Selected Matrix MEL and synthetic equal-resolution FEL tails pass expected
+final decoded/displayed PTS, successful drain, zero failed display commits and
+the expected composition route. This is endpoint evidence, not every-tail-frame
+cadence qualification.
+The HDMI audio capability state temporarily disappears during the SDR-menu to
+DV-movie switch (~152 ms in one sampled run), causing an audio-sink reopen.
+With DV menus enabled and passthrough retained, two early P7 runs have no gaps
+over 50 ms (maximum 42 ms; 155/154 unique successful commits). The capability
+state still changes briefly, but before movie-clock release, rather than at
+the first movie-frame handoff. This supports a startup-ordering investigation,
+not a claim that DV-menu-off startup is fixed or that audio resets can be ignored.
+Temporary menu changes were restored; no production timing change is included.
+
 Still required on this exact packaged image
 - Remaining reconstruction-reference and EOF/ownership gates.
 - Cold-start and early P7 presentation investigation.
