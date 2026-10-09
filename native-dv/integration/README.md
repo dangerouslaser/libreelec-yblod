@@ -21,9 +21,11 @@ standalone menu, which keeps its existing packing and appearance controls.
 The complete Generic image has built and booted on the N150. The installed
 engine has passed selected current-profile controls/recovery checks, and initial
 GPU timestamp baselines are available in
-[QUALIFICATION-20261009.txt](QUALIFICATION-20261009.txt). Early P7 presentation
-gaps and remaining accuracy, menu and QMS/VRR gates keep release qualification
-open. These results apply to the exact image identified in that report.
+[QUALIFICATION-20261009.txt](QUALIFICATION-20261009.txt). The reproduced early
+P7 presentation gaps were subsequently fixed and retested in
+[STARTUP-HANDOFF-20261009.txt](STARTUP-HANDOFF-20261009.txt), which also records
+remaining controls-open frame drops in a 59.94 Hz sample. These results apply
+to the exact images identified in each report; release review remains open.
 
 The unchanged standalone source passes all three Release-mode CPU contract
 tests with GCC 14.2 and CMake 4.4.4: specialization admission, geometry and
@@ -33,6 +35,11 @@ The patch is `projects/Generic/patches/kodi/kodi-9999-yblod-03-native-source.pat
 Generic builds apply it after the existing YBLOD QSV and menu patches and
 install the engine and dependencies through Kodi's package recipe. This is
 unqualified integration source, not a ready-to-install release.
+
+The subsequent `kodi-9999-yblod-04-native-startup.patch` establishes a valid
+black DV signal before releasing playback startup. The Quick Sync scaling
+setting only applies to the retained legacy renderer; it neither selects that
+renderer nor offloads enhancement-layer scaling in the native engine.
 
 ## Build and runtime
 
@@ -59,7 +66,9 @@ are disabled. Keep Kodi's resources and executable from the same build.
 
 The report above records packaged-image profile, timing, reference, cold-cache,
 EOF, ownership/recovery and menu/QMS smoke checks. These are bounded tests, not
-all-media certification. The menu-off/passthrough P7 startup issue remains open.
+all-media certification. The menu-off/passthrough P7 startup fix passed the
+documented A/B and packaged-boot checks; 59.94 Hz controls-open playback still
+requires work.
 Optical menu appearance, transition blackout and physical audio synchronization
 are not proven by driver readbacks. Final publication/release review is pending.
 

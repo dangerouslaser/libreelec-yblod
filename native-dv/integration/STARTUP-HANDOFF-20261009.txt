@@ -61,3 +61,8 @@ Kernel, drivers, reconstruction library and shader resources are unchanged.
 SYSTEM SHA256: a9991762e945be0dfef0122f7b3977b9af2d5c40321d2e04df1bfc0a086a332e
 Installed Kodi SHA256: 722bdd31f759e38b3e61d425079a7c41acec1bf50f16a9c2ee5f1d8c4f2830ee
 The install step removes the build-tree RPATH, as in a normal Kodi package.
+The packaged image booted successfully on the N150; the installed executable
+matched the hash above. Three further start/replay tests with both settings off
+had zero omitted frames, zero failed commits and maximum PTS gaps of 42 ms.
+Filesystem comparison against the base image found only Kodi, /etc/os-release
+and /etc/issue changed; both update-payload MD5 checks passed.
