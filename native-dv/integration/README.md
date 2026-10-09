@@ -55,13 +55,13 @@ Legacy `DV_PRIVATE_*` names and the library SONAME are retained for ABI
 compatibility. Readback, half-resolution GUI and rejected GUI-tile experiments
 are disabled. Keep Kodi's resources and executable from the same build.
 
-## Qualification still required
+## Qualification boundaries
 
-- Current 2D profile playback, cold start, controls, pause/seek and EOF.
-- Packed-output accuracy checks and before/after N150 performance measurements.
-- P7 FEL/MEL performance and frame/layer ownership across transitions.
-- DV menus, their appearance controls, movie/menu handoffs, QMS/VRR and audio.
-- Full image packaging and runtime dependency verification.
+The report above records packaged-image profile, timing, reference, cold-cache,
+EOF, ownership/recovery and menu/QMS smoke checks. These are bounded tests, not
+all-media certification. The menu-off/passthrough P7 startup issue remains open.
+Optical menu appearance, transition blackout and physical audio synchronization
+are not proven by driver readbacks. Final publication/release review is pending.
 
 The route targets 3840x2160 progressive output with admitted source geometry
 and metadata. HDR bitmap overlays and native composite screenshots remain

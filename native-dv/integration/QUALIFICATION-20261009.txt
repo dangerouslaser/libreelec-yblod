@@ -71,11 +71,48 @@ the first movie-frame handoff. This supports a startup-ordering investigation,
 not a claim that DV-menu-off startup is fixed or that audio resets can be ignored.
 Temporary menu changes were restored; no production timing change is included.
 
-Still required on this exact packaged image
-- Remaining reconstruction-reference and EOF/ownership gates.
-- Cold-start and early P7 presentation investigation.
-- DV menus, appearance controls and movie/menu handoffs.
-- QMS/VRR feature regression and audio validation.
+Reconstruction and ownership contracts
+The GPU backend harness was rerun against the installed renderer library,
+packaged shaders and drivers, without a development-library search path. Both
+the general and specialized 12-case suites pass: 208,896 component comparisons
+each with zero differences. Pending-frame identity, metadata-mismatch rejection,
+sample-error recovery and polynomial/cache transitions also pass. These are
+synthetic reference tests, not licensed-player conformance or all-media proof.
+Public-source CPU tests also pass under strict Clang C11/O2 with assertions:
+20 specialization-admission checks, 138,276 geometry intervals, and 1,000 output
+ownership transitions including failure quarantine and stale-lease rejection.
+
+P8.4 startup with isolated shader caches
+Empty-cache startup first observed commit: 8.14 s; renderer setup: 7.22 s.
+Restart with verified populated Intel cache: 2.12 s; renderer setup: 1.20 s.
+Both start at PTS zero and pass the first 240 or more distinct commits, maximum
+PTS gap 41.667 ms, no failed/backwards commits. Normal caches were untouched.
+An earlier cache harness omitted creation of Intel's cache directory and
+therefore recompiled twice; those runs are not counted as a warm-cache result.
+This P8.4 result does not close the separate passthrough P7 startup issue.
+
+Setup failure recovery and YBLOD feature smoke
+Injected failures at buffers, engine creation and attachment each recover to
+the native copy-output route. All nine clean/controls/closed windows pass with
+101 unique successful commits and maximum PTS gap 41.667 ms. Pause, paused seek
+and resume pass at all three failure points. This does not simulate a physical
+GPU reset or late driver rejection; those ownership contracts have unit and
+backend evidence, not live hardware-failure certification.
+DV menu -> P7 movie -> DV menu succeeds with passthrough enabled. Hardware
+readback confirms 594 MHz link clock throughout, movie adjusted totals
+4400x5630 versus menu 4400x2250, RGB 8-bit output, no dithering and no plane
+scaling. The software's requested movie mode remains the expected 23.976 Hz
+timing. This exercises the QMS-adjusted timing path, not optical blackout or
+general VRR-range certification. Menu brightness/saturation/gamma/wide-colour
+settings accept test values; original settings are restored afterward. Actual
+colour appearance and physical audio synchronization were not measured.
+
+Remaining qualification boundaries
+- Early P7 startup with SDR menus and audio passthrough remains unresolved.
+- Optical menu appearance/transition blackout and physical audio sync are not
+  certified by software state, timestamps or accepted settings.
+- Selected media and synthetic tests do not establish all-stream/profile or
+  licensed Dolby conformance; missing genuine profile fixtures remain a limit.
 - Final publication/release review. No main merge or prerelease is implied.
 
 No old-pipeline GPU timing comparison was performed for this baseline.
