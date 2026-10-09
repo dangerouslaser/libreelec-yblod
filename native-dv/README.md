@@ -13,9 +13,10 @@ The standalone CMake build and short N150 playback/packing checks pass; see
 The [experimental Kodi adapter](integration/README.md) is now available as a
 source patch, with build notes and runtime configuration.
 This branch's Generic image now includes and selects the experimental renderer,
-and has built and booted on the N150; final YBLOD qualification remains open.
-See the adapter's qualification report for measured results and issues. No main merge
-or new pre-release is implied by this work-in-progress source.
+and has built and booted on the N150. See the adapter's qualification reports
+for measured results, exact image identification and remaining issues, including
+the [pre2 packaged checks](integration/PRE2-20261009.txt). The engine remains
+experimental; a pre-release does not imply all-media qualification or a main merge.
 `packages/graphics/native-dv/package.mk` packages the bundled source and its
 runtime dependencies as a Generic Kodi dependency. Changes under `native-dv/`
 participate in LibreELEC's package rebuild stamp.
@@ -46,6 +47,6 @@ remain necessary.
 The shader bundle pins the accepted tunnel packer, without the rejected GUI
 tile prototype. `DV_OVERLAY_TILES` must remain disabled. No arithmetic changes
 are intended by this export. Source references and distribution terms accompany
-the code. The remaining Kodi/YBLOD integration still requires build, feature
-and publication review before an image release. Do not substitute the earlier
-test binary as proof that a future integrated image was built or qualified.
+the code. Qualification applies to the exact packaged image identified in each
+report. Do not substitute an earlier test binary as proof that a different
+integrated image was built or qualified.
