@@ -18,7 +18,7 @@ standalone menu, which keeps its existing packing and appearance controls.
 
 ## Current status
 
-The patch passes both `git apply --check` and GNU `patch --dry-run --fuzz=0`
+The adapter patch passes both `git apply --check` and GNU `patch --dry-run --fuzz=0`
 against the prepared YBLOD source. Those checks do not establish compilation,
 playback, menu correctness or QMS/VRR behavior. The resynced base image and
 this adapter require separate build and device qualification.
@@ -27,26 +27,31 @@ The unchanged standalone source passes all three Release-mode CPU contract
 tests with GCC 14.2 and CMake 4.4.4: specialization admission, geometry and
 output-slot ownership. These are not GPU or Kodi playback tests.
 
-The patch is deliberately outside the automatically applied patch directory.
-The normal image build does **not yet select or enable the native engine**.
-This is inspectable integration source, not a ready-to-install release.
+The patch is `projects/Generic/patches/kodi/kodi-9999-yblod-03-native-source.patch`.
+Generic builds apply it after the existing YBLOD QSV and menu patches and
+install the engine and dependencies through Kodi's package recipe. This is
+unqualified integration source, not a ready-to-install release.
 
-## Explicit development build
+## Build and runtime
 
-1. Prepare the Kodi revision above with this branch's normal patches.
-2. Apply `kodi-adapter.patch` to that prepared source.
-3. Build the GBM/GLES target with `ENABLE_DVBRIDGE=ON`, using YBLOD's matching
-   FFmpeg and libplacebo headers and libraries.
-4. Build/install `native-dv` and its OpenCL loader, Intel runtime and compiler
-   dependencies from the accompanying package recipes. Matching raw-metadata
-   FFmpeg headers are required; stock headers are not interchangeable.
-5. Use `runtime.env` as an explicit test configuration, adjusting paths if
-   installation is not under `/usr`. Create its writable cache directory.
-   Use Kodi resources from the same build as its executable.
+Use YBLOD's normal Generic x86-64 image build. The package recipes select the
+GBM/GLES adapter, matching modified FFmpeg and libplacebo, the native renderer,
+the OpenCL loader, and pinned Intel runtime/compiler dependencies. Stock
+FFmpeg headers are not interchangeable with the matching metadata extension.
 
-The runtime configuration is not installed automatically. Legacy
-`DV_PRIVATE_*` names and the library SONAME are retained for ABI compatibility.
-Readback, half-resolution GUI and rejected GUI-tile experiments are disabled.
+The native package installs `runtime.env` as `/usr/lib/kodi/native-dv.env`
+and a Kodi service drop-in. Startup creates the writable cache directory.
+Optional `/storage/.config/native-dv.env` entries override the packaged values.
+For a legacy-renderer diagnostic, disable `DV_PRIVATE_SOURCE`,
+`DV_PRIVATE_OVERLAY` and `DV_PRIVATE_DRAIN_EOF` together, then restart Kodi.
+Disabling the source alone leaves native-only composition/drain hooks active.
+Use the separate base image for a strict before/after integration comparison.
+VAAPI driver selection is left to the system; qualification must verify the
+actual Intel driver and OpenCL libraries loaded, not just environment values.
+
+Legacy `DV_PRIVATE_*` names and the library SONAME are retained for ABI
+compatibility. Readback, half-resolution GUI and rejected GUI-tile experiments
+are disabled. Keep Kodi's resources and executable from the same build.
 
 ## Qualification still required
 

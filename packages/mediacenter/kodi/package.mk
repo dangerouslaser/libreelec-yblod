@@ -45,6 +45,9 @@ configure_package() {
 
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     PKG_DEPENDS_TARGET+=" pciutils"
+    if [ "${PROJECT}" = "Generic" ]; then
+      PKG_DEPENDS_TARGET+=" native-dv"
+    fi
   fi
 
   PKG_DEPENDS_TARGET+=" dbus"

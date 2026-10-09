@@ -21,3 +21,10 @@ unpack() {
   mkdir -p "${PKG_BUILD}"
   cp -a "${ROOT}/native-dv/." "${PKG_BUILD}/"
 }
+
+post_makeinstall_target() {
+  mkdir -p "${INSTALL}/usr/lib/kodi" "${INSTALL}/usr/lib/systemd/system/kodi.service.d"
+  cp "${PKG_BUILD}/integration/runtime.env" "${INSTALL}/usr/lib/kodi/native-dv.env"
+  cp "${PKG_DIR}/files/20-native-dv.conf" \
+     "${INSTALL}/usr/lib/systemd/system/kodi.service.d/"
+}
