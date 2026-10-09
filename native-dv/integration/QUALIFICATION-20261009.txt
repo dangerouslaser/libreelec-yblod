@@ -40,7 +40,11 @@ Short startup/seek-to-scene runs show occasional 83–84 ms adjacent committed
 PTS gaps, with profiling both on and off and with controls both closed/open.
 The missing frames were decoded and were pending for reconstruction/presentation
 before a later frame was selected. A debug run logs a one-frame audio-clock
-correction shortly before a skip; causality still requires a controlled check.
+correction shortly before a skip. A short same-scene audio isolation test found
+zero gaps over 50 ms with decoded PCM audio (maximum 42 ms), then two 83–84 ms
+gaps after restoring passthrough. This implicates audio-clock synchronization
+in the startup behavior, but does not yet establish the underlying timing error
+or a fix. Passthrough remains enabled; disabling it is not an accepted solution.
 Do not dismiss the gaps as profiler overhead or certify cold startup from the
 passing later windows. Queue-skip counters alone do not capture every omission.
 
