@@ -34,6 +34,19 @@ Source checks:
   Linux 7.2.9 with GNU patch --fuzz=0.
 - Updated Kodi package recipe passes bash syntax checking.
 
-These are source/patch checks, not build or device qualification. Compilation,
-image packaging, and device checks for DV playback, menus, refresh changes,
-QMS/VRR and audio transitions remain required. No new release is implied.
+Packaged-image follow-up
+Source f2874d878dfceee18101795f46692807126092a4 built successfully as
+LibreELEC-Generic.x86_64-13.0-yblod-resync-20261009 and booted on the N150.
+The installed Kodi, iHD driver and matching FFmpeg/libplacebo libraries were
+verified, without a development Kodi executable override. Selected P8.4 and
+P7 scene/control smoke tests passed on a separate test profile.
+DV menus, movie handoff and return to 60 Hz were exercised. With QMS enabled,
+the movie requested 296703 kHz / 5500x2250 while hardware used 594000 kHz /
+4400x5630; the menu restored 594000 kHz / 4400x2250. Output had no dithering
+or plane scaling. This establishes the adjusted-timing software/hardware path,
+not optical blackout, physical lip-sync or all-media picture conformance.
+
+These results apply to this base image, not the separate native-engine image.
+They are bounded smoke checks, not strict every-frame cadence qualification.
+The native engine has its own report on feature/native-source-engine.
+No main merge or new release is implied.
