@@ -18,10 +18,12 @@ standalone menu, which keeps its existing packing and appearance controls.
 
 ## Current status
 
-The adapter patch passes both `git apply --check` and GNU `patch --dry-run --fuzz=0`
-against the prepared YBLOD source. Those checks do not establish compilation,
-playback, menu correctness or QMS/VRR behavior. The resynced base image and
-this adapter require separate build and device qualification.
+The complete Generic image has built and booted on the N150. The installed
+engine has passed selected current-profile controls/recovery checks, and initial
+GPU timestamp baselines are available in
+[QUALIFICATION-20261009.txt](QUALIFICATION-20261009.txt). Early P7 presentation
+gaps and remaining accuracy, menu and QMS/VRR gates keep release qualification
+open. These results apply to the exact image identified in that report.
 
 The unchanged standalone source passes all three Release-mode CPU contract
 tests with GCC 14.2 and CMake 4.4.4: specialization admission, geometry and

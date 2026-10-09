@@ -10,10 +10,11 @@ The existing library name is retained for adapter ABI compatibility.
 
 The standalone CMake build and short N150 playback/packing checks pass; see
 [BUILD-VALIDATION.txt](BUILD-VALIDATION.txt) for the exact scope and results.
-The [experimental Kodi adapter](integration/README.md) is now available as an
+The [experimental Kodi adapter](integration/README.md) is now available as a
 source patch, with build notes and runtime configuration.
 This branch's Generic image now includes and selects the experimental renderer,
-but full-image and YBLOD playback qualification remain pending. No main merge
+and has built and booted on the N150; final YBLOD qualification remains open.
+See the adapter's qualification report for measured results and issues. No main merge
 or new pre-release is implied by this work-in-progress source.
 `packages/graphics/native-dv/package.mk` packages the bundled source and its
 runtime dependencies as a Generic Kodi dependency. Changes under `native-dv/`
