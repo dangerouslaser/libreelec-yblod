@@ -42,16 +42,27 @@ kernel void source_gui_prepare(read_only image2d_t gui, constant float *coeff,
 #ifdef SOURCE_OVERLAY_GRAY_LUT
                               ,global const float4 *gray
 #endif
+#ifdef SOURCE_OVERLAY_PIXEL_CACHE
+                              ,global uint *pixels,uint invalidate
+#endif
                               )
 {
  uint x=get_global_id(0),y=get_global_id(1);
  if(x>=w||y>=h)return;
-#ifdef SOURCE_OVERLAY_GRAY_LUT
+#if defined(SOURCE_OVERLAY_GRAY_LUT) || defined(SOURCE_OVERLAY_PIXEL_CACHE)
  const sampler_t sampler=CLK_NORMALIZED_COORDS_FALSE|CLK_ADDRESS_CLAMP_TO_EDGE|CLK_FILTER_NEAREST;
  uchar4 p=convert_uchar4_sat_rte(read_imagef(gui,sampler,(int2)(x,flip?h-1-y:y))*255.0f);
+#ifdef SOURCE_OVERLAY_PIXEL_CACHE
+ uint index=y*w+x,packed=as_uint(p);
+ if(!invalidate&&pixels[index]==packed)return;
+ pixels[index]=packed;
+#endif
  float4 value=(float4)(0);
+#ifdef SOURCE_OVERLAY_GRAY_LUT
  if(p.x==p.y&&p.y==p.z){value=gray[((uint)p.w<<8)|p.x];if(value.w<0){atomic_or(error,1);value=(float4)(0);}}
- else if(overlay_source_colour(p,coeff,&value))atomic_or(error,1);
+ else
+#endif
+ if(overlay_source_colour(p,coeff,&value))atomic_or(error,1);
  colours[y*w+x]=value;
 #else
  colours[y*w+x]=source_gui_colour(gui,(int)x,y,w,h,flip,coeff,error);
@@ -62,6 +73,15 @@ float4 source_gui(global const float4 *gui, int x, uint y, uint w, uint h,
 {
  return gui[y*w+(uint)clamp(x,0,(int)w-1)];
 }
+#ifdef SOURCE_OVERLAY_PIXEL_CACHE
+kernel void source_gui_cache_check(read_only image2d_t gui,constant float *coeff,
+ uint flip,volatile global int *error,global const float4 *colours,uint w,uint h)
+{
+ uint x=get_global_id(0),y=get_global_id(1);if(x>=w||y>=h)return;
+ float4 reference=source_gui_colour(gui,(int)x,y,w,h,flip,coeff,error);
+ if(any(as_uint4(reference)!=as_uint4(colours[y*w+x])))atomic_or(error,2);
+}
+#endif
 #else
 #ifdef SOURCE_OVERLAY_GRAY_LUT
 #define source_gui(g,x,y,w,h,f,c,e) source_gui_colour(g,x,y,w,h,f,c,e,gui_gray)

@@ -38,6 +38,9 @@ typedef struct {
     cl_program overlay_program[3];cl_kernel overlay_kernel[3];
     cl_mem gui,gui_coeff,gui_error;
     int gui_prepass;cl_kernel gui_prepare;cl_mem gui_colours;
+    int gui_pixel_cache,gui_cache_valid,gui_cache_invalidate;cl_mem gui_pixels;
+    float gui_cache_coeff[31];
+    int gui_cache_verify;cl_kernel gui_cache_check;
     int gui_gray_lut,gui_shared;cl_kernel gui_gray_prepare;cl_mem gui_gray;
     int gui_tiled;cl_kernel gui_tiles_prepare;cl_mem gui_tiles;
     int gui_profile;unsigned gui_profiles;cl_event gui_events[3];double gui_host_ms;
@@ -94,6 +97,8 @@ int dv_source_renderer_destroy(void *opaque)
     if(dv_source_renderer_drain(r)!=DV_OK)return DV_BACKEND;
     if(r->backend)dv_opencl_destroy(r->backend);
     if(r->output)clReleaseMemObject(r->output);if(r->packets)clReleaseMemObject(r->packets);
+    if(r->gui_pixels)clReleaseMemObject(r->gui_pixels);
+    if(r->gui_cache_check)clReleaseKernel(r->gui_cache_check);
     if(r->other_output)clReleaseMemObject(r->other_output);
     if(r->kernel)clReleaseKernel(r->kernel);if(r->program)clReleaseProgram(r->program);
     if(r->full_kernel)clReleaseKernel(r->full_kernel);if(r->full_program)clReleaseProgram(r->full_program);
@@ -130,6 +135,9 @@ void *dv_source_renderer_create_storage(uintptr_t va_display,uintptr_t egl_displ
     r->context=clCreateContext(props,1,&r->device,NULL,NULL,&error);if(!r->context||error)goto fail;
     const char *profile=getenv("DV_SOURCE_PROFILE_ASYNC");r->profile_async=profile&&!strcmp(profile,"1");
     const char *gui_prepass=getenv("DV_OVERLAY_PREPASS");r->gui_prepass=gui_prepass&&!strcmp(gui_prepass,"1");
+    const char *pixel_cache=getenv("DV_OVERLAY_PIXEL_CACHE");r->gui_pixel_cache=pixel_cache&&!strcmp(pixel_cache,"1");
+    if(r->gui_pixel_cache)r->gui_prepass=1;
+    const char *cache_verify=getenv("DV_OVERLAY_CACHE_VERIFY");r->gui_cache_verify=cache_verify&&!strcmp(cache_verify,"1");
     const char *gui_gray=getenv("DV_OVERLAY_GRAY_LUT");r->gui_gray_lut=gui_gray&&!strcmp(gui_gray,"1");
     const char *gui_shared=getenv("DV_OVERLAY_SHARED");r->gui_shared=gui_shared&&!strcmp(gui_shared,"1");
     const char *gui_tiled=getenv("DV_OVERLAY_TILES");r->gui_tiled=gui_tiled&&!strcmp(gui_tiled,"1");
@@ -322,6 +330,9 @@ static int compile_overlay(source_renderer *r,unsigned variant)
         const char *layout=variant==1?"-D SOURCE_422":variant==2?
             "-D SOURCE_SITED -D SOURCE_SCALED -D SOURCE_RESIZE_MAPS":"-D SOURCE_SITED";
         int n=snprintf(options,sizeof(options),"-cl-std=CL1.2 -D SOURCE_GL -D SOURCE_PACK_PAIR -D SOURCE_PLACED -D SOURCE_OVERLAY %s %s %s %s %s %s -I\"%s\"",layout,r->bgra?"-D SOURCE_SCANOUT_BGRA":"",r->gui_prepass?"-D SOURCE_OVERLAY_CACHED":"",r->gui_gray_lut?"-D SOURCE_OVERLAY_GRAY_LUT":"",r->gui_shared?"-D SOURCE_OVERLAY_SHARED":"",r->gui_tiled?"-D SOURCE_OVERLAY_TILES":"",r->directory);
+        if(r->gui_pixel_cache){
+            if(n>=0&&(size_t)n+32<sizeof(options)){strcat(options," -D SOURCE_OVERLAY_PIXEL_CACHE");n=(int)strlen(options);}
+            else n=-1;}
         if(n<0||(size_t)n>=sizeof(options)||clBuildProgram(program,1,&r->device,options,NULL,NULL)){
             clReleaseProgram(program);return DV_BACKEND;}
         cl_kernel kernel=clCreateKernel(program,"source_tunnel",&error);
@@ -351,6 +362,7 @@ int dv_source_renderer_prepare_overlays(void *opaque)
     }
     if(r->gui_prepass){
         if(!r->gui_prepare){r->gui_prepare=clCreateKernel(r->overlay_program[0],"source_gui_prepare",&error);if(!r->gui_prepare||error)return DV_BACKEND;}
+        if(r->gui_pixel_cache&&r->gui_cache_verify&&!r->gui_cache_check){r->gui_cache_check=clCreateKernel(r->overlay_program[0],"source_gui_cache_check",&error);if(!r->gui_cache_check||error)return DV_BACKEND;}
         if(!r->gui_colours){
             size_t w=0,h=0;
             if(clGetImageInfo(r->output,CL_IMAGE_WIDTH,sizeof(w),&w,NULL)||
@@ -358,6 +370,7 @@ int dv_source_renderer_prepare_overlays(void *opaque)
                w>4096||h>4096)return DV_UNSUPPORTED;
             r->gui_colours=clCreateBuffer(r->context,CL_MEM_READ_WRITE,w*h*sizeof(cl_float4),NULL,&error);
             if(!r->gui_colours||error)return DV_BACKEND;
+            if(r->gui_pixel_cache){r->gui_pixels=clCreateBuffer(r->context,CL_MEM_READ_WRITE,w*h*sizeof(cl_uint),NULL,&error);if(!r->gui_pixels||error)return DV_BACKEND;}
         }
     }
     return DV_OK;
@@ -377,6 +390,8 @@ static int prepare_overlay(source_renderer *r,unsigned variant,unsigned texture,
     for(unsigned i=0;i<9;++i){coeff[i]=(float)colour.source.inverse_ycc[i];coeff[i+9]=(float)colour.source.inverse_lms[i];coeff[i+18]=(float)colour.rgb_to_lms[i];}
     for(unsigned i=0;i<3;++i)coeff[i+27]=(float)colour.source.offset[i];coeff[30]=(float)colour.white_nits;
     for(unsigned i=0;i<31;++i)if(!isfinite(coeff[i]))return DV_UNSUPPORTED;
+    r->gui_cache_invalidate=!r->gui_cache_valid||memcmp(coeff,r->gui_cache_coeff,sizeof(coeff));
+    memcpy(r->gui_cache_coeff,coeff,sizeof(coeff));
     cl_int error;
     r->gui=clCreateFromGLTexture(r->context,CL_MEM_READ_ONLY,0x0de1,0,texture,&error);
     if(!r->gui||error)return DV_BACKEND;
@@ -467,7 +482,9 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
         if(r->gui_gray_lut){
             CL_DO(clSetKernelArg(r->gui_gray_prepare,0,sizeof(r->gui_coeff),&r->gui_coeff));
             CL_DO(clSetKernelArg(r->gui_gray_prepare,1,sizeof(r->gui_gray),&r->gui_gray));
-            size_t gray_work=65536;CL_DO(clEnqueueNDRangeKernel(r->queue,r->gui_gray_prepare,1,NULL,&gray_work,NULL,0,NULL,NULL));
+            size_t gray_work=65536;
+            if(!r->gui_pixel_cache||r->gui_cache_invalidate)
+                CL_DO(clEnqueueNDRangeKernel(r->queue,r->gui_gray_prepare,1,NULL,&gray_work,NULL,0,NULL,NULL));
             if(r->gui_prepass)CL_DO(clSetKernelArg(r->gui_prepare,7,sizeof(r->gui_gray),&r->gui_gray));
             else CL_DO(clSetKernelArg(kernel,arg+4,sizeof(r->gui_gray),&r->gui_gray));
         }
@@ -479,7 +496,19 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
             CL_DO(clSetKernelArg(r->gui_prepare,4,sizeof(r->gui_colours),&r->gui_colours));
             CL_DO(clSetKernelArg(r->gui_prepare,5,sizeof(ow),&ow));
             CL_DO(clSetKernelArg(r->gui_prepare,6,sizeof(oh),&oh));
+            if(r->gui_pixel_cache){unsigned cache_arg=r->gui_gray_lut?8u:7u;cl_uint invalidate=(cl_uint)r->gui_cache_invalidate;
+                CL_DO(clSetKernelArg(r->gui_prepare,cache_arg,sizeof(r->gui_pixels),&r->gui_pixels));
+                CL_DO(clSetKernelArg(r->gui_prepare,cache_arg+1,sizeof(invalidate),&invalidate));}
             size_t gui_work[2]={ow,oh};CL_DO(clEnqueueNDRangeKernel(r->queue,r->gui_prepare,2,NULL,gui_work,NULL,0,NULL,profile_gui?&r->gui_events[1]:NULL));
+            if(r->gui_cache_check){
+                CL_DO(clSetKernelArg(r->gui_cache_check,0,sizeof(r->gui),&r->gui));
+                CL_DO(clSetKernelArg(r->gui_cache_check,1,sizeof(r->gui_coeff),&r->gui_coeff));
+                CL_DO(clSetKernelArg(r->gui_cache_check,2,sizeof(gui_flip),&gui_flip));
+                CL_DO(clSetKernelArg(r->gui_cache_check,3,sizeof(r->gui_error),&r->gui_error));
+                CL_DO(clSetKernelArg(r->gui_cache_check,4,sizeof(r->gui_colours),&r->gui_colours));
+                CL_DO(clSetKernelArg(r->gui_cache_check,5,sizeof(ow),&ow));
+                CL_DO(clSetKernelArg(r->gui_cache_check,6,sizeof(oh),&oh));
+                CL_DO(clEnqueueNDRangeKernel(r->queue,r->gui_cache_check,2,NULL,gui_work,NULL,0,NULL,NULL));}
         }
         cl_mem gui_input=r->gui_prepass?r->gui_colours:r->gui;
         CL_DO(clSetKernelArg(kernel,arg,sizeof(gui_input),&gui_input));
@@ -494,8 +523,9 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
     status=DV_OK;
 done:
     if(trace_wait)stamp[6]=submit_clock();
+    if(r->gui_pixel_cache)r->gui_cache_valid=gui&&status==DV_OK;
     if(status!=DV_OK)r->resize_key_valid=0;
-    if(dv_source_renderer_drain(r)!=DV_OK){r->resize_key_valid=0;return DV_BACKEND;}
+    if(dv_source_renderer_drain(r)!=DV_OK){r->gui_cache_valid=0;r->resize_key_valid=0;return DV_BACKEND;}
     if(trace_wait&&status==DV_OK){stamp[7]=submit_clock();
         fprintf(stderr,"{\"source_wait_pts\":%lld,\"overlay\":%u,\"output_wait_ms\":%.6f,\"overlay_prepare_ms\":%.6f,\"packet_write_ms\":%.6f,\"enqueue_ms\":%.6f,\"error_read_ms\":%.6f,\"release_drain_ms\":%.6f,\"total_ms\":%.6f}\n",
             (long long)pts,gui!=0,(stamp[1]-stamp[0])*1e3,(stamp[2]-stamp[1])*1e3,

@@ -43,7 +43,16 @@ time.sleep(1)
 start = ssh('date -u +%Y-%m-%dT%H:%M:%S').strip()
 log_start = int(ssh('wc -l < /storage/.kodi/temp/kodi.log').strip())
 rpc('Player.Open', {'item': {'file': a.file}})
-time.sleep(3)
+for _ in range(60):
+    players = rpc('Player.GetActivePlayers')
+    if players:
+        state = rpc('Player.GetProperties', {'playerid': players[0]['playerid'], 'properties': ['time']})
+        t = state['time']
+        if t['hours'] * 3600 + t['minutes'] * 60 + t['seconds'] >= 2:
+            break
+    time.sleep(.25)
+else:
+    raise RuntimeError('Playback did not reach the startup gate')
 rpc('GUI.SetFullscreen', {'fullscreen': True})
 if a.overlay == 'home':
     rpc('GUI.ActivateWindow', {'window': 'home'})
@@ -54,6 +63,7 @@ if a.memory:
 else:
     time.sleep(a.seconds)
 window = rpc('GUI.GetProperties', {'properties': ['currentwindow', 'fullscreen']})
+qualified_window = window['currentwindow']['id'] == (10000 if a.overlay == 'home' else 12005)
 for player in rpc('Player.GetActivePlayers'):
     rpc('Player.Stop', {'playerid': player['playerid']})
 time.sleep(1)
@@ -74,6 +84,6 @@ timings = [line for line in log.splitlines() if any(s in line for s in (
     'Private native GUI cache:'))]
 a.output.parent.mkdir(parents=True, exist_ok=True)
 a.output.write_text(json.dumps(dict(host=a.host, start_utc=start, overlay=a.overlay,
-    duration_seconds=a.seconds, window=window, memory_perf=memory,
+    duration_seconds=a.seconds, window=window, qualified_window=qualified_window, memory_perf=memory,
     gpu_events=events, timing_lines=timings), indent=2) + '\n')
 print(json.dumps(dict(output=str(a.output), gpu_events=len(events), timing_lines=len(timings))))
