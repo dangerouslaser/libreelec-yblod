@@ -26,7 +26,10 @@ P7 presentation gaps were subsequently fixed and retested in
 [STARTUP-HANDOFF-20261009.txt](STARTUP-HANDOFF-20261009.txt), which also records
 remaining controls-open frame drops in a 59.94 Hz sample. These results apply
 to the exact images identified in each report. Pre2 packaging and final smoke
-results are recorded in [PRE2-20261009.txt](PRE2-20261009.txt).
+results are recorded in [PRE2-20261009.txt](PRE2-20261009.txt). A subsequent
+visually reproduced VM menu-return defect and the pre3 target-recreation fix
+are documented in [PRE3-20261009.txt](PRE3-20261009.txt); pre2's timing/signalling
+checks did not establish correctness of the visible menu image.
 
 The unchanged standalone source passes all three Release-mode CPU contract
 tests with GCC 14.2 and CMake 4.4.4: specialization admission, geometry and
