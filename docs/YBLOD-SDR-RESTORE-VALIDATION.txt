@@ -39,7 +39,16 @@ read connector properties confirm an empty HDR blob and Default colorimetry.
 Evidence on VM: /storage/native-kodi-fixes-test/sdr-fix-{sky,fel,gemini,exit}.log
 Before: yblod-sdr-before.log and yblod-gemini-exit-hlg* in the same directory.
 
+The user confirmed the returned SDR menu looked normal and HLG disappeared
+from the TV overlay.
+
+DV-menu regression: enable DV menus, play FEL, stop. The playback window
+reported zero drops/skips. Logs confirm handoff to the DV menu at 60 Hz,
+dv=1, hdr_blob=0, colorspace=0, max_bpc=8, rgb=1. The user confirmed the menu
+looked normal, without repeated/distorted copies. DV menus were then disabled
+again to restore the user's original setting; QMS remained enabled.
+Evidence: sdr-fix-dv-menu.log in the same VM directory.
+
 Limitations
-Visual confirmation and DV-menu-enabled regression test pending. This is
-not proof that the intermittent QMS glitch or earlier audio/frame-supply
+This is not proof that the intermittent QMS glitch or earlier audio/frame-supply
 stall is fixed. No engine performance or pixel-quality change is claimed.
