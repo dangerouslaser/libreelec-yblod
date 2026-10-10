@@ -1,0 +1,52 @@
+HDR/refresh coordination — 2026-10-10
+
+Change
+After renderer Configure stages HDR/colorimetry, call UpdateResolution before
+the first presentation, instead of leaving the refresh selection until the next
+FrameMove. Restricted to HAVE_DVBRIDGE builds and !m_nativeDVRate: native DV's
+existing handoff remains unchanged. Normal refresh settings/fullscreen checks
+still apply. No kernel, QMS, buffering or picture-processing changes.
+
+Candidate Kodi SHA256
+403a00ebb596f12bc18777710d643bc34f3020e637e7d820f9fb41d5e57e3778
+Incremental build passed with 4 workers and a 7 GiB memory cap.
+VM 192.168.1.175 temporary bind-mounted candidate; N150 unchanged.
+QMS ON, fallback FPS OFF, debug overlay OFF. Same logging/probe as single-open
+baseline 00afece1. Sanitized captures: docs/data/live-zap-20261010/
+zap-coordinated-*.json. Five 14-second runs; not statistical percentiles.
+
+Milliseconds: single-open baseline -> coordinated candidate
+Sample               Input->final commit   Configure->final commit   Commits
+Menu->Sky             2736 -> 2533          850 -> 614                 2 -> 1
+Sky->WCVB #1          2551 -> 2365          768 -> 557                 2 -> 1
+WCVB->Sky #1          2448 -> 2450          624 -> 594                 2 -> 1
+Sky->WCVB #2          2239 -> 2212          543 -> 480                 2 -> 1
+WCVB->Sky #2          2685 -> 2584          720 -> 491                 2 -> 1
+Mean                  2532 -> 2429          701 -> 547
+
+Each run kept the single MPEG-TS open. Final output was Sky HLG/50 Hz or WCVB
+SDR/59.94 Hz, with no intermediate new-color/old-refresh signal commit.
+User: transition seems shorter/cleaner, but brief HDR/SDR blackout remains.
+Physical first-visible-frame and blackout duration were not instrumented.
+
+Request->Player.OnAVStart notification (ms), same sample order:
+Before: 3037.7, 2412.9, 2492.6, 2354.7, 2634.7 (mean 2586.5)
+After:  2871.6, 2646.5, 2814.2, 2498.2, 2915.7 (mean 2749.2)
+Notification latency did NOT improve on average. It is not a display-ready
+measurement: thread dispatch and display sequencing affect its delivery.
+The demonstrated improvement is removing an intermediate HDMI state and
+shortening renderer-configuration-to-final-commit, not a universal reduction
+in all startup milestones. Network/keyframe timing varies between runs.
+
+Regression check
+Sky->P7 FEL test: playback clock advanced beyond 30 seconds, native DV active
+at 23.976 Hz; explicit stop restored SDR/60 Hz with hdr_blob=0/colorspace=0.
+No ERROR/WARNING in inspected transition log slices. This is not a frame-drop
+benchmark or automated visual comparison. DV startup still shows its existing
+multi-stage signaling sequence; this patch does not optimize that branch.
+
+Limit
+QMS guarantees seamless rate-only changes at unchanged resolution, not an
+HDR/SDR switch: https://www.hdmi.org/spec21sub/quickmediaswitching
+Do not hide the remaining HDR transition by disabling correct color signaling.
+No new release. Test installation is volatile and reverts on reboot.

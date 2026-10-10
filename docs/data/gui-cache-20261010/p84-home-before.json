@@ -1,0 +1,5431 @@
+{
+  "host": "192.168.1.179",
+  "start_utc": "2026-10-10T18:15:30",
+  "overlay": "home",
+  "duration_seconds": 20,
+  "window": {
+    "currentwindow": {
+      "id": 10000,
+      "label": "Home"
+    },
+    "fullscreen": false
+  },
+  "qualified_window": true,
+  "memory_perf": "73493.31,MiB,uncore_imc_free_running_0/data_read/,20000449863,100.00,,\n51929.66,MiB,uncore_imc_free_running_0/data_write/,20000445910,100.00,,\n",
+  "gpu_events": [
+    {
+      "source_submit_pts": 0,
+      "parse_ms": 0.007484,
+      "drain_ms": 0.020381,
+      "va_sync_ms": 0.011638,
+      "import_ms": 0.027433,
+      "reconstruct_submit_ms": 6.084142,
+      "total_ms": 6.151007
+    },
+    {
+      "overlay_profile_pts": 0,
+      "valid": 1,
+      "host_prepare_ms": 7.205603,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 9.457968
+    },
+    {
+      "source_piecewise_profile_pts": 0,
+      "valid": 1,
+      "reconstruction_ms": 17.17776,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 0,
+      "overlay": 1,
+      "output_wait_ms": 17.28766,
+      "overlay_prepare_ms": 7.205864,
+      "packet_write_ms": 0.004378,
+      "enqueue_ms": 0.534739,
+      "error_read_ms": 9.616747,
+      "release_drain_ms": 0.249402,
+      "total_ms": 34.898816
+    },
+    {
+      "source_submit_pts": 0,
+      "parse_ms": 0.011824,
+      "drain_ms": 0.016667,
+      "va_sync_ms": 0.009758,
+      "import_ms": 0.061882,
+      "reconstruct_submit_ms": 0.286042,
+      "total_ms": 0.386217
+    },
+    {
+      "overlay_profile_pts": 0,
+      "valid": 1,
+      "host_prepare_ms": 0.124058,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 8.598229
+    },
+    {
+      "source_piecewise_profile_pts": 0,
+      "valid": 1,
+      "reconstruction_ms": 13.977916,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 0,
+      "overlay": 1,
+      "output_wait_ms": 14.082372,
+      "overlay_prepare_ms": 0.124129,
+      "packet_write_ms": 0.001138,
+      "enqueue_ms": 0.262095,
+      "error_read_ms": 8.871986,
+      "release_drain_ms": 0.218543,
+      "total_ms": 23.560291
+    },
+    {
+      "source_submit_pts": 41666,
+      "parse_ms": 0.012578,
+      "drain_ms": 0.001519,
+      "va_sync_ms": 0.011745,
+      "import_ms": 0.041985,
+      "reconstruct_submit_ms": 0.581207,
+      "total_ms": 0.649072
+    },
+    {
+      "overlay_profile_pts": 41666,
+      "valid": 1,
+      "host_prepare_ms": 0.103719,
+      "acquire_ms": 0.001041,
+      "colour_ms": 0.0,
+      "pack_ms": 8.565625
+    },
+    {
+      "source_piecewise_profile_pts": 41666,
+      "valid": 1,
+      "reconstruction_ms": 12.750937,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 41666,
+      "overlay": 1,
+      "output_wait_ms": 0.053711,
+      "overlay_prepare_ms": 0.103808,
+      "packet_write_ms": 0.001638,
+      "enqueue_ms": 0.399678,
+      "error_read_ms": 8.770969,
+      "release_drain_ms": 0.285548,
+      "total_ms": 9.615393
+    },
+    {
+      "source_submit_pts": 83333,
+      "parse_ms": 0.009955,
+      "drain_ms": 0.001404,
+      "va_sync_ms": 0.011895,
+      "import_ms": 0.054304,
+      "reconstruct_submit_ms": 0.5604,
+      "total_ms": 0.637996
+    },
+    {
+      "source_piecewise_profile_pts": 83333,
+      "valid": 1,
+      "reconstruction_ms": 12.205677,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_submit_pts": 41666,
+      "parse_ms": 0.026059,
+      "drain_ms": 0.013892,
+      "va_sync_ms": 0.01593,
+      "import_ms": 0.103026,
+      "reconstruct_submit_ms": 1.552224,
+      "total_ms": 1.71124
+    },
+    {
+      "overlay_profile_pts": 41666,
+      "valid": 1,
+      "host_prepare_ms": 0.105457,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 8.29177
+    },
+    {
+      "source_piecewise_profile_pts": 41666,
+      "valid": 1,
+      "reconstruction_ms": 12.178333,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 41666,
+      "overlay": 1,
+      "output_wait_ms": 12.187965,
+      "overlay_prepare_ms": 0.105526,
+      "packet_write_ms": 0.001185,
+      "enqueue_ms": 0.188358,
+      "error_read_ms": 8.586009,
+      "release_drain_ms": 0.23907,
+      "total_ms": 21.30814
+    },
+    {
+      "source_submit_pts": 83333,
+      "parse_ms": 0.009323,
+      "drain_ms": 0.001459,
+      "va_sync_ms": 0.010404,
+      "import_ms": 0.040444,
+      "reconstruct_submit_ms": 0.570076,
+      "total_ms": 0.631748
+    },
+    {
+      "overlay_profile_pts": 83333,
+      "valid": 1,
+      "host_prepare_ms": 0.129605,
+      "acquire_ms": 0.001041,
+      "colour_ms": 0.0,
+      "pack_ms": 10.564635
+    },
+    {
+      "source_piecewise_profile_pts": 83333,
+      "valid": 1,
+      "reconstruction_ms": 12.19776,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 83333,
+      "overlay": 1,
+      "output_wait_ms": 0.066999,
+      "overlay_prepare_ms": 0.129975,
+      "packet_write_ms": 0.002619,
+      "enqueue_ms": 0.275922,
+      "error_read_ms": 10.904134,
+      "release_drain_ms": 0.305921,
+      "total_ms": 11.685629
+    },
+    {
+      "overlay_profile_pts": 125000,
+      "valid": 1,
+      "host_prepare_ms": 0.20044,
+      "acquire_ms": 0.001093,
+      "colour_ms": 0.0,
+      "pack_ms": 9.726979
+    },
+    {
+      "source_piecewise_profile_pts": 125000,
+      "valid": 1,
+      "reconstruction_ms": 13.122447,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 125000,
+      "overlay": 1,
+      "output_wait_ms": 0.106814,
+      "overlay_prepare_ms": 0.200715,
+      "packet_write_ms": 0.003889,
+      "enqueue_ms": 0.440821,
+      "error_read_ms": 9.990211,
+      "release_drain_ms": 0.27439,
+      "total_ms": 11.016968
+    },
+    {
+      "overlay_profile_pts": 166666,
+      "valid": 1,
+      "host_prepare_ms": 0.197431,
+      "acquire_ms": 0.000989,
+      "colour_ms": 0.0,
+      "pack_ms": 9.415729
+    },
+    {
+      "source_piecewise_profile_pts": 166666,
+      "valid": 1,
+      "reconstruction_ms": 12.170625,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 166666,
+      "overlay": 1,
+      "output_wait_ms": 0.110497,
+      "overlay_prepare_ms": 0.197704,
+      "packet_write_ms": 0.003728,
+      "enqueue_ms": 0.469921,
+      "error_read_ms": 9.679872,
+      "release_drain_ms": 0.329304,
+      "total_ms": 10.791156
+    },
+    {
+      "overlay_profile_pts": 208333,
+      "valid": 1,
+      "host_prepare_ms": 0.233417,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 8.318802
+    },
+    {
+      "source_piecewise_profile_pts": 208333,
+      "valid": 1,
+      "reconstruction_ms": 12.169791,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 208333,
+      "overlay": 1,
+      "output_wait_ms": 0.115078,
+      "overlay_prepare_ms": 0.233701,
+      "packet_write_ms": 0.003518,
+      "enqueue_ms": 0.38653,
+      "error_read_ms": 8.604228,
+      "release_drain_ms": 0.316042,
+      "total_ms": 9.659225
+    },
+    {
+      "overlay_profile_pts": 250000,
+      "valid": 1,
+      "host_prepare_ms": 0.188578,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 8.299843
+    },
+    {
+      "source_piecewise_profile_pts": 250000,
+      "valid": 1,
+      "reconstruction_ms": 12.170729,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 250000,
+      "overlay": 1,
+      "output_wait_ms": 0.104025,
+      "overlay_prepare_ms": 0.188851,
+      "packet_write_ms": 0.003703,
+      "enqueue_ms": 0.40178,
+      "error_read_ms": 8.569397,
+      "release_drain_ms": 0.359711,
+      "total_ms": 9.627594
+    },
+    {
+      "source_pack_profile_pts": 291666,
+      "valid": 1,
+      "pack_ms": 3.99802
+    },
+    {
+      "source_piecewise_profile_pts": 291666,
+      "valid": 1,
+      "reconstruction_ms": 12.170572,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 291666,
+      "overlay": 0,
+      "output_wait_ms": 0.108677,
+      "overlay_prepare_ms": 0.000127,
+      "packet_write_ms": 0.019818,
+      "enqueue_ms": 0.34719,
+      "error_read_ms": 0.000227,
+      "release_drain_ms": 4.399444,
+      "total_ms": 4.875614
+    },
+    {
+      "source_pack_profile_pts": 333333,
+      "valid": 1,
+      "pack_ms": 3.79677
+    },
+    {
+      "source_piecewise_profile_pts": 333333,
+      "valid": 1,
+      "reconstruction_ms": 14.459635,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 333333,
+      "overlay": 0,
+      "output_wait_ms": 0.103896,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.019308,
+      "enqueue_ms": 0.24875,
+      "error_read_ms": 0.000135,
+      "release_drain_ms": 4.344134,
+      "total_ms": 4.716478
+    },
+    {
+      "source_pack_profile_pts": 375000,
+      "valid": 1,
+      "pack_ms": 4.425677
+    },
+    {
+      "source_piecewise_profile_pts": 375000,
+      "valid": 1,
+      "reconstruction_ms": 12.957916,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 375000,
+      "overlay": 0,
+      "output_wait_ms": 0.104851,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.01961,
+      "enqueue_ms": 0.253869,
+      "error_read_ms": 0.00014,
+      "release_drain_ms": 4.943203,
+      "total_ms": 5.321929
+    },
+    {
+      "source_pack_profile_pts": 416666,
+      "valid": 1,
+      "pack_ms": 4.492291
+    },
+    {
+      "source_piecewise_profile_pts": 416666,
+      "valid": 1,
+      "reconstruction_ms": 12.215312,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 416666,
+      "overlay": 0,
+      "output_wait_ms": 0.104781,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.020604,
+      "enqueue_ms": 0.244563,
+      "error_read_ms": 0.000151,
+      "release_drain_ms": 5.019973,
+      "total_ms": 5.39033
+    },
+    {
+      "source_pack_profile_pts": 458333,
+      "valid": 1,
+      "pack_ms": 4.436979
+    },
+    {
+      "source_piecewise_profile_pts": 458333,
+      "valid": 1,
+      "reconstruction_ms": 12.172552,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 458333,
+      "overlay": 0,
+      "output_wait_ms": 0.101749,
+      "overlay_prepare_ms": 0.000123,
+      "packet_write_ms": 0.019404,
+      "enqueue_ms": 0.250034,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 4.970899,
+      "total_ms": 5.342469
+    },
+    {
+      "source_pack_profile_pts": 500000,
+      "valid": 1,
+      "pack_ms": 4.261822
+    },
+    {
+      "source_piecewise_profile_pts": 500000,
+      "valid": 1,
+      "reconstruction_ms": 12.170468,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 500000,
+      "overlay": 0,
+      "output_wait_ms": 0.101854,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.019367,
+      "enqueue_ms": 0.252235,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 4.751433,
+      "total_ms": 5.125277
+    },
+    {
+      "source_pack_profile_pts": 541666,
+      "valid": 1,
+      "pack_ms": 3.355625
+    },
+    {
+      "source_piecewise_profile_pts": 541666,
+      "valid": 1,
+      "reconstruction_ms": 12.169739,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 541666,
+      "overlay": 0,
+      "output_wait_ms": 0.102872,
+      "overlay_prepare_ms": 0.000125,
+      "packet_write_ms": 0.019487,
+      "enqueue_ms": 0.257281,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 3.769725,
+      "total_ms": 4.149748
+    },
+    {
+      "source_pack_profile_pts": 583333,
+      "valid": 1,
+      "pack_ms": 3.348437
+    },
+    {
+      "source_piecewise_profile_pts": 583333,
+      "valid": 1,
+      "reconstruction_ms": 12.173072,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 583333,
+      "overlay": 0,
+      "output_wait_ms": 0.105138,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.019802,
+      "enqueue_ms": 0.255481,
+      "error_read_ms": 0.000131,
+      "release_drain_ms": 3.770205,
+      "total_ms": 4.151015
+    },
+    {
+      "source_pack_profile_pts": 625000,
+      "valid": 1,
+      "pack_ms": 4.514322
+    },
+    {
+      "source_piecewise_profile_pts": 625000,
+      "valid": 1,
+      "reconstruction_ms": 12.173072,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 625000,
+      "overlay": 0,
+      "output_wait_ms": 0.106163,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.019167,
+      "enqueue_ms": 0.253019,
+      "error_read_ms": 0.000135,
+      "release_drain_ms": 5.08121,
+      "total_ms": 5.45995
+    },
+    {
+      "source_pack_profile_pts": 666666,
+      "valid": 1,
+      "pack_ms": 4.228541
+    },
+    {
+      "source_piecewise_profile_pts": 666666,
+      "valid": 1,
+      "reconstruction_ms": 14.925104,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 666666,
+      "overlay": 0,
+      "output_wait_ms": 0.105346,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.019293,
+      "enqueue_ms": 0.252658,
+      "error_read_ms": 0.000136,
+      "release_drain_ms": 4.744757,
+      "total_ms": 5.122443
+    },
+    {
+      "source_pack_profile_pts": 708333,
+      "valid": 1,
+      "pack_ms": 4.356197
+    },
+    {
+      "source_piecewise_profile_pts": 708333,
+      "valid": 1,
+      "reconstruction_ms": 12.379427,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 708333,
+      "overlay": 0,
+      "output_wait_ms": 0.108174,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.020817,
+      "enqueue_ms": 0.255363,
+      "error_read_ms": 0.000133,
+      "release_drain_ms": 4.887768,
+      "total_ms": 5.272511
+    },
+    {
+      "source_pack_profile_pts": 750000,
+      "valid": 1,
+      "pack_ms": 4.424322
+    },
+    {
+      "source_piecewise_profile_pts": 750000,
+      "valid": 1,
+      "reconstruction_ms": 12.276614,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 750000,
+      "overlay": 0,
+      "output_wait_ms": 0.102334,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.01973,
+      "enqueue_ms": 0.25413,
+      "error_read_ms": 0.000134,
+      "release_drain_ms": 4.938944,
+      "total_ms": 5.315528
+    },
+    {
+      "source_pack_profile_pts": 791666,
+      "valid": 1,
+      "pack_ms": 4.87875
+    },
+    {
+      "source_piecewise_profile_pts": 791666,
+      "valid": 1,
+      "reconstruction_ms": 12.19276,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 791666,
+      "overlay": 0,
+      "output_wait_ms": 0.051027,
+      "overlay_prepare_ms": 4e-05,
+      "packet_write_ms": 0.010121,
+      "enqueue_ms": 0.122067,
+      "error_read_ms": 4e-05,
+      "release_drain_ms": 5.3207,
+      "total_ms": 5.504033
+    },
+    {
+      "source_pack_profile_pts": 833333,
+      "valid": 1,
+      "pack_ms": 4.809895
+    },
+    {
+      "source_piecewise_profile_pts": 833333,
+      "valid": 1,
+      "reconstruction_ms": 12.24875,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 833333,
+      "overlay": 0,
+      "output_wait_ms": 0.10376,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.020221,
+      "enqueue_ms": 0.253933,
+      "error_read_ms": 0.000135,
+      "release_drain_ms": 5.333772,
+      "total_ms": 5.712079
+    },
+    {
+      "source_pack_profile_pts": 875000,
+      "valid": 1,
+      "pack_ms": 3.411875
+    },
+    {
+      "source_piecewise_profile_pts": 875000,
+      "valid": 1,
+      "reconstruction_ms": 12.174062,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 875000,
+      "overlay": 0,
+      "output_wait_ms": 0.049179,
+      "overlay_prepare_ms": 2.6e-05,
+      "packet_write_ms": 0.014528,
+      "enqueue_ms": 0.104021,
+      "error_read_ms": 3.1e-05,
+      "release_drain_ms": 3.72335,
+      "total_ms": 3.891161
+    },
+    {
+      "source_pack_profile_pts": 916666,
+      "valid": 1,
+      "pack_ms": 3.411979
+    },
+    {
+      "source_piecewise_profile_pts": 916666,
+      "valid": 1,
+      "reconstruction_ms": 12.18401,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 916666,
+      "overlay": 0,
+      "output_wait_ms": 0.048811,
+      "overlay_prepare_ms": 2.8e-05,
+      "packet_write_ms": 0.008833,
+      "enqueue_ms": 0.097978,
+      "error_read_ms": 2.6e-05,
+      "release_drain_ms": 3.673518,
+      "total_ms": 3.82922
+    },
+    {
+      "source_pack_profile_pts": 958333,
+      "valid": 1,
+      "pack_ms": 5.242083
+    },
+    {
+      "source_piecewise_profile_pts": 958333,
+      "valid": 1,
+      "reconstruction_ms": 12.171666,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 958333,
+      "overlay": 0,
+      "output_wait_ms": 0.103806,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.019482,
+      "enqueue_ms": 0.252357,
+      "error_read_ms": 0.000182,
+      "release_drain_ms": 5.738098,
+      "total_ms": 6.114183
+    },
+    {
+      "source_pack_profile_pts": 1000000,
+      "valid": 1,
+      "pack_ms": 4.738125
+    },
+    {
+      "source_piecewise_profile_pts": 1000000,
+      "valid": 1,
+      "reconstruction_ms": 14.145677,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1000000,
+      "overlay": 0,
+      "output_wait_ms": 0.106102,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.02011,
+      "enqueue_ms": 0.253844,
+      "error_read_ms": 0.000141,
+      "release_drain_ms": 5.248506,
+      "total_ms": 5.628961
+    },
+    {
+      "source_pack_profile_pts": 1041666,
+      "valid": 1,
+      "pack_ms": 4.708958
+    },
+    {
+      "source_piecewise_profile_pts": 1041666,
+      "valid": 1,
+      "reconstruction_ms": 12.170312,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1041666,
+      "overlay": 0,
+      "output_wait_ms": 0.108498,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.020023,
+      "enqueue_ms": 0.259022,
+      "error_read_ms": 0.000133,
+      "release_drain_ms": 5.248458,
+      "total_ms": 5.636392
+    },
+    {
+      "source_pack_profile_pts": 1083333,
+      "valid": 1,
+      "pack_ms": 4.607916
+    },
+    {
+      "source_piecewise_profile_pts": 1083333,
+      "valid": 1,
+      "reconstruction_ms": 12.170677,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1083333,
+      "overlay": 0,
+      "output_wait_ms": 0.108757,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.019636,
+      "enqueue_ms": 0.25748,
+      "error_read_ms": 0.000132,
+      "release_drain_ms": 5.158452,
+      "total_ms": 5.54471
+    },
+    {
+      "source_pack_profile_pts": 1125000,
+      "valid": 1,
+      "pack_ms": 4.647031
+    },
+    {
+      "source_piecewise_profile_pts": 1125000,
+      "valid": 1,
+      "reconstruction_ms": 12.170104,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1125000,
+      "overlay": 0,
+      "output_wait_ms": 0.105537,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.020529,
+      "enqueue_ms": 0.259331,
+      "error_read_ms": 0.000137,
+      "release_drain_ms": 5.195427,
+      "total_ms": 5.581219
+    },
+    {
+      "source_pack_profile_pts": 1166666,
+      "valid": 1,
+      "pack_ms": 4.801093
+    },
+    {
+      "source_piecewise_profile_pts": 1166666,
+      "valid": 1,
+      "reconstruction_ms": 12.172604,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1166666,
+      "overlay": 0,
+      "output_wait_ms": 0.106054,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.020204,
+      "enqueue_ms": 0.26136,
+      "error_read_ms": 0.000133,
+      "release_drain_ms": 5.327541,
+      "total_ms": 5.715547
+    },
+    {
+      "source_pack_profile_pts": 1208333,
+      "valid": 1,
+      "pack_ms": 3.358281
+    },
+    {
+      "source_piecewise_profile_pts": 1208333,
+      "valid": 1,
+      "reconstruction_ms": 12.171927,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1208333,
+      "overlay": 0,
+      "output_wait_ms": 0.113787,
+      "overlay_prepare_ms": 0.000125,
+      "packet_write_ms": 0.020755,
+      "enqueue_ms": 0.255937,
+      "error_read_ms": 0.000142,
+      "release_drain_ms": 3.797664,
+      "total_ms": 4.188541
+    },
+    {
+      "source_pack_profile_pts": 1250000,
+      "valid": 1,
+      "pack_ms": 3.35802
+    },
+    {
+      "source_piecewise_profile_pts": 1250000,
+      "valid": 1,
+      "reconstruction_ms": 12.172968,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1250000,
+      "overlay": 0,
+      "output_wait_ms": 0.108792,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.01983,
+      "enqueue_ms": 0.252077,
+      "error_read_ms": 0.000134,
+      "release_drain_ms": 3.779549,
+      "total_ms": 4.160638
+    },
+    {
+      "source_pack_profile_pts": 1291666,
+      "valid": 1,
+      "pack_ms": 4.986614
+    },
+    {
+      "source_piecewise_profile_pts": 1291666,
+      "valid": 1,
+      "reconstruction_ms": 12.171197,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1291666,
+      "overlay": 0,
+      "output_wait_ms": 0.106924,
+      "overlay_prepare_ms": 0.000127,
+      "packet_write_ms": 0.020549,
+      "enqueue_ms": 0.25479,
+      "error_read_ms": 0.000142,
+      "release_drain_ms": 5.516123,
+      "total_ms": 5.898783
+    },
+    {
+      "source_pack_profile_pts": 1333333,
+      "valid": 1,
+      "pack_ms": 4.690416
+    },
+    {
+      "source_piecewise_profile_pts": 1333333,
+      "valid": 1,
+      "reconstruction_ms": 14.342083,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1333333,
+      "overlay": 0,
+      "output_wait_ms": 0.102976,
+      "overlay_prepare_ms": 0.000125,
+      "packet_write_ms": 0.019683,
+      "enqueue_ms": 0.250559,
+      "error_read_ms": 0.000138,
+      "release_drain_ms": 5.217193,
+      "total_ms": 5.590802
+    },
+    {
+      "source_pack_profile_pts": 1375000,
+      "valid": 1,
+      "pack_ms": 4.666354
+    },
+    {
+      "source_piecewise_profile_pts": 1375000,
+      "valid": 1,
+      "reconstruction_ms": 12.170468,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1375000,
+      "overlay": 0,
+      "output_wait_ms": 0.104363,
+      "overlay_prepare_ms": 0.000131,
+      "packet_write_ms": 0.02006,
+      "enqueue_ms": 0.256451,
+      "error_read_ms": 0.000133,
+      "release_drain_ms": 5.193943,
+      "total_ms": 5.575206
+    },
+    {
+      "source_pack_profile_pts": 1416666,
+      "valid": 1,
+      "pack_ms": 4.681354
+    },
+    {
+      "source_piecewise_profile_pts": 1416666,
+      "valid": 1,
+      "reconstruction_ms": 12.170104,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1416666,
+      "overlay": 0,
+      "output_wait_ms": 0.107547,
+      "overlay_prepare_ms": 0.000129,
+      "packet_write_ms": 0.020251,
+      "enqueue_ms": 0.254136,
+      "error_read_ms": 0.000133,
+      "release_drain_ms": 5.212655,
+      "total_ms": 5.594979
+    },
+    {
+      "source_pack_profile_pts": 1458333,
+      "valid": 1,
+      "pack_ms": 3.949166
+    },
+    {
+      "source_piecewise_profile_pts": 1458333,
+      "valid": 1,
+      "reconstruction_ms": 12.169687,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1458333,
+      "overlay": 0,
+      "output_wait_ms": 0.107515,
+      "overlay_prepare_ms": 0.000125,
+      "packet_write_ms": 0.020547,
+      "enqueue_ms": 0.253396,
+      "error_read_ms": 0.000146,
+      "release_drain_ms": 4.470811,
+      "total_ms": 4.852671
+    },
+    {
+      "source_pack_profile_pts": 1500000,
+      "valid": 1,
+      "pack_ms": 3.36427
+    },
+    {
+      "source_piecewise_profile_pts": 1500000,
+      "valid": 1,
+      "reconstruction_ms": 12.172239,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1500000,
+      "overlay": 0,
+      "output_wait_ms": 0.106224,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.020111,
+      "enqueue_ms": 0.254992,
+      "error_read_ms": 0.000125,
+      "release_drain_ms": 3.817518,
+      "total_ms": 4.199224
+    },
+    {
+      "source_pack_profile_pts": 1541666,
+      "valid": 1,
+      "pack_ms": 3.348593
+    },
+    {
+      "source_piecewise_profile_pts": 1541666,
+      "valid": 1,
+      "reconstruction_ms": 12.172552,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1541666,
+      "overlay": 0,
+      "output_wait_ms": 0.10688,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.019811,
+      "enqueue_ms": 0.25167,
+      "error_read_ms": 0.000153,
+      "release_drain_ms": 3.765864,
+      "total_ms": 4.144636
+    },
+    {
+      "source_pack_profile_pts": 1583333,
+      "valid": 1,
+      "pack_ms": 3.35526
+    },
+    {
+      "source_piecewise_profile_pts": 1583333,
+      "valid": 1,
+      "reconstruction_ms": 12.173229,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1583333,
+      "overlay": 0,
+      "output_wait_ms": 0.107893,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.020136,
+      "enqueue_ms": 0.254454,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 3.775846,
+      "total_ms": 4.158714
+    },
+    {
+      "source_pack_profile_pts": 1625000,
+      "valid": 1,
+      "pack_ms": 5.194583
+    },
+    {
+      "source_piecewise_profile_pts": 1625000,
+      "valid": 1,
+      "reconstruction_ms": 12.172291,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1625000,
+      "overlay": 0,
+      "output_wait_ms": 0.107489,
+      "overlay_prepare_ms": 0.000127,
+      "packet_write_ms": 0.020271,
+      "enqueue_ms": 0.262647,
+      "error_read_ms": 0.000138,
+      "release_drain_ms": 5.735912,
+      "total_ms": 6.126712
+    },
+    {
+      "source_pack_profile_pts": 1666666,
+      "valid": 1,
+      "pack_ms": 4.74625
+    },
+    {
+      "source_piecewise_profile_pts": 1666666,
+      "valid": 1,
+      "reconstruction_ms": 15.065625,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1666666,
+      "overlay": 0,
+      "output_wait_ms": 0.106469,
+      "overlay_prepare_ms": 0.000127,
+      "packet_write_ms": 0.019988,
+      "enqueue_ms": 0.255728,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 5.267798,
+      "total_ms": 5.650367
+    },
+    {
+      "source_pack_profile_pts": 1708333,
+      "valid": 1,
+      "pack_ms": 4.587708
+    },
+    {
+      "source_piecewise_profile_pts": 1708333,
+      "valid": 1,
+      "reconstruction_ms": 12.171562,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1708333,
+      "overlay": 0,
+      "output_wait_ms": 0.106346,
+      "overlay_prepare_ms": 0.000131,
+      "packet_write_ms": 0.019482,
+      "enqueue_ms": 0.253917,
+      "error_read_ms": 0.000149,
+      "release_drain_ms": 5.116641,
+      "total_ms": 5.496791
+    },
+    {
+      "source_pack_profile_pts": 1750000,
+      "valid": 1,
+      "pack_ms": 4.775677
+    },
+    {
+      "source_piecewise_profile_pts": 1750000,
+      "valid": 1,
+      "reconstruction_ms": 12.171822,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1750000,
+      "overlay": 0,
+      "output_wait_ms": 0.105596,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.020048,
+      "enqueue_ms": 0.25106,
+      "error_read_ms": 0.000127,
+      "release_drain_ms": 5.388254,
+      "total_ms": 5.765338
+    },
+    {
+      "source_pack_profile_pts": 1791666,
+      "valid": 1,
+      "pack_ms": 4.664479
+    },
+    {
+      "source_piecewise_profile_pts": 1791666,
+      "valid": 1,
+      "reconstruction_ms": 12.169375,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1791666,
+      "overlay": 0,
+      "output_wait_ms": 0.106835,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.01974,
+      "enqueue_ms": 0.258772,
+      "error_read_ms": 0.000138,
+      "release_drain_ms": 5.202112,
+      "total_ms": 5.58785
+    },
+    {
+      "source_pack_profile_pts": 1833333,
+      "valid": 1,
+      "pack_ms": 4.821927
+    },
+    {
+      "source_piecewise_profile_pts": 1833333,
+      "valid": 1,
+      "reconstruction_ms": 12.17302,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1833333,
+      "overlay": 0,
+      "output_wait_ms": 0.101059,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.022008,
+      "enqueue_ms": 0.253738,
+      "error_read_ms": 0.000128,
+      "release_drain_ms": 5.353677,
+      "total_ms": 5.730866
+    },
+    {
+      "source_pack_profile_pts": 1875000,
+      "valid": 1,
+      "pack_ms": 3.369791
+    },
+    {
+      "source_piecewise_profile_pts": 1875000,
+      "valid": 1,
+      "reconstruction_ms": 12.171927,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1875000,
+      "overlay": 0,
+      "output_wait_ms": 0.085466,
+      "overlay_prepare_ms": 8.8e-05,
+      "packet_write_ms": 0.01626,
+      "enqueue_ms": 0.199247,
+      "error_read_ms": 9.1e-05,
+      "release_drain_ms": 3.76389,
+      "total_ms": 4.065131
+    },
+    {
+      "source_pack_profile_pts": 1916666,
+      "valid": 1,
+      "pack_ms": 3.315937
+    },
+    {
+      "source_piecewise_profile_pts": 1916666,
+      "valid": 1,
+      "reconstruction_ms": 12.172916,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1916666,
+      "overlay": 0,
+      "output_wait_ms": 0.106148,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.019849,
+      "enqueue_ms": 0.253071,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 3.75572,
+      "total_ms": 4.135176
+    },
+    {
+      "source_pack_profile_pts": 1958333,
+      "valid": 1,
+      "pack_ms": 4.965364
+    },
+    {
+      "source_piecewise_profile_pts": 1958333,
+      "valid": 1,
+      "reconstruction_ms": 12.172135,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 1958333,
+      "overlay": 0,
+      "output_wait_ms": 0.104846,
+      "overlay_prepare_ms": 0.000125,
+      "packet_write_ms": 0.020148,
+      "enqueue_ms": 0.255142,
+      "error_read_ms": 0.00018,
+      "release_drain_ms": 5.56298,
+      "total_ms": 5.943549
+    },
+    {
+      "source_pack_profile_pts": 2000000,
+      "valid": 1,
+      "pack_ms": 4.746197
+    },
+    {
+      "source_piecewise_profile_pts": 2000000,
+      "valid": 1,
+      "reconstruction_ms": 14.135,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2000000,
+      "overlay": 0,
+      "output_wait_ms": 0.106423,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.020511,
+      "enqueue_ms": 0.257029,
+      "error_read_ms": 0.000139,
+      "release_drain_ms": 5.292775,
+      "total_ms": 5.677135
+    },
+    {
+      "source_pack_profile_pts": 2041666,
+      "valid": 1,
+      "pack_ms": 4.660572
+    },
+    {
+      "source_piecewise_profile_pts": 2041666,
+      "valid": 1,
+      "reconstruction_ms": 12.170885,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2041666,
+      "overlay": 0,
+      "output_wait_ms": 0.106736,
+      "overlay_prepare_ms": 0.00013,
+      "packet_write_ms": 0.020128,
+      "enqueue_ms": 0.25613,
+      "error_read_ms": 0.000135,
+      "release_drain_ms": 5.189404,
+      "total_ms": 5.572791
+    },
+    {
+      "source_pack_profile_pts": 2083333,
+      "valid": 1,
+      "pack_ms": 4.72875
+    },
+    {
+      "source_piecewise_profile_pts": 2083333,
+      "valid": 1,
+      "reconstruction_ms": 12.173854,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2083333,
+      "overlay": 0,
+      "output_wait_ms": 0.105524,
+      "overlay_prepare_ms": 0.000127,
+      "packet_write_ms": 0.020107,
+      "enqueue_ms": 0.255341,
+      "error_read_ms": 0.000137,
+      "release_drain_ms": 5.245667,
+      "total_ms": 5.627034
+    },
+    {
+      "source_pack_profile_pts": 2125000,
+      "valid": 1,
+      "pack_ms": 4.659114
+    },
+    {
+      "source_piecewise_profile_pts": 2125000,
+      "valid": 1,
+      "reconstruction_ms": 12.169687,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2125000,
+      "overlay": 0,
+      "output_wait_ms": 0.106971,
+      "overlay_prepare_ms": 0.000126,
+      "packet_write_ms": 0.020571,
+      "enqueue_ms": 0.256818,
+      "error_read_ms": 0.000135,
+      "release_drain_ms": 5.196752,
+      "total_ms": 5.5815
+    },
+    {
+      "source_pack_profile_pts": 2166666,
+      "valid": 1,
+      "pack_ms": 4.829635
+    },
+    {
+      "source_piecewise_profile_pts": 2166666,
+      "valid": 1,
+      "reconstruction_ms": 12.171927,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2166666,
+      "overlay": 0,
+      "output_wait_ms": 0.105425,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.020341,
+      "enqueue_ms": 0.254821,
+      "error_read_ms": 0.000134,
+      "release_drain_ms": 5.373511,
+      "total_ms": 5.754486
+    },
+    {
+      "source_pack_profile_pts": 2208333,
+      "valid": 1,
+      "pack_ms": 3.362552
+    },
+    {
+      "source_piecewise_profile_pts": 2208333,
+      "valid": 1,
+      "reconstruction_ms": 12.17125,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2208333,
+      "overlay": 0,
+      "output_wait_ms": 0.110819,
+      "overlay_prepare_ms": 0.000125,
+      "packet_write_ms": 0.01975,
+      "enqueue_ms": 0.262438,
+      "error_read_ms": 0.000131,
+      "release_drain_ms": 3.794627,
+      "total_ms": 4.188018
+    },
+    {
+      "source_pack_profile_pts": 2250000,
+      "valid": 1,
+      "pack_ms": 3.374322
+    },
+    {
+      "source_piecewise_profile_pts": 2250000,
+      "valid": 1,
+      "reconstruction_ms": 12.171458,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2250000,
+      "overlay": 0,
+      "output_wait_ms": 0.108464,
+      "overlay_prepare_ms": 0.000128,
+      "packet_write_ms": 0.02019,
+      "enqueue_ms": 0.253142,
+      "error_read_ms": 0.000145,
+      "release_drain_ms": 3.798327,
+      "total_ms": 4.180523
+    },
+    {
+      "source_pack_profile_pts": 2291666,
+      "valid": 1,
+      "pack_ms": 4.935572
+    },
+    {
+      "source_piecewise_profile_pts": 2291666,
+      "valid": 1,
+      "reconstruction_ms": 12.173802,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2291666,
+      "overlay": 0,
+      "output_wait_ms": 0.102661,
+      "overlay_prepare_ms": 0.000127,
+      "packet_write_ms": 0.019281,
+      "enqueue_ms": 0.25385,
+      "error_read_ms": 0.00013,
+      "release_drain_ms": 5.760251,
+      "total_ms": 6.136428
+    },
+    {
+      "source_pack_profile_pts": 2333333,
+      "valid": 1,
+      "pack_ms": 3.812343
+    },
+    {
+      "source_piecewise_profile_pts": 2333333,
+      "valid": 1,
+      "reconstruction_ms": 14.40276,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2333333,
+      "overlay": 0,
+      "output_wait_ms": 0.072127,
+      "overlay_prepare_ms": 5.2e-05,
+      "packet_write_ms": 0.013959,
+      "enqueue_ms": 0.291581,
+      "error_read_ms": 6.4e-05,
+      "release_drain_ms": 4.365243,
+      "total_ms": 4.74308
+    },
+    {
+      "overlay_profile_pts": 2375000,
+      "valid": 1,
+      "host_prepare_ms": 0.104777,
+      "acquire_ms": 0.001197,
+      "colour_ms": 0.0,
+      "pack_ms": 64.279635
+    },
+    {
+      "source_piecewise_profile_pts": 2375000,
+      "valid": 1,
+      "reconstruction_ms": 12.182187,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2375000,
+      "overlay": 1,
+      "output_wait_ms": 0.060006,
+      "overlay_prepare_ms": 0.104848,
+      "packet_write_ms": 0.001551,
+      "enqueue_ms": 0.215702,
+      "error_read_ms": 64.66366,
+      "release_drain_ms": 0.479857,
+      "total_ms": 65.525655
+    },
+    {
+      "source_piecewise_profile_pts": 2416666,
+      "valid": 1,
+      "reconstruction_ms": 12.184583,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 2500000,
+      "valid": 1,
+      "host_prepare_ms": 0.132263,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 64.219218
+    },
+    {
+      "source_piecewise_profile_pts": 2500000,
+      "valid": 1,
+      "reconstruction_ms": 12.175677,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2500000,
+      "overlay": 1,
+      "output_wait_ms": 12.495821,
+      "overlay_prepare_ms": 0.132667,
+      "packet_write_ms": 0.002098,
+      "enqueue_ms": 0.70328,
+      "error_read_ms": 64.293593,
+      "release_drain_ms": 0.354122,
+      "total_ms": 77.981623
+    },
+    {
+      "source_piecewise_profile_pts": 2541666,
+      "valid": 1,
+      "reconstruction_ms": 12.178177,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 2583333,
+      "valid": 1,
+      "host_prepare_ms": 0.143724,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 65.904947
+    },
+    {
+      "source_piecewise_profile_pts": 2583333,
+      "valid": 1,
+      "reconstruction_ms": 12.813385,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2583333,
+      "overlay": 1,
+      "output_wait_ms": 13.033599,
+      "overlay_prepare_ms": 0.144205,
+      "packet_write_ms": 0.002266,
+      "enqueue_ms": 0.240639,
+      "error_read_ms": 66.260077,
+      "release_drain_ms": 0.318421,
+      "total_ms": 79.999257
+    },
+    {
+      "source_piecewise_profile_pts": 2625000,
+      "valid": 1,
+      "reconstruction_ms": 12.815052,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 2666666,
+      "valid": 1,
+      "host_prepare_ms": 0.148003,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 66.028333
+    },
+    {
+      "source_piecewise_profile_pts": 2666666,
+      "valid": 1,
+      "reconstruction_ms": 12.818437,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2666666,
+      "overlay": 1,
+      "output_wait_ms": 12.763869,
+      "overlay_prepare_ms": 0.148119,
+      "packet_write_ms": 0.001807,
+      "enqueue_ms": 0.208856,
+      "error_read_ms": 66.378228,
+      "release_drain_ms": 0.797952,
+      "total_ms": 80.298883
+    },
+    {
+      "source_piecewise_profile_pts": 2708333,
+      "valid": 1,
+      "reconstruction_ms": 12.814531,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 2750000,
+      "valid": 1,
+      "host_prepare_ms": 0.14472,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 63.205885
+    },
+    {
+      "source_piecewise_profile_pts": 2750000,
+      "valid": 1,
+      "reconstruction_ms": 12.80802,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2750000,
+      "overlay": 1,
+      "output_wait_ms": 12.924788,
+      "overlay_prepare_ms": 0.144983,
+      "packet_write_ms": 0.001901,
+      "enqueue_ms": 0.19617,
+      "error_read_ms": 63.562978,
+      "release_drain_ms": 0.274831,
+      "total_ms": 77.105703
+    },
+    {
+      "source_piecewise_profile_pts": 2791666,
+      "valid": 1,
+      "reconstruction_ms": 12.171822,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 2833333,
+      "valid": 1,
+      "host_prepare_ms": 0.135677,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.888489
+    },
+    {
+      "source_piecewise_profile_pts": 2833333,
+      "valid": 1,
+      "reconstruction_ms": 12.167812,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2833333,
+      "overlay": 1,
+      "output_wait_ms": 12.276403,
+      "overlay_prepare_ms": 0.135784,
+      "packet_write_ms": 0.001919,
+      "enqueue_ms": 0.193954,
+      "error_read_ms": 63.246221,
+      "release_drain_ms": 0.268574,
+      "total_ms": 76.1229
+    },
+    {
+      "source_piecewise_profile_pts": 2875000,
+      "valid": 1,
+      "reconstruction_ms": 12.168958,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 2916666,
+      "valid": 1,
+      "host_prepare_ms": 0.144712,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.920572
+    },
+    {
+      "source_piecewise_profile_pts": 2916666,
+      "valid": 1,
+      "reconstruction_ms": 12.167916,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 2916666,
+      "overlay": 1,
+      "output_wait_ms": 12.293533,
+      "overlay_prepare_ms": 0.144936,
+      "packet_write_ms": 0.001735,
+      "enqueue_ms": 0.182212,
+      "error_read_ms": 63.239446,
+      "release_drain_ms": 0.267483,
+      "total_ms": 76.129389
+    },
+    {
+      "source_piecewise_profile_pts": 2958333,
+      "valid": 1,
+      "reconstruction_ms": 12.171354,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3000000,
+      "valid": 1,
+      "host_prepare_ms": 0.132644,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.919947
+    },
+    {
+      "source_piecewise_profile_pts": 3000000,
+      "valid": 1,
+      "reconstruction_ms": 12.176145,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3000000,
+      "overlay": 1,
+      "output_wait_ms": 12.196085,
+      "overlay_prepare_ms": 0.132839,
+      "packet_write_ms": 0.002003,
+      "enqueue_ms": 0.160808,
+      "error_read_ms": 63.239886,
+      "release_drain_ms": 0.243433,
+      "total_ms": 75.975109
+    },
+    {
+      "source_piecewise_profile_pts": 3041666,
+      "valid": 1,
+      "reconstruction_ms": 12.177343,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3083333,
+      "valid": 1,
+      "host_prepare_ms": 0.096916,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.940833
+    },
+    {
+      "source_piecewise_profile_pts": 3083333,
+      "valid": 1,
+      "reconstruction_ms": 12.177343,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3083333,
+      "overlay": 1,
+      "output_wait_ms": 12.185232,
+      "overlay_prepare_ms": 0.096984,
+      "packet_write_ms": 0.001236,
+      "enqueue_ms": 0.116283,
+      "error_read_ms": 63.267456,
+      "release_drain_ms": 0.226932,
+      "total_ms": 75.894154
+    },
+    {
+      "source_piecewise_profile_pts": 3125000,
+      "valid": 1,
+      "reconstruction_ms": 12.209114,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3166666,
+      "valid": 1,
+      "host_prepare_ms": 0.113663,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.947447
+    },
+    {
+      "source_piecewise_profile_pts": 3166666,
+      "valid": 1,
+      "reconstruction_ms": 12.180625,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3166666,
+      "overlay": 1,
+      "output_wait_ms": 12.188173,
+      "overlay_prepare_ms": 0.113757,
+      "packet_write_ms": 0.001651,
+      "enqueue_ms": 0.134107,
+      "error_read_ms": 63.299102,
+      "release_drain_ms": 0.251784,
+      "total_ms": 75.988616
+    },
+    {
+      "source_piecewise_profile_pts": 3208333,
+      "valid": 1,
+      "reconstruction_ms": 12.205052,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3250000,
+      "valid": 1,
+      "host_prepare_ms": 0.09852,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.968281
+    },
+    {
+      "source_piecewise_profile_pts": 3250000,
+      "valid": 1,
+      "reconstruction_ms": 12.182812,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3250000,
+      "overlay": 1,
+      "output_wait_ms": 12.184058,
+      "overlay_prepare_ms": 0.098592,
+      "packet_write_ms": 0.001395,
+      "enqueue_ms": 0.117268,
+      "error_read_ms": 63.296308,
+      "release_drain_ms": 0.218567,
+      "total_ms": 75.916223
+    },
+    {
+      "source_piecewise_profile_pts": 3291666,
+      "valid": 1,
+      "reconstruction_ms": 12.224375,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3333333,
+      "valid": 1,
+      "host_prepare_ms": 0.122129,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.95427
+    },
+    {
+      "source_piecewise_profile_pts": 3333333,
+      "valid": 1,
+      "reconstruction_ms": 12.179947,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3333333,
+      "overlay": 1,
+      "output_wait_ms": 12.198168,
+      "overlay_prepare_ms": 0.122245,
+      "packet_write_ms": 0.001813,
+      "enqueue_ms": 0.150432,
+      "error_read_ms": 63.282122,
+      "release_drain_ms": 0.259245,
+      "total_ms": 76.01408
+    },
+    {
+      "source_piecewise_profile_pts": 3375000,
+      "valid": 1,
+      "reconstruction_ms": 12.222916,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3416666,
+      "valid": 1,
+      "host_prepare_ms": 0.097807,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.732031
+    },
+    {
+      "source_piecewise_profile_pts": 3416666,
+      "valid": 1,
+      "reconstruction_ms": 12.180572,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3416666,
+      "overlay": 1,
+      "output_wait_ms": 12.204078,
+      "overlay_prepare_ms": 0.097877,
+      "packet_write_ms": 0.001362,
+      "enqueue_ms": 0.117846,
+      "error_read_ms": 63.058403,
+      "release_drain_ms": 0.224943,
+      "total_ms": 75.704541
+    },
+    {
+      "source_piecewise_profile_pts": 3458333,
+      "valid": 1,
+      "reconstruction_ms": 12.244479,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3500000,
+      "valid": 1,
+      "host_prepare_ms": 0.097557,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.796197
+    },
+    {
+      "source_piecewise_profile_pts": 3500000,
+      "valid": 1,
+      "reconstruction_ms": 12.180781,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3500000,
+      "overlay": 1,
+      "output_wait_ms": 12.203431,
+      "overlay_prepare_ms": 0.097628,
+      "packet_write_ms": 0.001288,
+      "enqueue_ms": 0.116068,
+      "error_read_ms": 63.117983,
+      "release_drain_ms": 0.225897,
+      "total_ms": 75.762328
+    },
+    {
+      "source_piecewise_profile_pts": 3541666,
+      "valid": 1,
+      "reconstruction_ms": 12.206666,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3583333,
+      "valid": 1,
+      "host_prepare_ms": 0.10077,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.885833
+    },
+    {
+      "source_piecewise_profile_pts": 3583333,
+      "valid": 1,
+      "reconstruction_ms": 12.183177,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3583333,
+      "overlay": 1,
+      "output_wait_ms": 12.190357,
+      "overlay_prepare_ms": 0.100846,
+      "packet_write_ms": 0.001412,
+      "enqueue_ms": 0.112104,
+      "error_read_ms": 63.205225,
+      "release_drain_ms": 0.228018,
+      "total_ms": 75.837998
+    },
+    {
+      "source_piecewise_profile_pts": 3625000,
+      "valid": 1,
+      "reconstruction_ms": 12.204843,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3666666,
+      "valid": 1,
+      "host_prepare_ms": 0.111914,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.95677
+    },
+    {
+      "source_piecewise_profile_pts": 3666666,
+      "valid": 1,
+      "reconstruction_ms": 13.03901,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3666666,
+      "overlay": 1,
+      "output_wait_ms": 13.057977,
+      "overlay_prepare_ms": 0.112016,
+      "packet_write_ms": 0.001654,
+      "enqueue_ms": 0.130645,
+      "error_read_ms": 63.282108,
+      "release_drain_ms": 0.222257,
+      "total_ms": 76.806701
+    },
+    {
+      "source_piecewise_profile_pts": 3708333,
+      "valid": 1,
+      "reconstruction_ms": 12.249479,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3750000,
+      "valid": 1,
+      "host_prepare_ms": 0.106497,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.958437
+    },
+    {
+      "source_piecewise_profile_pts": 3750000,
+      "valid": 1,
+      "reconstruction_ms": 12.18276,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3750000,
+      "overlay": 1,
+      "output_wait_ms": 12.190466,
+      "overlay_prepare_ms": 0.10657,
+      "packet_write_ms": 0.001347,
+      "enqueue_ms": 0.111757,
+      "error_read_ms": 63.287409,
+      "release_drain_ms": 0.21174,
+      "total_ms": 75.90932
+    },
+    {
+      "source_piecewise_profile_pts": 3791666,
+      "valid": 1,
+      "reconstruction_ms": 12.22026,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3833333,
+      "valid": 1,
+      "host_prepare_ms": 0.11133,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.965989
+    },
+    {
+      "source_piecewise_profile_pts": 3833333,
+      "valid": 1,
+      "reconstruction_ms": 12.17552,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3833333,
+      "overlay": 1,
+      "output_wait_ms": 12.189698,
+      "overlay_prepare_ms": 0.111426,
+      "packet_write_ms": 0.001763,
+      "enqueue_ms": 0.133434,
+      "error_read_ms": 63.293855,
+      "release_drain_ms": 0.23327,
+      "total_ms": 75.963489
+    },
+    {
+      "source_piecewise_profile_pts": 3875000,
+      "valid": 1,
+      "reconstruction_ms": 12.221875,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 3916666,
+      "valid": 1,
+      "host_prepare_ms": 0.096176,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.9625
+    },
+    {
+      "source_piecewise_profile_pts": 3916666,
+      "valid": 1,
+      "reconstruction_ms": 12.18151,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 3916666,
+      "overlay": 1,
+      "output_wait_ms": 12.185171,
+      "overlay_prepare_ms": 0.09625,
+      "packet_write_ms": 0.001294,
+      "enqueue_ms": 0.119269,
+      "error_read_ms": 63.3053,
+      "release_drain_ms": 0.242018,
+      "total_ms": 75.949336
+    },
+    {
+      "source_piecewise_profile_pts": 3958333,
+      "valid": 1,
+      "reconstruction_ms": 12.212343,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4000000,
+      "valid": 1,
+      "host_prepare_ms": 0.114234,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.959166
+    },
+    {
+      "source_piecewise_profile_pts": 4000000,
+      "valid": 1,
+      "reconstruction_ms": 12.224062,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4000000,
+      "overlay": 1,
+      "output_wait_ms": 12.299398,
+      "overlay_prepare_ms": 0.114331,
+      "packet_write_ms": 0.001946,
+      "enqueue_ms": 0.134847,
+      "error_read_ms": 63.286564,
+      "release_drain_ms": 0.278424,
+      "total_ms": 76.115554
+    },
+    {
+      "source_piecewise_profile_pts": 4041666,
+      "valid": 1,
+      "reconstruction_ms": 12.226666,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4083333,
+      "valid": 1,
+      "host_prepare_ms": 0.093858,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.733229
+    },
+    {
+      "source_piecewise_profile_pts": 4083333,
+      "valid": 1,
+      "reconstruction_ms": 12.18125,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4083333,
+      "overlay": 1,
+      "output_wait_ms": 12.152749,
+      "overlay_prepare_ms": 0.093935,
+      "packet_write_ms": 0.001362,
+      "enqueue_ms": 0.108341,
+      "error_read_ms": 63.058592,
+      "release_drain_ms": 0.222418,
+      "total_ms": 75.637431
+    },
+    {
+      "source_piecewise_profile_pts": 4125000,
+      "valid": 1,
+      "reconstruction_ms": 12.22276,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4166666,
+      "valid": 1,
+      "host_prepare_ms": 0.109654,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.971927
+    },
+    {
+      "source_piecewise_profile_pts": 4166666,
+      "valid": 1,
+      "reconstruction_ms": 12.183281,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4166666,
+      "overlay": 1,
+      "output_wait_ms": 12.188469,
+      "overlay_prepare_ms": 0.10975,
+      "packet_write_ms": 0.001697,
+      "enqueue_ms": 0.126836,
+      "error_read_ms": 63.293233,
+      "release_drain_ms": 0.227184,
+      "total_ms": 75.947209
+    },
+    {
+      "source_piecewise_profile_pts": 4208333,
+      "valid": 1,
+      "reconstruction_ms": 12.219375,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4250000,
+      "valid": 1,
+      "host_prepare_ms": 0.10057,
+      "acquire_ms": 0.004479,
+      "colour_ms": 0.0,
+      "pack_ms": 62.965
+    },
+    {
+      "source_piecewise_profile_pts": 4250000,
+      "valid": 1,
+      "reconstruction_ms": 12.182604,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4250000,
+      "overlay": 1,
+      "output_wait_ms": 12.206652,
+      "overlay_prepare_ms": 0.100641,
+      "packet_write_ms": 0.001321,
+      "enqueue_ms": 0.115533,
+      "error_read_ms": 63.303674,
+      "release_drain_ms": 0.252393,
+      "total_ms": 75.980247
+    },
+    {
+      "source_piecewise_profile_pts": 4291666,
+      "valid": 1,
+      "reconstruction_ms": 12.219427,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4333333,
+      "valid": 1,
+      "host_prepare_ms": 0.113688,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.772239
+    },
+    {
+      "source_piecewise_profile_pts": 4333333,
+      "valid": 1,
+      "reconstruction_ms": 12.181041,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4333333,
+      "overlay": 1,
+      "output_wait_ms": 12.202696,
+      "overlay_prepare_ms": 0.113807,
+      "packet_write_ms": 0.001729,
+      "enqueue_ms": 0.14348,
+      "error_read_ms": 63.0992,
+      "release_drain_ms": 0.234724,
+      "total_ms": 75.795683
+    },
+    {
+      "source_piecewise_profile_pts": 4375000,
+      "valid": 1,
+      "reconstruction_ms": 12.226406,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4416666,
+      "valid": 1,
+      "host_prepare_ms": 0.112706,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.95625
+    },
+    {
+      "source_piecewise_profile_pts": 4416666,
+      "valid": 1,
+      "reconstruction_ms": 12.183333,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4416666,
+      "overlay": 1,
+      "output_wait_ms": 12.201347,
+      "overlay_prepare_ms": 0.112791,
+      "packet_write_ms": 0.001591,
+      "enqueue_ms": 0.119854,
+      "error_read_ms": 63.279535,
+      "release_drain_ms": 0.237221,
+      "total_ms": 75.952379
+    },
+    {
+      "source_piecewise_profile_pts": 4458333,
+      "valid": 1,
+      "reconstruction_ms": 12.234427,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4500000,
+      "valid": 1,
+      "host_prepare_ms": 0.112357,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.970833
+    },
+    {
+      "source_piecewise_profile_pts": 4500000,
+      "valid": 1,
+      "reconstruction_ms": 12.180156,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4500000,
+      "overlay": 1,
+      "output_wait_ms": 12.195833,
+      "overlay_prepare_ms": 0.112456,
+      "packet_write_ms": 0.001693,
+      "enqueue_ms": 0.135505,
+      "error_read_ms": 63.295622,
+      "release_drain_ms": 0.230557,
+      "total_ms": 75.97171
+    },
+    {
+      "source_piecewise_profile_pts": 4541666,
+      "valid": 1,
+      "reconstruction_ms": 12.196562,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4583333,
+      "valid": 1,
+      "host_prepare_ms": 0.107905,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.755572
+    },
+    {
+      "source_piecewise_profile_pts": 4583333,
+      "valid": 1,
+      "reconstruction_ms": 12.184895,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4583333,
+      "overlay": 1,
+      "output_wait_ms": 12.201238,
+      "overlay_prepare_ms": 0.107969,
+      "packet_write_ms": 0.001142,
+      "enqueue_ms": 0.104417,
+      "error_read_ms": 63.093734,
+      "release_drain_ms": 0.237013,
+      "total_ms": 75.745541
+    },
+    {
+      "source_piecewise_profile_pts": 4625000,
+      "valid": 1,
+      "reconstruction_ms": 12.230312,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4666666,
+      "valid": 1,
+      "host_prepare_ms": 0.115111,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.970833
+    },
+    {
+      "source_piecewise_profile_pts": 4666666,
+      "valid": 1,
+      "reconstruction_ms": 12.183333,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4666666,
+      "overlay": 1,
+      "output_wait_ms": 12.259165,
+      "overlay_prepare_ms": 0.115229,
+      "packet_write_ms": 0.00175,
+      "enqueue_ms": 0.140808,
+      "error_read_ms": 63.297621,
+      "release_drain_ms": 0.255768,
+      "total_ms": 76.070388
+    },
+    {
+      "source_piecewise_profile_pts": 4708333,
+      "valid": 1,
+      "reconstruction_ms": 12.213229,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4750000,
+      "valid": 1,
+      "host_prepare_ms": 0.112676,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.956614
+    },
+    {
+      "source_piecewise_profile_pts": 4750000,
+      "valid": 1,
+      "reconstruction_ms": 12.197604,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4750000,
+      "overlay": 1,
+      "output_wait_ms": 12.29882,
+      "overlay_prepare_ms": 0.112745,
+      "packet_write_ms": 0.001234,
+      "enqueue_ms": 0.167142,
+      "error_read_ms": 63.277921,
+      "release_drain_ms": 0.261648,
+      "total_ms": 76.119541
+    },
+    {
+      "source_piecewise_profile_pts": 4791666,
+      "valid": 1,
+      "reconstruction_ms": 12.223593,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4833333,
+      "valid": 1,
+      "host_prepare_ms": 0.118168,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.950729
+    },
+    {
+      "source_piecewise_profile_pts": 4833333,
+      "valid": 1,
+      "reconstruction_ms": 12.177656,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "source_wait_pts": 4833333,
+      "overlay": 1,
+      "output_wait_ms": 12.195815,
+      "overlay_prepare_ms": 0.118273,
+      "packet_write_ms": 0.001823,
+      "enqueue_ms": 0.138737,
+      "error_read_ms": 63.278825,
+      "release_drain_ms": 0.227945,
+      "total_ms": 75.961465
+    },
+    {
+      "source_piecewise_profile_pts": 4875000,
+      "valid": 1,
+      "reconstruction_ms": 12.198229,
+      "width": 3840,
+      "height": 2160,
+      "depth": 10,
+      "layout": 1
+    },
+    {
+      "overlay_profile_pts": 4916666,
+      "valid": 1,
+      "host_prepare_ms": 0.105118,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.773125
+    },
+    {
+      "source_wait_pts": 4916666,
+      "overlay": 1,
+      "output_wait_ms": 12.205125,
+      "overlay_prepare_ms": 0.10519,
+      "packet_write_ms": 0.001231,
+      "enqueue_ms": 0.111499,
+      "error_read_ms": 63.112283,
+      "release_drain_ms": 0.238736,
+      "total_ms": 75.774092
+    },
+    {
+      "overlay_profile_pts": 5000000,
+      "valid": 1,
+      "host_prepare_ms": 0.117843,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.748177
+    },
+    {
+      "source_wait_pts": 5000000,
+      "overlay": 1,
+      "output_wait_ms": 12.191131,
+      "overlay_prepare_ms": 0.117953,
+      "packet_write_ms": 0.002128,
+      "enqueue_ms": 0.147714,
+      "error_read_ms": 63.068521,
+      "release_drain_ms": 0.253744,
+      "total_ms": 75.78124
+    },
+    {
+      "overlay_profile_pts": 5083333,
+      "valid": 1,
+      "host_prepare_ms": 0.091732,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.978281
+    },
+    {
+      "source_wait_pts": 5083333,
+      "overlay": 1,
+      "output_wait_ms": 12.182628,
+      "overlay_prepare_ms": 0.091809,
+      "packet_write_ms": 0.001591,
+      "enqueue_ms": 0.109334,
+      "error_read_ms": 63.305143,
+      "release_drain_ms": 0.230609,
+      "total_ms": 75.921147
+    },
+    {
+      "overlay_profile_pts": 5166666,
+      "valid": 1,
+      "host_prepare_ms": 0.115981,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.964583
+    },
+    {
+      "source_wait_pts": 5166666,
+      "overlay": 1,
+      "output_wait_ms": 12.18493,
+      "overlay_prepare_ms": 0.116085,
+      "packet_write_ms": 0.001909,
+      "enqueue_ms": 0.140602,
+      "error_read_ms": 63.294471,
+      "release_drain_ms": 0.212186,
+      "total_ms": 75.95023
+    },
+    {
+      "overlay_profile_pts": 5250000,
+      "valid": 1,
+      "host_prepare_ms": 0.095627,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.743125
+    },
+    {
+      "source_wait_pts": 5250000,
+      "overlay": 1,
+      "output_wait_ms": 12.175036,
+      "overlay_prepare_ms": 0.095696,
+      "packet_write_ms": 0.00125,
+      "enqueue_ms": 0.110133,
+      "error_read_ms": 63.072976,
+      "release_drain_ms": 0.217606,
+      "total_ms": 75.672728
+    },
+    {
+      "overlay_profile_pts": 5333333,
+      "valid": 1,
+      "host_prepare_ms": 0.116179,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.782031
+    },
+    {
+      "source_wait_pts": 5333333,
+      "overlay": 1,
+      "output_wait_ms": 12.192089,
+      "overlay_prepare_ms": 0.116281,
+      "packet_write_ms": 0.002288,
+      "enqueue_ms": 0.143132,
+      "error_read_ms": 63.12351,
+      "release_drain_ms": 0.265235,
+      "total_ms": 75.842582
+    },
+    {
+      "overlay_profile_pts": 5416666,
+      "valid": 1,
+      "host_prepare_ms": 0.101017,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.977708
+    },
+    {
+      "source_wait_pts": 5416666,
+      "overlay": 1,
+      "output_wait_ms": 12.202634,
+      "overlay_prepare_ms": 0.101081,
+      "packet_write_ms": 0.001189,
+      "enqueue_ms": 0.121334,
+      "error_read_ms": 63.325224,
+      "release_drain_ms": 0.231851,
+      "total_ms": 75.983342
+    },
+    {
+      "overlay_profile_pts": 5500000,
+      "valid": 1,
+      "host_prepare_ms": 0.111527,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.977812
+    },
+    {
+      "source_wait_pts": 5500000,
+      "overlay": 1,
+      "output_wait_ms": 12.168548,
+      "overlay_prepare_ms": 0.11161,
+      "packet_write_ms": 0.001484,
+      "enqueue_ms": 0.123515,
+      "error_read_ms": 63.314865,
+      "release_drain_ms": 0.217236,
+      "total_ms": 75.937295
+    },
+    {
+      "overlay_profile_pts": 5583333,
+      "valid": 1,
+      "host_prepare_ms": 0.101937,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.987864
+    },
+    {
+      "source_wait_pts": 5583333,
+      "overlay": 1,
+      "output_wait_ms": 12.189435,
+      "overlay_prepare_ms": 0.102002,
+      "packet_write_ms": 0.001181,
+      "enqueue_ms": 0.111004,
+      "error_read_ms": 63.316711,
+      "release_drain_ms": 0.220632,
+      "total_ms": 75.940996
+    },
+    {
+      "overlay_profile_pts": 5666666,
+      "valid": 1,
+      "host_prepare_ms": 0.121503,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.780572
+    },
+    {
+      "source_wait_pts": 5666666,
+      "overlay": 1,
+      "output_wait_ms": 12.245676,
+      "overlay_prepare_ms": 0.121624,
+      "packet_write_ms": 0.001949,
+      "enqueue_ms": 0.150715,
+      "error_read_ms": 63.109109,
+      "release_drain_ms": 0.228708,
+      "total_ms": 75.857835
+    },
+    {
+      "overlay_profile_pts": 5750000,
+      "valid": 1,
+      "host_prepare_ms": 0.095516,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.763437
+    },
+    {
+      "source_wait_pts": 5750000,
+      "overlay": 1,
+      "output_wait_ms": 12.19936,
+      "overlay_prepare_ms": 0.095589,
+      "packet_write_ms": 0.001475,
+      "enqueue_ms": 0.111413,
+      "error_read_ms": 63.113449,
+      "release_drain_ms": 0.221312,
+      "total_ms": 75.742631
+    },
+    {
+      "overlay_profile_pts": 5833333,
+      "valid": 1,
+      "host_prepare_ms": 0.114527,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.976302
+    },
+    {
+      "source_wait_pts": 5833333,
+      "overlay": 1,
+      "output_wait_ms": 12.186256,
+      "overlay_prepare_ms": 0.114624,
+      "packet_write_ms": 0.001995,
+      "enqueue_ms": 0.134763,
+      "error_read_ms": 63.304939,
+      "release_drain_ms": 0.221269,
+      "total_ms": 75.963893
+    },
+    {
+      "overlay_profile_pts": 5916666,
+      "valid": 1,
+      "host_prepare_ms": 0.103892,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.979583
+    },
+    {
+      "source_wait_pts": 5916666,
+      "overlay": 1,
+      "output_wait_ms": 12.228715,
+      "overlay_prepare_ms": 0.10396,
+      "packet_write_ms": 0.001128,
+      "enqueue_ms": 0.115948,
+      "error_read_ms": 63.304973,
+      "release_drain_ms": 0.241851,
+      "total_ms": 75.996602
+    },
+    {
+      "overlay_profile_pts": 6000000,
+      "valid": 1,
+      "host_prepare_ms": 0.122451,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.715208
+    },
+    {
+      "source_wait_pts": 6000000,
+      "overlay": 1,
+      "output_wait_ms": 12.159898,
+      "overlay_prepare_ms": 0.122568,
+      "packet_write_ms": 0.002464,
+      "enqueue_ms": 0.162553,
+      "error_read_ms": 63.027467,
+      "release_drain_ms": 0.254303,
+      "total_ms": 75.729305
+    },
+    {
+      "overlay_profile_pts": 6083333,
+      "valid": 1,
+      "host_prepare_ms": 0.104555,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.953645
+    },
+    {
+      "source_wait_pts": 6083333,
+      "overlay": 1,
+      "output_wait_ms": 12.182522,
+      "overlay_prepare_ms": 0.104637,
+      "packet_write_ms": 0.001643,
+      "enqueue_ms": 0.118852,
+      "error_read_ms": 63.282921,
+      "release_drain_ms": 0.209516,
+      "total_ms": 75.900128
+    },
+    {
+      "overlay_profile_pts": 6166666,
+      "valid": 1,
+      "host_prepare_ms": 0.115357,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.966875
+    },
+    {
+      "source_wait_pts": 6166666,
+      "overlay": 1,
+      "output_wait_ms": 12.186781,
+      "overlay_prepare_ms": 0.115464,
+      "packet_write_ms": 0.001794,
+      "enqueue_ms": 0.142503,
+      "error_read_ms": 63.301396,
+      "release_drain_ms": 0.226696,
+      "total_ms": 75.974684
+    },
+    {
+      "overlay_profile_pts": 6250000,
+      "valid": 1,
+      "host_prepare_ms": 0.105286,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.969062
+    },
+    {
+      "source_wait_pts": 6250000,
+      "overlay": 1,
+      "output_wait_ms": 12.183053,
+      "overlay_prepare_ms": 0.105372,
+      "packet_write_ms": 0.001409,
+      "enqueue_ms": 0.12345,
+      "error_read_ms": 63.299379,
+      "release_drain_ms": 0.221939,
+      "total_ms": 75.934641
+    },
+    {
+      "overlay_profile_pts": 6333333,
+      "valid": 1,
+      "host_prepare_ms": 0.127451,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.933645
+    },
+    {
+      "source_wait_pts": 6333333,
+      "overlay": 1,
+      "output_wait_ms": 12.182215,
+      "overlay_prepare_ms": 0.127567,
+      "packet_write_ms": 0.001958,
+      "enqueue_ms": 0.153611,
+      "error_read_ms": 63.269489,
+      "release_drain_ms": 0.210874,
+      "total_ms": 75.945769
+    },
+    {
+      "overlay_profile_pts": 6416666,
+      "valid": 1,
+      "host_prepare_ms": 0.105992,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.865781
+    },
+    {
+      "source_wait_pts": 6416666,
+      "overlay": 1,
+      "output_wait_ms": 12.173872,
+      "overlay_prepare_ms": 0.106072,
+      "packet_write_ms": 0.00125,
+      "enqueue_ms": 0.111555,
+      "error_read_ms": 63.188506,
+      "release_drain_ms": 0.198058,
+      "total_ms": 75.779349
+    },
+    {
+      "overlay_profile_pts": 6500000,
+      "valid": 1,
+      "host_prepare_ms": 0.107545,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.967395
+    },
+    {
+      "source_wait_pts": 6500000,
+      "overlay": 1,
+      "output_wait_ms": 12.175811,
+      "overlay_prepare_ms": 0.107687,
+      "packet_write_ms": 0.001579,
+      "enqueue_ms": 0.124236,
+      "error_read_ms": 63.301661,
+      "release_drain_ms": 0.218267,
+      "total_ms": 75.929281
+    },
+    {
+      "overlay_profile_pts": 6583333,
+      "valid": 1,
+      "host_prepare_ms": 0.105017,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.967916
+    },
+    {
+      "source_wait_pts": 6583333,
+      "overlay": 1,
+      "output_wait_ms": 12.182864,
+      "overlay_prepare_ms": 0.105094,
+      "packet_write_ms": 0.001584,
+      "enqueue_ms": 0.112356,
+      "error_read_ms": 63.297359,
+      "release_drain_ms": 0.224722,
+      "total_ms": 75.924018
+    },
+    {
+      "overlay_profile_pts": 6666666,
+      "valid": 1,
+      "host_prepare_ms": 0.123154,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.961666
+    },
+    {
+      "source_wait_pts": 6666666,
+      "overlay": 1,
+      "output_wait_ms": 12.163545,
+      "overlay_prepare_ms": 0.123269,
+      "packet_write_ms": 0.001888,
+      "enqueue_ms": 0.1534,
+      "error_read_ms": 63.310667,
+      "release_drain_ms": 0.251956,
+      "total_ms": 76.004777
+    },
+    {
+      "overlay_profile_pts": 6750000,
+      "valid": 1,
+      "host_prepare_ms": 0.101395,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.839791
+    },
+    {
+      "source_wait_pts": 6750000,
+      "overlay": 1,
+      "output_wait_ms": 12.181739,
+      "overlay_prepare_ms": 0.101477,
+      "packet_write_ms": 0.001472,
+      "enqueue_ms": 0.113796,
+      "error_read_ms": 63.172693,
+      "release_drain_ms": 0.22264,
+      "total_ms": 75.793853
+    },
+    {
+      "overlay_profile_pts": 6833333,
+      "valid": 1,
+      "host_prepare_ms": 0.116057,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.955989
+    },
+    {
+      "source_wait_pts": 6833333,
+      "overlay": 1,
+      "output_wait_ms": 12.178529,
+      "overlay_prepare_ms": 0.116149,
+      "packet_write_ms": 0.001503,
+      "enqueue_ms": 0.130459,
+      "error_read_ms": 63.29876,
+      "release_drain_ms": 0.236688,
+      "total_ms": 75.962129
+    },
+    {
+      "overlay_profile_pts": 6916666,
+      "valid": 1,
+      "host_prepare_ms": 0.105739,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.962604
+    },
+    {
+      "source_wait_pts": 6916666,
+      "overlay": 1,
+      "output_wait_ms": 12.173645,
+      "overlay_prepare_ms": 0.105824,
+      "packet_write_ms": 0.001366,
+      "enqueue_ms": 0.119291,
+      "error_read_ms": 63.295001,
+      "release_drain_ms": 0.228033,
+      "total_ms": 75.923195
+    },
+    {
+      "overlay_profile_pts": 7000000,
+      "valid": 1,
+      "host_prepare_ms": 0.118591,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.7425
+    },
+    {
+      "source_wait_pts": 7000000,
+      "overlay": 1,
+      "output_wait_ms": 12.190323,
+      "overlay_prepare_ms": 0.118703,
+      "packet_write_ms": 0.001674,
+      "enqueue_ms": 0.147368,
+      "error_read_ms": 63.066645,
+      "release_drain_ms": 0.233692,
+      "total_ms": 75.758457
+    },
+    {
+      "overlay_profile_pts": 7083333,
+      "valid": 1,
+      "host_prepare_ms": 0.091588,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.865625
+    },
+    {
+      "source_wait_pts": 7083333,
+      "overlay": 1,
+      "output_wait_ms": 12.17936,
+      "overlay_prepare_ms": 0.091661,
+      "packet_write_ms": 0.001424,
+      "enqueue_ms": 0.111492,
+      "error_read_ms": 63.191376,
+      "release_drain_ms": 0.229471,
+      "total_ms": 75.804818
+    },
+    {
+      "overlay_profile_pts": 7166666,
+      "valid": 1,
+      "host_prepare_ms": 0.116235,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.949479
+    },
+    {
+      "source_wait_pts": 7166666,
+      "overlay": 1,
+      "output_wait_ms": 12.185641,
+      "overlay_prepare_ms": 0.116333,
+      "packet_write_ms": 0.00168,
+      "enqueue_ms": 0.139424,
+      "error_read_ms": 63.276504,
+      "release_drain_ms": 0.225294,
+      "total_ms": 75.944921
+    },
+    {
+      "overlay_profile_pts": 7250000,
+      "valid": 1,
+      "host_prepare_ms": 0.098693,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.971875
+    },
+    {
+      "source_wait_pts": 7250000,
+      "overlay": 1,
+      "output_wait_ms": 12.180936,
+      "overlay_prepare_ms": 0.09877,
+      "packet_write_ms": 0.001303,
+      "enqueue_ms": 0.111345,
+      "error_read_ms": 63.314913,
+      "release_drain_ms": 0.217845,
+      "total_ms": 75.925143
+    },
+    {
+      "overlay_profile_pts": 7333333,
+      "valid": 1,
+      "host_prepare_ms": 0.107696,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.968489
+    },
+    {
+      "source_wait_pts": 7333333,
+      "overlay": 1,
+      "output_wait_ms": 12.235502,
+      "overlay_prepare_ms": 0.107789,
+      "packet_write_ms": 0.001425,
+      "enqueue_ms": 0.129787,
+      "error_read_ms": 63.305654,
+      "release_drain_ms": 0.261378,
+      "total_ms": 76.041573
+    },
+    {
+      "overlay_profile_pts": 7416666,
+      "valid": 1,
+      "host_prepare_ms": 0.092704,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.877239
+    },
+    {
+      "source_wait_pts": 7416666,
+      "overlay": 1,
+      "output_wait_ms": 12.186255,
+      "overlay_prepare_ms": 0.092774,
+      "packet_write_ms": 0.001284,
+      "enqueue_ms": 0.111865,
+      "error_read_ms": 63.208887,
+      "release_drain_ms": 0.254026,
+      "total_ms": 75.855124
+    },
+    {
+      "overlay_profile_pts": 7500000,
+      "valid": 1,
+      "host_prepare_ms": 0.112007,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.794687
+    },
+    {
+      "source_wait_pts": 7500000,
+      "overlay": 1,
+      "output_wait_ms": 12.188065,
+      "overlay_prepare_ms": 0.112107,
+      "packet_write_ms": 0.001583,
+      "enqueue_ms": 0.177359,
+      "error_read_ms": 63.136214,
+      "release_drain_ms": 0.229903,
+      "total_ms": 75.845275
+    },
+    {
+      "overlay_profile_pts": 7583333,
+      "valid": 1,
+      "host_prepare_ms": 0.092442,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.948281
+    },
+    {
+      "source_wait_pts": 7583333,
+      "overlay": 1,
+      "output_wait_ms": 12.175321,
+      "overlay_prepare_ms": 0.092517,
+      "packet_write_ms": 0.001542,
+      "enqueue_ms": 0.111688,
+      "error_read_ms": 63.282815,
+      "release_drain_ms": 0.208274,
+      "total_ms": 75.872191
+    },
+    {
+      "overlay_profile_pts": 7666666,
+      "valid": 1,
+      "host_prepare_ms": 0.109205,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.834843
+    },
+    {
+      "source_wait_pts": 7666666,
+      "overlay": 1,
+      "output_wait_ms": 13.331572,
+      "overlay_prepare_ms": 0.109292,
+      "packet_write_ms": 0.001438,
+      "enqueue_ms": 0.131771,
+      "error_read_ms": 63.167043,
+      "release_drain_ms": 0.23807,
+      "total_ms": 76.979228
+    },
+    {
+      "overlay_profile_pts": 7750000,
+      "valid": 1,
+      "host_prepare_ms": 0.112212,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.967447
+    },
+    {
+      "source_wait_pts": 7750000,
+      "overlay": 1,
+      "output_wait_ms": 12.188636,
+      "overlay_prepare_ms": 0.112309,
+      "packet_write_ms": 0.00164,
+      "enqueue_ms": 0.130337,
+      "error_read_ms": 63.305498,
+      "release_drain_ms": 0.230549,
+      "total_ms": 75.969014
+    },
+    {
+      "overlay_profile_pts": 7833333,
+      "valid": 1,
+      "host_prepare_ms": 0.111091,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.969531
+    },
+    {
+      "source_wait_pts": 7833333,
+      "overlay": 1,
+      "output_wait_ms": 12.184948,
+      "overlay_prepare_ms": 0.111185,
+      "packet_write_ms": 0.001697,
+      "enqueue_ms": 0.134987,
+      "error_read_ms": 63.292871,
+      "release_drain_ms": 0.224708,
+      "total_ms": 75.950439
+    },
+    {
+      "overlay_profile_pts": 7916666,
+      "valid": 1,
+      "host_prepare_ms": 0.097254,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.943072
+    },
+    {
+      "source_wait_pts": 7916666,
+      "overlay": 1,
+      "output_wait_ms": 12.213146,
+      "overlay_prepare_ms": 0.09732,
+      "packet_write_ms": 0.001127,
+      "enqueue_ms": 0.111859,
+      "error_read_ms": 63.266863,
+      "release_drain_ms": 0.205641,
+      "total_ms": 75.895984
+    },
+    {
+      "overlay_profile_pts": 8000000,
+      "valid": 1,
+      "host_prepare_ms": 0.113084,
+      "acquire_ms": 0.000937,
+      "colour_ms": 0.0,
+      "pack_ms": 62.954843
+    },
+    {
+      "source_wait_pts": 8000000,
+      "overlay": 1,
+      "output_wait_ms": 12.917692,
+      "overlay_prepare_ms": 0.113153,
+      "packet_write_ms": 0.001397,
+      "enqueue_ms": 0.154612,
+      "error_read_ms": 63.289189,
+      "release_drain_ms": 0.222048,
+      "total_ms": 76.698122
+    },
+    {
+      "overlay_profile_pts": 8083333,
+      "valid": 1,
+      "host_prepare_ms": 0.095458,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.936302
+    },
+    {
+      "source_wait_pts": 8083333,
+      "overlay": 1,
+      "output_wait_ms": 12.20991,
+      "overlay_prepare_ms": 0.09553,
+      "packet_write_ms": 0.001311,
+      "enqueue_ms": 0.113614,
+      "error_read_ms": 63.273954,
+      "release_drain_ms": 0.266336,
+      "total_ms": 75.960686
+    },
+    {
+      "overlay_profile_pts": 8166666,
+      "valid": 1,
+      "host_prepare_ms": 0.106364,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.974427
+    },
+    {
+      "source_wait_pts": 8166666,
+      "overlay": 1,
+      "output_wait_ms": 12.313063,
+      "overlay_prepare_ms": 0.106428,
+      "packet_write_ms": 0.00111,
+      "enqueue_ms": 0.108208,
+      "error_read_ms": 63.305165,
+      "release_drain_ms": 0.24576,
+      "total_ms": 76.07976
+    },
+    {
+      "overlay_profile_pts": 8250000,
+      "valid": 1,
+      "host_prepare_ms": 0.106075,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.970052
+    },
+    {
+      "source_wait_pts": 8250000,
+      "overlay": 1,
+      "output_wait_ms": 12.19075,
+      "overlay_prepare_ms": 0.106158,
+      "packet_write_ms": 0.001313,
+      "enqueue_ms": 0.11832,
+      "error_read_ms": 63.301423,
+      "release_drain_ms": 0.23473,
+      "total_ms": 75.95273
+    },
+    {
+      "overlay_profile_pts": 8333333,
+      "valid": 1,
+      "host_prepare_ms": 0.118134,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.842135
+    },
+    {
+      "source_wait_pts": 8333333,
+      "overlay": 1,
+      "output_wait_ms": 12.172343,
+      "overlay_prepare_ms": 0.11825,
+      "packet_write_ms": 0.001684,
+      "enqueue_ms": 0.145076,
+      "error_read_ms": 63.173147,
+      "release_drain_ms": 0.232795,
+      "total_ms": 75.843345
+    },
+    {
+      "overlay_profile_pts": 8416666,
+      "valid": 1,
+      "host_prepare_ms": 0.114885,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.951562
+    },
+    {
+      "source_wait_pts": 8416666,
+      "overlay": 1,
+      "output_wait_ms": 12.186242,
+      "overlay_prepare_ms": 0.114974,
+      "packet_write_ms": 0.001548,
+      "enqueue_ms": 0.124206,
+      "error_read_ms": 63.275726,
+      "release_drain_ms": 0.217778,
+      "total_ms": 75.920517
+    },
+    {
+      "overlay_profile_pts": 8500000,
+      "valid": 1,
+      "host_prepare_ms": 0.115753,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.928958
+    },
+    {
+      "source_wait_pts": 8500000,
+      "overlay": 1,
+      "output_wait_ms": 12.188612,
+      "overlay_prepare_ms": 0.11586,
+      "packet_write_ms": 0.001645,
+      "enqueue_ms": 0.145264,
+      "error_read_ms": 63.250137,
+      "release_drain_ms": 0.221577,
+      "total_ms": 75.923142
+    },
+    {
+      "overlay_profile_pts": 8583333,
+      "valid": 1,
+      "host_prepare_ms": 0.098374,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.973125
+    },
+    {
+      "source_wait_pts": 8583333,
+      "overlay": 1,
+      "output_wait_ms": 12.182831,
+      "overlay_prepare_ms": 0.098454,
+      "packet_write_ms": 0.005987,
+      "enqueue_ms": 0.107057,
+      "error_read_ms": 63.297264,
+      "release_drain_ms": 0.233112,
+      "total_ms": 75.924741
+    },
+    {
+      "overlay_profile_pts": 8666666,
+      "valid": 1,
+      "host_prepare_ms": 0.112624,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.921302
+    },
+    {
+      "source_wait_pts": 8666666,
+      "overlay": 1,
+      "output_wait_ms": 12.443122,
+      "overlay_prepare_ms": 0.112723,
+      "packet_write_ms": 0.001643,
+      "enqueue_ms": 0.13411,
+      "error_read_ms": 63.245713,
+      "release_drain_ms": 0.240836,
+      "total_ms": 76.178192
+    },
+    {
+      "overlay_profile_pts": 8750000,
+      "valid": 1,
+      "host_prepare_ms": 0.107431,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.975781
+    },
+    {
+      "source_wait_pts": 8750000,
+      "overlay": 1,
+      "output_wait_ms": 12.18696,
+      "overlay_prepare_ms": 0.107517,
+      "packet_write_ms": 0.00152,
+      "enqueue_ms": 0.127879,
+      "error_read_ms": 63.311704,
+      "release_drain_ms": 0.223833,
+      "total_ms": 75.959453
+    },
+    {
+      "overlay_profile_pts": 8833333,
+      "valid": 1,
+      "host_prepare_ms": 0.10378,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.988333
+    },
+    {
+      "source_wait_pts": 8833333,
+      "overlay": 1,
+      "output_wait_ms": 12.193046,
+      "overlay_prepare_ms": 0.103867,
+      "packet_write_ms": 0.001433,
+      "enqueue_ms": 0.12308,
+      "error_read_ms": 63.306562,
+      "release_drain_ms": 0.233855,
+      "total_ms": 75.961877
+    },
+    {
+      "overlay_profile_pts": 8916666,
+      "valid": 1,
+      "host_prepare_ms": 0.097512,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.758333
+    },
+    {
+      "source_wait_pts": 8916666,
+      "overlay": 1,
+      "output_wait_ms": 12.211067,
+      "overlay_prepare_ms": 0.09758,
+      "packet_write_ms": 0.001563,
+      "enqueue_ms": 0.112161,
+      "error_read_ms": 63.091539,
+      "release_drain_ms": 0.212338,
+      "total_ms": 75.726279
+    },
+    {
+      "overlay_profile_pts": 9000000,
+      "valid": 1,
+      "host_prepare_ms": 0.116386,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.809843
+    },
+    {
+      "source_wait_pts": 9000000,
+      "overlay": 1,
+      "output_wait_ms": 12.438726,
+      "overlay_prepare_ms": 0.116489,
+      "packet_write_ms": 0.001693,
+      "enqueue_ms": 0.138519,
+      "error_read_ms": 63.139298,
+      "release_drain_ms": 0.244045,
+      "total_ms": 76.078816
+    },
+    {
+      "overlay_profile_pts": 9083333,
+      "valid": 1,
+      "host_prepare_ms": 0.093028,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.974739
+    },
+    {
+      "source_wait_pts": 9083333,
+      "overlay": 1,
+      "output_wait_ms": 12.199365,
+      "overlay_prepare_ms": 0.093099,
+      "packet_write_ms": 0.001399,
+      "enqueue_ms": 0.116348,
+      "error_read_ms": 63.300974,
+      "release_drain_ms": 0.210729,
+      "total_ms": 75.921947
+    },
+    {
+      "overlay_profile_pts": 9166666,
+      "valid": 1,
+      "host_prepare_ms": 0.110754,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.965885
+    },
+    {
+      "source_wait_pts": 9166666,
+      "overlay": 1,
+      "output_wait_ms": 12.196167,
+      "overlay_prepare_ms": 0.110843,
+      "packet_write_ms": 0.001593,
+      "enqueue_ms": 0.12543,
+      "error_read_ms": 63.294421,
+      "release_drain_ms": 0.219564,
+      "total_ms": 75.948056
+    },
+    {
+      "overlay_profile_pts": 9250000,
+      "valid": 1,
+      "host_prepare_ms": 0.098768,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.985364
+    },
+    {
+      "source_wait_pts": 9250000,
+      "overlay": 1,
+      "output_wait_ms": 12.204316,
+      "overlay_prepare_ms": 0.098838,
+      "packet_write_ms": 0.001267,
+      "enqueue_ms": 0.11548,
+      "error_read_ms": 63.319927,
+      "release_drain_ms": 0.235895,
+      "total_ms": 75.975758
+    },
+    {
+      "overlay_profile_pts": 9333333,
+      "valid": 1,
+      "host_prepare_ms": 0.114969,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.744427
+    },
+    {
+      "source_wait_pts": 9333333,
+      "overlay": 1,
+      "output_wait_ms": 12.458831,
+      "overlay_prepare_ms": 0.115072,
+      "packet_write_ms": 0.001761,
+      "enqueue_ms": 0.134114,
+      "error_read_ms": 63.070878,
+      "release_drain_ms": 0.211044,
+      "total_ms": 75.991747
+    },
+    {
+      "overlay_profile_pts": 9416666,
+      "valid": 1,
+      "host_prepare_ms": 0.107465,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.966718
+    },
+    {
+      "source_wait_pts": 9416666,
+      "overlay": 1,
+      "output_wait_ms": 12.197357,
+      "overlay_prepare_ms": 0.10755,
+      "packet_write_ms": 0.001873,
+      "enqueue_ms": 0.12419,
+      "error_read_ms": 63.292566,
+      "release_drain_ms": 0.220883,
+      "total_ms": 75.944457
+    },
+    {
+      "overlay_profile_pts": 9500000,
+      "valid": 1,
+      "host_prepare_ms": 0.101366,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.973489
+    },
+    {
+      "source_wait_pts": 9500000,
+      "overlay": 1,
+      "output_wait_ms": 12.22137,
+      "overlay_prepare_ms": 0.10144,
+      "packet_write_ms": 0.001425,
+      "enqueue_ms": 0.110846,
+      "error_read_ms": 63.305568,
+      "release_drain_ms": 0.20338,
+      "total_ms": 75.944062
+    },
+    {
+      "overlay_profile_pts": 9583333,
+      "valid": 1,
+      "host_prepare_ms": 0.092756,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.774635
+    },
+    {
+      "source_wait_pts": 9583333,
+      "overlay": 1,
+      "output_wait_ms": 12.220499,
+      "overlay_prepare_ms": 0.092824,
+      "packet_write_ms": 0.001364,
+      "enqueue_ms": 0.113542,
+      "error_read_ms": 63.101813,
+      "release_drain_ms": 0.231916,
+      "total_ms": 75.761986
+    },
+    {
+      "overlay_profile_pts": 9666666,
+      "valid": 1,
+      "host_prepare_ms": 0.10645,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.847291
+    },
+    {
+      "source_wait_pts": 9666666,
+      "overlay": 1,
+      "output_wait_ms": 13.330673,
+      "overlay_prepare_ms": 0.106541,
+      "packet_write_ms": 0.001534,
+      "enqueue_ms": 0.127685,
+      "error_read_ms": 63.177402,
+      "release_drain_ms": 0.233386,
+      "total_ms": 76.977262
+    },
+    {
+      "overlay_profile_pts": 9750000,
+      "valid": 1,
+      "host_prepare_ms": 0.105702,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.915677
+    },
+    {
+      "source_wait_pts": 9750000,
+      "overlay": 1,
+      "output_wait_ms": 12.191363,
+      "overlay_prepare_ms": 0.105796,
+      "packet_write_ms": 0.001612,
+      "enqueue_ms": 0.126175,
+      "error_read_ms": 63.243017,
+      "release_drain_ms": 0.221142,
+      "total_ms": 75.889147
+    },
+    {
+      "overlay_profile_pts": 9833333,
+      "valid": 1,
+      "host_prepare_ms": 0.112034,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.970104
+    },
+    {
+      "source_wait_pts": 9833333,
+      "overlay": 1,
+      "output_wait_ms": 12.196327,
+      "overlay_prepare_ms": 0.112264,
+      "packet_write_ms": 0.00181,
+      "enqueue_ms": 0.137264,
+      "error_read_ms": 63.298265,
+      "release_drain_ms": 0.205438,
+      "total_ms": 75.951411
+    },
+    {
+      "overlay_profile_pts": 9916666,
+      "valid": 1,
+      "host_prepare_ms": 0.100545,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.97177
+    },
+    {
+      "source_wait_pts": 9916666,
+      "overlay": 1,
+      "output_wait_ms": 12.22983,
+      "overlay_prepare_ms": 0.100608,
+      "packet_write_ms": 0.001291,
+      "enqueue_ms": 0.10495,
+      "error_read_ms": 63.315761,
+      "release_drain_ms": 0.214679,
+      "total_ms": 75.967145
+    },
+    {
+      "overlay_profile_pts": 10000000,
+      "valid": 1,
+      "host_prepare_ms": 0.111705,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.827552
+    },
+    {
+      "source_wait_pts": 10000000,
+      "overlay": 1,
+      "output_wait_ms": 12.499286,
+      "overlay_prepare_ms": 0.111807,
+      "packet_write_ms": 0.001534,
+      "enqueue_ms": 0.13528,
+      "error_read_ms": 63.167975,
+      "release_drain_ms": 0.260378,
+      "total_ms": 76.176305
+    },
+    {
+      "overlay_profile_pts": 10083333,
+      "valid": 1,
+      "host_prepare_ms": 0.110593,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.957395
+    },
+    {
+      "source_wait_pts": 10083333,
+      "overlay": 1,
+      "output_wait_ms": 12.183009,
+      "overlay_prepare_ms": 0.110684,
+      "packet_write_ms": 0.00145,
+      "enqueue_ms": 0.130462,
+      "error_read_ms": 63.287068,
+      "release_drain_ms": 0.246162,
+      "total_ms": 75.958877
+    },
+    {
+      "overlay_profile_pts": 10166666,
+      "valid": 1,
+      "host_prepare_ms": 0.117687,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.838489
+    },
+    {
+      "source_wait_pts": 10166666,
+      "overlay": 1,
+      "output_wait_ms": 12.198304,
+      "overlay_prepare_ms": 0.117787,
+      "packet_write_ms": 0.001593,
+      "enqueue_ms": 0.136163,
+      "error_read_ms": 63.174334,
+      "release_drain_ms": 0.238909,
+      "total_ms": 75.867136
+    },
+    {
+      "overlay_profile_pts": 10250000,
+      "valid": 1,
+      "host_prepare_ms": 0.099791,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.86177
+    },
+    {
+      "source_wait_pts": 10250000,
+      "overlay": 1,
+      "output_wait_ms": 12.21296,
+      "overlay_prepare_ms": 0.099859,
+      "packet_write_ms": 0.001141,
+      "enqueue_ms": 0.109853,
+      "error_read_ms": 63.19466,
+      "release_drain_ms": 0.215063,
+      "total_ms": 75.833565
+    },
+    {
+      "overlay_profile_pts": 10333333,
+      "valid": 1,
+      "host_prepare_ms": 0.117763,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.959895
+    },
+    {
+      "source_wait_pts": 10333333,
+      "overlay": 1,
+      "output_wait_ms": 12.50355,
+      "overlay_prepare_ms": 0.117882,
+      "packet_write_ms": 0.001834,
+      "enqueue_ms": 0.149029,
+      "error_read_ms": 63.284396,
+      "release_drain_ms": 0.229602,
+      "total_ms": 76.286343
+    },
+    {
+      "overlay_profile_pts": 10416666,
+      "valid": 1,
+      "host_prepare_ms": 0.105331,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.963906
+    },
+    {
+      "source_wait_pts": 10416666,
+      "overlay": 1,
+      "output_wait_ms": 12.194648,
+      "overlay_prepare_ms": 0.105422,
+      "packet_write_ms": 0.001534,
+      "enqueue_ms": 0.128074,
+      "error_read_ms": 63.297436,
+      "release_drain_ms": 0.228892,
+      "total_ms": 75.956046
+    },
+    {
+      "overlay_profile_pts": 10500000,
+      "valid": 1,
+      "host_prepare_ms": 0.110457,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.969947
+    },
+    {
+      "source_wait_pts": 10500000,
+      "overlay": 1,
+      "output_wait_ms": 12.192432,
+      "overlay_prepare_ms": 0.110551,
+      "packet_write_ms": 0.001748,
+      "enqueue_ms": 0.135729,
+      "error_read_ms": 63.293518,
+      "release_drain_ms": 0.210597,
+      "total_ms": 75.944616
+    },
+    {
+      "overlay_profile_pts": 10583333,
+      "valid": 1,
+      "host_prepare_ms": 0.097987,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.980052
+    },
+    {
+      "source_wait_pts": 10583333,
+      "overlay": 1,
+      "output_wait_ms": 12.177962,
+      "overlay_prepare_ms": 0.098062,
+      "packet_write_ms": 0.001221,
+      "enqueue_ms": 0.109875,
+      "error_read_ms": 63.306397,
+      "release_drain_ms": 0.248995,
+      "total_ms": 75.942546
+    },
+    {
+      "overlay_profile_pts": 10666666,
+      "valid": 1,
+      "host_prepare_ms": 0.111312,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.84901
+    },
+    {
+      "source_wait_pts": 10666666,
+      "overlay": 1,
+      "output_wait_ms": 12.634289,
+      "overlay_prepare_ms": 0.111419,
+      "packet_write_ms": 0.001617,
+      "enqueue_ms": 0.13382,
+      "error_read_ms": 63.170178,
+      "release_drain_ms": 0.22945,
+      "total_ms": 76.280818
+    },
+    {
+      "overlay_profile_pts": 10750000,
+      "valid": 1,
+      "host_prepare_ms": 0.093376,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.789843
+    },
+    {
+      "source_wait_pts": 10750000,
+      "overlay": 1,
+      "output_wait_ms": 12.181354,
+      "overlay_prepare_ms": 0.093454,
+      "packet_write_ms": 0.001463,
+      "enqueue_ms": 0.110878,
+      "error_read_ms": 63.122068,
+      "release_drain_ms": 0.237792,
+      "total_ms": 75.747042
+    },
+    {
+      "overlay_profile_pts": 10833333,
+      "valid": 1,
+      "host_prepare_ms": 0.111742,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.971562
+    },
+    {
+      "source_wait_pts": 10833333,
+      "overlay": 1,
+      "output_wait_ms": 12.189237,
+      "overlay_prepare_ms": 0.111838,
+      "packet_write_ms": 0.001721,
+      "enqueue_ms": 0.132544,
+      "error_read_ms": 63.305231,
+      "release_drain_ms": 0.234311,
+      "total_ms": 75.974924
+    },
+    {
+      "overlay_profile_pts": 10916666,
+      "valid": 1,
+      "host_prepare_ms": 0.102725,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.980364
+    },
+    {
+      "source_wait_pts": 10916666,
+      "overlay": 1,
+      "output_wait_ms": 12.186991,
+      "overlay_prepare_ms": 0.102807,
+      "packet_write_ms": 0.001388,
+      "enqueue_ms": 0.117,
+      "error_read_ms": 63.311228,
+      "release_drain_ms": 0.226719,
+      "total_ms": 75.94617
+    },
+    {
+      "overlay_profile_pts": 11000000,
+      "valid": 1,
+      "host_prepare_ms": 0.108386,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.913697
+    },
+    {
+      "source_wait_pts": 11000000,
+      "overlay": 1,
+      "output_wait_ms": 12.572769,
+      "overlay_prepare_ms": 0.108475,
+      "packet_write_ms": 0.001656,
+      "enqueue_ms": 0.124312,
+      "error_read_ms": 63.255632,
+      "release_drain_ms": 0.253343,
+      "total_ms": 76.31623
+    },
+    {
+      "overlay_profile_pts": 11083333,
+      "valid": 1,
+      "host_prepare_ms": 0.103513,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.980468
+    },
+    {
+      "source_wait_pts": 11083333,
+      "overlay": 1,
+      "output_wait_ms": 12.191069,
+      "overlay_prepare_ms": 0.103599,
+      "packet_write_ms": 0.001493,
+      "enqueue_ms": 0.119341,
+      "error_read_ms": 63.309762,
+      "release_drain_ms": 0.231446,
+      "total_ms": 75.956748
+    },
+    {
+      "overlay_profile_pts": 11166666,
+      "valid": 1,
+      "host_prepare_ms": 0.109222,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.997239
+    },
+    {
+      "source_wait_pts": 11166666,
+      "overlay": 1,
+      "output_wait_ms": 12.188232,
+      "overlay_prepare_ms": 0.109308,
+      "packet_write_ms": 0.001764,
+      "enqueue_ms": 0.126151,
+      "error_read_ms": 63.327449,
+      "release_drain_ms": 0.248686,
+      "total_ms": 76.001631
+    },
+    {
+      "overlay_profile_pts": 11250000,
+      "valid": 1,
+      "host_prepare_ms": 0.112726,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 63.001197
+    },
+    {
+      "source_wait_pts": 11250000,
+      "overlay": 1,
+      "output_wait_ms": 12.206621,
+      "overlay_prepare_ms": 0.112791,
+      "packet_write_ms": 0.001187,
+      "enqueue_ms": 0.10257,
+      "error_read_ms": 63.343935,
+      "release_drain_ms": 0.236198,
+      "total_ms": 76.003332
+    },
+    {
+      "overlay_profile_pts": 11333333,
+      "valid": 1,
+      "host_prepare_ms": 0.144037,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.730729
+    },
+    {
+      "source_wait_pts": 11333333,
+      "overlay": 1,
+      "output_wait_ms": 12.629465,
+      "overlay_prepare_ms": 0.144248,
+      "packet_write_ms": 0.003703,
+      "enqueue_ms": 0.274678,
+      "error_read_ms": 63.079881,
+      "release_drain_ms": 0.2686,
+      "total_ms": 76.400703
+    },
+    {
+      "overlay_profile_pts": 11416666,
+      "valid": 1,
+      "host_prepare_ms": 0.10376,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.975937
+    },
+    {
+      "source_wait_pts": 11416666,
+      "overlay": 1,
+      "output_wait_ms": 12.190243,
+      "overlay_prepare_ms": 0.103836,
+      "packet_write_ms": 0.00157,
+      "enqueue_ms": 0.116146,
+      "error_read_ms": 63.296604,
+      "release_drain_ms": 0.224177,
+      "total_ms": 75.93261
+    },
+    {
+      "overlay_profile_pts": 11500000,
+      "valid": 1,
+      "host_prepare_ms": 0.10852,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.963229
+    },
+    {
+      "source_wait_pts": 11500000,
+      "overlay": 1,
+      "output_wait_ms": 12.199025,
+      "overlay_prepare_ms": 0.108661,
+      "packet_write_ms": 0.001558,
+      "enqueue_ms": 0.126585,
+      "error_read_ms": 63.290249,
+      "release_drain_ms": 0.280564,
+      "total_ms": 76.006684
+    },
+    {
+      "overlay_profile_pts": 11583333,
+      "valid": 1,
+      "host_prepare_ms": 0.100438,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.991927
+    },
+    {
+      "source_wait_pts": 11583333,
+      "overlay": 1,
+      "output_wait_ms": 12.197948,
+      "overlay_prepare_ms": 0.100506,
+      "packet_write_ms": 0.001429,
+      "enqueue_ms": 0.112691,
+      "error_read_ms": 63.325734,
+      "release_drain_ms": 0.250334,
+      "total_ms": 75.988672
+    },
+    {
+      "overlay_profile_pts": 11666666,
+      "valid": 1,
+      "host_prepare_ms": 0.113525,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.755833
+    },
+    {
+      "source_wait_pts": 11666666,
+      "overlay": 1,
+      "output_wait_ms": 13.29858,
+      "overlay_prepare_ms": 0.11362,
+      "packet_write_ms": 0.001573,
+      "enqueue_ms": 0.128485,
+      "error_read_ms": 63.083001,
+      "release_drain_ms": 0.242441,
+      "total_ms": 76.867742
+    },
+    {
+      "overlay_profile_pts": 11750000,
+      "valid": 1,
+      "host_prepare_ms": 0.105798,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.954947
+    },
+    {
+      "source_wait_pts": 11750000,
+      "overlay": 1,
+      "output_wait_ms": 12.186311,
+      "overlay_prepare_ms": 0.105888,
+      "packet_write_ms": 0.001849,
+      "enqueue_ms": 0.123407,
+      "error_read_ms": 63.273835,
+      "release_drain_ms": 0.21046,
+      "total_ms": 75.901791
+    },
+    {
+      "overlay_profile_pts": 11833333,
+      "valid": 1,
+      "host_prepare_ms": 0.107411,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.979218
+    },
+    {
+      "source_wait_pts": 11833333,
+      "overlay": 1,
+      "output_wait_ms": 12.194423,
+      "overlay_prepare_ms": 0.107505,
+      "packet_write_ms": 0.001984,
+      "enqueue_ms": 0.13086,
+      "error_read_ms": 63.309952,
+      "release_drain_ms": 0.231482,
+      "total_ms": 75.976248
+    },
+    {
+      "overlay_profile_pts": 11916666,
+      "valid": 1,
+      "host_prepare_ms": 0.098274,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.98302
+    },
+    {
+      "source_wait_pts": 11916666,
+      "overlay": 1,
+      "output_wait_ms": 12.21156,
+      "overlay_prepare_ms": 0.09834,
+      "packet_write_ms": 0.001211,
+      "enqueue_ms": 0.11632,
+      "error_read_ms": 63.320008,
+      "release_drain_ms": 0.230979,
+      "total_ms": 75.978452
+    },
+    {
+      "overlay_profile_pts": 12000000,
+      "valid": 1,
+      "host_prepare_ms": 0.114548,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.809479
+    },
+    {
+      "source_wait_pts": 12000000,
+      "overlay": 1,
+      "output_wait_ms": 12.610701,
+      "overlay_prepare_ms": 0.114646,
+      "packet_write_ms": 0.001695,
+      "enqueue_ms": 0.137246,
+      "error_read_ms": 63.130682,
+      "release_drain_ms": 0.224553,
+      "total_ms": 76.219567
+    },
+    {
+      "overlay_profile_pts": 12083333,
+      "valid": 1,
+      "host_prepare_ms": 0.111101,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.978385
+    },
+    {
+      "source_wait_pts": 12083333,
+      "overlay": 1,
+      "output_wait_ms": 12.192524,
+      "overlay_prepare_ms": 0.111255,
+      "packet_write_ms": 0.001645,
+      "enqueue_ms": 0.130557,
+      "error_read_ms": 63.312999,
+      "release_drain_ms": 0.240744,
+      "total_ms": 75.989767
+    },
+    {
+      "overlay_profile_pts": 12166666,
+      "valid": 1,
+      "host_prepare_ms": 0.114692,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.962604
+    },
+    {
+      "source_wait_pts": 12166666,
+      "overlay": 1,
+      "output_wait_ms": 12.194895,
+      "overlay_prepare_ms": 0.114802,
+      "packet_write_ms": 0.001804,
+      "enqueue_ms": 0.136343,
+      "error_read_ms": 63.29366,
+      "release_drain_ms": 0.224071,
+      "total_ms": 75.965622
+    },
+    {
+      "overlay_profile_pts": 12250000,
+      "valid": 1,
+      "host_prepare_ms": 0.104099,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.983229
+    },
+    {
+      "source_wait_pts": 12250000,
+      "overlay": 1,
+      "output_wait_ms": 12.23613,
+      "overlay_prepare_ms": 0.104169,
+      "packet_write_ms": 0.001369,
+      "enqueue_ms": 0.113773,
+      "error_read_ms": 63.318501,
+      "release_drain_ms": 0.23282,
+      "total_ms": 76.006791
+    },
+    {
+      "overlay_profile_pts": 12333333,
+      "valid": 1,
+      "host_prepare_ms": 0.115726,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.769791
+    },
+    {
+      "source_wait_pts": 12333333,
+      "overlay": 1,
+      "output_wait_ms": 12.650861,
+      "overlay_prepare_ms": 0.11583,
+      "packet_write_ms": 0.00174,
+      "enqueue_ms": 0.137936,
+      "error_read_ms": 63.104737,
+      "release_drain_ms": 0.237641,
+      "total_ms": 76.248792
+    },
+    {
+      "overlay_profile_pts": 12416666,
+      "valid": 1,
+      "host_prepare_ms": 0.100692,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.773958
+    },
+    {
+      "source_wait_pts": 12416666,
+      "overlay": 1,
+      "output_wait_ms": 12.160594,
+      "overlay_prepare_ms": 0.100769,
+      "packet_write_ms": 0.00142,
+      "enqueue_ms": 0.114811,
+      "error_read_ms": 63.105405,
+      "release_drain_ms": 0.225585,
+      "total_ms": 75.70862
+    },
+    {
+      "overlay_profile_pts": 12500000,
+      "valid": 1,
+      "host_prepare_ms": 0.119237,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.940989
+    },
+    {
+      "source_wait_pts": 12500000,
+      "overlay": 1,
+      "output_wait_ms": 12.198962,
+      "overlay_prepare_ms": 0.119344,
+      "packet_write_ms": 0.002,
+      "enqueue_ms": 0.142211,
+      "error_read_ms": 63.260812,
+      "release_drain_ms": 0.238305,
+      "total_ms": 75.961681
+    },
+    {
+      "overlay_profile_pts": 12583333,
+      "valid": 1,
+      "host_prepare_ms": 0.098387,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.973125
+    },
+    {
+      "source_wait_pts": 12583333,
+      "overlay": 1,
+      "output_wait_ms": 12.192837,
+      "overlay_prepare_ms": 0.098461,
+      "packet_write_ms": 0.001456,
+      "enqueue_ms": 0.11199,
+      "error_read_ms": 63.305618,
+      "release_drain_ms": 0.259791,
+      "total_ms": 75.970186
+    },
+    {
+      "overlay_profile_pts": 12666666,
+      "valid": 1,
+      "host_prepare_ms": 0.113656,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.849583
+    },
+    {
+      "source_wait_pts": 12666666,
+      "overlay": 1,
+      "output_wait_ms": 12.665885,
+      "overlay_prepare_ms": 0.113755,
+      "packet_write_ms": 0.001653,
+      "enqueue_ms": 0.135389,
+      "error_read_ms": 63.188172,
+      "release_drain_ms": 0.234351,
+      "total_ms": 76.339247
+    },
+    {
+      "overlay_profile_pts": 12750000,
+      "valid": 1,
+      "host_prepare_ms": 0.102268,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.87125
+    },
+    {
+      "source_wait_pts": 12750000,
+      "overlay": 1,
+      "output_wait_ms": 12.165925,
+      "overlay_prepare_ms": 0.102346,
+      "packet_write_ms": 0.0014,
+      "enqueue_ms": 0.115246,
+      "error_read_ms": 63.19826,
+      "release_drain_ms": 0.247264,
+      "total_ms": 75.830476
+    },
+    {
+      "overlay_profile_pts": 12833333,
+      "valid": 1,
+      "host_prepare_ms": 0.117029,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.955364
+    },
+    {
+      "source_wait_pts": 12833333,
+      "overlay": 1,
+      "output_wait_ms": 12.195859,
+      "overlay_prepare_ms": 0.117138,
+      "packet_write_ms": 0.001911,
+      "enqueue_ms": 0.146902,
+      "error_read_ms": 63.288366,
+      "release_drain_ms": 0.224988,
+      "total_ms": 75.975214
+    },
+    {
+      "overlay_profile_pts": 12916666,
+      "valid": 1,
+      "host_prepare_ms": 0.098012,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.989531
+    },
+    {
+      "source_wait_pts": 12916666,
+      "overlay": 1,
+      "output_wait_ms": 12.205736,
+      "overlay_prepare_ms": 0.098083,
+      "packet_write_ms": 0.001305,
+      "enqueue_ms": 0.122808,
+      "error_read_ms": 63.320334,
+      "release_drain_ms": 0.236721,
+      "total_ms": 75.98502
+    },
+    {
+      "overlay_profile_pts": 13000000,
+      "valid": 1,
+      "host_prepare_ms": 0.117547,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.778125
+    },
+    {
+      "source_wait_pts": 13000000,
+      "overlay": 1,
+      "output_wait_ms": 12.704689,
+      "overlay_prepare_ms": 0.117645,
+      "packet_write_ms": 0.001778,
+      "enqueue_ms": 0.137204,
+      "error_read_ms": 63.111517,
+      "release_drain_ms": 0.221624,
+      "total_ms": 76.294502
+    },
+    {
+      "overlay_profile_pts": 13083333,
+      "valid": 1,
+      "host_prepare_ms": 0.103638,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.740625
+    },
+    {
+      "source_wait_pts": 13083333,
+      "overlay": 1,
+      "output_wait_ms": 12.157591,
+      "overlay_prepare_ms": 0.103718,
+      "packet_write_ms": 0.00134,
+      "enqueue_ms": 0.110779,
+      "error_read_ms": 63.062545,
+      "release_drain_ms": 0.223551,
+      "total_ms": 75.659559
+    },
+    {
+      "overlay_profile_pts": 13166666,
+      "valid": 1,
+      "host_prepare_ms": 0.113839,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.959322
+    },
+    {
+      "source_wait_pts": 13166666,
+      "overlay": 1,
+      "output_wait_ms": 12.195667,
+      "overlay_prepare_ms": 0.11394,
+      "packet_write_ms": 0.001875,
+      "enqueue_ms": 0.137097,
+      "error_read_ms": 63.291145,
+      "release_drain_ms": 0.221237,
+      "total_ms": 75.961005
+    },
+    {
+      "overlay_profile_pts": 13250000,
+      "valid": 1,
+      "host_prepare_ms": 0.10311,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.943593
+    },
+    {
+      "source_wait_pts": 13250000,
+      "overlay": 1,
+      "output_wait_ms": 12.196272,
+      "overlay_prepare_ms": 0.103182,
+      "packet_write_ms": 0.00125,
+      "enqueue_ms": 0.120344,
+      "error_read_ms": 63.276956,
+      "release_drain_ms": 0.234219,
+      "total_ms": 75.932256
+    },
+    {
+      "overlay_profile_pts": 13333333,
+      "valid": 1,
+      "host_prepare_ms": 0.110752,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.769635
+    },
+    {
+      "source_wait_pts": 13333333,
+      "overlay": 1,
+      "output_wait_ms": 12.652804,
+      "overlay_prepare_ms": 0.110848,
+      "packet_write_ms": 0.001724,
+      "enqueue_ms": 0.133913,
+      "error_read_ms": 63.102751,
+      "release_drain_ms": 0.226531,
+      "total_ms": 76.228618
+    },
+    {
+      "overlay_profile_pts": 13416666,
+      "valid": 1,
+      "host_prepare_ms": 0.103427,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.771718
+    },
+    {
+      "source_wait_pts": 13416666,
+      "overlay": 1,
+      "output_wait_ms": 12.190966,
+      "overlay_prepare_ms": 0.103516,
+      "packet_write_ms": 0.001526,
+      "enqueue_ms": 0.118327,
+      "error_read_ms": 63.09737,
+      "release_drain_ms": 0.232716,
+      "total_ms": 75.744457
+    },
+    {
+      "overlay_profile_pts": 13500000,
+      "valid": 1,
+      "host_prepare_ms": 0.105047,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.963437
+    },
+    {
+      "source_wait_pts": 13500000,
+      "overlay": 1,
+      "output_wait_ms": 12.18821,
+      "overlay_prepare_ms": 0.105128,
+      "packet_write_ms": 0.001416,
+      "enqueue_ms": 0.116979,
+      "error_read_ms": 63.290632,
+      "release_drain_ms": 0.224078,
+      "total_ms": 75.926479
+    },
+    {
+      "overlay_profile_pts": 13583333,
+      "valid": 1,
+      "host_prepare_ms": 0.11444,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.992031
+    },
+    {
+      "source_wait_pts": 13583333,
+      "overlay": 1,
+      "output_wait_ms": 12.184044,
+      "overlay_prepare_ms": 0.114505,
+      "packet_write_ms": 0.001253,
+      "enqueue_ms": 0.105616,
+      "error_read_ms": 63.332072,
+      "release_drain_ms": 0.219602,
+      "total_ms": 75.957118
+    },
+    {
+      "overlay_profile_pts": 13666666,
+      "valid": 1,
+      "host_prepare_ms": 0.104664,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.817395
+    },
+    {
+      "source_wait_pts": 13666666,
+      "overlay": 1,
+      "output_wait_ms": 13.407839,
+      "overlay_prepare_ms": 0.104745,
+      "packet_write_ms": 0.001508,
+      "enqueue_ms": 0.121913,
+      "error_read_ms": 63.155189,
+      "release_drain_ms": 0.249078,
+      "total_ms": 77.040308
+    },
+    {
+      "overlay_profile_pts": 13750000,
+      "valid": 1,
+      "host_prepare_ms": 0.101134,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.97
+    },
+    {
+      "source_wait_pts": 13750000,
+      "overlay": 1,
+      "output_wait_ms": 12.189941,
+      "overlay_prepare_ms": 0.101219,
+      "packet_write_ms": 0.00166,
+      "enqueue_ms": 0.119001,
+      "error_read_ms": 63.297939,
+      "release_drain_ms": 0.238774,
+      "total_ms": 75.948572
+    },
+    {
+      "overlay_profile_pts": 13833333,
+      "valid": 1,
+      "host_prepare_ms": 0.109755,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.962812
+    },
+    {
+      "source_wait_pts": 13833333,
+      "overlay": 1,
+      "output_wait_ms": 12.190947,
+      "overlay_prepare_ms": 0.109849,
+      "packet_write_ms": 0.001693,
+      "enqueue_ms": 0.132969,
+      "error_read_ms": 63.296421,
+      "release_drain_ms": 0.227395,
+      "total_ms": 75.959313
+    },
+    {
+      "overlay_profile_pts": 13916666,
+      "valid": 1,
+      "host_prepare_ms": 0.102755,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.991302
+    },
+    {
+      "source_wait_pts": 13916666,
+      "overlay": 1,
+      "output_wait_ms": 12.190208,
+      "overlay_prepare_ms": 0.102836,
+      "packet_write_ms": 0.001295,
+      "enqueue_ms": 0.115976,
+      "error_read_ms": 63.31146,
+      "release_drain_ms": 0.228943,
+      "total_ms": 75.950754
+    },
+    {
+      "overlay_profile_pts": 14000000,
+      "valid": 1,
+      "host_prepare_ms": 0.114138,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.824427
+    },
+    {
+      "source_wait_pts": 14000000,
+      "overlay": 1,
+      "output_wait_ms": 12.707341,
+      "overlay_prepare_ms": 0.114242,
+      "packet_write_ms": 0.001646,
+      "enqueue_ms": 0.135381,
+      "error_read_ms": 63.148791,
+      "release_drain_ms": 0.250857,
+      "total_ms": 76.358303
+    },
+    {
+      "overlay_profile_pts": 14083333,
+      "valid": 1,
+      "host_prepare_ms": 0.100513,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.971822
+    },
+    {
+      "source_wait_pts": 14083333,
+      "overlay": 1,
+      "output_wait_ms": 12.192023,
+      "overlay_prepare_ms": 0.100596,
+      "packet_write_ms": 0.001528,
+      "enqueue_ms": 0.123894,
+      "error_read_ms": 63.304832,
+      "release_drain_ms": 0.258686,
+      "total_ms": 75.981596
+    },
+    {
+      "overlay_profile_pts": 14166666,
+      "valid": 1,
+      "host_prepare_ms": 0.10805,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.967552
+    },
+    {
+      "source_wait_pts": 14166666,
+      "overlay": 1,
+      "output_wait_ms": 12.18326,
+      "overlay_prepare_ms": 0.108139,
+      "packet_write_ms": 0.001586,
+      "enqueue_ms": 0.126662,
+      "error_read_ms": 63.290522,
+      "release_drain_ms": 0.208762,
+      "total_ms": 75.918969
+    },
+    {
+      "overlay_profile_pts": 14250000,
+      "valid": 1,
+      "host_prepare_ms": 0.105784,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.963802
+    },
+    {
+      "source_wait_pts": 14250000,
+      "overlay": 1,
+      "output_wait_ms": 12.199021,
+      "overlay_prepare_ms": 0.105866,
+      "packet_write_ms": 0.001436,
+      "enqueue_ms": 0.115663,
+      "error_read_ms": 63.303212,
+      "release_drain_ms": 0.250962,
+      "total_ms": 75.976199
+    },
+    {
+      "overlay_profile_pts": 14333333,
+      "valid": 1,
+      "host_prepare_ms": 0.10849,
+      "acquire_ms": 0.000885,
+      "colour_ms": 0.0,
+      "pack_ms": 62.855781
+    },
+    {
+      "source_wait_pts": 14333333,
+      "overlay": 1,
+      "output_wait_ms": 12.755847,
+      "overlay_prepare_ms": 0.108703,
+      "packet_write_ms": 0.001802,
+      "enqueue_ms": 0.132164,
+      "error_read_ms": 63.182065,
+      "release_drain_ms": 0.225259,
+      "total_ms": 76.405882
+    },
+    {
+      "overlay_profile_pts": 14416666,
+      "valid": 1,
+      "host_prepare_ms": 0.100375,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.781875
+    },
+    {
+      "source_wait_pts": 14416666,
+      "overlay": 1,
+      "output_wait_ms": 12.183972,
+      "overlay_prepare_ms": 0.100448,
+      "packet_write_ms": 0.001285,
+      "enqueue_ms": 0.109562,
+      "error_read_ms": 63.104429,
+      "release_drain_ms": 0.238761,
+      "total_ms": 75.73849
+    },
+    {
+      "overlay_profile_pts": 14500000,
+      "valid": 1,
+      "host_prepare_ms": 0.101363,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.97802
+    },
+    {
+      "source_wait_pts": 14500000,
+      "overlay": 1,
+      "output_wait_ms": 12.192585,
+      "overlay_prepare_ms": 0.101435,
+      "packet_write_ms": 0.001344,
+      "enqueue_ms": 0.118241,
+      "error_read_ms": 63.31248,
+      "release_drain_ms": 0.213192,
+      "total_ms": 75.939311
+    },
+    {
+      "overlay_profile_pts": 14583333,
+      "valid": 1,
+      "host_prepare_ms": 0.095805,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.991093
+    },
+    {
+      "source_wait_pts": 14583333,
+      "overlay": 1,
+      "output_wait_ms": 12.201345,
+      "overlay_prepare_ms": 0.095869,
+      "packet_write_ms": 0.001235,
+      "enqueue_ms": 0.104984,
+      "error_read_ms": 63.334305,
+      "release_drain_ms": 0.232397,
+      "total_ms": 75.970161
+    },
+    {
+      "overlay_profile_pts": 14666666,
+      "valid": 1,
+      "host_prepare_ms": 0.108494,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.886666
+    },
+    {
+      "source_wait_pts": 14666666,
+      "overlay": 1,
+      "output_wait_ms": 12.705238,
+      "overlay_prepare_ms": 0.10859,
+      "packet_write_ms": 0.001714,
+      "enqueue_ms": 0.128145,
+      "error_read_ms": 63.224003,
+      "release_drain_ms": 0.259337,
+      "total_ms": 76.427067
+    },
+    {
+      "overlay_profile_pts": 14750000,
+      "valid": 1,
+      "host_prepare_ms": 0.096828,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.982916
+    },
+    {
+      "source_wait_pts": 14750000,
+      "overlay": 1,
+      "output_wait_ms": 12.183328,
+      "overlay_prepare_ms": 0.096901,
+      "packet_write_ms": 0.001568,
+      "enqueue_ms": 0.109893,
+      "error_read_ms": 63.313039,
+      "release_drain_ms": 0.221788,
+      "total_ms": 75.926548
+    },
+    {
+      "overlay_profile_pts": 14833333,
+      "valid": 1,
+      "host_prepare_ms": 0.092015,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.981354
+    },
+    {
+      "source_wait_pts": 14833333,
+      "overlay": 1,
+      "output_wait_ms": 12.188229,
+      "overlay_prepare_ms": 0.092088,
+      "packet_write_ms": 0.001352,
+      "enqueue_ms": 0.112943,
+      "error_read_ms": 63.29945,
+      "release_drain_ms": 0.2112,
+      "total_ms": 75.905295
+    },
+    {
+      "overlay_profile_pts": 14916666,
+      "valid": 1,
+      "host_prepare_ms": 0.108411,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.968072
+    },
+    {
+      "source_wait_pts": 14916666,
+      "overlay": 1,
+      "output_wait_ms": 12.321057,
+      "overlay_prepare_ms": 0.108731,
+      "packet_write_ms": 0.001378,
+      "enqueue_ms": 0.158846,
+      "error_read_ms": 63.307974,
+      "release_drain_ms": 0.245639,
+      "total_ms": 76.143657
+    },
+    {
+      "overlay_profile_pts": 15000000,
+      "valid": 1,
+      "host_prepare_ms": 0.103692,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.94177
+    },
+    {
+      "source_wait_pts": 15000000,
+      "overlay": 1,
+      "output_wait_ms": 12.739703,
+      "overlay_prepare_ms": 0.103771,
+      "packet_write_ms": 0.00151,
+      "enqueue_ms": 0.115001,
+      "error_read_ms": 63.261631,
+      "release_drain_ms": 0.237563,
+      "total_ms": 76.459215
+    },
+    {
+      "overlay_profile_pts": 15083333,
+      "valid": 1,
+      "host_prepare_ms": 0.106324,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.75776
+    },
+    {
+      "source_wait_pts": 15083333,
+      "overlay": 1,
+      "output_wait_ms": 12.183317,
+      "overlay_prepare_ms": 0.106406,
+      "packet_write_ms": 0.001729,
+      "enqueue_ms": 0.110768,
+      "error_read_ms": 63.090023,
+      "release_drain_ms": 0.229702,
+      "total_ms": 75.721979
+    },
+    {
+      "overlay_profile_pts": 15166666,
+      "valid": 1,
+      "host_prepare_ms": 0.11581,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.956718
+    },
+    {
+      "source_wait_pts": 15166666,
+      "overlay": 1,
+      "output_wait_ms": 12.188834,
+      "overlay_prepare_ms": 0.115912,
+      "packet_write_ms": 0.001908,
+      "enqueue_ms": 0.143189,
+      "error_read_ms": 63.281827,
+      "release_drain_ms": 0.237467,
+      "total_ms": 75.969187
+    },
+    {
+      "overlay_profile_pts": 15250000,
+      "valid": 1,
+      "host_prepare_ms": 0.099254,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.977187
+    },
+    {
+      "source_wait_pts": 15250000,
+      "overlay": 1,
+      "output_wait_ms": 12.179153,
+      "overlay_prepare_ms": 0.09934,
+      "packet_write_ms": 0.001916,
+      "enqueue_ms": 0.120724,
+      "error_read_ms": 63.298825,
+      "release_drain_ms": 0.224203,
+      "total_ms": 75.924196
+    },
+    {
+      "overlay_profile_pts": 15333333,
+      "valid": 1,
+      "host_prepare_ms": 0.10795,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.879062
+    },
+    {
+      "source_wait_pts": 15333333,
+      "overlay": 1,
+      "output_wait_ms": 12.643457,
+      "overlay_prepare_ms": 0.108232,
+      "packet_write_ms": 0.001523,
+      "enqueue_ms": 0.129477,
+      "error_read_ms": 63.203854,
+      "release_drain_ms": 0.242832,
+      "total_ms": 76.329414
+    },
+    {
+      "overlay_profile_pts": 15416666,
+      "valid": 1,
+      "host_prepare_ms": 0.101325,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.721041
+    },
+    {
+      "source_wait_pts": 15416666,
+      "overlay": 1,
+      "output_wait_ms": 12.154835,
+      "overlay_prepare_ms": 0.101403,
+      "packet_write_ms": 0.00155,
+      "enqueue_ms": 0.12,
+      "error_read_ms": 63.05289,
+      "release_drain_ms": 0.236042,
+      "total_ms": 75.666759
+    },
+    {
+      "overlay_profile_pts": 15500000,
+      "valid": 1,
+      "host_prepare_ms": 0.115211,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.979687
+    },
+    {
+      "source_wait_pts": 15500000,
+      "overlay": 1,
+      "output_wait_ms": 12.199625,
+      "overlay_prepare_ms": 0.115315,
+      "packet_write_ms": 0.001845,
+      "enqueue_ms": 0.136603,
+      "error_read_ms": 63.303177,
+      "release_drain_ms": 0.23742,
+      "total_ms": 75.994032
+    },
+    {
+      "overlay_profile_pts": 15583333,
+      "valid": 1,
+      "host_prepare_ms": 0.100257,
+      "acquire_ms": 0.000729,
+      "colour_ms": 0.0,
+      "pack_ms": 62.913541
+    },
+    {
+      "source_wait_pts": 15583333,
+      "overlay": 1,
+      "output_wait_ms": 12.188837,
+      "overlay_prepare_ms": 0.100326,
+      "packet_write_ms": 0.001305,
+      "enqueue_ms": 0.114412,
+      "error_read_ms": 63.256491,
+      "release_drain_ms": 0.24482,
+      "total_ms": 75.906224
+    },
+    {
+      "overlay_profile_pts": 15666666,
+      "valid": 1,
+      "host_prepare_ms": 0.111297,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 62.963229
+    },
+    {
+      "source_wait_pts": 15666666,
+      "overlay": 1,
+      "output_wait_ms": 13.434304,
+      "overlay_prepare_ms": 0.111385,
+      "packet_write_ms": 0.001569,
+      "enqueue_ms": 0.132492,
+      "error_read_ms": 63.296581,
+      "release_drain_ms": 0.226456,
+      "total_ms": 77.20283
+    },
+    {
+      "overlay_profile_pts": 15750000,
+      "valid": 1,
+      "host_prepare_ms": 0.105693,
+      "acquire_ms": 0.000781,
+      "colour_ms": 0.0,
+      "pack_ms": 62.911927
+    },
+    {
+      "source_wait_pts": 15750000,
+      "overlay": 1,
+      "output_wait_ms": 12.213093,
+      "overlay_prepare_ms": 0.105763,
+      "packet_write_ms": 0.001484,
+      "enqueue_ms": 0.110758,
+      "error_read_ms": 63.254622,
+      "release_drain_ms": 0.261954,
+      "total_ms": 75.947705
+    },
+    {
+      "overlay_profile_pts": 15833333,
+      "valid": 1,
+      "host_prepare_ms": 0.114691,
+      "acquire_ms": 0.000833,
+      "colour_ms": 0.0,
+      "pack_ms": 63.001666
+    },
+    {
+      "source_wait_pts": 15833333,
+      "overlay": 1,
+      "output_wait_ms": 12.192818,
+      "overlay_prepare_ms": 0.11478,
+      "packet_write_ms": 0.001667,
+      "enqueue_ms": 0.127546,
+      "error_read_ms": 63.332722,
+      "release_drain_ms": 0.258301,
+      "total_ms": 76.027874
+    }
+  ],
+  "timing_lines": [
+    "2026-10-10 18:15:33.014 T:2273     info <general>: Private source transition: pts=0 direct=true prefetch=false overlay=true setup_ms=1239.34649 prior_gl_ms=0.014224 render_call_ms=41.084899 drain_ms=0.046262 processing_ms=41.146815 remaining=3 entered_ns=7829811349967",
+    "2026-10-10 18:15:33.014 T:2273     info <general>: Private source frame: serial=1 pts=0 prepared=true processing_ms=41.146815 mean_ms=41.146815 diagnostic_readback=false colour_conversion=false prefetch_hit=false prefetch_hits=0 present_wait_ms=41.146815 submit_ms=0",
+    "2026-10-10 18:15:33.087 T:2341     info <general>: DVBridge playback health: interval_ms=0 output_attempts=1 source_fps=24.000 speed=1000 stalled=false pts_s=0.042 drop_total=0 skip_total=0 drop_delta=0 skip_delta=0 counters_reset=false video_queue_pct=99 video_queue_s=3.958 bitrate_mbps=0.00 render_avg_pct=unavailable transitions=6 pts_valid=true (speed 1000=normal; attempts are not display flips)",
+    "2026-10-10 18:15:33.111 T:2273     info <general>: Private source transition: pts=0 direct=true prefetch=false overlay=true setup_ms=0.001047 prior_gl_ms=4.494556 render_call_ms=23.977317 drain_ms=0.040675 processing_ms=28.513581 remaining=2 entered_ns=7831160489802",
+    "2026-10-10 18:15:33.136 T:2273     info <general>: Private source transition: pts=41666 direct=true prefetch=true overlay=true setup_ms=0.000568 prior_gl_ms=1.481894 render_call_ms=9.625962 drain_ms=0.041738 processing_ms=11.825637 remaining=1 entered_ns=7831202649905",
+    "2026-10-10 18:15:33.189 T:2273     info <general>: Private source transition: pts=41666 direct=true prefetch=false overlay=true setup_ms=0.464276 prior_gl_ms=1.682755 render_call_ms=23.071044 drain_ms=0.042704 processing_ms=24.797539 remaining=0 entered_ns=7831241603316",
+    "2026-10-10 18:15:33.219 T:2273     info <general>: Private source transition: pts=83333 direct=true prefetch=true overlay=true setup_ms=0.000463 prior_gl_ms=1.787226 render_call_ms=11.704114 drain_ms=0.048874 processing_ms=14.193758 remaining=0 entered_ns=7831282866606",
+    "2026-10-10 18:15:33.260 T:2273     info <general>: Private source transition: pts=125000 direct=true prefetch=true overlay=true setup_ms=0.000987 prior_gl_ms=1.83207 render_call_ms=11.034641 drain_ms=0.044859 processing_ms=13.856577999999999 remaining=0 entered_ns=7831325009043",
+    "2026-10-10 18:15:33.302 T:2273     info <general>: Private source transition: pts=166666 direct=true prefetch=true overlay=true setup_ms=0.000849 prior_gl_ms=1.768885 render_call_ms=10.812597 drain_ms=0.053514 processing_ms=13.453364 remaining=0 entered_ns=7831366952735",
+    "2026-10-10 18:15:33.342 T:2273     info <general>: Private source transition: pts=208333 direct=true prefetch=true overlay=true setup_ms=0.000892 prior_gl_ms=1.814198 render_call_ms=9.685023 drain_ms=0.061069 processing_ms=12.982026 remaining=0 entered_ns=7831408443732",
+    "2026-10-10 18:15:33.384 T:2273     info <general>: Private source transition: pts=250000 direct=true prefetch=true overlay=true setup_ms=0.001044 prior_gl_ms=1.702578 render_call_ms=9.658119 drain_ms=0.07539 processing_ms=12.81926 remaining=0 entered_ns=7831450203042",
+    "2026-10-10 18:15:33.421 T:2273     info <general>: Private source transition: pts=291666 direct=true prefetch=true overlay=false setup_ms=0.000883 prior_gl_ms=1.725784 render_call_ms=4.897191 drain_ms=0.050456 processing_ms=8.291867 remaining=0 entered_ns=7831491407894",
+    "2026-10-10 18:15:33.461 T:2273     info <general>: Private source transition: pts=333333 direct=true prefetch=true overlay=false setup_ms=0.000789 prior_gl_ms=0.263396 render_call_ms=4.752834 drain_ms=0.086789 processing_ms=8.141095 remaining=0 entered_ns=7831533106303",
+    "2026-10-10 18:15:33.503 T:2273     info <general>: Private source transition: pts=375000 direct=true prefetch=true overlay=false setup_ms=0.00087 prior_gl_ms=0.279912 render_call_ms=5.355047 drain_ms=0.006671 processing_ms=11.823374 remaining=0 entered_ns=7831574766867",
+    "2026-10-10 18:15:33.539 T:2273     info <general>: Private native GUI cache: reused_frames=1 empty=true",
+    "2026-10-10 18:15:33.545 T:2273     info <general>: Private source transition: pts=416666 direct=true prefetch=true overlay=false setup_ms=0.0008 prior_gl_ms=0.203572 render_call_ms=5.423643 drain_ms=0.006226 processing_ms=7.503107999999999 remaining=0 entered_ns=7831616414683",
+    "2026-10-10 18:15:33.580 T:2273     info <general>: Private native GUI cache: reused_frames=2 empty=true",
+    "2026-10-10 18:15:33.586 T:2273     info <general>: Private source transition: pts=458333 direct=true prefetch=true overlay=false setup_ms=0.000768 prior_gl_ms=0.280302 render_call_ms=5.375906 drain_ms=0.006918 processing_ms=7.568177 remaining=0 entered_ns=7831658002244",
+    "2026-10-10 18:15:33.622 T:2273     info <general>: Private native GUI cache: reused_frames=3 empty=true",
+    "2026-10-10 18:15:33.628 T:2273     info <general>: Private source transition: pts=500000 direct=true prefetch=true overlay=false setup_ms=0.000866 prior_gl_ms=0.268482 render_call_ms=5.1569 drain_ms=0.006211 processing_ms=7.296939 remaining=0 entered_ns=7831699835865",
+    "2026-10-10 18:15:33.668 T:2273     info <general>: Private source transition: pts=541666 direct=true prefetch=true overlay=false setup_ms=0.001042 prior_gl_ms=0.285371 render_call_ms=4.182696 drain_ms=0.006 processing_ms=6.329466999999999 remaining=0 entered_ns=7831741246732",
+    "2026-10-10 18:15:33.710 T:2273     info <general>: Private source transition: pts=583333 direct=true prefetch=true overlay=false setup_ms=0.001008 prior_gl_ms=0.281521 render_call_ms=4.184022 drain_ms=0.006201 processing_ms=6.447346 remaining=0 entered_ns=7831783025234",
+    "2026-10-10 18:15:33.753 T:2273     info <general>: Private source transition: pts=625000 direct=true prefetch=true overlay=false setup_ms=0.00084 prior_gl_ms=0.256187 render_call_ms=5.474912 drain_ms=0.006987 processing_ms=7.630466 remaining=0 entered_ns=7831824564130",
+    "2026-10-10 18:15:33.794 T:2273     info <general>: Private source transition: pts=666666 direct=true prefetch=true overlay=false setup_ms=0.000828 prior_gl_ms=0.253782 render_call_ms=5.155339 drain_ms=0.006747 processing_ms=6.058783999999999 remaining=0 entered_ns=7831866266071",
+    "2026-10-10 18:15:33.836 T:2273     info <general>: Private source transition: pts=708333 direct=true prefetch=true overlay=false setup_ms=0.000859 prior_gl_ms=0.19919 render_call_ms=5.304056 drain_ms=0.006331 processing_ms=7.394053 remaining=0 entered_ns=7831907846550",
+    "2026-10-10 18:15:33.878 T:2273     info <general>: Private source transition: pts=750000 direct=true prefetch=true overlay=false setup_ms=0.000919 prior_gl_ms=0.251649 render_call_ms=5.346586 drain_ms=0.006302 processing_ms=7.445795 remaining=0 entered_ns=7831949773604",
+    "2026-10-10 18:15:33.919 T:2273     info <general>: Private source transition: pts=791666 direct=true prefetch=true overlay=false setup_ms=0.000504 prior_gl_ms=0.208336 render_call_ms=5.520601 drain_ms=0.002797 processing_ms=7.6259570000000005 remaining=0 entered_ns=7831990870583",
+    "2026-10-10 18:15:33.962 T:2273     info <general>: Private source transition: pts=833333 direct=true prefetch=true overlay=false setup_ms=0.000897 prior_gl_ms=0.263768 render_call_ms=5.751723 drain_ms=0.006074 processing_ms=6.979525 remaining=0 entered_ns=7832033051569",
+    "2026-10-10 18:15:34.000 T:2273     info <general>: Private source transition: pts=875000 direct=true prefetch=true overlay=false setup_ms=0.00044 prior_gl_ms=0.171543 render_call_ms=3.901562 drain_ms=0.001883 processing_ms=5.965160000000001 remaining=0 entered_ns=7832073898582",
+    "2026-10-10 18:15:34.042 T:2273     info <general>: Private source transition: pts=916666 direct=true prefetch=true overlay=false setup_ms=0.000391 prior_gl_ms=0.150789 render_call_ms=3.843877 drain_ms=0.001738 processing_ms=4.584068 remaining=0 entered_ns=7832115797351",
+    "2026-10-10 18:15:34.087 T:2273     info <general>: Private source transition: pts=958333 direct=true prefetch=true overlay=false setup_ms=0.000786 prior_gl_ms=0.428309 render_call_ms=6.128546 drain_ms=0.00207 processing_ms=7.159241 remaining=0 entered_ns=7832157738946",
+    "2026-10-10 18:15:34.128 T:2273     info <general>: Private source transition: pts=1000000 direct=true prefetch=true overlay=false setup_ms=0.000778 prior_gl_ms=0.274397 render_call_ms=5.661635 drain_ms=0.006534 processing_ms=7.4118010000000005 remaining=0 entered_ns=7832199798475",
+    "2026-10-10 18:15:34.170 T:2273     info <general>: Private source transition: pts=1041666 direct=true prefetch=true overlay=false setup_ms=0.001008 prior_gl_ms=0.304168 render_call_ms=5.66749 drain_ms=0.006255 processing_ms=7.836586 remaining=0 entered_ns=7832241184145",
+    "2026-10-10 18:15:34.211 T:2273     info <general>: Private source transition: pts=1083333 direct=true prefetch=true overlay=false setup_ms=0.000703 prior_gl_ms=0.288077 render_call_ms=5.57549 drain_ms=0.006617 processing_ms=7.732889999999999 remaining=0 entered_ns=7832282800346",
+    "2026-10-10 18:15:34.253 T:2273     info <general>: Private source transition: pts=1125000 direct=true prefetch=true overlay=false setup_ms=0.000729 prior_gl_ms=0.289263 render_call_ms=5.612116 drain_ms=0.006386 processing_ms=7.781802000000001 remaining=0 entered_ns=7832324500202",
+    "2026-10-10 18:15:34.295 T:2273     info <general>: Private source transition: pts=1166666 direct=true prefetch=true overlay=false setup_ms=0.000798 prior_gl_ms=0.273687 render_call_ms=5.746895 drain_ms=0.006224 processing_ms=7.905104 remaining=0 entered_ns=7832366193910",
+    "2026-10-10 18:15:34.335 T:2273     info <general>: Private source transition: pts=1208333 direct=true prefetch=true overlay=false setup_ms=0.00071 prior_gl_ms=0.276072 render_call_ms=4.218202 drain_ms=0.006279 processing_ms=6.416696999999999 remaining=0 entered_ns=7832407644985",
+    "2026-10-10 18:15:34.376 T:2273     info <general>: Private source transition: pts=1250000 direct=true prefetch=true overlay=false setup_ms=0.000893 prior_gl_ms=0.27864 render_call_ms=4.193831 drain_ms=0.005946 processing_ms=6.378542 remaining=0 entered_ns=7832449337776",
+    "2026-10-10 18:15:34.420 T:2273     info <general>: Private source transition: pts=1291666 direct=true prefetch=true overlay=false setup_ms=0.000761 prior_gl_ms=0.258454 render_call_ms=5.914169 drain_ms=0.002632 processing_ms=8.026202 remaining=0 entered_ns=7832490981827",
+    "2026-10-10 18:15:34.461 T:2273     info <general>: Private source transition: pts=1333333 direct=true prefetch=true overlay=false setup_ms=0.000812 prior_gl_ms=0.251813 render_call_ms=5.622088 drain_ms=0.006252 processing_ms=7.083898 remaining=0 entered_ns=7832532639288",
+    "2026-10-10 18:15:34.503 T:2273     info <general>: Private source transition: pts=1375000 direct=true prefetch=true overlay=false setup_ms=0.000734 prior_gl_ms=0.264779 render_call_ms=5.611603 drain_ms=0.006688 processing_ms=7.764393 remaining=0 entered_ns=7832574286084",
+    "2026-10-10 18:15:34.544 T:2273     info <general>: Private source transition: pts=1416666 direct=true prefetch=true overlay=false setup_ms=0.000695 prior_gl_ms=0.258545 render_call_ms=5.627866 drain_ms=0.006375 processing_ms=7.760327 remaining=0 entered_ns=7832615991389",
+    "2026-10-10 18:15:34.585 T:2273     info <general>: Private source transition: pts=1458333 direct=true prefetch=true overlay=false setup_ms=0.00076 prior_gl_ms=0.208653 render_call_ms=4.883819 drain_ms=0.00612 processing_ms=6.982717 remaining=0 entered_ns=7832657790878",
+    "2026-10-10 18:15:34.627 T:2273     info <general>: Private source transition: pts=1500000 direct=true prefetch=true overlay=false setup_ms=0.000771 prior_gl_ms=0.260954 render_call_ms=4.229632 drain_ms=0.0058 processing_ms=6.320861 remaining=0 entered_ns=7832699617381",
+    "2026-10-10 18:15:34.668 T:2273     info <general>: Private source transition: pts=1541666 direct=true prefetch=true overlay=false setup_ms=0.000909 prior_gl_ms=0.204467 render_call_ms=4.172817 drain_ms=0.005955 processing_ms=6.26234 remaining=0 entered_ns=7832741180256",
+    "2026-10-10 18:15:34.710 T:2273     info <general>: Private source transition: pts=1583333 direct=true prefetch=true overlay=false setup_ms=0.000815 prior_gl_ms=0.267467 render_call_ms=4.188793 drain_ms=0.00602 processing_ms=6.32265 remaining=0 entered_ns=7832782818096",
+    "2026-10-10 18:15:34.753 T:2273     info <general>: Private source transition: pts=1625000 direct=true prefetch=true overlay=false setup_ms=0.000753 prior_gl_ms=0.273943 render_call_ms=6.144567 drain_ms=0.002569 processing_ms=8.269775 remaining=0 entered_ns=7832824523838",
+    "2026-10-10 18:15:34.795 T:2273     info <general>: Private source transition: pts=1666666 direct=true prefetch=true overlay=false setup_ms=0.000732 prior_gl_ms=0.284733 render_call_ms=5.684567 drain_ms=0.00623 processing_ms=6.675227 remaining=0 entered_ns=7832866211843",
+    "2026-10-10 18:15:34.836 T:2273     info <general>: Private source transition: pts=1708333 direct=true prefetch=true overlay=false setup_ms=0.000817 prior_gl_ms=0.214687 render_call_ms=5.529297 drain_ms=0.006336 processing_ms=7.623286 remaining=0 entered_ns=7832907778716",
+    "2026-10-10 18:15:34.878 T:2273     info <general>: Private source transition: pts=1750000 direct=true prefetch=true overlay=false setup_ms=0.000888 prior_gl_ms=0.264362 render_call_ms=5.79607 drain_ms=0.006633 processing_ms=7.9197 remaining=0 entered_ns=7832949639186",
+    "2026-10-10 18:15:34.920 T:2273     info <general>: Private source transition: pts=1791666 direct=true prefetch=true overlay=false setup_ms=0.000777 prior_gl_ms=0.265258 render_call_ms=5.619108 drain_ms=0.006487 processing_ms=7.859952000000001 remaining=0 entered_ns=7832991202034",
+    "2026-10-10 18:15:34.961 T:2273     info <general>: Private source transition: pts=1833333 direct=true prefetch=true overlay=false setup_ms=0.000765 prior_gl_ms=0.209765 render_call_ms=5.765397 drain_ms=0.00648 processing_ms=7.868937 remaining=0 entered_ns=7833032837443",
+    "2026-10-10 18:15:35.001 T:2273     info <general>: Private source transition: pts=1875000 direct=true prefetch=true overlay=false setup_ms=0.000585 prior_gl_ms=0.270117 render_call_ms=4.089063 drain_ms=0.004692 processing_ms=6.68805 remaining=0 entered_ns=7833074194794",
+    "2026-10-10 18:15:35.043 T:2273     info <general>: Private source transition: pts=1916666 direct=true prefetch=true overlay=false setup_ms=0.000746 prior_gl_ms=0.265266 render_call_ms=4.167386 drain_ms=0.006193 processing_ms=5.923068 remaining=0 entered_ns=7833116153610",
+    "2026-10-10 18:15:35.087 T:2273     info <general>: Private source transition: pts=1958333 direct=true prefetch=true overlay=false setup_ms=0.000817 prior_gl_ms=0.27691 render_call_ms=5.978436 drain_ms=0.006917 processing_ms=8.136705 remaining=0 entered_ns=7833157795433",
+    "2026-10-10 18:15:35.128 T:2273     info <general>: Private source transition: pts=2000000 direct=true prefetch=true overlay=false setup_ms=0.000769 prior_gl_ms=0.283292 render_call_ms=5.707436 drain_ms=0.006662 processing_ms=7.898256 remaining=0 entered_ns=7833199633553",
+    "2026-10-10 18:15:35.169 T:2273     info <general>: Private source transition: pts=2041666 direct=true prefetch=true overlay=false setup_ms=0.000786 prior_gl_ms=0.262444 render_call_ms=5.602588 drain_ms=0.006574 processing_ms=7.907016 remaining=0 entered_ns=7833241000779",
+    "2026-10-10 18:15:35.211 T:2273     info <general>: Private source transition: pts=2083333 direct=true prefetch=true overlay=false setup_ms=0.00075 prior_gl_ms=0.265811 render_call_ms=5.661259 drain_ms=0.006361 processing_ms=7.802155000000001 remaining=0 entered_ns=7833282821573",
+    "2026-10-10 18:15:35.253 T:2273     info <general>: Private source transition: pts=2125000 direct=true prefetch=true overlay=false setup_ms=0.000729 prior_gl_ms=0.255626 render_call_ms=5.611073 drain_ms=0.006425 processing_ms=7.758773 remaining=0 entered_ns=7833324524027",
+    "2026-10-10 18:15:35.295 T:2273     info <general>: Private source transition: pts=2166666 direct=true prefetch=true overlay=false setup_ms=0.00071 prior_gl_ms=0.25233 render_call_ms=5.788096 drain_ms=0.006374 processing_ms=7.9014869999999995 remaining=0 entered_ns=7833366227028",
+    "2026-10-10 18:15:35.335 T:2273     info <general>: Private source transition: pts=2208333 direct=true prefetch=true overlay=false setup_ms=0.000837 prior_gl_ms=0.25824 render_call_ms=4.219754 drain_ms=0.006396 processing_ms=6.408005 remaining=0 entered_ns=7833407690944",
+    "2026-10-10 18:15:35.376 T:2273     info <general>: Private source transition: pts=2250000 direct=true prefetch=true overlay=false setup_ms=0.000895 prior_gl_ms=0.205315 render_call_ms=4.210855 drain_ms=0.005964 processing_ms=6.312029 remaining=0 entered_ns=7833449553567",
+    "2026-10-10 18:15:35.420 T:2273     info <general>: Private source transition: pts=2291666 direct=true prefetch=true overlay=false setup_ms=0.000685 prior_gl_ms=0.266883 render_call_ms=6.157714 drain_ms=0.002265 processing_ms=8.373049 remaining=0 entered_ns=7833491187250",
+    "2026-10-10 18:15:35.505 T:2273     info <general>: Private source transition: pts=2333333 direct=true prefetch=true overlay=false setup_ms=0.000497 prior_gl_ms=2.517689 render_call_ms=4.761891 drain_ms=0.003552 processing_ms=8.012184 remaining=0 entered_ns=7833575592685",
+    "2026-10-10 18:15:35.636 T:2273     info <general>: Private source transition: pts=2375000 direct=true prefetch=true overlay=true setup_ms=0.000437 prior_gl_ms=11.459882 render_call_ms=65.586208 drain_ms=0.003131 processing_ms=77.922164 remaining=0 entered_ns=7833636712220",
+    "2026-10-10 18:15:35.768 T:2273     info <general>: Private source transition: pts=2500000 direct=true prefetch=false overlay=true setup_ms=0.718534 prior_gl_ms=14.865118 render_call_ms=80.66458 drain_ms=0.003049 processing_ms=95.534047 remaining=0 entered_ns=7833749595106",
+    "2026-10-10 18:15:35.888 T:2273     info <general>: Private source transition: pts=2583333 direct=true prefetch=false overlay=true setup_ms=0.495037 prior_gl_ms=14.829045 render_call_ms=81.200867 drain_ms=0.003093 processing_ms=96.034527 remaining=0 entered_ns=7833868566645",
+    "2026-10-10 18:15:36.014 T:2273     info <general>: Private source transition: pts=2666666 direct=true prefetch=false overlay=true setup_ms=0.493726 prior_gl_ms=17.144873 render_call_ms=81.45657 drain_ms=0.00561 processing_ms=98.608412 remaining=0 entered_ns=7833992788013",
+    "2026-10-10 18:15:36.134 T:2273     info <general>: Private source transition: pts=2750000 direct=true prefetch=false overlay=true setup_ms=0.546139 prior_gl_ms=15.260262 render_call_ms=78.085629 drain_ms=0.002716 processing_ms=93.350034 remaining=0 entered_ns=7834117768382",
+    "2026-10-10 18:15:36.255 T:2273     info <general>: Private source transition: pts=2833333 direct=true prefetch=false overlay=true setup_ms=0.320983 prior_gl_ms=13.018636 render_call_ms=77.004372 drain_ms=0.002476 processing_ms=90.026855 remaining=0 entered_ns=7834242531823",
+    "2026-10-10 18:15:36.382 T:2273     info <general>: Private source transition: pts=2916666 direct=true prefetch=false overlay=true setup_ms=0.32205 prior_gl_ms=14.498551 render_call_ms=76.971483 drain_ms=0.002542 processing_ms=91.47379 remaining=0 entered_ns=7834367419129",
+    "2026-10-10 18:15:36.512 T:2273     info <general>: Private source transition: pts=3000000 direct=true prefetch=false overlay=true setup_ms=0.438629 prior_gl_ms=16.530207 render_call_ms=78.040837 drain_ms=0.002003 processing_ms=94.574107 remaining=0 entered_ns=7834494648546",
+    "2026-10-10 18:15:36.633 T:2273     info <general>: Private source transition: pts=3083333 direct=true prefetch=false overlay=true setup_ms=0.459145 prior_gl_ms=14.818858 render_call_ms=77.844025 drain_ms=0.001662 processing_ms=92.665607 remaining=0 entered_ns=7834617886393",
+    "2026-10-10 18:15:36.759 T:2273     info <general>: Private source transition: pts=3166666 direct=true prefetch=false overlay=true setup_ms=0.424638 prior_gl_ms=14.623456 render_call_ms=77.938295 drain_ms=0.001649 processing_ms=92.564212 remaining=0 entered_ns=7834743617374",
+    "2026-10-10 18:15:36.881 T:2273     info <general>: Private source transition: pts=3250000 direct=true prefetch=false overlay=true setup_ms=0.421834 prior_gl_ms=12.076123 render_call_ms=77.873617 drain_ms=0.001852 processing_ms=89.952794 remaining=0 entered_ns=7834868393385",
+    "2026-10-10 18:15:37.012 T:2273     info <general>: Private source transition: pts=3333333 direct=true prefetch=false overlay=true setup_ms=0.436174 prior_gl_ms=16.544761 render_call_ms=77.984189 drain_ms=0.001852 processing_ms=94.536669 remaining=0 entered_ns=7834994224416",
+    "2026-10-10 18:15:37.133 T:2273     info <general>: Private source transition: pts=3416666 direct=true prefetch=false overlay=true setup_ms=0.299019 prior_gl_ms=14.702275 render_call_ms=77.525824 drain_ms=0.001669 processing_ms=92.231028 remaining=0 entered_ns=7835117840216",
+    "2026-10-10 18:15:37.257 T:2273     info <general>: Private source transition: pts=3500000 direct=true prefetch=false overlay=true setup_ms=0.344385 prior_gl_ms=13.672983 render_call_ms=77.69366 drain_ms=0.00167 processing_ms=91.369445 remaining=0 entered_ns=7835243072114",
+    "2026-10-10 18:15:37.380 T:2273     info <general>: Private source transition: pts=3583333 direct=true prefetch=false overlay=true setup_ms=0.394199 prior_gl_ms=10.398247 render_call_ms=77.748693 drain_ms=0.001823 processing_ms=88.149839 remaining=0 entered_ns=7835369273167",
+    "2026-10-10 18:15:37.512 T:2273     info <general>: Private source transition: pts=3666666 direct=true prefetch=false overlay=true setup_ms=0.408367 prior_gl_ms=15.98086 render_call_ms=78.817309 drain_ms=0.006565 processing_ms=94.805648 remaining=0 entered_ns=7835494063811",
+    "2026-10-10 18:15:37.633 T:2273     info <general>: Private source transition: pts=3750000 direct=true prefetch=false overlay=true setup_ms=0.324749 prior_gl_ms=14.880801 render_call_ms=77.840914 drain_ms=0.001847 processing_ms=92.724528 remaining=0 entered_ns=7835617930814",
+    "2026-10-10 18:15:37.760 T:2273     info <general>: Private source transition: pts=3833333 direct=true prefetch=false overlay=true setup_ms=0.433192 prior_gl_ms=14.805413 render_call_ms=77.902962 drain_ms=0.001815 processing_ms=92.711143 remaining=0 entered_ns=7835744035555",
+    "2026-10-10 18:15:37.881 T:2273     info <general>: Private source transition: pts=3916666 direct=true prefetch=false overlay=true setup_ms=0.364681 prior_gl_ms=12.234334 render_call_ms=77.916079 drain_ms=0.006284 processing_ms=90.157598 remaining=0 entered_ns=7835868471183",
+    "2026-10-10 18:15:38.012 T:2273     info <general>: Private source transition: pts=4000000 direct=true prefetch=false overlay=true setup_ms=0.345333 prior_gl_ms=15.799994 render_call_ms=78.137368 drain_ms=0.002071 processing_ms=93.940669 remaining=0 entered_ns=7835994807988",
+    "2026-10-10 18:15:38.134 T:2273     info <general>: Private source transition: pts=4083333 direct=true prefetch=false overlay=true setup_ms=0.484568 prior_gl_ms=15.005024 render_call_ms=77.703767 drain_ms=0.001628 processing_ms=92.711388 remaining=0 entered_ns=7836118409738",
+    "2026-10-10 18:15:38.259 T:2273     info <general>: Private source transition: pts=4166666 direct=true prefetch=false overlay=true setup_ms=0.344135 prior_gl_ms=14.941128 render_call_ms=77.925561 drain_ms=0.00157 processing_ms=92.87459 remaining=0 entered_ns=7836243626863",
+    "2026-10-10 18:15:38.381 T:2273     info <general>: Private source transition: pts=4250000 direct=true prefetch=false overlay=true setup_ms=0.354482 prior_gl_ms=12.164526 render_call_ms=77.78988 drain_ms=0.001617 processing_ms=89.95701 remaining=0 entered_ns=7836368418903",
+    "2026-10-10 18:15:38.511 T:2273     info <general>: Private source transition: pts=4333333 direct=true prefetch=false overlay=true setup_ms=0.37801 prior_gl_ms=15.934188 render_call_ms=77.805906 drain_ms=0.001615 processing_ms=93.742909 remaining=0 entered_ns=7836494099622",
+    "2026-10-10 18:15:38.634 T:2273     info <general>: Private source transition: pts=4416666 direct=true prefetch=false overlay=true setup_ms=0.344109 prior_gl_ms=15.004774 render_call_ms=77.891332 drain_ms=0.001688 processing_ms=92.89868 remaining=0 entered_ns=7836618327472",
+    "2026-10-10 18:15:38.759 T:2273     info <general>: Private source transition: pts=4500000 direct=true prefetch=false overlay=true setup_ms=0.350939 prior_gl_ms=14.797634 render_call_ms=77.946164 drain_ms=0.001701 processing_ms=92.746488 remaining=0 entered_ns=7836743840839",
+    "2026-10-10 18:15:38.881 T:2273     info <general>: Private source transition: pts=4583333 direct=true prefetch=false overlay=true setup_ms=0.349088 prior_gl_ms=12.123981 render_call_ms=77.527013 drain_ms=0.001664 processing_ms=89.65374 remaining=0 entered_ns=7836868249336",
+    "2026-10-10 18:15:39.010 T:2273     info <general>: Private source transition: pts=4666666 direct=true prefetch=false overlay=true setup_ms=0.26847 prior_gl_ms=16.255063 render_call_ms=77.279744 drain_ms=0.001839 processing_ms=93.537778 remaining=0 entered_ns=7836993553114",
+    "2026-10-10 18:15:39.133 T:2273     info <general>: Private source transition: pts=4750000 direct=true prefetch=false overlay=true setup_ms=0.347669 prior_gl_ms=14.958796 render_call_ms=76.839657 drain_ms=0.001702 processing_ms=91.801232 remaining=0 entered_ns=7837118383546",
+    "2026-10-10 18:15:39.259 T:2273     info <general>: Private source transition: pts=4833333 direct=true prefetch=false overlay=true setup_ms=0.346018 prior_gl_ms=14.652438 render_call_ms=77.930417 drain_ms=0.001982 processing_ms=92.585965 remaining=0 entered_ns=7837243863584",
+    "2026-10-10 18:15:39.381 T:2273     info <general>: Private source transition: pts=4916666 direct=true prefetch=false overlay=true setup_ms=0.359094 prior_gl_ms=12.126265 render_call_ms=77.583532 drain_ms=0.001709 processing_ms=89.712386 remaining=0 entered_ns=7837368202495",
+    "2026-10-10 18:15:39.511 T:2273     info <general>: Private source transition: pts=5000000 direct=true prefetch=false overlay=true setup_ms=0.328923 prior_gl_ms=16.443162 render_call_ms=77.727504 drain_ms=0.001862 processing_ms=94.173403 remaining=0 entered_ns=7837493786110",
+    "2026-10-10 18:15:39.633 T:2273     info <general>: Private source transition: pts=5083333 direct=true prefetch=false overlay=true setup_ms=0.283876 prior_gl_ms=14.52187 render_call_ms=77.847838 drain_ms=0.00165 processing_ms=92.372381 remaining=0 entered_ns=7837618045149",
+    "2026-10-10 18:15:39.759 T:2273     info <general>: Private source transition: pts=5166666 direct=true prefetch=false overlay=true setup_ms=0.317886 prior_gl_ms=14.951946 render_call_ms=77.876351 drain_ms=0.001561 processing_ms=92.830975 remaining=0 entered_ns=7837743766611",
+    "2026-10-10 18:15:39.881 T:2273     info <general>: Private source transition: pts=5250000 direct=true prefetch=false overlay=true setup_ms=0.329184 prior_gl_ms=12.088788 render_call_ms=77.592925 drain_ms=0.001619 processing_ms=89.684807 remaining=0 entered_ns=7837868296947",
+    "2026-10-10 18:15:40.011 T:2273     info <general>: Private source transition: pts=5333333 direct=true prefetch=false overlay=true setup_ms=0.337524 prior_gl_ms=15.611606 render_call_ms=77.771638 drain_ms=0.001781 processing_ms=93.386052 remaining=0 entered_ns=7837994505769",
+    "2026-10-10 18:15:40.132 T:2273     info <general>: Private source transition: pts=5416666 direct=true prefetch=false overlay=true setup_ms=0.264618 prior_gl_ms=14.131324 render_call_ms=77.59232 drain_ms=0.001518 processing_ms=91.726068 remaining=0 entered_ns=7838117736058",
+    "2026-10-10 18:15:40.258 T:2273     info <general>: Private source transition: pts=5500000 direct=true prefetch=false overlay=true setup_ms=0.34618 prior_gl_ms=13.586852 render_call_ms=77.881722 drain_ms=0.001682 processing_ms=91.47128 remaining=0 entered_ns=7838243797677",
+    "2026-10-10 18:15:40.380 T:2273     info <general>: Private source transition: pts=5583333 direct=true prefetch=false overlay=true setup_ms=0.359597 prior_gl_ms=10.513609 render_call_ms=77.729932 drain_ms=0.001669 processing_ms=88.251463 remaining=0 entered_ns=7838368517385",
+    "2026-10-10 18:15:40.511 T:2273     info <general>: Private source transition: pts=5666666 direct=true prefetch=false overlay=true setup_ms=0.351824 prior_gl_ms=15.65874 render_call_ms=77.817181 drain_ms=0.001666 processing_ms=93.478559 remaining=0 entered_ns=7838494396986",
+    "2026-10-10 18:15:40.633 T:2273     info <general>: Private source transition: pts=5750000 direct=true prefetch=false overlay=true setup_ms=0.288517 prior_gl_ms=14.451893 render_call_ms=77.586348 drain_ms=0.001652 processing_ms=92.040833 remaining=0 entered_ns=7838618023031",
+    "2026-10-10 18:15:40.759 T:2273     info <general>: Private source transition: pts=5833333 direct=true prefetch=false overlay=true setup_ms=0.317119 prior_gl_ms=14.830616 render_call_ms=77.861849 drain_ms=0.00178 processing_ms=92.695455 remaining=0 entered_ns=7838743948479",
+    "2026-10-10 18:15:40.879 T:2273     info <general>: Private source transition: pts=5916666 direct=true prefetch=false overlay=true setup_ms=0.241364 prior_gl_ms=11.432325 render_call_ms=77.394242 drain_ms=0.001615 processing_ms=88.82936 remaining=0 entered_ns=7838867776773",
+    "2026-10-10 18:15:41.011 T:2273     info <general>: Private source transition: pts=6000000 direct=true prefetch=false overlay=true setup_ms=0.329152 prior_gl_ms=16.100329 render_call_ms=77.724724 drain_ms=0.001586 processing_ms=93.827827 remaining=0 entered_ns=7838994197537",
+    "2026-10-10 18:15:41.132 T:2273     info <general>: Private source transition: pts=6083333 direct=true prefetch=false overlay=true setup_ms=0.489497 prior_gl_ms=12.833384 render_call_ms=77.862368 drain_ms=0.001812 processing_ms=90.69834 remaining=0 entered_ns=7839118756029",
+    "2026-10-10 18:15:41.259 T:2273     info <general>: Private source transition: pts=6166666 direct=true prefetch=false overlay=true setup_ms=0.337385 prior_gl_ms=14.289093 render_call_ms=77.881227 drain_ms=0.00152 processing_ms=92.172952 remaining=0 entered_ns=7839243983135",
+    "2026-10-10 18:15:41.382 T:2273     info <general>: Private source transition: pts=6250000 direct=true prefetch=false overlay=true setup_ms=0.351047 prior_gl_ms=11.936234 render_call_ms=77.82277 drain_ms=0.001719 processing_ms=89.761606 remaining=0 entered_ns=7839369251072",
+    "2026-10-10 18:15:41.512 T:2273     info <general>: Private source transition: pts=6333333 direct=true prefetch=false overlay=true setup_ms=0.341799 prior_gl_ms=16.50163 render_call_ms=77.853769 drain_ms=0.001663 processing_ms=94.35798 remaining=0 entered_ns=7839494863597",
+    "2026-10-10 18:15:41.634 T:2273     info <general>: Private source transition: pts=6416666 direct=true prefetch=false overlay=true setup_ms=0.287556 prior_gl_ms=14.958264 render_call_ms=77.652183 drain_ms=0.001633 processing_ms=92.613198 remaining=0 entered_ns=7839618311432",
+    "2026-10-10 18:15:41.759 T:2273     info <general>: Private source transition: pts=6500000 direct=true prefetch=false overlay=true setup_ms=0.315002 prior_gl_ms=15.067916 render_call_ms=77.823281 drain_ms=0.001635 processing_ms=92.898874 remaining=0 entered_ns=7839743255603",
+    "2026-10-10 18:15:41.881 T:2273     info <general>: Private source transition: pts=6583333 direct=true prefetch=false overlay=true setup_ms=0.301273 prior_gl_ms=11.825791 render_call_ms=77.853199 drain_ms=0.001758 processing_ms=89.681854 remaining=0 entered_ns=7839868882306",
+    "2026-10-10 18:15:42.011 T:2273     info <general>: Private source transition: pts=6666666 direct=true prefetch=false overlay=true setup_ms=0.357342 prior_gl_ms=15.777145 render_call_ms=77.971781 drain_ms=0.001837 processing_ms=93.751987 remaining=0 entered_ns=7839994621544",
+    "2026-10-10 18:15:42.134 T:2273     info <general>: Private source transition: pts=6750000 direct=true prefetch=false overlay=true setup_ms=0.293648 prior_gl_ms=15.089049 render_call_ms=77.65683 drain_ms=0.001456 processing_ms=92.748312 remaining=0 entered_ns=7840118319040",
+    "2026-10-10 18:15:42.259 T:2273     info <general>: Private source transition: pts=6833333 direct=true prefetch=false overlay=true setup_ms=0.309181 prior_gl_ms=15.109397 render_call_ms=77.881963 drain_ms=0.0017 processing_ms=92.994087 remaining=0 entered_ns=7840243338275",
+    "2026-10-10 18:15:42.382 T:2273     info <general>: Private source transition: pts=6916666 direct=true prefetch=false overlay=true setup_ms=0.361227 prior_gl_ms=11.972415 render_call_ms=77.861759 drain_ms=0.001659 processing_ms=89.836992 remaining=0 entered_ns=7840369004199",
+    "2026-10-10 18:15:42.511 T:2273     info <general>: Private source transition: pts=7000000 direct=true prefetch=false overlay=true setup_ms=0.341606 prior_gl_ms=15.834251 render_call_ms=77.742486 drain_ms=0.001684 processing_ms=93.579477 remaining=0 entered_ns=7840494329612",
+    "2026-10-10 18:15:42.634 T:2273     info <general>: Private source transition: pts=7083333 direct=true prefetch=false overlay=true setup_ms=0.369784 prior_gl_ms=15.044993 render_call_ms=77.8276 drain_ms=0.001565 processing_ms=92.875109 remaining=0 entered_ns=7840618028435",
+    "2026-10-10 18:15:42.760 T:2273     info <general>: Private source transition: pts=7166666 direct=true prefetch=false overlay=true setup_ms=0.326657 prior_gl_ms=15.08943 render_call_ms=77.812875 drain_ms=0.001555 processing_ms=92.904762 remaining=0 entered_ns=7840743961711",
+    "2026-10-10 18:15:42.881 T:2273     info <general>: Private source transition: pts=7250000 direct=true prefetch=false overlay=true setup_ms=0.310103 prior_gl_ms=11.897093 render_call_ms=77.838715 drain_ms=0.001627 processing_ms=89.738604 remaining=0 entered_ns=7840868947489",
+    "2026-10-10 18:15:43.010 T:2273     info <general>: Private source transition: pts=7333333 direct=true prefetch=false overlay=true setup_ms=0.300274 prior_gl_ms=15.831621 render_call_ms=78.035273 drain_ms=0.001725 processing_ms=93.869569 remaining=0 entered_ns=7840993445806",
+    "2026-10-10 18:15:43.097 T:2341     info <general>: DVBridge playback health: interval_ms=10010 output_attempts=268 source_fps=24.000 speed=1000 stalled=false pts_s=7.542 drop_total=0 skip_total=1 drop_delta=0 skip_delta=1 counters_reset=false video_queue_pct=100 video_queue_s=4.000 bitrate_mbps=4.07 render_avg_pct=71.8 transitions=0 pts_valid=true (speed 1000=normal; attempts are not display flips)",
+    "2026-10-10 18:15:43.134 T:2273     info <general>: Private source transition: pts=7416666 direct=true prefetch=false overlay=true setup_ms=0.297384 prior_gl_ms=14.954778 render_call_ms=77.759479 drain_ms=0.001717 processing_ms=92.717018 remaining=0 entered_ns=7841118272328",
+    "2026-10-10 18:15:43.134 T:2273     info <general>: Private source frame: serial=181 pts=7416666 prepared=true processing_ms=92.717018 mean_ms=51.32234925 diagnostic_readback=false colour_conversion=false prefetch_hit=false prefetch_hits=57 present_wait_ms=92.717018 submit_ms=0",
+    "2026-10-10 18:15:43.258 T:2273     info <general>: Private source transition: pts=7500000 direct=true prefetch=false overlay=true setup_ms=0.32174 prior_gl_ms=13.910394 render_call_ms=77.767138 drain_ms=0.00158 processing_ms=91.679915 remaining=0 entered_ns=7841243843876",
+    "2026-10-10 18:15:43.380 T:2273     info <general>: Private source transition: pts=7583333 direct=true prefetch=false overlay=true setup_ms=0.354885 prior_gl_ms=10.413499 render_call_ms=77.726363 drain_ms=0.00165 processing_ms=88.142883 remaining=0 entered_ns=7841369178103",
+    "2026-10-10 18:15:43.511 T:2273     info <general>: Private source transition: pts=7666666 direct=true prefetch=false overlay=true setup_ms=0.336797 prior_gl_ms=14.451175 render_call_ms=78.994787 drain_ms=0.00181 processing_ms=93.448864 remaining=0 entered_ns=7841494286080",
+    "2026-10-10 18:15:43.635 T:2273     info <general>: Private source transition: pts=7750000 direct=true prefetch=false overlay=true setup_ms=0.300203 prior_gl_ms=15.18846 render_call_ms=77.92842 drain_ms=0.001989 processing_ms=93.119862 remaining=0 entered_ns=7841618966883",
+    "2026-10-10 18:15:43.760 T:2273     info <general>: Private source transition: pts=7833333 direct=true prefetch=false overlay=true setup_ms=0.37481 prior_gl_ms=15.222268 render_call_ms=77.847372 drain_ms=0.001875 processing_ms=93.072466 remaining=0 entered_ns=7841743725457",
+    "2026-10-10 18:15:43.880 T:2273     info <general>: Private source transition: pts=7916666 direct=true prefetch=false overlay=true setup_ms=0.283366 prior_gl_ms=11.677926 render_call_ms=77.577764 drain_ms=0.001722 processing_ms=89.258534 remaining=0 entered_ns=7841868133305",
+    "2026-10-10 18:15:44.010 T:2273     info <general>: Private source transition: pts=8000000 direct=true prefetch=false overlay=true setup_ms=0.35221 prior_gl_ms=15.30589 render_call_ms=77.448746 drain_ms=0.001813 processing_ms=92.757748 remaining=0 entered_ns=7841994552863",
+    "2026-10-10 18:15:44.134 T:2273     info <general>: Private source transition: pts=8083333 direct=true prefetch=false overlay=true setup_ms=0.378238 prior_gl_ms=14.92505 render_call_ms=77.833636 drain_ms=0.001754 processing_ms=92.761776 remaining=0 entered_ns=7842117928693",
+    "2026-10-10 18:15:44.256 T:2273     info <general>: Private source transition: pts=8166666 direct=true prefetch=false overlay=true setup_ms=0.210137 prior_gl_ms=14.809892 render_call_ms=76.707785 drain_ms=0.001858 processing_ms=91.52055 remaining=0 entered_ns=7842242087249",
+    "2026-10-10 18:15:44.381 T:2273     info <general>: Private source transition: pts=8250000 direct=true prefetch=false overlay=true setup_ms=0.34256 prior_gl_ms=11.685831 render_call_ms=77.904712 drain_ms=0.001758 processing_ms=89.593287 remaining=0 entered_ns=7842369081980",
+    "2026-10-10 18:15:44.511 T:2273     info <general>: Private source transition: pts=8333333 direct=true prefetch=false overlay=true setup_ms=0.324375 prior_gl_ms=16.380719 render_call_ms=77.860604 drain_ms=0.001802 processing_ms=94.244289 remaining=0 entered_ns=7842493973026",
+    "2026-10-10 18:15:44.635 T:2273     info <general>: Private source transition: pts=8416666 direct=true prefetch=false overlay=true setup_ms=0.308724 prior_gl_ms=15.331814 render_call_ms=77.882038 drain_ms=0.001831 processing_ms=93.216644 remaining=0 entered_ns=7842618565139",
+    "2026-10-10 18:15:44.760 T:2273     info <general>: Private source transition: pts=8500000 direct=true prefetch=false overlay=true setup_ms=0.354724 prior_gl_ms=15.319919 render_call_ms=77.855753 drain_ms=0.001591 processing_ms=93.178263 remaining=0 entered_ns=7842744185124",
+    "2026-10-10 18:15:44.881 T:2273     info <general>: Private source transition: pts=8583333 direct=true prefetch=false overlay=true setup_ms=0.378167 prior_gl_ms=11.759902 render_call_ms=77.872811 drain_ms=0.001697 processing_ms=89.635499 remaining=0 entered_ns=7842868645891",
+    "2026-10-10 18:15:45.010 T:2273     info <general>: Private source transition: pts=8666666 direct=true prefetch=false overlay=true setup_ms=0.325073 prior_gl_ms=15.357706 render_call_ms=78.169801 drain_ms=0.00192 processing_ms=93.530609 remaining=0 entered_ns=7842993908049",
+    "2026-10-10 18:15:45.135 T:2273     info <general>: Private source transition: pts=8750000 direct=true prefetch=false overlay=true setup_ms=0.355413 prior_gl_ms=15.365988 render_call_ms=77.919015 drain_ms=0.001909 processing_ms=93.293266 remaining=0 entered_ns=7843118524765",
+    "2026-10-10 18:15:45.259 T:2273     info <general>: Private source transition: pts=8833333 direct=true prefetch=false overlay=true setup_ms=0.341622 prior_gl_ms=15.481154 render_call_ms=77.891692 drain_ms=0.001617 processing_ms=93.375692 remaining=0 entered_ns=7843243160127",
+    "2026-10-10 18:15:45.381 T:2273     info <general>: Private source transition: pts=8916666 direct=true prefetch=false overlay=true setup_ms=0.383558 prior_gl_ms=11.744983 render_call_ms=77.619215 drain_ms=0.00174 processing_ms=89.367086 remaining=0 entered_ns=7843368492101",
+    "2026-10-10 18:15:45.511 T:2273     info <general>: Private source transition: pts=9000000 direct=true prefetch=false overlay=true setup_ms=0.355471 prior_gl_ms=15.193586 render_call_ms=78.085774 drain_ms=0.001714 processing_ms=93.282016 remaining=0 entered_ns=7843494484988",
+    "2026-10-10 18:15:45.635 T:2273     info <general>: Private source transition: pts=9083333 direct=true prefetch=false overlay=true setup_ms=0.502134 prior_gl_ms=15.342742 render_call_ms=77.969515 drain_ms=0.001643 processing_ms=93.314786 remaining=0 entered_ns=7843618387599",
+    "2026-10-10 18:15:45.759 T:2273     info <general>: Private source transition: pts=9166666 direct=true prefetch=false overlay=true setup_ms=0.313262 prior_gl_ms=15.429412 render_call_ms=77.886836 drain_ms=0.001831 processing_ms=93.319082 remaining=0 entered_ns=7843743400356",
+    "2026-10-10 18:15:45.881 T:2273     info <general>: Private source transition: pts=9250000 direct=true prefetch=false overlay=true setup_ms=0.363471 prior_gl_ms=11.861546 render_call_ms=77.921752 drain_ms=0.001756 processing_ms=89.786111 remaining=0 entered_ns=7843868729333",
+    "2026-10-10 18:15:46.011 T:2273     info <general>: Private source transition: pts=9333333 direct=true prefetch=false overlay=true setup_ms=0.308622 prior_gl_ms=15.861743 render_call_ms=78.00521 drain_ms=0.001768 processing_ms=93.869756 remaining=0 entered_ns=7843994030910",
+    "2026-10-10 18:15:46.135 T:2273     info <general>: Private source transition: pts=9416666 direct=true prefetch=false overlay=true setup_ms=0.300866 prior_gl_ms=15.475253 render_call_ms=77.899359 drain_ms=0.001925 processing_ms=93.377542 remaining=0 entered_ns=7844118592829",
+    "2026-10-10 18:15:46.258 T:2273     info <general>: Private source transition: pts=9500000 direct=true prefetch=false overlay=true setup_ms=0.288962 prior_gl_ms=14.032909 render_call_ms=77.831071 drain_ms=0.002055 processing_ms=91.866933 remaining=0 entered_ns=7844243278110",
+    "2026-10-10 18:15:46.379 T:2273     info <general>: Private source transition: pts=9583333 direct=true prefetch=false overlay=true setup_ms=0.352953 prior_gl_ms=10.466335 render_call_ms=77.376468 drain_ms=0.001718 processing_ms=87.845457 remaining=0 entered_ns=7844368707702",
+    "2026-10-10 18:15:46.510 T:2273     info <general>: Private source transition: pts=9666666 direct=true prefetch=false overlay=true setup_ms=0.333333 prior_gl_ms=14.542123 render_call_ms=79.026226 drain_ms=0.001671 processing_ms=93.571 remaining=0 entered_ns=7844494022950",
+    "2026-10-10 18:15:46.634 T:2273     info <general>: Private source transition: pts=9750000 direct=true prefetch=false overlay=true setup_ms=0.331851 prior_gl_ms=15.252869 render_call_ms=77.83386 drain_ms=0.001709 processing_ms=93.089357 remaining=0 entered_ns=7844618573900",
+    "2026-10-10 18:15:46.760 T:2273     info <general>: Private source transition: pts=9833333 direct=true prefetch=false overlay=true setup_ms=0.314822 prior_gl_ms=15.452436 render_call_ms=77.878279 drain_ms=0.001949 processing_ms=93.338494 remaining=0 entered_ns=7844743947642",
+    "2026-10-10 18:15:46.880 T:2273     info <general>: Private source transition: pts=9916666 direct=true prefetch=false overlay=true setup_ms=0.315276 prior_gl_ms=11.655824 render_call_ms=77.544793 drain_ms=0.001996 processing_ms=89.203996 remaining=0 entered_ns=7844868071637",
+    "2026-10-10 18:15:47.011 T:2273     info <general>: Private source transition: pts=10000000 direct=true prefetch=false overlay=true setup_ms=0.316968 prior_gl_ms=15.594489 render_call_ms=78.180047 drain_ms=0.001813 processing_ms=93.777411 remaining=0 entered_ns=7844994003008",
+    "2026-10-10 18:15:47.135 T:2273     info <general>: Private source transition: pts=10083333 direct=true prefetch=false overlay=true setup_ms=0.349359 prior_gl_ms=15.37459 render_call_ms=77.902958 drain_ms=0.001776 processing_ms=93.280583 remaining=0 entered_ns=7845118558819",
+    "2026-10-10 18:15:47.260 T:2273     info <general>: Private source transition: pts=10166666 direct=true prefetch=false overlay=true setup_ms=0.309001 prior_gl_ms=15.352837 render_call_ms=77.791033 drain_ms=0.001608 processing_ms=93.146382 remaining=0 entered_ns=7845244507155",
+    "2026-10-10 18:15:47.380 T:2273     info <general>: Private source transition: pts=10250000 direct=true prefetch=false overlay=true setup_ms=0.279288 prior_gl_ms=11.769841 render_call_ms=77.589283 drain_ms=0.001612 processing_ms=89.361642 remaining=0 entered_ns=7845368253163",
+    "2026-10-10 18:15:47.512 T:2273     info <general>: Private source transition: pts=10333333 direct=true prefetch=false overlay=true setup_ms=0.348513 prior_gl_ms=15.780143 render_call_ms=78.311076 drain_ms=0.001745 processing_ms=94.093941 remaining=0 entered_ns=7845494808475",
+    "2026-10-10 18:15:47.635 T:2273     info <general>: Private source transition: pts=10416666 direct=true prefetch=false overlay=true setup_ms=0.332145 prior_gl_ms=15.442363 render_call_ms=77.868229 drain_ms=0.001854 processing_ms=93.31354 remaining=0 entered_ns=7845618606612",
+    "2026-10-10 18:15:47.760 T:2273     info <general>: Private source transition: pts=10500000 direct=true prefetch=false overlay=true setup_ms=0.350961 prior_gl_ms=15.392983 render_call_ms=77.8444 drain_ms=0.001761 processing_ms=93.240535 remaining=0 entered_ns=7845743583745",
+    "2026-10-10 18:15:47.881 T:2273     info <general>: Private source transition: pts=10583333 direct=true prefetch=false overlay=true setup_ms=0.333684 prior_gl_ms=11.96919 render_call_ms=77.874288 drain_ms=0.001956 processing_ms=89.846515 remaining=0 entered_ns=7845868605928",
+    "2026-10-10 18:15:48.010 T:2273     info <general>: Private source transition: pts=10666666 direct=true prefetch=false overlay=true setup_ms=0.317335 prior_gl_ms=15.367678 render_call_ms=78.269404 drain_ms=0.001641 processing_ms=93.639586 remaining=0 entered_ns=7845994032003",
+    "2026-10-10 18:15:48.134 T:2273     info <general>: Private source transition: pts=10750000 direct=true prefetch=false overlay=true setup_ms=0.291865 prior_gl_ms=15.373574 render_call_ms=77.67186 drain_ms=0.00192 processing_ms=93.0484 remaining=0 entered_ns=7846118140024",
+    "2026-10-10 18:15:48.260 T:2273     info <general>: Private source transition: pts=10833333 direct=true prefetch=false overlay=true setup_ms=0.334981 prior_gl_ms=15.34497 render_call_ms=77.891402 drain_ms=0.002063 processing_ms=93.239406 remaining=0 entered_ns=7846243913559",
+    "2026-10-10 18:15:48.381 T:2273     info <general>: Private source transition: pts=10916666 direct=true prefetch=false overlay=true setup_ms=0.29781 prior_gl_ms=11.860263 render_call_ms=77.877162 drain_ms=0.001904 processing_ms=89.740415 remaining=0 entered_ns=7846368965166",
+    "2026-10-10 18:15:48.510 T:2273     info <general>: Private source transition: pts=11000000 direct=true prefetch=false overlay=true setup_ms=0.308516 prior_gl_ms=15.472572 render_call_ms=78.325281 drain_ms=0.001844 processing_ms=93.800958 remaining=0 entered_ns=7846493690242",
+    "2026-10-10 18:15:48.635 T:2273     info <general>: Private source transition: pts=11083333 direct=true prefetch=false overlay=true setup_ms=0.34576 prior_gl_ms=15.478856 render_call_ms=77.908447 drain_ms=0.006236 processing_ms=93.394687 remaining=0 entered_ns=7846618804415",
+    "2026-10-10 18:15:48.759 T:2273     info <general>: Private source transition: pts=11166666 direct=true prefetch=false overlay=true setup_ms=0.271824 prior_gl_ms=14.987791 render_call_ms=77.946603 drain_ms=0.001818 processing_ms=92.937334 remaining=0 entered_ns=7846743687109",
+    "2026-10-10 18:15:48.881 T:2273     info <general>: Private source transition: pts=11250000 direct=true prefetch=false overlay=true setup_ms=0.287967 prior_gl_ms=12.290076 render_call_ms=77.842069 drain_ms=0.001992 processing_ms=90.135493 remaining=0 entered_ns=7846868407630",
+    "2026-10-10 18:15:49.011 T:2273     info <general>: Private source transition: pts=11333333 direct=true prefetch=false overlay=true setup_ms=0.339774 prior_gl_ms=15.362655 render_call_ms=78.398699 drain_ms=0.001813 processing_ms=93.764154 remaining=0 entered_ns=7846994380621",
+    "2026-10-10 18:15:49.135 T:2273     info <general>: Private source transition: pts=11416666 direct=true prefetch=false overlay=true setup_ms=0.378347 prior_gl_ms=15.289411 render_call_ms=77.898353 drain_ms=0.002092 processing_ms=93.190716 remaining=0 entered_ns=7847118568501",
+    "2026-10-10 18:15:49.259 T:2273     info <general>: Private source transition: pts=11500000 direct=true prefetch=false overlay=true setup_ms=0.361646 prior_gl_ms=14.179162 render_call_ms=77.96658 drain_ms=0.002119 processing_ms=92.149043 remaining=0 entered_ns=7847243905269",
+    "2026-10-10 18:15:49.379 T:2273     info <general>: Private source transition: pts=11583333 direct=true prefetch=false overlay=true setup_ms=0.299963 prior_gl_ms=10.401017 render_call_ms=77.608404 drain_ms=0.001627 processing_ms=88.01195 remaining=0 entered_ns=7847368250410",
+    "2026-10-10 18:15:49.511 T:2273     info <general>: Private source transition: pts=11666666 direct=true prefetch=false overlay=true setup_ms=0.377193 prior_gl_ms=14.91465 render_call_ms=78.892914 drain_ms=0.001865 processing_ms=93.810502 remaining=0 entered_ns=7847494193489",
+    "2026-10-10 18:15:49.635 T:2273     info <general>: Private source transition: pts=11750000 direct=true prefetch=false overlay=true setup_ms=0.325866 prior_gl_ms=15.3674 render_call_ms=77.864732 drain_ms=0.001873 processing_ms=93.234909 remaining=0 entered_ns=7847618546420",
+    "2026-10-10 18:15:49.760 T:2273     info <general>: Private source transition: pts=11833333 direct=true prefetch=false overlay=true setup_ms=0.322653 prior_gl_ms=15.270809 render_call_ms=77.891487 drain_ms=0.001716 processing_ms=93.165272 remaining=0 entered_ns=7847744011898",
+    "2026-10-10 18:15:49.882 T:2273     info <general>: Private source transition: pts=11916666 direct=true prefetch=false overlay=true setup_ms=0.369636 prior_gl_ms=12.146031 render_call_ms=77.87759 drain_ms=0.00178 processing_ms=90.026455 remaining=0 entered_ns=7847868688477",
+    "2026-10-10 18:15:50.011 T:2273     info <general>: Private source transition: pts=12000000 direct=true prefetch=false overlay=true setup_ms=0.344733 prior_gl_ms=15.331547 render_call_ms=78.200731 drain_ms=0.001834 processing_ms=93.535268 remaining=0 entered_ns=7847994207494",
+    "2026-10-10 18:15:50.135 T:2273     info <general>: Private source transition: pts=12083333 direct=true prefetch=false overlay=true setup_ms=0.316381 prior_gl_ms=15.331283 render_call_ms=77.933385 drain_ms=0.001686 processing_ms=93.267509 remaining=0 entered_ns=7848118783870",
+    "2026-10-10 18:15:50.260 T:2273     info <general>: Private source transition: pts=12166666 direct=true prefetch=false overlay=true setup_ms=0.308428 prior_gl_ms=15.336475 render_call_ms=77.895323 drain_ms=0.00175 processing_ms=93.234798 remaining=0 entered_ns=7848243795423",
+    "2026-10-10 18:15:50.380 T:2273     info <general>: Private source transition: pts=12250000 direct=true prefetch=false overlay=true setup_ms=0.262472 prior_gl_ms=12.056527 render_call_ms=77.419795 drain_ms=0.001572 processing_ms=89.479004 remaining=0 entered_ns=7848367931902",
+    "2026-10-10 18:15:50.511 T:2273     info <general>: Private source transition: pts=12333333 direct=true prefetch=false overlay=true setup_ms=0.337875 prior_gl_ms=15.299775 render_call_ms=78.256418 drain_ms=0.001924 processing_ms=93.559149 remaining=0 entered_ns=7848494402612",
+    "2026-10-10 18:15:50.634 T:2273     info <general>: Private source transition: pts=12416666 direct=true prefetch=false overlay=true setup_ms=0.285679 prior_gl_ms=15.410557 render_call_ms=77.655539 drain_ms=0.001729 processing_ms=93.068961 remaining=0 entered_ns=7848618324969",
+    "2026-10-10 18:15:50.760 T:2273     info <general>: Private source transition: pts=12500000 direct=true prefetch=false overlay=true setup_ms=0.31872 prior_gl_ms=15.35369 render_call_ms=77.881768 drain_ms=0.001847 processing_ms=93.238411 remaining=0 entered_ns=7848744070995",
+    "2026-10-10 18:15:50.882 T:2273     info <general>: Private source transition: pts=12583333 direct=true prefetch=false overlay=true setup_ms=0.321335 prior_gl_ms=12.387381 render_call_ms=77.912756 drain_ms=0.002055 processing_ms=90.303147 remaining=0 entered_ns=7848868583688",
+    "2026-10-10 18:15:51.010 T:2273     info <general>: Private source transition: pts=12666666 direct=true prefetch=false overlay=true setup_ms=0.304679 prior_gl_ms=15.333194 render_call_ms=78.340939 drain_ms=0.006555 processing_ms=93.681953 remaining=0 entered_ns=7848994027616",
+    "2026-10-10 18:15:51.134 T:2273     info <general>: Private source transition: pts=12750000 direct=true prefetch=false overlay=true setup_ms=0.276039 prior_gl_ms=15.413821 render_call_ms=77.764837 drain_ms=0.001765 processing_ms=93.181933 remaining=0 entered_ns=7849118320607",
+    "2026-10-10 18:15:51.260 T:2273     info <general>: Private source transition: pts=12833333 direct=true prefetch=false overlay=true setup_ms=0.325652 prior_gl_ms=15.263615 render_call_ms=77.862585 drain_ms=0.001983 processing_ms=93.129458 remaining=0 entered_ns=7849244191256",
+    "2026-10-10 18:15:51.382 T:2273     info <general>: Private source transition: pts=12916666 direct=true prefetch=false overlay=true setup_ms=0.303138 prior_gl_ms=12.365961 render_call_ms=77.867515 drain_ms=0.001826 processing_ms=90.236255 remaining=0 entered_ns=7849368582960",
+    "2026-10-10 18:15:51.511 T:2273     info <general>: Private source transition: pts=13000000 direct=true prefetch=false overlay=true setup_ms=0.318708 prior_gl_ms=15.337358 render_call_ms=78.296765 drain_ms=0.001908 processing_ms=93.637149 remaining=0 entered_ns=7849494178522",
+    "2026-10-10 18:15:51.634 T:2273     info <general>: Private source transition: pts=13083333 direct=true prefetch=false overlay=true setup_ms=0.296171 prior_gl_ms=15.417184 render_call_ms=77.603636 drain_ms=0.001708 processing_ms=93.023651 remaining=0 entered_ns=7849618296784",
+    "2026-10-10 18:15:51.760 T:2273     info <general>: Private source transition: pts=13166666 direct=true prefetch=false overlay=true setup_ms=0.331783 prior_gl_ms=15.323274 render_call_ms=77.894298 drain_ms=0.001653 processing_ms=93.22034 remaining=0 entered_ns=7849743937881",
+    "2026-10-10 18:15:51.882 T:2273     info <general>: Private source transition: pts=13250000 direct=true prefetch=false overlay=true setup_ms=0.28843 prior_gl_ms=12.387928 render_call_ms=77.893254 drain_ms=0.001785 processing_ms=90.28425 remaining=0 entered_ns=7849868636600",
+    "2026-10-10 18:15:52.011 T:2273     info <general>: Private source transition: pts=13333333 direct=true prefetch=false overlay=true setup_ms=0.337299 prior_gl_ms=15.274026 render_call_ms=78.220684 drain_ms=0.006543 processing_ms=93.502227 remaining=0 entered_ns=7849994390296",
+    "2026-10-10 18:15:52.134 T:2273     info <general>: Private source transition: pts=13416666 direct=true prefetch=false overlay=true setup_ms=0.268147 prior_gl_ms=15.258156 render_call_ms=77.659514 drain_ms=0.001626 processing_ms=92.92044 remaining=0 entered_ns=7850118331061",
+    "2026-10-10 18:15:52.258 T:2273     info <general>: Private source transition: pts=13500000 direct=true prefetch=false overlay=true setup_ms=0.283235 prior_gl_ms=14.347657 render_call_ms=77.872767 drain_ms=0.00174 processing_ms=92.223414 remaining=0 entered_ns=7850243465460",
+    "2026-10-10 18:15:52.380 T:2273     info <general>: Private source transition: pts=13583333 direct=true prefetch=false overlay=true setup_ms=0.337702 prior_gl_ms=10.560649 render_call_ms=77.663725 drain_ms=0.00163 processing_ms=88.227262 remaining=0 entered_ns=7850368860947",
+    "2026-10-10 18:15:52.511 T:2273     info <general>: Private source transition: pts=13666666 direct=true prefetch=false overlay=true setup_ms=0.3112 prior_gl_ms=14.767263 render_call_ms=79.081665 drain_ms=0.001851 processing_ms=93.851904 remaining=0 entered_ns=7850494000538",
+    "2026-10-10 18:15:52.635 T:2273     info <general>: Private source transition: pts=13750000 direct=true prefetch=false overlay=true setup_ms=0.283522 prior_gl_ms=15.380956 render_call_ms=77.909374 drain_ms=0.001711 processing_ms=93.293143 remaining=0 entered_ns=7850618499155",
+    "2026-10-10 18:15:52.760 T:2273     info <general>: Private source transition: pts=13833333 direct=true prefetch=false overlay=true setup_ms=0.324127 prior_gl_ms=15.269942 render_call_ms=77.87541 drain_ms=0.005982 processing_ms=93.152537 remaining=0 entered_ns=7850743855816",
+    "2026-10-10 18:15:52.882 T:2273     info <general>: Private source transition: pts=13916666 direct=true prefetch=false overlay=true setup_ms=0.367277 prior_gl_ms=12.233104 render_call_ms=77.890715 drain_ms=0.001835 processing_ms=90.126852 remaining=0 entered_ns=7850868678666",
+    "2026-10-10 18:15:53.011 T:2273     info <general>: Private source transition: pts=14000000 direct=true prefetch=false overlay=true setup_ms=0.331054 prior_gl_ms=15.166297 render_call_ms=78.348821 drain_ms=0.00171 processing_ms=93.5181 remaining=0 entered_ns=7850994219515",
+    "2026-10-10 18:15:53.097 T:2341     info <general>: DVBridge playback health: interval_ms=10001 output_attempts=320 source_fps=24.000 speed=1000 stalled=false pts_s=14.208 drop_total=0 skip_total=1 drop_delta=0 skip_delta=0 counters_reset=false video_queue_pct=100 video_queue_s=4.000 bitrate_mbps=6.30 render_avg_pct=81.4 transitions=0 pts_valid=true (speed 1000=normal; attempts are not display flips)",
+    "2026-10-10 18:15:53.135 T:2273     info <general>: Private source transition: pts=14083333 direct=true prefetch=false overlay=true setup_ms=0.311103 prior_gl_ms=15.343699 render_call_ms=77.927318 drain_ms=0.001744 processing_ms=93.273765 remaining=0 entered_ns=7851119290960",
+    "2026-10-10 18:15:53.260 T:2273     info <general>: Private source transition: pts=14166666 direct=true prefetch=false overlay=true setup_ms=0.337739 prior_gl_ms=15.576989 render_call_ms=77.847308 drain_ms=0.001784 processing_ms=93.427162 remaining=0 entered_ns=7851243680914",
+    "2026-10-10 18:15:53.382 T:2273     info <general>: Private source transition: pts=14250000 direct=true prefetch=false overlay=true setup_ms=0.379127 prior_gl_ms=12.201601 render_call_ms=77.921069 drain_ms=0.001889 processing_ms=90.125392 remaining=0 entered_ns=7851369130602",
+    "2026-10-10 18:15:53.510 T:2273     info <general>: Private source transition: pts=14333333 direct=true prefetch=false overlay=true setup_ms=0.322919 prior_gl_ms=15.036494 render_call_ms=78.397092 drain_ms=0.001742 processing_ms=93.436176 remaining=0 entered_ns=7851494145732",
+    "2026-10-10 18:15:53.634 T:2273     info <general>: Private source transition: pts=14416666 direct=true prefetch=false overlay=true setup_ms=0.294081 prior_gl_ms=15.292896 render_call_ms=77.671278 drain_ms=0.001745 processing_ms=92.967062 remaining=0 entered_ns=7851618234803",
+    "2026-10-10 18:15:53.760 T:2273     info <general>: Private source transition: pts=14500000 direct=true prefetch=false overlay=true setup_ms=0.312132 prior_gl_ms=15.245744 render_call_ms=77.869381 drain_ms=0.001863 processing_ms=93.11821 remaining=0 entered_ns=7851743947809",
+    "2026-10-10 18:15:53.881 T:2273     info <general>: Private source transition: pts=14583333 direct=true prefetch=false overlay=true setup_ms=0.341844 prior_gl_ms=12.271435 render_call_ms=77.713438 drain_ms=0.002011 processing_ms=89.988251 remaining=0 entered_ns=7851868609452",
+    "2026-10-10 18:15:54.010 T:2273     info <general>: Private source transition: pts=14666666 direct=true prefetch=false overlay=true setup_ms=0.30863 prior_gl_ms=15.04196 render_call_ms=78.432288 drain_ms=0.001898 processing_ms=93.477178 remaining=0 entered_ns=7851994127212",
+    "2026-10-10 18:15:54.135 T:2273     info <general>: Private source transition: pts=14750000 direct=true prefetch=false overlay=true setup_ms=0.362175 prior_gl_ms=15.527115 render_call_ms=77.879188 drain_ms=0.002093 processing_ms=93.409508 remaining=0 entered_ns=7852118519068",
+    "2026-10-10 18:15:54.259 T:2273     info <general>: Private source transition: pts=14833333 direct=true prefetch=false overlay=true setup_ms=0.284767 prior_gl_ms=15.353988 render_call_ms=77.851345 drain_ms=0.001875 processing_ms=93.21223 remaining=0 entered_ns=7852243466346",
+    "2026-10-10 18:15:54.379 T:2273     info <general>: Private source transition: pts=14916666 direct=true prefetch=false overlay=true setup_ms=0.220299 prior_gl_ms=11.860179 render_call_ms=76.817581 drain_ms=0.001705 processing_ms=88.68563 remaining=0 entered_ns=7852367290322",
+    "2026-10-10 18:15:54.510 T:2273     info <general>: Private source transition: pts=15000000 direct=true prefetch=false overlay=true setup_ms=0.292209 prior_gl_ms=15.138287 render_call_ms=78.447853 drain_ms=0.001696 processing_ms=93.589001 remaining=0 entered_ns=7852493836271",
+    "2026-10-10 18:15:54.634 T:2273     info <general>: Private source transition: pts=15083333 direct=true prefetch=false overlay=true setup_ms=0.25181 prior_gl_ms=15.14844 render_call_ms=77.644479 drain_ms=0.001724 processing_ms=92.795765 remaining=0 entered_ns=7852618545538",
+    "2026-10-10 18:15:54.760 T:2273     info <general>: Private source transition: pts=15166666 direct=true prefetch=false overlay=true setup_ms=0.324128 prior_gl_ms=15.107452 render_call_ms=77.910342 drain_ms=0.001658 processing_ms=93.020671 remaining=0 entered_ns=7852744329703",
+    "2026-10-10 18:15:54.882 T:2273     info <general>: Private source transition: pts=15250000 direct=true prefetch=false overlay=true setup_ms=0.36918 prior_gl_ms=12.394593 render_call_ms=77.868317 drain_ms=0.001818 processing_ms=90.265537 remaining=0 entered_ns=7852868896801",
+    "2026-10-10 18:15:55.010 T:2273     info <general>: Private source transition: pts=15333333 direct=true prefetch=false overlay=true setup_ms=0.307637 prior_gl_ms=15.317681 render_call_ms=78.336569 drain_ms=0.001756 processing_ms=93.656977 remaining=0 entered_ns=7852993885918",
+    "2026-10-10 18:15:55.134 T:2273     info <general>: Private source transition: pts=15416666 direct=true prefetch=false overlay=true setup_ms=0.265761 prior_gl_ms=15.259053 render_call_ms=77.626637 drain_ms=0.001732 processing_ms=92.888305 remaining=0 entered_ns=7853118541033",
+    "2026-10-10 18:15:55.259 T:2273     info <general>: Private source transition: pts=15500000 direct=true prefetch=false overlay=true setup_ms=0.328187 prior_gl_ms=14.104956 render_call_ms=77.938445 drain_ms=0.001877 processing_ms=92.046362 remaining=0 entered_ns=7853244462331",
+    "2026-10-10 18:15:55.380 T:2273     info <general>: Private source transition: pts=15583333 direct=true prefetch=false overlay=true setup_ms=0.408988 prior_gl_ms=10.449086 render_call_ms=77.816833 drain_ms=0.001732 processing_ms=88.268689 remaining=0 entered_ns=7853369175789",
+    "2026-10-10 18:15:55.511 T:2273     info <general>: Private source transition: pts=15666666 direct=true prefetch=false overlay=true setup_ms=0.333397 prior_gl_ms=14.789971 render_call_ms=79.200497 drain_ms=0.0017 processing_ms=93.99325 remaining=0 entered_ns=7853494619309",
+    "2026-10-10 18:15:55.634 T:2273     info <general>: Private source transition: pts=15750000 direct=true prefetch=false overlay=true setup_ms=0.270223 prior_gl_ms=14.864778 render_call_ms=77.696241 drain_ms=0.001846 processing_ms=92.564157 remaining=0 entered_ns=7853618437678",
+    "2026-10-10 18:15:55.760 T:2273     info <general>: Private source transition: pts=15833333 direct=true prefetch=false overlay=true setup_ms=0.314518 prior_gl_ms=15.449206 render_call_ms=77.964636 drain_ms=0.001783 processing_ms=93.416623 remaining=0 entered_ns=7853743616085"
+  ]
+}

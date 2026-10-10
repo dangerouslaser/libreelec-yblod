@@ -91,10 +91,10 @@ diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm
 index 335b3e6..21f531c 100644
 --- a/xbmc/windowing/gbm/WinSystemGbm.h
 +++ b/xbmc/windowing/gbm/WinSystemGbm.h
-@@ -89,6 +89,8 @@ public:
- 
+@@ -90,6 +90,8 @@ public:
  protected:
    void OnLostDevice();
+   void OnResetDisplay();
 +  // Commits the mode SetFullScreen() just selected; a subclass may carry it in its own commit.
 +  virtual bool CompleteModeset();
  

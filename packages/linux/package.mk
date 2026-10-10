@@ -16,15 +16,15 @@ PKG_PATCH_DIRS="${LINUX}"
 
 case "${LINUX}" in
   amlogic)
-    PKG_VERSION="8d3ae59288f1e7d58d76558a6ee96d533bc5019f" # 7.2.0
-    PKG_SHA256="2aa2222302771165aa398c30bf66aca1a2433dd1a3b36db43e7157689a090a97"
+    PKG_VERSION="72d3fcf802c45d00b300f25b848a93c3a2bd7c7e" # 7.3-rc5
+    PKG_SHA256="f265c0eeb342d2f697c0ede885dcca5292e89bd6100ea3265fed409c589e537d"
     PKG_URL="https://github.com/torvalds/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="default dvb"
     ;;
   raspberrypi)
-    PKG_VERSION="703bc4e92a9f98d797f0289bf2adb1e8b04c4bbb" # 6.18.54
-    PKG_SHA256="0a392194f861b01897984d4f547c6f746a63fe91dd42e8625226d4da0e2eb462"
+    PKG_VERSION="af73e0836bf0b6c0218a18131b9a975c319d8e2a" # 6.18.55
+    PKG_SHA256="44d7fbe65f96ed0f48b965ba22d30859197385c7fc764b281064dfca8bfa7cbf"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="raspberrypi"
@@ -37,8 +37,8 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="default rockchip"
     ;;
   *)
-    PKG_VERSION="7.2.8"
-    PKG_SHA256="12e8d5a973d1ad7c5a5c69882e4022b131ed715db7003fdcd760ddf8c3e51941"
+    PKG_VERSION="7.2.9"
+    PKG_SHA256="b4c5dfbe51a364a6c7f03869200f88c8e1f77403539005f14b7fc6bc91b8d8ba"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     case ${DEVICE} in
@@ -269,6 +269,7 @@ make_target() {
       NO_LIBPFM4=1 \
       NO_LIBBABELTRACE=1 \
       NO_CAPSTONE=1 \
+      NO_RUST=1 \
       NO_LIBPFM4=1 \
       BUILD_BPF_SKEL=0 \
       CROSS_COMPILE="${TARGET_PREFIX}" \

@@ -1,0 +1,44 @@
+Live MPEG-TS single-open candidate — 2026-10-10
+
+Change
+kodi-9999-yblod-09-live-single-open.patch retains the first successful
+avformat_open_input for realtime MPEG-TS only. Other formats and non-live
+inputs retain the existing reopen with load_all_variants=0. The second open
+uses the existing options variable so the common cleanup frees its dictionary.
+No changes to probing limits, buffering, decode, or refresh-rate matching.
+
+Build/test
+Incremental matching LibreELEC SDK build passed (4 workers, 7 GiB cap).
+Candidate Kodi SHA256:
+b61bb7640ff362a4d750017d8091ecd910eef6ecb3163da0ae290e394fa1d97c
+Temporarily bind-mounted on VM 192.168.1.175 over persistent pre4-test2.
+N150 unchanged. No public release created.
+Same debug logging and forwarding LD_PRELOAD timing probe as baseline,
+QMS ON, fallback FPS OFF, debug overlay OFF. Five 14-second samples.
+
+Seconds: baseline -> candidate (matching sequence, not simultaneous trials)
+Sample                  Request -> AVStart       Input -> final HDMI commit
+Menu -> Sky             4.485 -> 3.038             4.107 -> 2.736
+Sky -> WCVB #1          3.804 -> 2.413             3.675 -> 2.551
+WCVB -> Sky #1          4.075 -> 2.493             4.307 -> 2.448
+Sky -> WCVB #2          4.097 -> 2.355             3.953 -> 2.239
+WCVB -> Sky #2          4.121 -> 2.635             4.407 -> 2.685
+
+All five candidate runs made exactly ONE successful MPEG-TS open versus TWO
+in every traced baseline run. Single-open durations: 1.494, 1.458, 1.500,
+1.538, 1.556 seconds respectively. Renderer selected 50 fps for Sky and
+59.94 fps for WCVB throughout. No separate find_stream_info call required.
+User confirmed normal picture/sound and noticeably faster switching.
+User also observed a black interval between Sky and Channel 5. This fix does
+not remove HDMI transitions: logs still show separate HDR/refresh commits.
+Sky is HLG/50 fps; WCVB SDR/59.94 fps. Physical display blackout duration is
+not measured, and must not be inferred from the AVStart notification.
+
+Limits / next work
+Small sample set subject to provider/keyframe timing; not latency percentiles.
+No automated pixel/audio correctness comparison. HLS, reconnect failures,
+long playback and movie regression have not been runtime-tested here; their
+selection paths are preserved by the narrow condition.
+Next investigate coordinating initial HDR and refresh commits rather than
+reducing format probing or disabling correct refresh/color-space selection.
+Sanitized captures: docs/data/live-zap-20261010/zap-single-*.json.

@@ -1,0 +1,88 @@
+N150 4K60 OSD exploration
+========================
+
+Gemini Man, 59.940 fps, starting at 03:00, Estuary, 4K GUI, pre7 Kodi.
+Controls opened once after the playback clock advanced two seconds and checked
+visible every two seconds for 30 seconds. No debug overlay. Profiling flags:
+DV_SOURCE_PROFILE_ASYNC, DV_SOURCE_WAIT_PROFILE, DV_OVERLAY_PROFILE,
+DV_PRIVATE_FRAME_TIMING and DV_PRIVATE_TRANSITION_TIMING. First 24 selected
+records excluded; bounded profiling captures early playback, not all 30 seconds.
+Host processing/wait totals are NOT GPU time and cannot be added to GPU times.
+
+Initial profiled medians (ms):
+                         Host processing   GUI prepare GPU   Pack/blend GPU
+Pre7 cached GUI               20.645             4.648           11.094
+Fused (pixel cache OFF)        12.781             none            11.017
+Sparse cached reads           18.857             4.624            9.005
+
+Same candidate binary with sparse OFF repeated at 21.411 ms host processing,
+4.902 ms GUI preparation and 11.140 ms packing. Host p95: initial baseline
+23.190, fused 18.037, sparse 21.078, baseline repeat 25.208 ms. Every p95 exceeds
+the 16.683 ms frame budget. Full summary statistics, sample counts, OSD visibility
+checks and health-counter intervals are in data/osd-exploration-20261010/summary.json.
+These are short exploratory captures with bounded early timing samples and
+run-to-run variation, not a release-quality performance qualification.
+
+All runs still reported drops. Sparse reads also reported skips; improved
+kernel time is not a smoothness qualification. The fused route's later health
+interval worsened despite its better early timing samples. A profiling-OFF
+repeat also dropped frames: this is not merely diagnostic logging overhead.
+Do not globally disable the pixel cache: prior Home tests demonstrated its
+large benefit for complex full-screen GUI images.
+
+1. Asynchronous overlays
+------------------------
+The engine already exposes deferred pack_begin/pack_complete with overlay
+arguments, but Kodi intentionally queues ahead only after movie-only frames.
+On overlay appearance it cancels speculative clean packing. Kodi can overwrite
+its GUI texture on the next render, so passing that same texture to a pending
+pack without a lease would create a GL/OpenCL ownership race.
+
+Recommended prerequisite: pass an explicit GUI render revision to the engine.
+Only reuse prepared GUI colours when revision, texture/geometry/flip and the
+exact colour coefficients match. Invalidate on clear, hide/show, recreation,
+seek/reset, failed preparation and metadata colour changes. This can eliminate
+the full-image key comparison pass when Kodi already knows it skipped redraw.
+Then explore one pending overlay pack backed by immutable cached GUI state,
+with completion/drain before overwriting that state and revision validation at
+presentation. Changed overlays must cancel/regenerate, not show stale controls.
+Keep frame ID, PTS, packet ID and display refresh tied to the existing slot lease.
+No asynchronous overlay implementation or speedup is claimed by these tests.
+
+2. Work proportional to covered pixels
+--------------------------------------
+DV_OVERLAY_SPARSE=1 is an OFF-by-default prototype requiring pixel caching.
+The pack shader first reads the existing RGBA key. For alpha zero it returns
+the same zero float4 as the normal conversion and avoids the float4 colour read.
+Visible samples, rounding, chroma's neighbouring samples and tunnel metadata
+are unchanged. No new buffers, reduced precision or shader-based skin rules.
+Synthetic GPU checks on N150 compare float bits, including clamped neighbours,
+pixel changes, flip, transparent clear and coefficient invalidation; stale
+coefficients remain a deliberately detected negative control.
+This is helper-level accuracy evidence, not a full HDMI or movie-pixel oracle.
+
+The existing GUI-coverage diagnostic consumed all three readbacks during
+startup before movie presentation. Those readings are NOT qualified steady
+Estuary OSD coverage, and its run is excluded from performance comparisons.
+Tile/rectangle dispatch should wait for a correctly gated coverage capture.
+Keep the one-pixel chroma halo and clear regions when controls disappear.
+
+3. Fewer passes
+---------------
+Blending and tunnel packing are ALREADY fused. The separable cost is GUI colour
+preparation/key scanning and its full-frame buffers. Existing pixel-cache-OFF
+mode computes GUI colour in the packer and avoids that preparation pass.
+It improved early OSD timings but is not an acceptable universal replacement.
+Revision-based reuse is the preferred next implementation: retain caching for
+expensive menus while skipping redundant scans of unchanged controls.
+
+Reproduce with tools/yblod/profile-native-playback.py HOST FILE OUTPUT
+--overlay controls --start-seconds 180 --seconds 30. Set flags with a temporary
+service override, restarting Kodi between routes. ShowOSD is a toggle: do not
+repeat it to keep controls visible. Measure without coverage/oracle readback.
+Release defaults are unchanged. No new release is warranted by this experiment.
+
+Cleanup: removed the N150's two temporary engine/shader bind mounts and disabled
+the temporary profiling service override; restarted normal pre7. Restored hashes:
+engine fed0f2a5635ae4e78d28e6ebffb50b033bb5b2a27e3d7a4c8b74f214c50fb75b
+shader 956f5ad236cfbffe60618d594076e115710a02857ed85468facfee0e2bbdf3b9

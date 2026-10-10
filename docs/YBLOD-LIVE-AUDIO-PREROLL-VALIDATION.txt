@@ -1,0 +1,49 @@
+Live audio preroll candidate — 2026-10-10
+
+Change
+For realtime streams with a valid initial audio timestamp, initialize the
+clock from actual buffered audio plus 100 ms headroom, rather than maximum
+audio capacity plus 400 ms. Existing video timestamp constraint, unknown-PTS
+fallback, non-realtime behavior and ongoing synchronization remain unchanged.
+100 ms is an experimental safety margin, not a proven minimum for all feeds.
+
+VM candidate SHA256
+63385b2a09e1ba1d229221154df5ca7333a67d3570b5cf6747792f01f3401420
+Baseline: 403a00ebb596f12bc18777710d643bc34f3020e637e7d820f9fb41d5e57e3778
+Both include single-open and coordinated-display changes. QMS ON, FPS fallback
+OFF, debug logging without GUI overlay. No LD_PRELOAD used in these runs.
+Build passed with 4 workers/7 GiB. Temporary binary bind on VM; N150 unchanged.
+
+Primary user-requested transition: Channel 5 (405) -> ESPN (1080p, 632).
+Both render at 59.94 fps; no display signal commit during this transition.
+Initial audio sync correction:
+  Baseline: 698.044 ms; first below-30-ms correction logged 650 ms later.
+  Candidate #1: 117.519 ms; below 30 ms 50 ms later.
+  Candidate #2: 113.089 ms; below 30 ms 50 ms later.
+Mean candidate initial correction 115.304 ms, about 583 ms / 83% lower.
+This measures software synchronization, NOT physical audible-start latency.
+Only one fresh baseline and two candidate ESPN trials; provider timing varies.
+
+Additional checks
+Sky baseline initial errors: 695.945 ms (menu) and 949.012 ms (from Channel 5).
+Sky candidate from ESPN: 134.335 ms, converged within 101 ms. Different incoming
+channel, so this is corroborating evidence, not a matched speedup comparison.
+Channel 5 candidate initial errors: -273.475, -313.157, +58.225 ms, each corrected
+below 30 ms in the same logged adjustment cycle. Its initial audio timestamp
+was unavailable: the video-anchored fallback is unchanged by this patch.
+The large pts value in its JSON is Kodi's DVD_NOPTS_VALUE sentinel.
+No logged 'Stream stalled, start buffering' in six 20-second candidate samples;
+no ERROR/WARNING/underrun in the inspected candidate log. No long-run or adverse
+network test, passthrough test, or objective acoustic/lip-sync measurement.
+
+Soundbar caveat
+Current output changes from stereo 48 kHz PCM on Channel 5 to 5.1 48 kHz PCM
+on ESPN (AAC vs E-AC-3 decoded in Kodi; no passthrough in observed streams).
+The soundbar may reacquire the changed PCM layout after Kodi supplies audio.
+Do not confuse that remaining hardware delay with this software correction.
+Audio settings were not changed. User listening/lip-sync confirmation pending.
+
+Sanitized evidence: docs/data/live-audio-20261010/audio-before-*.json and
+audio-after-*.json. Measurement tool now includes numeric sync errors, timing
+inputs, sink-ready and stall events without exposing provider URLs.
+Candidate remains experimental, volatile until reboot; no new release.

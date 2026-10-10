@@ -1,0 +1,171 @@
+Native profiling investigation
+===========================================
+
+Target: N150 at 192.168.1.179. Ollie was actively used and was not disturbed.
+Temporarily bind-mounted the pre6 Kodi/engine binaries over the older installed
+runtime. SHA256s match the pre6 runtime manifest. No kernel/settings change.
+Profiling environment is loaded through /run/systemd/system/kodi.service.d/
+90-profile.conf from /storage/yblod-profile-20261010/profile.env. These overrides
+must be removed/restored when profiling is finished. Tests stop their playback.
+
+Profiling flags: DV_SOURCE_PROFILE_ASYNC, DV_SOURCE_SUBMIT_TRACE,
+DV_OVERLAY_PROFILE, DV_PRIVATE_FRAME_TIMING, DV_PRIVATE_TRANSITION_TIMING.
+Existing GPU event instrumentation is bounded (120 reconstruction samples,
+120 clean pack samples, 240 overlay samples). It does not describe an entire
+20-second run. Startup/compiler warm-up and profiling overhead remain relevant.
+
+tools/yblod/profile-native-playback.py records selected timing messages only,
+not raw logs, media URLs, or credentials. A per-host lock prevents overlapping
+runs. Pilot captures are explicitly unqualified: an initial run included a
+busy dialog and the next run overlapped its collection interval. They must not
+be used as clean-playback results. Subsequent runs explicitly select fullscreen
+or Home, and are sequential.
+
+Preliminary medians (first 24 records of each series excluded):
+- P8.4 clean: reconstruction 12.220 ms, packing 5.811 ms.
+- P8.4 clean Kodi timings: prior GL 0.287 ms, render call 9.051 ms,
+  post-call drain 0.0056 ms, reported processing 10.951 ms.
+- P8.4 Home: overlay packing 62.851 ms, host overlay preparation 0.109 ms.
+- FEL clean: phase 2.634 ms, vertical 2.938 ms, luma 3.826 ms,
+  chroma/MMR 8.661 ms, packing 4.979 ms.
+- FEL clean last health report: 23.976 fps, 0 drop/skip totals, not stalled.
+
+These GPU and host intervals overlap. Do not sum them into frame latency or
+subtract independent medians to estimate idle time. Home is a full-screen GUI,
+not a small playback-controls overlay. Scene-specific results are not general
+movie benchmarks. Raw selected samples are in docs/data/native-profile-20261010.
+
+Verified source findings:
+- Kodi already pre-submits reconstruction. Packing calls source_output_ready,
+  which waits for reconstruction plus its small host range check.
+- The packer waits for GL ownership release before returning. Subsequent drains
+  may be cheap redundant calls, not extra full-frame GPU processing.
+- Movie planes stay GPU-resident; metadata/coefficient/error transfers are
+  distinct from downloading decoded movie frames.
+- FEL regenerates mapping/residual tables per frame; the general single-layer
+  route already caches unchanged reshaping tables.
+- Overlay coefficient/error writes and an error read are blocking. Gray lookup
+  preparation is dispatched per overlay frame. Need timing/caching analysis.
+
+Detailed wait results
+---------------------
+DV_SOURCE_WAIT_PROFILE adds host timestamps only, with no added GPU waits or
+pixel changes. Successful captures retain up to 480 presentations; exclude the
+first 24 records for each selected overlay state. Times below are medians in ms.
+
+                            P8.4 clean    FEL clean    P8.4 Home
+Reconstructed-output wait       0.124        0.161       12.196
+Overlay preparation             0.0001       0.0001       0.107
+Packet upload                   0.023        0.023        0.002
+Acquire/arguments/enqueue        0.257        0.254        0.122
+Overlay error read              0.001        0.001       63.299
+Release/drain                   8.715        8.772        0.232
+
+P8.4 clean waits above use p84-waits-clean; FEL/Home use *-waits-memory.
+Reconstructed-output wait includes metadata packing/geometry setup before the
+wait. Release/drain includes ownership transfer, remaining GPU work, event
+collection and resource release: it is NOT 8.8 ms of removable idle time.
+Similarly the overlay error read waits for the preceding GPU overlay kernel.
+GPU event execution time excludes scheduling/queue delay; independent medians
+cannot reliably apportion the remainder of a host wait.
+
+Repeated measurements and overhead
+----------------------------------
+Same fixtures and 20-second memory-counter interval; 453 filtered Kodi records
+per series. Host timing retained in all cases. No optimization was enabled.
+
+                       Host timing only      GPU + host/wait profiling
+P8.4 processing p50        10.984 ms                 11.093 ms
+P8.4 processing p95        12.386 ms                 12.472 ms
+FEL processing p50         13.184 ms                 13.367 ms
+FEL processing p95         13.791 ms                 14.080 ms
+
+Observed median difference: +1.0% P8.4, +1.4% FEL. This is not a rigorous
+statistical overhead bound (single paired runs, host logging remains enabled).
+Earlier clean repeats gave 10.951/13.292 ms medians, consistent with this scale.
+Clean captures reported no drops/skips. Home is visibly expensive in timing:
+P8.4 processing p50 92.533 ms, FEL Home 100.765 ms in the initial matrix. These
+are NOT comparable to small playback controls. Home health counters reporting
+zero drops do not establish smooth video: PTS advanced only to ~13.75 seconds
+at the 20-second health report. Output attempts are not successful frame flips.
+
+Memory traffic
+--------------
+perf uncore_imc_free_running_0/data_read/ and data_write/ report MiB; both ran
+100% of the sampled interval. Values below are whole-system MiB/s, not GPU-only.
+
+                       Read        Write       Total
+P8.4 clean             4329         2193        6522
+FEL clean              5425         2755        8180
+P8.4 Home              3626         2579        6204
+Idle Home, 10 seconds  1302.54        19.78      1322.32
+
+Idle raw counts/runtime: read 13027.45 MiB / 10001561933 ns;
+write 197.83 MiB / 10001558659 ns. Idle mode/refresh differs from playback;
+do not subtract it as an exact engine baseline. Home presents fewer frames,
+so its lower bytes/second does not prove lower bytes/frame. No memory-saturation
+claim is made without a bandwidth ceiling and attribution counters.
+
+Logical working-set accounting at 3840x2160 (decimal MB; not DRAM counters):
+- Decoded P010 BL: 24.883 MB; half-size EL: 6.221 MB.
+- Reconstructed 4:2:0 planes: 24.883 MB; full-height 4:2:2: 33.178 MB.
+- Separate reconstruction write + packing read: at least 49.766 MB (420) or
+  66.355 MB (422) of logical plane traffic/frame, before filters/cache effects.
+- Packed RGBA scanout write: 33.178 MB/frame; display scanout is additional.
+- GUI RGBA texture: 33.178 MB. Current shared-neighbour blend evaluates three
+  GUI samples per two output pixels: 12,441,600 calls/frame; texture caches can
+  reuse bytes, but coloured samples still repeat nonlinear colour calculations.
+- Gray lookup regenerated per overlay frame: 65536 float4 entries, 1 MiB.
+- Packet upload <=640 bytes/frame; GUI coefficients 124 bytes plus 4-byte
+  error clear/read. These tiny transfers matter for synchronization, not volume.
+- No decoded-plane CPU download in the live path; diagnostic check/readback is
+  disabled. Optional float4 GUI prepass would add 132.710 MB storage and is OFF.
+
+Duplicated work and ranked next experiments
+------------------------------------------
+1. Cache GUI colour conversion using BOTH GUI content generation and the movie
+   colour-transform coefficients as the key. Static GUI alone is insufficient
+   because movie metadata can change. Preserve alpha, colour math, siting and
+   paused-frame updates. Also cache the 1 MiB gray lookup when coefficients are
+   identical. This targets the measured full-screen overlay bottleneck. Avoid
+   blindly enabling the full-frame float4 prepass: it trades math for traffic.
+2. Experiment with deferred pack completion on a bounded output-slot pool.
+   Reconstruction is already prefetched: clean output wait is ~0.1 ms. The
+   potential benefit is releasing Kodi from the ~8.8 ms packing handoff, not
+   making that GPU work disappear. Keep frame/RPU identity and fences per slot;
+   never recycle a scanned-out buffer. Measure latency, queue depth, memory and
+   actual delivery as well as CPU time. More asynchronous frames will not turn
+   a 63 ms overlay kernel into 24 fps and could increase memory contention.
+3. Explore exact-output reconstruction/packing fusion, starting with the
+   single-layer route, to reduce intermediate plane traffic. Sampling order and
+   range checks must be preserved; this is not a recommendation to change API.
+4. Cache unchanged FEL mapping/residual preparation and associated small uploads.
+   The current path rebuilds 1024 luma mappings, 1024 luma residual entries and
+   chroma tables each frame; general single-layer mapping already caches these.
+   Initial non-compilation FEL submit examples total ~1.1–1.2 ms, with import
+   ~0.06 ms and vaSync ~0.02 ms. These are startup observations, not a robust
+   steady-state CPU breakdown, so expected savings must not be overstated.
+5. Do not prioritize removing repeated drain calls or glFinish blindly. The
+   post-render Kodi drain is ~0.006 ms and prior GL wait ~0.28–0.29 ms. They
+   protect ownership; their presence alone is not evidence of a large stall.
+
+For clean P8.4 and FEL, each of 456 post-warm-up profiled presentations had a
+unique PTS. No duplicate clean movie-frame generation was observed in that
+window. This does not establish behavior when paused, seeking or redrawing GUI.
+
+Scope and handoff
+-----------------
+This audit profiles the active native 4K P7 FEL and P8.4 routes on N150; it is
+not a claim about all profiles, films, hardware or display latency. No rendering
+optimization or asynchronous redesign was implemented. Profiler code is opt-in
+and does not change arithmetic. Full paired-frame accuracy testing is required
+before accepting any of the ranked experiments. Reproduce summaries with
+tools/yblod/summarize-native-profile.py docs/data/native-profile-20261010.
+
+Cleanup verified: N150 profiling drop-in moved out of /run/systemd/system,
+both binary bind mounts removed, Kodi restarted and JSON-RPC ping succeeded.
+Restored original installed Kodi SHA256:
+63385b2a09e1ba1d229221154df5ca7333a67d3570b5cf6747792f01f3401420
+Restored original installed engine SHA256:
+c741e415b7d3023dd3d872cfb561284c11a687f72d8c28952331d6be0f99dbfc
+Ollie's tested pre6 runtime and public pre6 assets were not modified.

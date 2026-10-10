@@ -21,7 +21,7 @@ for JOBS in ${BUILD_JOBS:-7 5 3}; do
   docker run --rm --name yblod-build --cpu-shares 256 --memory "$MEM" --memory-swap "$MEM" \
     -v "$T":/build -w /build \
     -e PROJECT=Generic -e DEVICE=Generic -e ARCH=x86_64 \
-    -e CONCURRENCY_MAKE_LEVEL="$JOBS" -e THREADCOUNT=4 \
+    -e CONCURRENCY_MAKE_LEVEL="$JOBS" -e CMAKE_BUILD_PARALLEL_LEVEL="$JOBS" -e THREADCOUNT=4 \
     -e CUSTOM_VERSION="yblod-$V" -e BUILDER_NAME=yblod \
     "$IMAGE" bash -c "make image" >> "$LOG" 2>&1
   rc=$?

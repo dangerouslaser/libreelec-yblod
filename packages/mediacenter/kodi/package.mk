@@ -3,8 +3,8 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="22.0rc1-Piers"
-PKG_SHA256="21daa839b978ff3fc6a7a058717fe9232f1ae4087d492b31c288eeffb2a7a447"
+PKG_VERSION="63063c8e67b1f162761763c0cbdb1a5dcfc3a47e"
+PKG_SHA256="5fcb34a6541199426522c72bcc211b6e0a78d59e23ca1b4b6b04cd618ee4712d"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
@@ -45,6 +45,9 @@ configure_package() {
 
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     PKG_DEPENDS_TARGET+=" pciutils"
+    if [ "${PROJECT}" = "Generic" ]; then
+      PKG_DEPENDS_TARGET+=" native-dv"
+    fi
   fi
 
   PKG_DEPENDS_TARGET+=" dbus"
@@ -240,7 +243,7 @@ configure_package() {
     KODI_LIRCCLIENT="-DENABLE_LIRCCLIENT=OFF"
   fi
 
-  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Rockchip" ]; then
+  if [ "${PROJECT}" = "Allwinner" -o "${PROJECT}" = "Amlogic" -o "${PROJECT}" = "Rockchip" ]; then
     PKG_PATCH_DIRS+=" drmprime-filter"
   fi
 

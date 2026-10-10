@@ -1,0 +1,142 @@
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 7690afc0..52f7fe91 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -344,8 +344,8 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+ {
+ #ifdef HAVE_DVBRIDGE
+-  // Renderer teardown turns compositing off; the menu output still needs it.
+-  if (m_dvMenu && colorTransfer == 0)
++  // Renderer teardown turns compositing off; held DV output still needs it.
++  if ((m_dvMenu || m_dvStartup) && colorTransfer == 0)
+     return m_guiCompositing;
+ #endif
+   m_guiCompositing = (colorTransfer != 0);
+@@ -975,12 +975,13 @@ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
+   const bool sameDepth = VideoOutputBitDepth(picture) == GetOutputBitDepth();
+   const bool keepHeldStop = m_dvExitPending && !picture && sameDepth;
+   // The menu output continues into native DV video, and through the teardown that handed it back.
+-  const bool keepMenu = m_dvMenu && sameDepth &&
++  const bool keepMenu = (m_dvMenu || m_dvStartup) && sameDepth &&
+                         (!picture || (DVBridgeRequested(picture) &&
+                                       DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard));
+   if (keepMenu && picture)
+   {
+     m_dvMenu = false;
++    m_dvStartup = false;
+     m_dvMenuModeset = false;
+     m_dvBridge->Reset();
+     CLog::Log(LOGINFO, "DVBridge: menu output handed to the video");
+@@ -1000,6 +1001,12 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+                                             const CDVMetadataBuffer& metadata,
+                                             dvbridge_geometry geometry)
+ {
++  if (m_dvStartup)
++  {
++    m_dvStartup = false;
++    m_dvBridge->Reset();
++    CLog::Log(LOGINFO, "DVBridge: startup output handed to the video");
++  }
+   m_dvFrame = false;
+   if (auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM); drm && !drm->DVRetryReady())
+     return false;
+@@ -1050,6 +1057,7 @@ void CWinSystemGbmGLESContext::PrefetchDVBridge(const CDVBridgeGLES::Layer& laye
+ 
+ bool CWinSystemGbmGLESContext::EndDVBridge()
+ {
++  m_dvStartup = false;
+   m_dvExitPending = false;
+   m_dvMenu = false;
+   m_dvMenuModeset = false;
+@@ -1166,6 +1174,14 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
+   }
+   if (m_dvModesetDeferred)
+   {
++    const char* startup = std::getenv("DV_PRIVATE_STARTUP_SIGNAL");
++    if ((!startup || std::strcmp(startup, "0") != 0) &&
++        DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard && BeginDVStartup())
++    {
++      m_dvModesetDeferred = false;
++      m_dvModesetDeadline.Set(10000ms);
++      return true;
++    }
+     // The bridge's first commit carries the mode (see PresentRender).
+     m_dvModesetDeadline.Set(3000ms);
+     CLog::Log(LOGINFO, "DVBridge: refresh change left to the first native frame");
+@@ -1174,8 +1190,62 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
+   return CWinSystemGbm::CompleteModeset();
+ }
+ 
++bool CWinSystemGbmGLESContext::BeginDVStartup()
++{
++  // Establish the final HDMI signal while clients are still display-lost, before
++  // decoding releases the playback clocks. The black frame carries valid metadata.
++  if (!BeginDVBridge())
++    return false;
++  CFrameBufferObject black;
++  bool presented = false;
++  if (black.Initialize() &&
++      black.CreateAndBindToTexture(GL_TEXTURE_2D, m_nWidth, m_nHeight, GL_RGBA) &&
++      black.BeginRender())
++  {
++    const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
++    GLboolean mask[4];
++    GLfloat colour[4];
++    glGetBooleanv(GL_COLOR_WRITEMASK, mask);
++    glGetFloatv(GL_COLOR_CLEAR_VALUE, colour);
++    glDisable(GL_SCISSOR_TEST);
++    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
++    glClearColor(0, 0, 0, 1);
++    glClear(GL_COLOR_BUFFER_BIT);
++    glClearColor(colour[0], colour[1], colour[2], colour[3]);
++    glColorMask(mask[0], mask[1], mask[2], mask[3]);
++    if (scissor)
++      glEnable(GL_SCISSOR_TEST);
++    black.EndRender();
++    if (m_dvBridge->PrepareGraphics(400.0f, 0.0) &&
++        m_dvBridge->PackGraphics(black.Texture(), 0, m_nWidth, m_nHeight, true, 1.0f, 0, false))
++    {
++      glFinish();
++      if (m_eglContext.TrySwapBuffers())
++        presented = FlipDVBridgePage(m_dvState, false);
++    }
++  }
++  black.Cleanup();
++  m_dvBridge->Presented(presented);
++  if (!presented)
++  {
++    EndDVBridge();
++    CLog::Log(LOGWARNING, "DVBridge: startup signal unavailable, using first-frame handoff");
++    return false;
++  }
++  m_dvStartup = true;
++  CLog::Log(LOGINFO, "DVBridge: startup signal established before display reset");
++  return true;
++}
++
+ void CWinSystemGbmGLESContext::UpdateDVMenu()
+ {
++  if (m_dvStartup)
++  {
++    const auto player = CServiceBroker::GetAppComponents().GetComponent<CApplicationPlayer>();
++    if (((player && !player->IsPlaying()) || m_dvModesetDeadline.IsTimePast()) && EndDVBridge())
++      m_dvBridge.reset();
++    return;
++  }
+   const bool enabled = DVBRIDGE::MenuModeEnabled();
+   if (m_dvMenu)
+   {
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 1817df50..89855361 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -125,6 +125,8 @@ private:
+   // restore will follow keeps the signal until that mode change (m_dvExitPending). Both give
+   // up at their deadline and fall back to separate commits.
+   bool m_dvModesetDeferred = false;
++  bool BeginDVStartup();
++  bool m_dvStartup = false;
+   XbmcThreads::EndTime<> m_dvModesetDeadline;
+   bool m_dvExitPending = false;
+   bool m_dvRestoreWithModeset = false;

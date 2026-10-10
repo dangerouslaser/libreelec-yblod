@@ -2,7 +2,7 @@ diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm
 index b8771b1..435996c 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-@@ -158,6 +158,23 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+@@ -158,6 +158,20 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
      return;
  
  #ifdef HAVE_DVBRIDGE
@@ -16,17 +16,14 @@ index b8771b1..435996c 100644
 +      CLog::Log(LOGDEBUG,
 +                "CWinSystemGbmGLESContext::PresentRender - Sending display reset to all clients");
 +      m_dispReset = false;
-+      std::unique_lock lock(m_resourceSection);
-+
-+      for (auto resource : m_resources)
-+        resource->OnResetDisplay();
++      CWinSystemGbm::OnResetDisplay();
 +    }
 +  };
 +
    if (m_hdrConversion)
    {
      bool presented = false;
-@@ -176,6 +193,7 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+@@ -176,6 +190,7 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
      if (m_dvBridge)
        m_dvBridge->Presented(presented);
      m_dvFrame = false;
@@ -34,7 +31,7 @@ index b8771b1..435996c 100644
      return;
    }
    if (m_dvState.Captured())
-@@ -194,6 +212,7 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+@@ -194,6 +209,7 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
      if (m_dvBridge)
        m_dvBridge->Presented(presented);
      m_dvFrame = false;

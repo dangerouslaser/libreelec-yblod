@@ -1,0 +1,107 @@
+Live channel startup measurements — 2026-10-10
+
+Build and scope
+VM 192.168.1.175, persistent pre4-test2, Kodi SHA256
+aeb1423b14549f4281eb4d4ad9b93935579d29b9562a45491e657acbb5024e97.
+QMS enabled; fallback framerate and GUI debug overlay disabled. No stream
+probing, buffering or playlist options were changed during these measurements.
+Source fixes were already pushed through afa567d5 before this investigation.
+
+Method
+tools/yblod/measure-live-zap.py sends Player.Open over TCP JSON-RPC and records
+notification arrival using the client's monotonic clock. A debug-log slice
+records demux, codec, renderer, display and synchronization milestones. Log
+times use the device clock and are relative to the first selected log event;
+use the input_open event to normalize comparisons. API replies are not the
+onset of playback, and Player.OnAVStart is not a physical first-visible-frame
+measurement. In channel-to-channel runs the final HDMI commit often follows
+OnAVStart. Hardware/TV acceptance and visible pixels were not instrumented.
+
+Two initial captures used debug logging only. Five subsequent captures also
+used tools/yblod/live-zap-trace.c as a temporary LD_PRELOAD probe, compiled
+against the matching LibreELEC SDK. It forwards all calls unchanged and times
+avformat_open_input, avformat_find_stream_info, close and initial packets.
+Artwork also opens through FFmpeg: distinguish format=jpeg_pipe/png_pipe
+from the format=mpegts video opens. Probe times are device CLOCK_MONOTONIC;
+do not subtract them directly from local notification times or wall-clock logs.
+Instrumentation may add overhead; these are short controlled samples, not
+population percentiles. No stream URLs or payloads appear in recorded JSON.
+
+Samples (seconds; final column relative to input_open, not request dispatch)
+Sample                    Request -> AVStart   Input -> final HDMI commit
+Menu -> Sky, untraced            4.285                  3.955
+Sky -> WCVB, untraced            3.807                  4.012
+Menu -> Sky, traced              4.485                  4.107
+Sky -> WCVB, traced #1           3.804                  3.675
+WCVB -> Sky, traced #1           4.075                  4.307
+Sky -> WCVB, traced #2           4.097                  3.953
+WCVB -> Sky, traced #2           4.121                  4.407
+Sky is Main Event UHD, HEVC/HLG/50 fps. WCVB is Boston ABC 5, 59.94 fps.
+
+Representative full sequence: traced menu -> Sky
+Relative to input-open log:
+  0.000 s input opening
+  0.001 s demux opening
+  ~0.001..1.520 s first MPEG-TS open (1.519 s)
+  ~1.522..3.027 s second MPEG-TS open (1.505 s), after closing the first
+  3.028 s audio thread starts; video initially lacks codec headers
+  3.303 s video codec opens (first returned video packet is a keyframe)
+  3.332 s decoder supplies 50 fps
+  3.387 s renderer configured at 50 fps
+  3.766 s HLG output committed at existing 60 Hz
+  3.773 s 50 Hz mode selected
+  4.107 s final 50 Hz HLG output committed
+  4.118 s display reset notification
+  4.156..4.157 s AV-start callback and audio/video resynchronization
+Control dispatch and scheduling precede input_open; the independently measured
+request-to-AVStart notification was 4.485 s for this sample.
+
+Confirmed bottleneck
+All five traced channel starts successfully opened MPEG-TS twice, with a close
+between the two opens:
+Sample                    First open   Second open   Combined
+Menu -> Sky                 1.519        1.505          3.024
+Sky -> WCVB #1              1.461        1.439          2.900
+WCVB -> Sky #1              1.570        1.508          3.078
+Sky -> WCVB #2              1.842        1.422          3.264
+WCVB -> Sky #2              1.455        1.610          3.065
+No separate avformat_find_stream_info call was observed in these live runs.
+Open-call timings include network/server response, initial reads, format
+recognition and demux header work; they do not independently measure each.
+The current evidence cannot attribute the ~1.5 s of a single open specifically
+to provider latency versus format/header acquisition.
+
+Code correlation
+Prepared Kodi DVDStreamInfo path starts with unknown FPS for Sky; the tested
+decoder-rate fix now supplies it before renderer configuration.
+In CDVDDemuxFFmpeg::Open, the FFMPEG-input result<0 branch successfully calls
+avformat_open_input, then immediately closes it, allocates a new context and
+opens again with load_all_variants=0. The block is not restricted to HLS.
+This matches the measured pair of successful MPEG-TS opens. It is separate
+from the later transport-stream full-analysis reopen logic.
+FFmpeg's original load_all_variants proposal is specifically an HLS option:
+https://ffmpeg.org/pipermail/ffmpeg-devel/2017-December/221605.html
+
+Ranked next experiments (not implemented by this measurement task)
+1. For realtime MPEG-TS, retain the first successfully opened format context
+   rather than reconnecting. Preserve HLS variant-selection behavior and all
+   failure cleanup. Estimated opportunity: one 1.42..1.61 s open per switch;
+   this is NOT a measured speedup. Validate both channels repeatedly, audio,
+   HEVC headers, late joins, reconnects and movie/HLS paths before broadening.
+2. Coordinate initial HDR and refresh-rate output changes. The representative
+   Sky run first sets HLG at 60 Hz and then changes to 50 Hz. WCVB/Sky switch
+   notifications can claim AV start before the final HDMI commit. This is a
+   separate startup-ordering opportunity, not justification for disabling rate
+   matching. Renderer-to-final-commit spans roughly 0.5..0.9 s in these runs.
+3. After (1), separately measure the remaining single-open network/header wait
+   before touching probe sizes or keyframe/buffer policy. Avoid unconditionally
+   shortening probes: correct codec headers, audio and frame rate are required.
+
+Artifacts and cleanup
+Sanitized per-run JSON: docs/data/live-zap-20261010/.
+Raw debug log (may contain provider URLs; do not publish) remains on VM:
+/storage/native-kodi-fixes-test/zap-final-debug.log
+Sanitized probe output: /storage/native-kodi-fixes-test/zap-probe-events.log
+Original advancedsettings restored; transient LD_PRELOAD service override moved
+out of systemd's config directory and Kodi restarted. No playback implementation
+changes or new release were made as part of this measurement task.
