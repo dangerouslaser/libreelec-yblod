@@ -42,6 +42,9 @@ The pre2 full image was repacked with the tested installed Kodi and release
 identification. Filesystem comparison found only kodi.bin, /etc/os-release and
 /etc/issue changed. Update MD5 checks passed; KERNEL and SYSTEM extracted from
 the USB image match the update tar byte-for-byte.
+The packaged update booted on the VM as yblod-0.2-pre3, with build ID 7559397e.
+Installed Kodi and native-library hashes match the values above. The temporary
+candidate executable bind mount was absent after reboot.
 
 Known scope
 -----------
