@@ -67,6 +67,8 @@ processing measurements, not end-to-end GPU/display latency or proof of visual
 smoothness. They cover these two fixtures, not all profiles or all GUI states.
 The FEL prior-GL median fell from 15.148 ms (pixel cache only) to 0.288 ms with
 raster reuse. Pixel caching alone left FEL Home at 49.225 / 49.750 ms.
+A separate P8.4 Home repeat measured 15.579 / 20.483 ms, consistent with the
+first 15.555 / 20.628 ms result (400 post-warmup timing records).
 
 gui_cache_gpu_tests executed on N150: eight exact float-bit comparisons passed,
 covering unchanged reuse, changed pixels, flip, coefficient invalidation,

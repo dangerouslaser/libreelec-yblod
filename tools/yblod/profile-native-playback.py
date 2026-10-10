@@ -81,7 +81,9 @@ for line in journal.splitlines():
 log = ssh('tail -n +' + str(log_start + 1) + ' /storage/.kodi/temp/kodi.log')
 timings = [line for line in log.splitlines() if any(s in line for s in (
     'Private source transition:', 'Private source frame:', 'DVBridge playback health:',
-    'Private native GUI cache:'))]
+    'Private native GUI cache:', 'Private source async pack:',
+    'Private source GL output verified:', 'Private source GL output verification failed',
+    'Private source renderer rejected', 'Private source renderer ownership could not drain'))]
 a.output.parent.mkdir(parents=True, exist_ok=True)
 a.output.write_text(json.dumps(dict(host=a.host, start_utc=start, overlay=a.overlay,
     duration_seconds=a.seconds, window=window, qualified_window=qualified_window, memory_perf=memory,

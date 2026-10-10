@@ -1,0 +1,150 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+@@ -46,6 +46,8 @@
+   m_prepareOverlays = reinterpret_cast<decltype(m_prepareOverlays)>(dlsym(m_library, "dv_source_renderer_prepare_overlays"));
+   m_presentOverlay = reinterpret_cast<decltype(m_presentOverlay)>(dlsym(m_library, "dv_source_renderer_present_overlay"));
+   m_cancel = reinterpret_cast<decltype(m_cancel)>(dlsym(m_library, "dv_source_renderer_cancel"));
++  m_packBegin = reinterpret_cast<decltype(m_packBegin)>(dlsym(m_library, "dv_source_renderer_pack_begin"));
++  m_packComplete = reinterpret_cast<decltype(m_packComplete)>(dlsym(m_library, "dv_source_renderer_pack_complete"));
+   if (!abi || abi() != 4 || !m_create || !m_render || !m_drain || !m_destroy)
+     return false;
+   const char* direct = std::getenv("DV_PRIVATE_SCANOUT");
+@@ -198,9 +200,17 @@
+     return false;
+   if (m_pending && (!m_cancel || m_cancel(m_engine) != 0))
+   {
++    if (m_packPending) m_scanout->Written(DV_SCANOUT_UNCERTAIN);
+     m_unsafe = true;
+     return false;
+   }
++  if (m_packPending && !m_scanout->Written(DV_SCANOUT_REJECTED))
++  {
++    m_unsafe = true;
++    return false;
++  }
++  m_packPending = false;
++  m_packSubmitMs = 0;
+   m_pending = false;
+   ReleaseInputs();
+   return true;
+@@ -254,6 +264,7 @@
+   const bool trace = (timing && std::strcmp(timing, "1") == 0) ||
+                     (frameTiming && std::strcmp(frameTiming, "1") == 0);
+   const auto entered = trace ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
++  if (m_packPending && overlay && !CancelPending()) return -1;
+   const bool prefetched = Matches(display, owner, pts, geometry, input);
+   if (!prefetched)
+   {
+@@ -282,7 +293,7 @@
+   if (overlay || !directNoFinish || std::strcmp(directNoFinish, "1") != 0)
+     glFinish();
+   const auto glDone = trace ? std::chrono::steady_clock::now() : started;
+-  if (m_scanout)
++  if (m_scanout && !m_packPending)
+   {
+     if (!m_scanout->Begin(prefetched ? m_pendingId : m_serial+1,pts)) return -1;
+     if (m_selectOutput(m_engine,m_scanout->Slot()) != 0)
+@@ -301,7 +312,14 @@
+                    : m_present(m_engine, id, pts, packet, refresh);
+   };
+   int result;
+-  if (prefetched)
++  const bool prepacked = prefetched && m_packPending;
++  if (prepacked)
++  {
++    int ready = 0;
++    result = m_packComplete(m_engine, m_pendingId, pts, 1, &ready);
++    if (result == 0 && !ready) result = -1;
++  }
++  else if (prefetched)
+     result = present(m_pendingId);
+   else if (input.format == DV_SOURCE_INPUT_NV12 || overlay)
+   {
+@@ -327,6 +345,7 @@
+     return -1;
+   }
+   const auto drained = trace ? std::chrono::steady_clock::now() : started;
++  m_packPending = false;
+   m_pending = false;
+   ReleaseInputs();
+   if (m_scanout && !m_scanout->Written(result == 0 ? DV_SCANOUT_ACCEPTED : DV_SCANOUT_REJECTED))
+@@ -343,13 +362,16 @@
+   }
+   const double elapsed = std::chrono::duration<double, std::milli>(
+       std::chrono::steady_clock::now() - started).count();
+-  const double processing = elapsed + (prefetched ? m_submitMs : 0.0);
++  const double processing = elapsed + (prefetched ? m_submitMs : 0.0) +
++                            (prepacked ? m_packSubmitMs : 0.0);
++  m_packSubmitMs = 0;
+   m_processingMs += processing;
+   m_prefetchHits += prefetched;
+   ++m_processed;
+   m_preparedPts = pts;
+   m_drainTicket = CDVPrivateDrain::Enabled() ? CDVPrivateDrain::Get().Ticket(owner, pts) : 0;
+   m_ready = true;
++  m_preparedOverlay = overlay != nullptr;
+   if (trace)
+   {
+     const auto ms = [](auto end, auto begin) { return std::chrono::duration<double, std::milli>(end - begin).count(); };
+@@ -447,7 +469,30 @@
+   }
+   else m_refresh = true;
+   m_ready = false;
++  if (success && !m_unsafe && !m_preparedOverlay) QueuePendingPack();
+ }
++void CDVPrivateSource::QueuePendingPack()
++{
++  const char* enabled = std::getenv("DV_PRIVATE_ASYNC_PACK");
++  if (!enabled || std::strcmp(enabled, "1") != 0 || !m_pending || m_packPending ||
++      !m_scanout || !m_packBegin || !m_packComplete ||
++      eglGetCurrentContext() == EGL_NO_CONTEXT)
++    return;
++  const auto started = std::chrono::steady_clock::now();
++  glFinish();
++  if (!m_scanout->Begin(m_pendingId, m_pendingPts)) return;
++  m_packPending = true;
++  int result = m_selectOutput(m_engine, m_scanout->Slot());
++  if (result == 0)
++    result = m_packBegin(m_engine, m_pendingId, m_pendingPts, m_scanout->Packet(),
++                        m_scanout->Refresh(), 0, 0, nullptr, 0);
++  m_packSubmitMs = std::chrono::duration<double, std::milli>(
++      std::chrono::steady_clock::now() - started).count();
++  if (m_processed < 480)
++    CLog::Log(LOGINFO, "Private source async pack: pts={} status={} enqueue_ms={}",
++              m_pendingPts, result, m_packSubmitMs);
++  if (result != 0) CancelPending();
++}
+ void CDVPrivateSource::Reset()
+ {
+   if (!CancelPending()) m_unsafe = true;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+@@ -38,6 +38,7 @@
+   bool Matches(void* display, CVideoBuffer* owner, int64_t pts,
+                const dv_source_geometry& geometry, const dv_source_input& input) const;
+   bool CancelPending();
++  void QueuePendingPack();
+   void* m_library{nullptr};
+   void* m_engine{nullptr};
+   void* m_display{nullptr};
+@@ -60,6 +61,9 @@
+   int (*m_presentOverlay)(void*, uint64_t, int64_t, unsigned, int, unsigned,
+                           unsigned, const double*, double){nullptr};
+   int (*m_cancel)(void*){nullptr};
++  int (*m_packBegin)(void*, uint64_t, int64_t, unsigned, int, unsigned,
++                    unsigned, const double*, double){nullptr};
++  int (*m_packComplete)(void*, uint64_t, int64_t, int, int*){nullptr};
+   CVideoBuffer* m_owner{nullptr};
+   std::shared_ptr<AVFrame> m_enhancement;
+   unsigned m_texture{0}, m_framebuffer{0}, m_packetId{0};
+@@ -67,6 +71,8 @@
+   uint64_t m_processed{0};
+   double m_processingMs{0};
+   bool m_pending{false};
++  bool m_packPending{false}, m_preparedOverlay{false};
++  double m_packSubmitMs{0};
+   uint64_t m_pendingId{0}, m_prefetchHits{0};
+   int64_t m_pendingPts{0};
+   int64_t m_preparedPts{0};

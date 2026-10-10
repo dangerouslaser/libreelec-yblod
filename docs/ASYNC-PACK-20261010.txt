@@ -1,0 +1,42 @@
+Bounded asynchronous packing experiment — IN PROGRESS
+=====================================================
+
+Prerequisite: GUI cache results in GUI-CACHE-20261010.txt qualify proceeding.
+Neither caching nor asynchronous packing is enabled in release defaults.
+
+Additive ABI4 pack_begin / pack_complete separates queuing from publication.
+Only one pack may be pending. Decoded inputs, source planes and GL imports stay
+owned until completion/cancellation drains successfully. A nonblocking GUI
+error read targets renderer-owned memory. GL release follows all packing and
+error reads on the in-order queue. The output becomes valid only after exact
+frame ID / PTS validation, release completion and successful error validation.
+Failed completion retains ownership; a plain drain discards publication.
+The existing synchronous present entry points retain their behavior.
+
+N150 lifecycle test passed using real CL user events (not GL images): poll
+not-ready, wrong ID/PTS rejection, bounded submissions, output selection guard,
+successful publication, GUI error rejection, cancel/drain discard and failed
+event ownership retention. This does not yet validate packing pixels or KMS.
+
+Kodi candidate: DV_PRIVATE_ASYNC_PACK=1, direct scanout only. After successful
+display commit, queue packing for the already-prefetched next frame into the
+other scanout slot. At consumption, complete and validate before marking the
+slot ready. Packet ID/refresh come from that slot's immutable lease, after the
+previous commit. The current scanout buffer is never selected for writing.
+Cancel/seek/identity miss drains before rejecting the pending lease.
+
+First playback experiment uses clean frames. If GUI appears, cancel/discard
+speculative movie-only packing and regenerate with the current overlay; do not
+reuse a GUI texture that Kodi may overwrite. After an overlay frame, no pack
+is queued ahead. This isolates the scheduling change; overlay packing remains
+synchronous and benefits from the separately tested GUI caches.
+
+begin still waits for reconstruction readiness; this wait is explicitly counted
+in pack enqueue time, not hidden. Kodi processing_ms includes prefetch submit,
+pack enqueue and consume costs. GPU event durations overlap those host costs.
+Compare total processing and tails, not just the shortened consume call.
+
+Required next evidence: build/deploy candidate, verify byte-exact packing via
+the existing diagnostic oracle, measure same-fixture before/after with oracle
+disabled, check overlay appearance/disappearance, seek/stop/restart and failures.
+No asynchronous playback performance claim is made yet.

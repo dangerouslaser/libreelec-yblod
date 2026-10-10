@@ -63,6 +63,17 @@ int dv_source_renderer_prepare_overlays(void *);
 int dv_source_renderer_present_overlay(void *,uint64_t,int64_t,unsigned,int,
                                       unsigned gui_texture,unsigned flip_y,
                                       const double rgb_to_lms[9],double white_nits);
+/* Additive ABI4 asynchronous packing. One pending pack per renderer. The same
+ * GL/VA ownership rules apply until complete or successful cancel/drain.
+ * begin may wait for reconstruction, but does not wait for packing. gui=0
+ * selects movie-only output. A successful begin does NOT publish an image.
+ * complete validates the exact identity and all GPU errors before publication;
+ * wait=0 polls, returning DV_OK with ready=0 while work is outstanding.
+ * Callers must not access the output or GUI texture while a pack is pending.
+ * drain discards pending publication; it is not a substitute for complete. */
+int dv_source_renderer_pack_begin(void *,uint64_t,int64_t,unsigned,int,
+                                 unsigned gui,unsigned flip_y,const double rgb_to_lms[9],double white_nits);
+int dv_source_renderer_pack_complete(void *,uint64_t,int64_t,int wait,int *ready);
 /* Successful cancellation drains ownership and invalidates pending/output state. */
 int dv_source_renderer_cancel(void *);
 int dv_source_renderer_drain(void *);

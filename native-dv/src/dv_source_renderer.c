@@ -29,6 +29,7 @@ typedef struct {
     int profile_async;
     unsigned pack_profiles;
     cl_event pack_done;
+    int pack_pending,pack_overlay,pack_error;
     cl_program resize_program;
     cl_kernel resize_kernel,resize_prepare;
     cl_mem resize_rows;
@@ -89,6 +90,7 @@ int dv_source_renderer_drain(void *opaque)
     for(unsigned i=0;i<3;++i)if(r->planes[i]){clReleaseMemObject(r->planes[i]);r->planes[i]=NULL;}
     for(unsigned i=0;i<4;++i)if(r->inputs[i]){clReleaseMemObject(r->inputs[i]);r->inputs[i]=NULL;}
     if(r->gui){clReleaseMemObject(r->gui);r->gui=NULL;}
+    if(r->pack_pending){r->pack_pending=0;r->submitted=0;r->valid=0;r->gui_cache_valid=0;}
     return DV_OK;
 }
 int dv_source_renderer_destroy(void *opaque)
@@ -407,9 +409,10 @@ static int prepare_overlay(source_renderer *r,unsigned variant,unsigned texture,
     return DV_OK;
 }
 static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned packet_id,int refresh,
-                            unsigned gui,unsigned gui_flip,const double *rgb_to_lms,double white_nits)
+                            unsigned gui,unsigned gui_flip,const double *rgb_to_lms,double white_nits,int defer)
 {
     source_renderer *r=opaque;if(!r||packet_id>15||gui_flip>1)return DV_INVALID;
+    if(r->pack_pending)return DV_INVALID;
     if(!r->submitted||r->settings.identity.frame_id!=frame_id||r->settings.identity.pts!=pts)return DV_IDENTITY;
     const char *wait_trace=getenv("DV_SOURCE_WAIT_PROFILE");
     int trace_wait=wait_trace&&!strcmp(wait_trace,"1")&&r->wait_profiles<480;
@@ -518,8 +521,17 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
     size_t work[2]={ow/2,oh};CL_DO(clEnqueueNDRangeKernel(r->queue,kernel,2,NULL,work,NULL,0,NULL,
         profile_gui?&r->gui_events[2]:r->profile_async&&r->pack_profiles<120?&r->pack_done:NULL));
     if(trace_wait)stamp[5]=submit_clock();
-    if(gui){int invalid=0;CL_DO(clEnqueueReadBuffer(r->queue,r->gui_error,CL_TRUE,0,sizeof(invalid),&invalid,0,NULL,NULL));
-        if(invalid){status=DV_UNSUPPORTED;goto done;}}
+    r->pack_error=0;
+    if(gui){CL_DO(clEnqueueReadBuffer(r->queue,r->gui_error,defer?CL_FALSE:CL_TRUE,0,
+                                    sizeof(r->pack_error),&r->pack_error,0,NULL,NULL));
+        if(!defer&&r->pack_error){status=DV_UNSUPPORTED;goto done;}}
+    if(defer){
+        CL_DO(clEnqueueReleaseGLObjects(r->queue,object_count,objects,0,NULL,&r->released));
+        CL_DO(clFlush(r->queue));
+        r->pack_pending=1;r->pack_overlay=gui!=0;
+        r->count=count;memcpy(r->packed,packed,sizeof(packed));
+        return DV_OK;
+    }
     status=DV_OK;
 done:
     if(trace_wait)stamp[6]=submit_clock();
@@ -536,12 +548,34 @@ done:
 #undef CL_DO
 }
 int dv_source_renderer_present(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh)
-{return present_internal(opaque,id,pts,packet,refresh,0,0,NULL,0);}
+{return present_internal(opaque,id,pts,packet,refresh,0,0,NULL,0,0);}
 int dv_source_renderer_present_overlay(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh,
                                       unsigned gui,unsigned flip,const double rgb_to_lms[9],double white_nits)
 {
     if(!gui||!rgb_to_lms)return DV_INVALID;
-    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits);
+    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,0);
+}
+int dv_source_renderer_pack_begin(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh,
+                                 unsigned gui,unsigned flip,const double rgb_to_lms[9],double white_nits)
+{
+    if(gui&&!rgb_to_lms)return DV_INVALID;
+    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,1);
+}
+int dv_source_renderer_pack_complete(void *opaque,uint64_t id,int64_t pts,int wait,int *ready)
+{
+    source_renderer *r=opaque;if(!r||!ready||(wait!=0&&wait!=1))return DV_INVALID;
+    *ready=0;
+    if(!r->pack_pending||r->settings.identity.frame_id!=id||r->settings.identity.pts!=pts)return DV_IDENTITY;
+    cl_int state=1;
+    if(!r->released||clGetEventInfo(r->released,CL_EVENT_COMMAND_EXECUTION_STATUS,sizeof(state),&state,NULL)||state<0)
+        return DV_BACKEND;
+    if(!wait&&state!=CL_COMPLETE)return DV_OK;
+    int overlay=r->pack_overlay;
+    if(dv_source_renderer_drain(r)!=DV_OK){r->gui_cache_valid=0;r->resize_key_valid=0;return DV_BACKEND;}
+    if(r->pack_error){r->resize_key_valid=0;return DV_UNSUPPORTED;}
+    r->overlay_visible=overlay;r->valid=1;
+    if(r->gui_pixel_cache)r->gui_cache_valid=overlay;
+    *ready=1;return DV_OK;
 }
 int dv_source_renderer_render(void *opaque,unsigned bl_surface,unsigned el_surface,unsigned w,unsigned h,
                               const void *metadata,size_t metadata_size,uint64_t frame_id,int64_t pts,
