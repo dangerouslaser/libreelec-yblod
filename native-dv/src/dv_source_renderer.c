@@ -29,7 +29,7 @@ typedef struct {
     int profile_async;
     unsigned pack_profiles;
     cl_event pack_done;
-    int pack_pending,pack_overlay,pack_error;
+    int pack_pending,pack_overlay,pack_error,pack_cached_gui;
     cl_program resize_program;
     cl_kernel resize_kernel,resize_prepare;
     cl_mem resize_rows;
@@ -41,6 +41,9 @@ typedef struct {
     int gui_prepass;cl_kernel gui_prepare;cl_mem gui_colours;
     int gui_pixel_cache,gui_cache_valid,gui_cache_invalidate,gui_sparse;cl_mem gui_pixels;
     float gui_cache_coeff[31];
+    uint64_t gui_revision;
+    unsigned gui_texture,gui_flip,gui_width,gui_height;
+    int gui_reused;
     int gui_cache_verify;cl_kernel gui_cache_check;
     int gui_gray_lut,gui_shared;cl_kernel gui_gray_prepare;cl_mem gui_gray;
     int gui_tiled;cl_kernel gui_tiles_prepare;cl_mem gui_tiles;
@@ -82,15 +85,18 @@ int dv_source_renderer_drain(void *opaque)
             else ms[i]=(double)(end-start)/1e6;
             clReleaseEvent(r->gui_events[i]);r->gui_events[i]=NULL;
         }
-        fprintf(stderr,"{\"overlay_profile_pts\":%lld,\"valid\":%d,\"host_prepare_ms\":%.6f,\"acquire_ms\":%.6f,\"colour_ms\":%.6f,\"pack_ms\":%.6f}\n",
-                (long long)r->settings.identity.pts,valid,r->gui_host_ms,ms[0],ms[1],ms[2]);
+        fprintf(stderr,"{\"overlay_profile_pts\":%lld,\"valid\":%d,\"host_prepare_ms\":%.6f,\"acquire_ms\":%.6f,\"colour_ms\":%.6f,\"pack_ms\":%.6f,\"revision_reused\":%d}\n",
+                (long long)r->settings.identity.pts,valid,r->gui_host_ms,ms[0],ms[1],ms[2],r->gui_reused);
         ++r->gui_profiles;
     }
     if(r->backend&&dv_opencl_drain(r->backend)!=DV_OK)return DV_BACKEND;
     for(unsigned i=0;i<3;++i)if(r->planes[i]){clReleaseMemObject(r->planes[i]);r->planes[i]=NULL;}
     for(unsigned i=0;i<4;++i)if(r->inputs[i]){clReleaseMemObject(r->inputs[i]);r->inputs[i]=NULL;}
     if(r->gui){clReleaseMemObject(r->gui);r->gui=NULL;}
-    if(r->pack_pending){r->pack_pending=0;r->submitted=0;r->valid=0;r->gui_cache_valid=0;}
+    if(r->pack_pending){
+        r->gui_cache_valid=r->pack_cached_gui&&r->gui_cache_valid&&!r->pack_error;
+        r->pack_cached_gui=0;r->pack_pending=0;r->submitted=0;r->valid=0;
+    }
     return DV_OK;
 }
 int dv_source_renderer_destroy(void *opaque)
@@ -381,8 +387,14 @@ int dv_source_renderer_prepare_overlays(void *opaque)
     }
     return DV_OK;
 }
-static int prepare_overlay(source_renderer *r,unsigned variant,unsigned texture,
-                           const double rgb_to_lms[9],double white_nits)
+static int overlay_revision_matches(const source_renderer *r,unsigned texture,unsigned flip,uint64_t revision)
+{
+    return r->gui_pixel_cache&&r->gui_cache_valid&&!r->gui_cache_invalidate&&revision&&
+        r->gui_revision==revision&&r->gui_texture==texture&&r->gui_flip==flip&&
+        r->gui_width==r->geometry.canvas_width&&r->gui_height==r->geometry.canvas_height;
+}
+static int prepare_overlay(source_renderer *r,unsigned variant,unsigned texture,unsigned flip,uint64_t revision,
+                           const double rgb_to_lms[9],double white_nits,int cached_only)
 {
     if(!texture||texture==r->primary_texture||texture==r->secondary_texture||
        !rgb_to_lms||r->gui||r->acquired||r->released)return DV_INVALID;
@@ -397,8 +409,13 @@ static int prepare_overlay(source_renderer *r,unsigned variant,unsigned texture,
     for(unsigned i=0;i<3;++i)coeff[i+27]=(float)colour.source.offset[i];coeff[30]=(float)colour.white_nits;
     for(unsigned i=0;i<31;++i)if(!isfinite(coeff[i]))return DV_UNSUPPORTED;
     r->gui_cache_invalidate=!r->gui_cache_valid||memcmp(coeff,r->gui_cache_coeff,sizeof(coeff));
+    r->gui_reused=overlay_revision_matches(r,texture,flip,revision);
+    if(cached_only&&(!r->gui_reused||r->gui_cache_verify))return DV_UNSUPPORTED;
     memcpy(r->gui_cache_coeff,coeff,sizeof(coeff));
+    r->gui_revision=revision;r->gui_texture=texture;r->gui_flip=flip;
+    r->gui_width=r->geometry.canvas_width;r->gui_height=r->geometry.canvas_height;
     cl_int error;
+    if(!r->gui_reused||r->gui_cache_verify){
     r->gui=clCreateFromGLTexture(r->context,CL_MEM_READ_ONLY,0x0de1,0,texture,&error);
     if(!r->gui||error)return DV_BACKEND;
     size_t w=0,h=0;cl_image_format format;
@@ -407,13 +424,15 @@ static int prepare_overlay(source_renderer *r,unsigned variant,unsigned texture,
        clGetImageInfo(r->gui,CL_IMAGE_FORMAT,sizeof(format),&format,NULL))return DV_BACKEND;
     if(w!=r->geometry.canvas_width||h!=r->geometry.canvas_height||
        format.image_channel_order!=CL_RGBA||format.image_channel_data_type!=CL_UNORM_INT8)return DV_UNSUPPORTED;
+    }
     int clear=0;r->queued=1;
     if(clEnqueueWriteBuffer(r->queue,r->gui_coeff,CL_TRUE,0,sizeof(coeff),coeff,0,NULL,NULL)||
        clEnqueueWriteBuffer(r->queue,r->gui_error,CL_TRUE,0,sizeof(clear),&clear,0,NULL,NULL))return DV_BACKEND;
     return DV_OK;
 }
 static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned packet_id,int refresh,
-                            unsigned gui,unsigned gui_flip,const double *rgb_to_lms,double white_nits,int defer)
+                            unsigned gui,unsigned gui_flip,const double *rgb_to_lms,double white_nits,int defer,
+                            uint64_t revision,int cached_only)
 {
     source_renderer *r=opaque;if(!r||packet_id>15||gui_flip>1)return DV_INVALID;
     if(r->pack_pending)return DV_INVALID;
@@ -439,7 +458,7 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
     if(gui){
         unsigned variant=full?1u:resized?2u:0u;
         double started=submit_clock();
-        status=prepare_overlay(r,variant,gui,rgb_to_lms,white_nits);if(status!=DV_OK)goto done;
+        status=prepare_overlay(r,variant,gui,gui_flip,revision,rgb_to_lms,white_nits,cached_only);if(status!=DV_OK)goto done;
         r->gui_host_ms=(submit_clock()-started)*1000;
         kernel=r->overlay_kernel[variant];
     }
@@ -496,6 +515,8 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
             else CL_DO(clSetKernelArg(kernel,arg+4,sizeof(r->gui_gray),&r->gui_gray));
         }
         if(r->gui_prepass){
+            size_t gui_work[2]={ow,oh};
+            if(!r->gui_reused){
             CL_DO(clSetKernelArg(r->gui_prepare,0,sizeof(r->gui),&r->gui));
             CL_DO(clSetKernelArg(r->gui_prepare,1,sizeof(r->gui_coeff),&r->gui_coeff));
             CL_DO(clSetKernelArg(r->gui_prepare,2,sizeof(gui_flip),&gui_flip));
@@ -506,7 +527,8 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
             if(r->gui_pixel_cache){unsigned cache_arg=r->gui_gray_lut?8u:7u;cl_uint invalidate=(cl_uint)r->gui_cache_invalidate;
                 CL_DO(clSetKernelArg(r->gui_prepare,cache_arg,sizeof(r->gui_pixels),&r->gui_pixels));
                 CL_DO(clSetKernelArg(r->gui_prepare,cache_arg+1,sizeof(invalidate),&invalidate));}
-            size_t gui_work[2]={ow,oh};CL_DO(clEnqueueNDRangeKernel(r->queue,r->gui_prepare,2,NULL,gui_work,NULL,0,NULL,profile_gui?&r->gui_events[1]:NULL));
+            CL_DO(clEnqueueNDRangeKernel(r->queue,r->gui_prepare,2,NULL,gui_work,NULL,0,NULL,profile_gui?&r->gui_events[1]:NULL));
+            }
             if(r->gui_cache_check){
                 CL_DO(clSetKernelArg(r->gui_cache_check,0,sizeof(r->gui),&r->gui));
                 CL_DO(clSetKernelArg(r->gui_cache_check,1,sizeof(r->gui_coeff),&r->gui_coeff));
@@ -533,7 +555,7 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
     if(defer){
         CL_DO(clEnqueueReleaseGLObjects(r->queue,object_count,objects,0,NULL,&r->released));
         CL_DO(clFlush(r->queue));
-        r->pack_pending=1;r->pack_overlay=gui!=0;
+        r->pack_pending=1;r->pack_overlay=gui!=0;r->pack_cached_gui=cached_only;
         r->count=count;memcpy(r->packed,packed,sizeof(packed));
         return DV_OK;
     }
@@ -553,18 +575,30 @@ done:
 #undef CL_DO
 }
 int dv_source_renderer_present(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh)
-{return present_internal(opaque,id,pts,packet,refresh,0,0,NULL,0,0);}
+{return present_internal(opaque,id,pts,packet,refresh,0,0,NULL,0,0,0,0);}
 int dv_source_renderer_present_overlay(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh,
                                       unsigned gui,unsigned flip,const double rgb_to_lms[9],double white_nits)
 {
     if(!gui||!rgb_to_lms)return DV_INVALID;
-    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,0);
+    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,0,0,0);
+}
+int dv_source_renderer_present_overlay_revision(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh,
+                                      unsigned gui,unsigned flip,const double rgb_to_lms[9],double white_nits,uint64_t revision)
+{
+    if(!gui||!rgb_to_lms)return DV_INVALID;
+    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,0,revision,0);
+}
+int dv_source_renderer_pack_overlay_cached(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh,
+                                      unsigned gui,unsigned flip,const double rgb_to_lms[9],double white_nits,uint64_t revision)
+{
+    if(!gui||!rgb_to_lms||!revision)return DV_INVALID;
+    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,1,revision,1);
 }
 int dv_source_renderer_pack_begin(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh,
                                  unsigned gui,unsigned flip,const double rgb_to_lms[9],double white_nits)
 {
     if(gui&&!rgb_to_lms)return DV_INVALID;
-    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,1);
+    return present_internal(opaque,id,pts,packet,refresh,gui,flip,rgb_to_lms,white_nits,1,0,0);
 }
 int dv_source_renderer_pack_complete(void *opaque,uint64_t id,int64_t pts,int wait,int *ready)
 {
@@ -599,10 +633,39 @@ static unsigned reference_linear(const uint16_t *p,unsigned w,unsigned h,double 
         value+=p[(size_t)yy*w+xx]*(dx?x-ix:1-x+ix)*(dy?y-iy:1-y+iy);}
     return (unsigned)floor(value+0.5);
 }
+static int check_overlay_pack(source_renderer *r,const unsigned char *rgba,size_t bytes)
+{
+    if(!r->gui_pixel_cache||!r->gui_cache_valid)return DV_UNSUPPORTED;
+    cl_mem planes[3]={0},image=NULL;unsigned char *reference=NULL;cl_int error=0;
+    unsigned variant=r->piecewise&&r->piecewise_settings.layout==1?1u:
+        dv_source_destination_width(&r->geometry)!=r->geometry.width||
+        dv_source_destination_height(&r->geometry)!=r->geometry.height?2u:0u;
+    cl_kernel kernel=r->overlay_kernel[variant];int result=DV_BACKEND;
+    if(!kernel||renderer_source_output(r,r->geometry.width,r->geometry.height,planes)!=DV_OK)goto done;
+    cl_image_format format={CL_RGBA,CL_UNORM_INT8};cl_image_desc desc={0};
+    desc.image_type=CL_MEM_OBJECT_IMAGE2D;desc.image_width=3840;desc.image_height=2160;
+    image=clCreateImage(r->context,CL_MEM_WRITE_ONLY,&format,&desc,NULL,&error);
+    reference=malloc(bytes);if(!image||error||!reference)goto done;
+    for(unsigned i=0;i<3;++i)if(clSetKernelArg(kernel,i,sizeof(cl_mem),planes+i))goto done;
+    if(clSetKernelArg(kernel,9,sizeof(image),&image))goto done;
+    size_t work[2]={1920,2160},origin[3]={0},region[3]={3840,2160,1};
+    if(clEnqueueNDRangeKernel(r->queue,kernel,2,NULL,work,NULL,0,NULL,NULL)||
+       clEnqueueReadImage(r->queue,image,CL_TRUE,origin,region,0,0,reference,0,NULL,NULL))goto done;
+    size_t differences=0;for(size_t i=0;i<bytes;++i)differences+=reference[i]!=rgba[i];
+    fprintf(stderr,"{\"overlay_repack_verified_pts\":%lld,\"bytes\":%zu,\"byte_differences\":%zu}\n",
+            (long long)r->settings.identity.pts,bytes,differences);
+    result=differences?DV_SAMPLE_RANGE:DV_OK;
+done:
+    if(kernel&&clSetKernelArg(kernel,9,sizeof(r->output),&r->output))result=DV_BACKEND;
+    if(clFinish(r->queue))result=DV_BACKEND;
+    for(unsigned i=0;i<3;++i)if(planes[i])clReleaseMemObject(planes[i]);
+    if(image)clReleaseMemObject(image);free(reference);return result;
+}
 int dv_source_renderer_check(void *opaque,const unsigned char *rgba,size_t bytes)
 {
     source_renderer *r=opaque;const unsigned w=3840,h=2160;
     if(!r||!r->valid||!rgba||bytes!=(size_t)w*h*4)return DV_INVALID;
+    if(r->overlay_visible)return check_overlay_pack(r,rgba,bytes);
     cl_mem buffers[3]={NULL,NULL,NULL};uint16_t *planes[3]={NULL,NULL,NULL};int result=DV_BACKEND;
     const dv_source_geometry *g=&r->geometry;unsigned sw=g->width,sh=g->height;
     unsigned dw=dv_source_destination_width(g),dh=dv_source_destination_height(g);

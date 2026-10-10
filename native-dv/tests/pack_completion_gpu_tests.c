@@ -10,9 +10,26 @@ static void pending(source_renderer *r,cl_context context)
     r->pack_error=0;r->pack_overlay=1;r->gui_pixel_cache=1;
     r->settings.identity.frame_id=42;r->settings.identity.pts=12345;
 }
+static void revision_keys(void)
+{
+    source_renderer r={0};r.gui_pixel_cache=1;r.gui_cache_valid=1;
+    r.gui_revision=7;r.gui_texture=9;r.gui_flip=1;
+    r.gui_width=r.geometry.canvas_width=3840;r.gui_height=r.geometry.canvas_height=2160;
+    assert(overlay_revision_matches(&r,9,1,7));
+    assert(!overlay_revision_matches(&r,9,1,0));
+    assert(!overlay_revision_matches(&r,9,1,8));
+    assert(!overlay_revision_matches(&r,10,1,7));
+    assert(!overlay_revision_matches(&r,9,0,7));
+    r.gui_cache_invalidate=1;assert(!overlay_revision_matches(&r,9,1,7));r.gui_cache_invalidate=0;
+    r.gui_cache_valid=0;assert(!overlay_revision_matches(&r,9,1,7));r.gui_cache_valid=1;
+    r.geometry.canvas_width=1920;assert(!overlay_revision_matches(&r,9,1,7));r.geometry.canvas_width=3840;
+    r.geometry.canvas_height=1080;assert(!overlay_revision_matches(&r,9,1,7));r.geometry.canvas_height=2160;
+    r.gui_pixel_cache=0;assert(!overlay_revision_matches(&r,9,1,7));
+}
 
 int main(void)
 {
+    revision_keys();
     cl_platform_id platforms[16];cl_uint count=0;
     assert(!clGetPlatformIDs(16,platforms,&count));cl_device_id device=NULL;
     for(unsigned i=0;i<count&&i<16&&!device;++i)
@@ -43,6 +60,11 @@ int main(void)
     assert(!clSetUserEventStatus(r.released,CL_COMPLETE));
     assert(dv_source_renderer_cancel(&r)==DV_OK);
     assert(!r.valid&&!r.gui_cache_valid&&!r.pack_pending&&!r.submitted);
+
+    pending(&r,context);r.pack_cached_gui=1;r.gui_cache_valid=1;
+    assert(!clSetUserEventStatus(r.released,CL_COMPLETE));
+    assert(dv_source_renderer_cancel(&r)==DV_OK);
+    assert(!r.valid&&r.gui_cache_valid&&!r.pack_pending&&!r.submitted);
 
     pending(&r,context);
     assert(!clSetUserEventStatus(r.released,CL_COMPLETE));
