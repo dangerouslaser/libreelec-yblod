@@ -52,3 +52,24 @@ Evidence: sdr-fix-dv-menu.log in the same VM directory.
 Limitations
 This is not proof that the intermittent QMS glitch or earlier audio/frame-supply
 stall is fixed. No engine performance or pixel-quality change is claimed.
+
+Persistent test package
+Source b7bec4bf07a955db7ac72f936eefae45cd4d31b3 was pushed to
+feature/native-source-engine. The pre4 update was repackaged with only the
+tested Kodi binary and test version identification changed. Full filesystem
+comparison against pre4 listed only etc/issue, etc/os-release and
+usr/lib/kodi/kodi.bin. Packaged engine and kernels are unchanged from pre4.
+Version: yblod-0.2-pre4-test1 (not a GitHub release).
+Update SHA256:
+4399c8288ea67db98099cfaefe06d5521414d66853a5f554de44837428cfa771
+SYSTEM SHA256:
+607f85cf428d20da6b323102145f395a8390cf77fb5d55b7d0aeea9088b4e05e
+Ollie artifact directory: /home/bryan/Projects/yblod-sdr-test.mTeoNS
+Both destination uploads were SHA256-verified before staging and reboot.
+Rollback SYSTEM/KERNEL, version and settings backups:
+VM: /storage/yblod-before-pre4-test1.aFILqC
+N150: /storage/yblod-before-pre4-test1.Yr0bP3
+Both devices rebooted into yblod-0.2-pre4-test1. Installed Kodi, native engine
+and OpenCL kernel SHA256 values match the package. Kodi services are active.
+The VM's identical temporary native engine override was moved into its backup
+directory and Kodi restarted to use packaged paths. No release was published.
