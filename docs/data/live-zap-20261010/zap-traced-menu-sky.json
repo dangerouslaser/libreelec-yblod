@@ -1,0 +1,241 @@
+{
+  "channelid": 294,
+  "sample_seconds": 14.0,
+  "request_events": [
+    {
+      "event": "Player.Open.reply",
+      "request_ms": 4.0
+    },
+    {
+      "event": "Player.OnPlay",
+      "request_ms": 284.9
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 3275.0
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 3561.1
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 3625.9
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 4073.4
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 4482.1
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 4485.1
+    },
+    {
+      "event": "Player.OnAVStart",
+      "request_ms": 4485.1
+    },
+    {
+      "event": "Player.OnAVChange",
+      "request_ms": 4485.1
+    }
+  ],
+  "log_events": [
+    {
+      "event": "input_open",
+      "device_time": "2026-10-10 11:22:04.965",
+      "log_ms": 0.0
+    },
+    {
+      "event": "demux_open",
+      "device_time": "2026-10-10 11:22:04.966",
+      "log_ms": 1.0
+    },
+    {
+      "event": "missing_video_headers",
+      "device_time": "2026-10-10 11:22:07.993",
+      "log_ms": 3028.0
+    },
+    {
+      "event": "audio_thread",
+      "device_time": "2026-10-10 11:22:07.993",
+      "log_ms": 3028.0
+    },
+    {
+      "event": "cache_state",
+      "device_time": "2026-10-10 11:22:07.993",
+      "log_ms": 3028.0
+    },
+    {
+      "event": "video_codec",
+      "device_time": "2026-10-10 11:22:08.268",
+      "log_ms": 3303.0
+    },
+    {
+      "event": "decoder_fps",
+      "device_time": "2026-10-10 11:22:08.297",
+      "log_ms": 3332.0
+    },
+    {
+      "event": "audio_stream",
+      "device_time": "2026-10-10 11:22:08.347",
+      "log_ms": 3382.0
+    },
+    {
+      "event": "renderer_config",
+      "device_time": "2026-10-10 11:22:08.352",
+      "log_ms": 3387.0,
+      "fps": "50.00"
+    },
+    {
+      "event": "display_commit",
+      "device_time": "2026-10-10 11:22:08.731",
+      "log_ms": 3766.0,
+      "dv": "0",
+      "hdr_blob": "633",
+      "colorspace": "9",
+      "clock_khz": "594000",
+      "totals": "4400x2250"
+    },
+    {
+      "event": "refresh_select",
+      "device_time": "2026-10-10 11:22:08.738",
+      "log_ms": 3773.0
+    },
+    {
+      "event": "display_lost",
+      "device_time": "2026-10-10 11:22:08.752",
+      "log_ms": 3787.0
+    },
+    {
+      "event": "display_commit",
+      "device_time": "2026-10-10 11:22:09.072",
+      "log_ms": 4107.0,
+      "dv": "0",
+      "hdr_blob": "633",
+      "colorspace": "9",
+      "clock_khz": "594000",
+      "totals": "5280x2250"
+    },
+    {
+      "event": "display_reset",
+      "device_time": "2026-10-10 11:22:09.083",
+      "log_ms": 4118.0
+    },
+    {
+      "event": "av_started",
+      "device_time": "2026-10-10 11:22:09.121",
+      "log_ms": 4156.0
+    },
+    {
+      "event": "video_resync",
+      "device_time": "2026-10-10 11:22:09.122",
+      "log_ms": 4157.0
+    },
+    {
+      "event": "audio_resync",
+      "device_time": "2026-10-10 11:22:09.122",
+      "log_ms": 4157.0
+    },
+    {
+      "event": "refresh_select",
+      "device_time": "2026-10-10 11:22:09.136",
+      "log_ms": 4171.0
+    }
+  ],
+  "probe_events": [
+    "ZAPTRACE open_begin mono_ms=222531.110",
+    "ZAPTRACE open_begin mono_ms=222678.253",
+    "ZAPTRACE open_end mono_ms=222678.330 elapsed_ms=0.077 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=222678.390 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=222678.603",
+    "ZAPTRACE open_end mono_ms=224049.912 elapsed_ms=1518.802 result=0 format=mpegts",
+    "ZAPTRACE close mono_ms=224049.948",
+    "ZAPTRACE open_begin mono_ms=224051.741",
+    "ZAPTRACE open_end mono_ms=225556.966 elapsed_ms=1505.224 result=0 format=mpegts",
+    "ZAPTRACE packet mono_ms=225831.665 count=1 video=1 key=1",
+    "ZAPTRACE open_begin mono_ms=225850.383",
+    "ZAPTRACE open_end mono_ms=225850.432 elapsed_ms=0.049 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=225850.788 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=225871.873",
+    "ZAPTRACE open_begin mono_ms=226649.798",
+    "ZAPTRACE open_end mono_ms=226649.829 elapsed_ms=0.031 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226650.052 count=1 video=1 key=1",
+    "ZAPTRACE open_begin mono_ms=226651.819",
+    "ZAPTRACE open_end mono_ms=226651.846 elapsed_ms=0.027 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226651.898 count=1 video=1 key=1",
+    "ZAPTRACE open_begin mono_ms=226652.466",
+    "ZAPTRACE open_end mono_ms=226652.560 elapsed_ms=0.094 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226652.695 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226656.805",
+    "ZAPTRACE open_begin mono_ms=226657.547",
+    "ZAPTRACE open_end mono_ms=226657.727 elapsed_ms=0.180 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226657.831 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226663.273",
+    "ZAPTRACE open_begin mono_ms=226663.592",
+    "ZAPTRACE open_end mono_ms=226663.642 elapsed_ms=0.050 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226663.764 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226664.738",
+    "ZAPTRACE open_begin mono_ms=226665.157",
+    "ZAPTRACE open_end mono_ms=226665.324 elapsed_ms=0.167 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226665.544 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226666.271",
+    "ZAPTRACE open_begin mono_ms=226666.895",
+    "ZAPTRACE open_end mono_ms=226666.995 elapsed_ms=0.099 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226667.127 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226669.397",
+    "ZAPTRACE open_begin mono_ms=226670.205",
+    "ZAPTRACE open_end mono_ms=226670.296 elapsed_ms=0.091 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226670.359 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226671.149",
+    "ZAPTRACE open_begin mono_ms=226671.365",
+    "ZAPTRACE open_end mono_ms=226671.402 elapsed_ms=0.037 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226671.495 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226672.630",
+    "ZAPTRACE open_begin mono_ms=226672.862",
+    "ZAPTRACE open_end mono_ms=226672.891 elapsed_ms=0.029 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226672.935 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226673.253",
+    "ZAPTRACE open_begin mono_ms=226673.407",
+    "ZAPTRACE open_end mono_ms=226673.458 elapsed_ms=0.051 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226673.559 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226674.041",
+    "ZAPTRACE open_begin mono_ms=226674.186",
+    "ZAPTRACE open_end mono_ms=226674.201 elapsed_ms=0.015 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226674.222 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226675.629",
+    "ZAPTRACE open_begin mono_ms=226675.775",
+    "ZAPTRACE open_end mono_ms=226675.790 elapsed_ms=0.015 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226675.836 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226677.373",
+    "ZAPTRACE open_begin mono_ms=226677.529",
+    "ZAPTRACE open_end mono_ms=226677.541 elapsed_ms=0.011 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226677.564 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226678.526",
+    "ZAPTRACE open_begin mono_ms=226678.726",
+    "ZAPTRACE open_end mono_ms=226678.763 elapsed_ms=0.037 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226678.876 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226679.896",
+    "ZAPTRACE open_begin mono_ms=226680.230",
+    "ZAPTRACE open_end mono_ms=226680.287 elapsed_ms=0.057 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226680.393 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226681.206",
+    "ZAPTRACE open_begin mono_ms=226681.411",
+    "ZAPTRACE open_end mono_ms=226681.448 elapsed_ms=0.037 result=0 format=jpeg_pipe",
+    "ZAPTRACE packet mono_ms=226681.556 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226682.342",
+    "ZAPTRACE open_begin mono_ms=226682.555",
+    "ZAPTRACE open_end mono_ms=226682.594 elapsed_ms=0.039 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226682.637 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226684.017",
+    "ZAPTRACE close mono_ms=226687.281",
+    "ZAPTRACE close mono_ms=226688.100",
+    "ZAPTRACE open_begin mono_ms=226700.612",
+    "ZAPTRACE open_end mono_ms=226700.644 elapsed_ms=0.032 result=0 format=png_pipe",
+    "ZAPTRACE packet mono_ms=226700.671 count=1 video=1 key=1",
+    "ZAPTRACE close mono_ms=226700.780"
+  ]
+}

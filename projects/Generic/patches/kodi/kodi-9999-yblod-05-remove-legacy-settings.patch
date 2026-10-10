@@ -1,0 +1,103 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 9aa85278..e356d6d3 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -25837,41 +25837,6 @@ msgctxt "#40818"
+ msgid "Player information"
+ msgstr ""
+ 
+-#: system/settings/settings.xml
+-msgctxt "#40830"
+-msgid "Quick Sync scaling"
+-msgstr ""
+-
+-#: system/settings/settings.xml
+-msgctxt "#40831"
+-msgid "Scale Dolby Vision layers on the Intel media engine instead of the GPU shaders. Enhancement layer: upscale the Profile 7 FEL enhancement layer, which removes most of the GPU load at no measurable cost in accuracy. Enhancement layer and colour: also upsample base layer colour there, for slower GPUs; colour edges are slightly less accurate. Falls back to the shaders automatically. Applies to the next video."
+-msgstr ""
+-
+-#: system/settings/settings.xml
+-msgctxt "#40832"
+-msgid "Off"
+-msgstr ""
+-
+-#: system/settings/settings.xml
+-msgctxt "#40833"
+-msgid "Enhancement layer"
+-msgstr ""
+-
+-#: system/settings/settings.xml
+-msgctxt "#40834"
+-msgid "Enhancement layer and colour"
+-msgstr ""
+-
+-#: system/settings/settings.xml
+-msgctxt "#40835"
+-msgid "Match Dolby hardware levels"
+-msgstr ""
+-
+-#: system/settings/settings.xml
+-msgctxt "#40836"
+-msgid "Apply the small constant signal offset measured on Dolby Vision hardware players (Amlogic, TV-led), so the picture matches them as closely as possible. Disable for the exact mathematical conversion. Applies to the next video."
+-msgstr ""
+-
+ #: system/settings/settings.xml
+ msgctxt "#40837"
+ msgid "Dolby Vision for the menu"
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 48725695..9a5f825d 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -88,23 +88,6 @@
+           <default>true</default>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.matchhardware" type="boolean" label="40835" help="40836">
+-          <level>0</level>
+-          <default>true</default>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="dvbridge.qsvmode" type="integer" label="40830" help="40831">
+-          <level>0</level>
+-          <default>1</default>
+-          <constraints>
+-            <options>
+-              <option label="40832">0</option>
+-              <option label="40833">1</option>
+-              <option label="40834">2</option>
+-            </options>
+-          </constraints>
+-          <control type="spinner" format="string" />
+-        </setting>
+       </group>
+       <group id="1" label="14230">
+         <setting id="videoplayer.autoplaynextitem" type="list[integer]" label="13433" help="36152">
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index b731e9f1..32508a10 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -13,11 +13,11 @@ enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2 };
+ // Playback preparation latches the preferences. An open settings dialog must not
+ // change the output encoding of an already running playback session.
+ inline std::atomic<OutputMode> playbackMode{OutputMode::Standard};
+-// Quick Sync scaling: 0 off, 1 enhancement layer, 2 enhancement layer and base layer colour.
+-inline std::atomic<int> playbackQsvMode{1};
++// Legacy scaling and signal offsets stay disabled, including for migrated profiles.
++inline const std::atomic<int> playbackQsvMode{0};
+ // Constant IPT code offset measured on Dolby Vision hardware (Amlogic S928X and S7D, TV-led):
+ // reference minus exact conversion, in 12-bit I, P, T codes.
+-inline std::atomic<bool> playbackMatchHardware{true};
++inline const std::atomic<bool> playbackMatchHardware{false};
+ inline constexpr float kHardwareIptOffset[3] = {-5.07f, -7.94f, 3.62f};
+ 
+ inline void SelectOutputSettings()
+@@ -26,9 +26,6 @@ inline void SelectOutputSettings()
+   const auto settings = component ? component->GetSettings() : nullptr;
+   const int mode = settings ? settings->GetInt("dvbridge.outputmode") : 0;
+   playbackMode.store(mode >= 0 && mode <= 2 ? static_cast<OutputMode>(mode) : OutputMode::Standard);
+-  const int qsv = settings ? settings->GetInt("dvbridge.qsvmode") : 1;
+-  playbackQsvMode.store(qsv >= 0 && qsv <= 2 ? qsv : 1);
+-  playbackMatchHardware.store(!settings || settings->GetBool("dvbridge.matchhardware"));
+ }
+ 
+ // GUI white in the menu output (dvbridge.menubrightness). Read live, as the setting can change while

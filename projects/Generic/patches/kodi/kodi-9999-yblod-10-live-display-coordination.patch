@@ -1,0 +1,16 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+@@ -321,6 +321,12 @@ void CRenderManager::FrameMove()
+       lock.unlock();
+       if (!Configure())
+         return;
++#ifdef HAVE_DVBRIDGE
++      // Carry the renderer's queued HDR state in the refresh commit, before
++      // presenting a frame at the previous refresh rate. Native DV owns its handoff.
++      if (!m_nativeDVRate)
++        UpdateResolution();
++#endif
+       UpdateLatencyTweak();
+       firstFrame = true;
+       FrameWait(50ms);

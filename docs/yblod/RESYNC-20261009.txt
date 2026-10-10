@@ -1,0 +1,52 @@
+LibreELEC base resync — work in progress, 2026-10-09
+
+Prior YBLOD main: ebb0c68b6ad82c5bfee88945cf979d8a5a59deb0
+Previous shared LibreELEC ancestor: 1bc40650ee6b443a676abcafd2829f8b1130497f
+Merged LibreELEC master: 4c824a75301be9326bdac33cbe9bba05239361fe
+
+This brings in 158 upstream commits while retaining YBLOD's custom base and
+features. It does not import the newer CB1 adapter or the new native engine.
+The engine integration and its PR follow this base update and validation.
+
+Generic platform updates include Linux 7.2.8 -> 7.2.9 and Kodi
+22.0rc1-Piers -> 63063c8e67b1f162761763c0cbdb1a5dcfc3a47e.
+The only Git merge conflict was Kodi's package recipe. Upstream's new revision
+and archive hash are retained alongside YBLOD's libplacebo dependency,
+DV build options and combined-code GPL-3.0-or-later license declaration.
+
+Preserved without changes to their patch files:
+- HDMI QMS/VRR kernel extension.
+- QSV enhancement-layer offload.
+- Dolby Vision menus and their menu-only colour controls.
+- YBLOD update channel, build tools and existing release records.
+
+Two compatibility adjustments accompany the updated Kodi source:
+- Refresh the single-modeset patch's header context around OnResetDisplay.
+- Call upstream's new OnResetDisplay helper for the DV early-return path.
+  It snapshots registered resources and checks membership during callbacks,
+  preserving upstream's handling of resources removed by a callback.
+
+Source checks:
+- Kodi and Linux source archives checked against their new recipe SHA256s.
+- All common and Generic Kodi patches apply to the new Kodi source with
+  GNU patch --fuzz=0 (line offsets are permitted).
+- All default and Generic kernel patches, including QMS/VRR, apply to
+  Linux 7.2.9 with GNU patch --fuzz=0.
+- Updated Kodi package recipe passes bash syntax checking.
+
+Packaged-image follow-up
+Source f2874d878dfceee18101795f46692807126092a4 built successfully as
+LibreELEC-Generic.x86_64-13.0-yblod-resync-20261009 and booted on the N150.
+The installed Kodi, iHD driver and matching FFmpeg/libplacebo libraries were
+verified, without a development Kodi executable override. Selected P8.4 and
+P7 scene/control smoke tests passed on a separate test profile.
+DV menus, movie handoff and return to 60 Hz were exercised. With QMS enabled,
+the movie requested 296703 kHz / 5500x2250 while hardware used 594000 kHz /
+4400x5630; the menu restored 594000 kHz / 4400x2250. Output had no dithering
+or plane scaling. This establishes the adjusted-timing software/hardware path,
+not optical blackout, physical lip-sync or all-media picture conformance.
+
+These results apply to this base image, not the separate native-engine image.
+They are bounded smoke checks, not strict every-frame cadence qualification.
+The native engine has its own report on feature/native-source-engine.
+No main merge or new release is implied.

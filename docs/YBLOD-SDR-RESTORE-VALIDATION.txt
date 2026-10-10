@@ -1,0 +1,75 @@
+DV exit SDR restoration — 2026-10-10
+
+Failure
+With DV menus disabled, normal YBLOD returned from Sky Sports Main Event UHD
+through the FEL clip and Gemini Man to a menu signalled as HLG. Connector 609
+had HDR_OUTPUT_METADATA EOTF 3 and Colorspace 9 (BT2020_RGB), matching the TV
+overlay report. The DV bridge's saved pre-DV HDR/colorimetry snapshot outlived
+renderer teardown and overwrote Kodi's clearing of HDR on stop.
+
+Change
+Renderer teardown replaces only the saved HDR metadata/colorimetry restore
+values with the bridge's no-HDR/default-colour values. The saved link policy,
+plane properties and LUTs remain unchanged. This also covers delayed refresh
+restoration, retaining the same single restore transaction. DV menu handoff
+continues using DV transport values, not the saved restore values.
+
+Build
+Incremental Kodi build/link on Ollie passed using the matching YBLOD cached
+63063c8e source, four workers, eight-CPU and 7 GiB container limits.
+Candidate SHA256:
+f57050f70559857009bcf3d7bd91589cd2a0307c423046ac72f0b36ba26727c0
+
+VM test
+Normal YBLOD profile on 192.168.1.175; installed pre3 image with the tested
+pre4 engine override. Candidate Kodi bind-mounted over the system binary;
+the mount is temporary until reboot. No full image/release built.
+QMS ON; debug overlay OFF; DV menus OFF.
+
+Sky Sports: 50 fps VAAPI, HDR metadata present, BT2020_RGB.
+FEL: 23.976 fps, DV enabled and HDR metadata cleared. The startup transition
+still briefly restores the prior HLG snapshot before the final DV mode; this
+change targets renderer teardown, not every intermediate startup restore.
+Gemini: 59.94 fps, DV enabled, HDR metadata cleared. Two measured health
+windows reported zero additional drops/skips, queue 99%, stalled=false and
+advancing PTS. Startup cumulative counters were four drops/four skips.
+Final menu: dv=0, hdr_blob=0, colorspace=0, 3840x2160 at 60 Hz. Independently
+read connector properties confirm an empty HDR blob and Default colorimetry.
+
+Evidence on VM: /storage/native-kodi-fixes-test/sdr-fix-{sky,fel,gemini,exit}.log
+Before: yblod-sdr-before.log and yblod-gemini-exit-hlg* in the same directory.
+
+The user confirmed the returned SDR menu looked normal and HLG disappeared
+from the TV overlay.
+
+DV-menu regression: enable DV menus, play FEL, stop. The playback window
+reported zero drops/skips. Logs confirm handoff to the DV menu at 60 Hz,
+dv=1, hdr_blob=0, colorspace=0, max_bpc=8, rgb=1. The user confirmed the menu
+looked normal, without repeated/distorted copies. DV menus were then disabled
+again to restore the user's original setting; QMS remained enabled.
+Evidence: sdr-fix-dv-menu.log in the same VM directory.
+
+Limitations
+This is not proof that the intermittent QMS glitch or earlier audio/frame-supply
+stall is fixed. No engine performance or pixel-quality change is claimed.
+
+Persistent test package
+Source b7bec4bf07a955db7ac72f936eefae45cd4d31b3 was pushed to
+feature/native-source-engine. The pre4 update was repackaged with only the
+tested Kodi binary and test version identification changed. Full filesystem
+comparison against pre4 listed only etc/issue, etc/os-release and
+usr/lib/kodi/kodi.bin. Packaged engine and kernels are unchanged from pre4.
+Version: yblod-0.2-pre4-test1 (not a GitHub release).
+Update SHA256:
+4399c8288ea67db98099cfaefe06d5521414d66853a5f554de44837428cfa771
+SYSTEM SHA256:
+607f85cf428d20da6b323102145f395a8390cf77fb5d55b7d0aeea9088b4e05e
+Ollie artifact directory: /home/bryan/Projects/yblod-sdr-test.mTeoNS
+Both destination uploads were SHA256-verified before staging and reboot.
+Rollback SYSTEM/KERNEL, version and settings backups:
+VM: /storage/yblod-before-pre4-test1.aFILqC
+N150: /storage/yblod-before-pre4-test1.Yr0bP3
+Both devices rebooted into yblod-0.2-pre4-test1. Installed Kodi, native engine
+and OpenCL kernel SHA256 values match the package. Kodi services are active.
+The VM's identical temporary native engine override was moved into its backup
+directory and Kodi restarted to use packaged paths. No release was published.

@@ -1,0 +1,14 @@
+diff --git a/xbmc/application/Application.cpp b/xbmc/application/Application.cpp
+--- a/xbmc/application/Application.cpp
++++ b/xbmc/application/Application.cpp
+@@ -1632,7 +1632,9 @@ void CApplication::FrameMove(bool processEvents, bool processGUI)
+         !CServiceBroker::GetGUI()->GetWindowManager().HasDirtyRegions())
+       m_skipGuiRender = true;
++    const char* homeCache = std::getenv("DV_PRIVATE_GUI_CACHE_HOME");
+     if (!m_skipGuiRender &&
+-        CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenVideo() &&
++        (CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenVideo() ||
++         (homeCache && std::strcmp(homeCache, "1") == 0)) &&
+         CServiceBroker::GetWinSystem()->CanReuseGuiComposite() &&
+         !CServiceBroker::GetGUI()->GetWindowManager().HasDirtyRegions())
+     {

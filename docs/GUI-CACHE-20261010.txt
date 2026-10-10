@@ -1,0 +1,83 @@
+Experimental exact GUI pixel cache — IN PROGRESS
+================================================
+
+Goal: cache unchanged GUI processing, compare correctness/performance, then
+consider bounded asynchronous packing only after the caching result qualifies.
+
+DV_OVERLAY_PIXEL_CACHE=1 opts into the existing float4 GUI prepass plus a uint32
+RGBA key per output pixel. The kernel reads current GUI RGBA, compares it exactly
+to the stored key, and skips colour calculation/writing when identical. A change
+in any of the 31 float colour coefficients invalidates all pixels and regenerates
+the grayscale lookup. Source pixels, sampling and output packing are unchanged.
+Failure or overlay disappearance invalidates the cache. No skin hints are used.
+
+Extra buffers at 3840x2160: 132710400 bytes float4 colours + 33177600 bytes RGBA
+keys = 165888000 bytes (158.203125 MiB). Existing grayscale table is 1 MiB.
+This is experimental and not enabled in shipped native-dv.env.
+
+DV_OVERLAY_CACHE_VERIFY=1 dispatches an independent fresh per-pixel colour
+calculation after cache preparation, compares all four float bit patterns and
+sets the existing failure flag on any difference. This is deliberately expensive
+and disabled during performance measurements. 122 successful P8.4 Home overlay
+presentations passed this check on N150. This is not yet comprehensive testing
+of forced metadata changes, seeking, subtitle transitions or output geometry.
+
+Initial P8.4 Home before/after (20-second captures, first 24 records excluded):
+                         Before       Pixel cache
+Kodi processing median   93.021 ms     26.872 ms
+Kodi processing p95      93.870 ms     47.738 ms
+Overlay packing GPU      62.958 ms      9.146 ms
+GUI preparation GPU       fused        3.212 ms
+RAM read MiB/s            3674.58       9281.47
+RAM write MiB/s           2596.43       4908.30
+
+Processing median improved 71.1%, but p95 still exceeds 41.7 ms. Cached playback
+produces more frames per wall-clock interval, so increased system memory traffic
+cannot be interpreted as an equal-frame comparison. GPU/host times overlap.
+This is a promising candidate, not an optimal/final result or release decision.
+
+Cold-start shader compilation exposed a runner issue: startup fullscreen could
+override the Home command. The runner now waits for the video clock to reach
+two seconds before setting the target window and records qualified_window.
+p84-cache-verify-home.json is UNQUALIFIED (ended fullscreen; only three startup
+overlays). p84-cache-verify-home-warm.json and before/after runs ended on Home.
+
+Current test setup: N150 runtime bind mounts for pre6 Kodi, experimental cache
+library and source_tunnel.cl; /run/systemd/system/kodi.service.d/90-profile.conf
+loads /storage/yblod-profile-20261010/profile.env. Playback is stopped after each
+capture. Ollie and released pre6 unchanged. Remove all three mounts and the
+temporary service drop-in when testing completes.
+
+Follow-up: reuse unchanged Home raster
+-------------------------------------
+DV_PRIVATE_GUI_CACHE_HOME=1 extends Kodi's existing dirty-region/generation
+guarded GUI reuse to Home. Video still updates separately. A dirty GUI rebuild
+retains the pre6 complete-redraw fix. This flag is experimental and OFF by
+default. The N150 test binary includes kodi-9999-yblod-13-native-home-cache.patch.
+
+20-second captures; first 24 records excluded from each measurement series:
+                             Before median/p95    Both caches median/p95
+P8.4 Home                    93.021 / 93.870 ms    15.555 / 20.628 ms
+P7 FEL Home                 100.749 /102.004 ms    15.370 / 21.364 ms
+P7 FEL clean playback        13.385 / 14.023 ms    13.297 / 14.068 ms
+
+Home improvements are large; clean playback is effectively unchanged in these
+runs. Both cached Home runs report no drops/skips or stalls. These are Kodi
+processing measurements, not end-to-end GPU/display latency or proof of visual
+smoothness. They cover these two fixtures, not all profiles or all GUI states.
+The FEL prior-GL median fell from 15.148 ms (pixel cache only) to 0.288 ms with
+raster reuse. Pixel caching alone left FEL Home at 49.225 / 49.750 ms.
+
+gui_cache_gpu_tests executed on N150: eight exact float-bit comparisons passed,
+covering unchanged reuse, changed pixels, flip, coefficient invalidation,
+transparent clear and recovery. Deliberately changing coefficients without
+invalidating the cache was detected (negative control). This synthetic test
+does not use the grayscale LUT; the live verification above covers that path.
+It checks cached colour values, not a captured HDMI signal.
+
+The measured reduction qualifies this candidate for the bounded asynchronous
+packing experiment. Keep the caches opt-in pending more GUI transition and
+repeat testing; the added 158 MiB and memory traffic remain tradeoffs.
+Remaining: repeat/tail analysis and transition validation, then asynchronous
+packing implementation, identity/ownership tests and before/after playback.
+No asynchronous packing change is included in these measurements.

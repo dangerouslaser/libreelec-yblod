@@ -1,5 +1,14 @@
 # LibreELEC yblod
 
+## Experimental native-engine branch
+
+This branch includes the LibreELEC base resync and the standalone
+[native engine and YBLOD adapter](native-dv/integration/README.md).
+They are work in progress: this branch's Generic image now selects the new
+engine, but that image and the YBLOD port have not been playback-qualified.
+No new release is implied. The performance and accuracy figures below
+describe the earlier YBLOD pipeline, not this new engine.
+
 **An unofficial LibreELEC build with native Dolby Vision for Intel HDMI systems.**
 
 yblod is a personal LibreELEC build for Intel PCs. It is **not** an official

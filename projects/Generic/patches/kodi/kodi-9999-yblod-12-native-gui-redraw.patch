@@ -1,0 +1,14 @@
+diff --git a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
+--- a/xbmc/guilib/GUIWindowManager.cpp
++++ b/xbmc/guilib/GUIWindowManager.cpp
+@@ -1423,6 +1423,10 @@ bool CGUIWindowManager::Render()
+   CSingleExit lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+ 
+   int bufferAge = CServiceBroker::GetWinSystem()->GetBufferAge();
++  // Native DV clears its GUI FBO before this pass; swapchain age cannot
++  // preserve unchanged controls in that separate target.
++  if (CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
++    bufferAge = 0;
+   bool visualizeDirtyRegions =
+       CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiVisualizeDirtyRegions;
+   if (visualizeDirtyRegions)
