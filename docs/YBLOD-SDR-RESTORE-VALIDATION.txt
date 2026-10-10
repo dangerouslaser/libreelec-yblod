@@ -1,0 +1,45 @@
+DV exit SDR restoration — 2026-10-10
+
+Failure
+With DV menus disabled, normal YBLOD returned from Sky Sports Main Event UHD
+through the FEL clip and Gemini Man to a menu signalled as HLG. Connector 609
+had HDR_OUTPUT_METADATA EOTF 3 and Colorspace 9 (BT2020_RGB), matching the TV
+overlay report. The DV bridge's saved pre-DV HDR/colorimetry snapshot outlived
+renderer teardown and overwrote Kodi's clearing of HDR on stop.
+
+Change
+Renderer teardown replaces only the saved HDR metadata/colorimetry restore
+values with the bridge's no-HDR/default-colour values. The saved link policy,
+plane properties and LUTs remain unchanged. This also covers delayed refresh
+restoration, retaining the same single restore transaction. DV menu handoff
+continues using DV transport values, not the saved restore values.
+
+Build
+Incremental Kodi build/link on Ollie passed using the matching YBLOD cached
+63063c8e source, four workers, eight-CPU and 7 GiB container limits.
+Candidate SHA256:
+f57050f70559857009bcf3d7bd91589cd2a0307c423046ac72f0b36ba26727c0
+
+VM test
+Normal YBLOD profile on 192.168.1.175; installed pre3 image with the tested
+pre4 engine override. Candidate Kodi bind-mounted over the system binary;
+the mount is temporary until reboot. No full image/release built.
+QMS ON; debug overlay OFF; DV menus OFF.
+
+Sky Sports: 50 fps VAAPI, HDR metadata present, BT2020_RGB.
+FEL: 23.976 fps, DV enabled and HDR metadata cleared. The startup transition
+still briefly restores the prior HLG snapshot before the final DV mode; this
+change targets renderer teardown, not every intermediate startup restore.
+Gemini: 59.94 fps, DV enabled, HDR metadata cleared. Two measured health
+windows reported zero additional drops/skips, queue 99%, stalled=false and
+advancing PTS. Startup cumulative counters were four drops/four skips.
+Final menu: dv=0, hdr_blob=0, colorspace=0, 3840x2160 at 60 Hz. Independently
+read connector properties confirm an empty HDR blob and Default colorimetry.
+
+Evidence on VM: /storage/native-kodi-fixes-test/sdr-fix-{sky,fel,gemini,exit}.log
+Before: yblod-sdr-before.log and yblod-gemini-exit-hlg* in the same directory.
+
+Limitations
+Visual confirmation and DV-menu-enabled regression test pending. This is
+not proof that the intermittent QMS glitch or earlier audio/frame-supply
+stall is fixed. No engine performance or pixel-quality change is claimed.
