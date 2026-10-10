@@ -7,7 +7,7 @@ Provenance
 Build source: f1e79c110637e3644cc04c8639aee0c4f2af2c46
 LibreELEC upstream: cd5ed44f054deff79f50fc748995d8e77942ce6b
 Documentation commits after the build do not change its executable payload.
-Clean upstream merge; full image built on Ollie, not a Kodi binary-only overlay.
+Clean upstream merge; full image rebuilt, not a Kodi binary-only overlay.
 Build limits: 10 GiB memory, 12 CPUs, six compiler/LTO workers, two package workers.
 No build error or OOM. This sync did not introduce a new kernel/Intel driver.
 
@@ -25,7 +25,7 @@ match the update tar. All five shipped shaders and runtime defaults match source
 DBus helper ownership/mode checked. Removed legacy controls absent.
 Fresh-install image payload inspected, but not booted as a fresh installation.
 
-Installed/booted complete update on Intel N150 and Intel VM.
+Installed/booted complete update on two tested Intel devices.
 SYSTEM, KERNEL, Kodi, engine, runtime defaults and tunnel shader hashes all match.
 No Kodi/engine/shader bind mounts or native-dv.env user override on either device.
 Verified process flags: GUI revision=1, sparse reads=1, async overlays=0,
@@ -34,7 +34,7 @@ Userdata backed up before installation; no user media removed.
 
 Automated playback checks
 N150: P7 FEL, P8.4, P5, Gemini Man 59.94 fps.
-VM: P7 FEL and P8.1 (12 Angry Men).
+Second tested device: P7 FEL and P8.1 (12 Angry Men).
 Each passed startup/advancing clock, controls, pause, Home while paused/playing,
 resume, seek to 30 seconds beyond start and stop without Kodi restart or detected
 native errors. FEL sidecar subtitle enabled. Both devices also passed a separate
@@ -46,7 +46,7 @@ zero drops/skips. Following controls/pause/Home interval: two drops, one skip.
 Attempts are not display flips; this is not proof of flawless 4K60 OSD playback.
 Other sampled movie health records reported zero drops/skips.
 
-VM live sequence: Sky Sports Main Event -> Boston ABC 5 -> ESPN -> Sky.
+Live sequence on tested device: Sky Sports Main Event -> Boston ABC 5 -> ESPN -> Sky.
 All advanced normally, with 50/59.94/59.94/50 fps respectively.
 Open-to-OnAVStart: 3231.0 / 2557.7 / 2388.7 / 2955.3 ms.
 Notifications do not measure the first visible frame or audible output.
@@ -62,11 +62,11 @@ binaries were used; these tests establish consistency, not independent accuracy.
 
 Known issue retained rather than hidden
 Initial FEL seek-to-25-seconds checks failed on both devices. On unchanged pre7
-on Ollie, the same file also returns near 3 seconds after that request. Seeking
+on the comparison device, the same file also returns near 3 seconds after that request. Seeking
 to 20 or 30 works on both. Underlying cause is not established. Subsequent smoke
 checks use 30 seconds, not a claimed fix. Failed runs and comparison preserved.
 
 Evidence: data/release-0.2-check/*.json (sanitized; no private stream URLs).
-Both updated devices left on the candidate; Ollie remains unchanged pre7.
+Both updated devices left on the candidate; comparison device remains on pre7.
 Remaining qualifications: fresh-install boot, broader network/audio/skin/device
 coverage and visual TV confirmation. No new blocker isolated by these checks.

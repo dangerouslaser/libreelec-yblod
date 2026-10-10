@@ -82,7 +82,7 @@ Dolby conformance or equality to every licensed player.
   retaining the existing synchronisation constraints.
 - Retain the live 10-bit picture fix.
 
-On the Intel VM, the duplicate-open fix reduced playback-start notifications from
+On the tested device, the duplicate-open fix reduced playback-start notifications from
 about 3.8–4.5 seconds to 2.4–3.0 seconds in the initial channel comparison.
 Separate display coordination tests reduced signal commits from two to one.
 Channel 5 to ESPN software audio timing correction fell from 698 ms to 118/113 ms
