@@ -15,6 +15,7 @@ p.add_argument('output', type=pathlib.Path)
 p.add_argument('--seconds', type=int, default=20)
 p.add_argument('--overlay', choices=['none', 'home'], default='none')
 p.add_argument('--memory', action='store_true', help='Measure whole-system N150 IMC traffic')
+p.add_argument('--transitions', action='store_true', help='Exercise Home, return to video and seek; not a steady-state benchmark')
 a = p.parse_args()
 lock = open('/tmp/yblod-native-profile-' + a.host + '.lock', 'w')
 fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -54,6 +55,19 @@ for _ in range(60):
 else:
     raise RuntimeError('Playback did not reach the startup gate')
 rpc('GUI.SetFullscreen', {'fullscreen': True})
+transitions = []
+if a.transitions:
+    time.sleep(2)
+    rpc('GUI.ActivateWindow', {'window': 'home'})
+    time.sleep(3)
+    transitions.append(dict(action='home', state=rpc('GUI.GetProperties', {'properties': ['currentwindow', 'fullscreen']})))
+    rpc('GUI.SetFullscreen', {'fullscreen': True})
+    time.sleep(3)
+    transitions.append(dict(action='fullscreen', state=rpc('GUI.GetProperties', {'properties': ['currentwindow', 'fullscreen']})))
+    player = next(p for p in rpc('Player.GetActivePlayers') if p['type'] == 'video')
+    transitions.append(dict(action='seek', state=rpc('Player.Seek', {
+        'playerid': player['playerid'], 'value': {'time': {'hours': 0, 'minutes': 0, 'seconds': 15, 'milliseconds': 0}}})))
+    time.sleep(3)
 if a.overlay == 'home':
     rpc('GUI.ActivateWindow', {'window': 'home'})
 memory = None
@@ -87,5 +101,6 @@ timings = [line for line in log.splitlines() if any(s in line for s in (
 a.output.parent.mkdir(parents=True, exist_ok=True)
 a.output.write_text(json.dumps(dict(host=a.host, start_utc=start, overlay=a.overlay,
     duration_seconds=a.seconds, window=window, qualified_window=qualified_window, memory_perf=memory,
+    transitions=transitions,
     gpu_events=events, timing_lines=timings), indent=2) + '\n')
 print(json.dumps(dict(output=str(a.output), gpu_events=len(events), timing_lines=len(timings))))

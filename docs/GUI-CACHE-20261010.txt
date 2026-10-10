@@ -1,5 +1,5 @@
-Experimental exact GUI pixel cache — IN PROGRESS
-================================================
+Experimental exact GUI pixel cache — tested opt-in
+==================================================
 
 Goal: cache unchanged GUI processing, compare correctness/performance, then
 consider bounded asynchronous packing only after the caching result qualifies.
@@ -42,11 +42,11 @@ two seconds before setting the target window and records qualified_window.
 p84-cache-verify-home.json is UNQUALIFIED (ended fullscreen; only three startup
 overlays). p84-cache-verify-home-warm.json and before/after runs ended on Home.
 
-Current test setup: N150 runtime bind mounts for pre6 Kodi, experimental cache
+Test setup: N150 runtime bind mounts for pre6 Kodi, experimental cache
 library and source_tunnel.cl; /run/systemd/system/kodi.service.d/90-profile.conf
 loads /storage/yblod-profile-20261010/profile.env. Playback is stopped after each
-capture. Ollie and released pre6 unchanged. Remove all three mounts and the
-temporary service drop-in when testing completes.
+capture. Ollie runtime and released pre6 unchanged. Follow-up Kodi binaries add
+the Home raster cache and opt-in asynchronous packing described below.
 
 Follow-up: reuse unchanged Home raster
 -------------------------------------
@@ -80,6 +80,7 @@ It checks cached colour values, not a captured HDMI signal.
 The measured reduction qualifies this candidate for the bounded asynchronous
 packing experiment. Keep the caches opt-in pending more GUI transition and
 repeat testing; the added 158 MiB and memory traffic remain tradeoffs.
-Remaining: repeat/tail analysis and transition validation, then asynchronous
-packing implementation, identity/ownership tests and before/after playback.
-No asynchronous packing change is included in these measurements.
+The repeat/tail check and transition verification were completed, followed by
+bounded asynchronous packing implementation and playback testing. See
+ASYNC-PACK-20261010.txt for those separate results and their scope/limitations.
+No asynchronous packing change is included in the GUI-cache measurements here.

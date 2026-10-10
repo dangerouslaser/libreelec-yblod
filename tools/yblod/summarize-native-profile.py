@@ -32,7 +32,8 @@ for path in sorted(pathlib.Path(sys.argv[1]).glob('*.json')):
                     continue
                 if event.get('valid', 1) == 1:
                     groups[kind].append(event)
-    out = {'window': data['window'], 'gpu_host_groups': {}}
+    out = {'window': data['window'], 'transitions': data.get('transitions', []),
+           'gpu_host_groups': {}}
     for kind, events in groups.items():
         events = events[24:]
         keys = {k for e in events for k in e if k.endswith('_ms')}

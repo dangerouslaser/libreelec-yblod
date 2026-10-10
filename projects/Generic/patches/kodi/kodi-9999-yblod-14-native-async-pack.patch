@@ -10,19 +10,20 @@ diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/co
    if (!abi || abi() != 4 || !m_create || !m_render || !m_drain || !m_destroy)
      return false;
    const char* direct = std::getenv("DV_PRIVATE_SCANOUT");
-@@ -198,9 +200,17 @@
+@@ -197,10 +199,18 @@
+   if (m_unsafe)
      return false;
    if (m_pending && (!m_cancel || m_cancel(m_engine) != 0))
-   {
-+    if (m_packPending) m_scanout->Written(DV_SCANOUT_UNCERTAIN);
-     m_unsafe = true;
-     return false;
-   }
-+  if (m_packPending && !m_scanout->Written(DV_SCANOUT_REJECTED))
 +  {
++    if (m_packPending) m_scanout->Written(DV_SCANOUT_UNCERTAIN);
 +    m_unsafe = true;
 +    return false;
 +  }
++  if (m_packPending && !m_scanout->Written(DV_SCANOUT_REJECTED))
+   {
+     m_unsafe = true;
+     return false;
+   }
 +  m_packPending = false;
 +  m_packSubmitMs = 0;
    m_pending = false;
@@ -87,7 +88,29 @@ diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/co
    if (trace)
    {
      const auto ms = [](auto end, auto begin) { return std::chrono::duration<double, std::milli>(end - begin).count(); };
-@@ -447,7 +469,30 @@
+@@ -360,8 +382,10 @@
+   }
+   if (m_transitionFrames) --m_transitionFrames;
+   const char* verify = std::getenv("DV_PRIVATE_VERIFY");
++  const char* verifyAsync = std::getenv("DV_PRIVATE_ASYNC_PACK");
+   // The movie-only oracle cannot validate pixels intentionally covered by GUI.
+   if (!overlay && verify && std::strcmp(verify, "1") == 0 &&
++      (!verifyAsync || std::strcmp(verifyAsync, "1") != 0 || prepacked) &&
+       (m_verifiedFrames < 6 || m_resetChecks))
+   {
+     std::vector<unsigned char> rgba(3840u * 2160u * 4u);
+@@ -398,8 +422,8 @@
+     }
+     const bool resized = geometry.destination_width &&
+         (geometry.destination_width != geometry.width || geometry.destination_height != geometry.height);
+-    CLog::Log(LOGINFO, "Private source GL output verified: pts={} bytes={} check={} prefetch={} after_reset={}",
+-        pts, rgba.size(), resized ? "sample-tolerance-and-payload" : "byte-exact", prefetched, m_resetChecks != 0);
++    CLog::Log(LOGINFO, "Private source GL output verified: pts={} bytes={} check={} prefetch={} after_reset={} prepacked={}",
++        pts, rgba.size(), resized ? "sample-tolerance-and-payload" : "byte-exact", prefetched, m_resetChecks != 0, prepacked);
+     if (m_resetChecks) --m_resetChecks;
+     if (m_verifiedFrames < 6) ++m_verifiedFrames;
+   }
+@@ -447,7 +471,30 @@
    }
    else m_refresh = true;
    m_ready = false;

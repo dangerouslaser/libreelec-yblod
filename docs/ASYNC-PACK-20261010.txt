@@ -1,5 +1,5 @@
-Bounded asynchronous packing experiment — IN PROGRESS
-=====================================================
+Bounded asynchronous packing experiment — tested opt-in
+======================================================
 
 Prerequisite: GUI cache results in GUI-CACHE-20261010.txt qualify proceeding.
 Neither caching nor asynchronous packing is enabled in release defaults.
@@ -25,7 +25,7 @@ slot ready. Packet ID/refresh come from that slot's immutable lease, after the
 previous commit. The current scanout buffer is never selected for writing.
 Cancel/seek/identity miss drains before rejecting the pending lease.
 
-First playback experiment uses clean frames. If GUI appears, cancel/discard
+The playback experiment uses clean frames. If GUI appears, cancel/discard
 speculative movie-only packing and regenerate with the current overlay; do not
 reuse a GUI texture that Kodi may overwrite. After an overlay frame, no pack
 is queued ahead. This isolates the scheduling change; overlay packing remains
@@ -36,7 +36,84 @@ in pack enqueue time, not hidden. Kodi processing_ms includes prefetch submit,
 pack enqueue and consume costs. GPU event durations overlap those host costs.
 Compare total processing and tails, not just the shortened consume call.
 
-Required next evidence: build/deploy candidate, verify byte-exact packing via
-the existing diagnostic oracle, measure same-fixture before/after with oracle
-disabled, check overlay appearance/disappearance, seek/stop/restart and failures.
-No asynchronous playback performance claim is made yet.
+Qualification covers the two 4K24 fixtures below, not all profiles/rates/skins.
+
+Initial deployment completed FEL playback with zero reported drops/skips or
+stalls. fel-verify.json is NOT the asynchronous accuracy qualification: its
+six diagnostic samples were mostly startup fallback frames. The diagnostic
+now requires prepacked=true when the asynchronous flag is enabled, and logs
+that fact explicitly. Timing from verification runs is not an A/B benchmark.
+Baseline captures fel-off.json and p84-off.json keep both GUI caches enabled
+and disable packing-ahead and readback verification.
+
+The revised fel-verify-prepacked.json and p84-verify-prepacked.json each contain
+six byte-exact asynchronous frame checks against the existing CPU packing
+oracle, explicitly logged as prepacked=true. This checks reconstructed-plane
+packing and payload, not end-to-end HDMI capture or a new reconstruction oracle.
+
+Controlled 20-second captures (verification OFF, first 24 timing records excluded,
+453 remaining per capture; total host processing includes the earlier enqueue):
+                       Async OFF median/p95    Async ON median/p95
+P7 FEL clean           13.325 / 13.935 ms       10.712 / 10.964 ms
+P8.4 clean             11.185 / 12.515 ms        8.862 /  9.086 ms
+Median reduction: 19.6% FEL, 20.8% P8.4. These are host processing/wait times,
+not total GPU service time or end-to-end latency. No reported drops or skips
+in these measured steady playback runs. No new output buffers are allocated.
+
+Whole-system memory counters (MiB/s read + write, not GPU-only bandwidth):
+FEL OFF 5444.85 + 2753.18; ON 5448.10 + 2749.09.
+P8.4 OFF 4341.04 + 2194.10; ON 4304.82 + 2186.61.
+Scheduling improved with essentially unchanged memory traffic.
+
+Verified Home -> fullscreen -> seek -> stop/reopen runs passed 100 FEL and
+124 P8.4 GUI-cache verification presentations. GUI window IDs and resumed
+playback clocks are recorded. These expensive diagnostic runs reported startup
+skips/drops and are NOT smoothness/performance passes. No ownership or renderer
+rejection errors were captured. No post-seek byte oracle claim is made: this
+diagnostic's six-frame sampling budget had already been used before seeking.
+
+Test machine: Intel N150, 7690084 kB RAM, kernel 7.2.9. Final candidate hashes:
+Kodi 08d9e3c7cb9cf618784030abe7e6c5966815a4944bd421d195afdccd5676090b
+Engine fed0f2a5635ae4e78d28e6ebffb50b033bb5b2a27e3d7a4c8b74f214c50fb75b
+Shader 956f5ad236cfbffe60618d594076e115710a02857ed85468facfee0e2bbdf3b9
+
+Final qualification
+-------------------
+Verification-OFF transition repeats reached Home and fullscreen, resumed after
+seek, and stopped/reopened successfully for both fixtures. Each recorded zero
+drops and one transition skip with async ON, and also zero drops and one skip
+with async OFF. No continuing skips/stalls or captured ownership/rejection
+errors. This is no observed incremental transition regression, not a claim of
+perfect switching or a substitute for visual GUI qualification across skins.
+
+OFF rechecks bracket the ON captures and use the exact final binary above
+(the first OFF captures preceded the diagnostic-only sampling/log change):
+                       Final OFF median/p95    ON median/p95
+P7 FEL clean           13.492 / 14.078 ms       10.712 / 10.964 ms
+P8.4 clean             11.294 / 12.698 ms        8.862 /  9.086 ms
+Same-binary median improvement: 20.6% FEL, 21.5% P8.4. Each has 453 timing
+records after warmup. Both OFF rechecks also report no drops/skips/stalls.
+
+Goal audit:
+- Unchanged GUI colour and raster caching: implemented behind opt-in flags;
+  exact cache tests, live verification, before/after and repeat data recorded
+  in GUI-CACHE-20261010.txt. Added memory cost is explicitly documented there.
+- Bounded asynchronous packing: one pending pack, two existing scanout buffers;
+  identity, ownership, failure, cancel and publish gates exercised by the CL
+  lifecycle test and existing 1000-transition scanout slot regression test.
+- Playback accuracy/performance: twelve explicitly asynchronous frames passed
+  the byte oracle; paired/remeasured timings, GUI changes, seeks and restarts
+  completed on N150. Host geometry/order2/polynomial regression tests pass.
+
+Keep the features experimental and OFF in shipped defaults. The measured gain
+supports further use, not broad all-profile/4K60 certification. The known single
+GUI-transition skip also occurs without async and is not resolved by this work.
+The async experiment does not run overlay packing ahead; speculative clean
+packing is discarded when controls appear. No output arithmetic was changed.
+
+Test cleanup completed: all three N150 bind mounts and the temporary profiling
+service drop-in removed from active configuration. Kodi is active with no player
+running. Original binary hashes restored and verified:
+Kodi 63385b2a09e1ba1d229221154df5ca7333a67d3570b5cf6747792f01f3401420
+Engine c741e415b7d3023dd3d872cfb561284c11a687f72d8c28952331d6be0f99dbfc
+Candidate binaries and disabled test configuration remain in storage for reuse.
