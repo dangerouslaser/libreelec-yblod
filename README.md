@@ -4,11 +4,11 @@ An unofficial LibreELEC build with TV-led Dolby Vision for compatible Intel HDMI
 YBLOD is not affiliated with or certified by LibreELEC, Kodi, Dolby or Intel.
 Please report build-specific problems here rather than to those upstream projects.
 
-## YBLOD 0.2 release candidate
+## YBLOD 0.2
 
-This branch prepares 0.2 with the native playback engine and an updated LibreELEC
-base. Bounded [packaged-image checks](docs/RELEASE-CHECK-0.2-20261010.txt) are complete; this is not an announcement
-that 0.2 has been published. See the [cumulative release notes](docs/RELEASE-0.2.md)
+YBLOD 0.2 includes the native playback engine and an updated LibreELEC
+base. Bounded [packaged-image checks](docs/RELEASE-CHECK-0.2-20261010.txt) are complete.
+See the [cumulative release notes](docs/RELEASE-0.2.md)
 and [available releases](https://github.com/dangerouslaser/libreelec-yblod/releases).
 
 ## What changed

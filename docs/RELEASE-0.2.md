@@ -1,8 +1,10 @@
-# YBLOD 0.2 release candidate
+# YBLOD 0.2
 
 Changes since YBLOD 0.1, including the work shipped in 0.2-pre1 through pre7.
-The upstream-resynced image completed bounded [release checks](RELEASE-CHECK-0.2-20261010.txt). No final 0.2
-release has been published by this document.
+The upstream-resynced image completed bounded [release checks](RELEASE-CHECK-0.2-20261010.txt).
+Use the update tar for an existing installation or the compressed image for a
+fresh installation. Intel Dolby Vision support remains experimental; see the
+known limitations below.
 
 ## Native Dolby Vision playback engine
 
