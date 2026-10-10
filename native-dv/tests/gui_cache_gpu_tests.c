@@ -13,13 +13,21 @@ int main(int argc,char **argv)
         if(clGetDeviceIDs(platforms[i],CL_DEVICE_TYPE_GPU,1,&device,NULL))device=NULL;
     assert(device);cl_int err;cl_context context=clCreateContext(NULL,1,&device,NULL,NULL,&err);
     assert(context&&!err);cl_command_queue queue=clCreateCommandQueue(context,device,0,&err);assert(queue&&!err);
-    const char *source="#include \"source_tunnel.cl\"\n";
+    const char *source="#include \"source_tunnel.cl\"\n"
+        "kernel void sparse_check(global const float4 *colours, global const uint *gui_pixels,"
+        "constant float *coeff, global int *error, uint w, uint h) {"
+        "uint x=get_global_id(0),y=get_global_id(1);"
+        "for(int dx=-1;dx<=1;++dx){int xx=(int)x+dx;"
+        "float4 a=source_gui(colours,xx,y,w,h,0,coeff,error);"
+        "float4 b=colours[y*w+(uint)clamp(xx,0,(int)w-1)];"
+        "if(any(as_uint4(a)!=as_uint4(b)))atomic_or(error,4);}}\n";
     cl_program program=clCreateProgramWithSource(context,1,&source,NULL,&err);assert(program&&!err);
-    char options[4096];snprintf(options,sizeof(options),"-cl-std=CL1.2 -D SOURCE_OVERLAY -D SOURCE_OVERLAY_CACHED -D SOURCE_OVERLAY_PIXEL_CACHE -I%s",argv[1]);
+    char options[4096];snprintf(options,sizeof(options),"-cl-std=CL1.2 -D SOURCE_OVERLAY -D SOURCE_OVERLAY_CACHED -D SOURCE_OVERLAY_PIXEL_CACHE -D SOURCE_OVERLAY_SPARSE -I%s",argv[1]);
     if(clBuildProgram(program,1,&device,options,NULL,NULL)){
         char log[8192];clGetProgramBuildInfo(program,device,CL_PROGRAM_BUILD_LOG,sizeof(log),log,NULL);puts(log);return 1;}
     cl_kernel prepare=clCreateKernel(program,"source_gui_prepare",&err);assert(prepare&&!err);
     cl_kernel check=clCreateKernel(program,"source_gui_cache_check",&err);assert(check&&!err);
+    cl_kernel sparse=clCreateKernel(program,"sparse_check",&err);assert(sparse&&!err);
     enum {W=16,H=8,N=W*H};unsigned char rgba[N][4];
     cl_image_format format={CL_RGBA,CL_UNORM_INT8};cl_image_desc desc={0};
     desc.image_type=CL_MEM_OBJECT_IMAGE2D;desc.image_width=W;desc.image_height=H;
@@ -51,10 +59,14 @@ int main(int argc,char **argv)
             assert(!clSetKernelArg(kernel,5,sizeof(w),&w));assert(!clSetKernelArg(kernel,6,sizeof(h),&h));
             if(!k){assert(!clSetKernelArg(kernel,7,sizeof(keys),&keys));assert(!clSetKernelArg(kernel,8,sizeof(invalidate),&invalidate));}
             assert(!clEnqueueNDRangeKernel(queue,kernel,2,NULL,work,NULL,0,NULL,NULL));}
+        cl_mem sparse_args[]={colours,keys,coeff,errors};
+        for(unsigned k=0;k<4;++k)assert(!clSetKernelArg(sparse,k,sizeof(cl_mem),&sparse_args[k]));
+        assert(!clSetKernelArg(sparse,4,sizeof(w),&w));assert(!clSetKernelArg(sparse,5,sizeof(h),&h));
+        assert(!clEnqueueNDRangeKernel(queue,sparse,2,NULL,work,NULL,0,NULL,NULL));
         assert(!clEnqueueReadBuffer(queue,errors,CL_TRUE,0,sizeof(status),&status,0,NULL,NULL));
         if(step==5)assert(status==2);else assert(status==0);
     }
     puts("{\"exact_cache_steps\":8,\"stale_coefficient_negative_control\":true,\"pixel_changes\":true,\"flip\":true,\"transparent_clear\":true}");
     clReleaseMemObject(keys);clReleaseMemObject(colours);clReleaseMemObject(errors);clReleaseMemObject(coeff);clReleaseMemObject(image);
-    clReleaseKernel(check);clReleaseKernel(prepare);clReleaseProgram(program);clReleaseCommandQueue(queue);clReleaseContext(context);return 0;
+    clReleaseKernel(sparse);clReleaseKernel(check);clReleaseKernel(prepare);clReleaseProgram(program);clReleaseCommandQueue(queue);clReleaseContext(context);return 0;
 }

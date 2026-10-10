@@ -39,7 +39,7 @@ typedef struct {
     cl_program overlay_program[3];cl_kernel overlay_kernel[3];
     cl_mem gui,gui_coeff,gui_error;
     int gui_prepass;cl_kernel gui_prepare;cl_mem gui_colours;
-    int gui_pixel_cache,gui_cache_valid,gui_cache_invalidate;cl_mem gui_pixels;
+    int gui_pixel_cache,gui_cache_valid,gui_cache_invalidate,gui_sparse;cl_mem gui_pixels;
     float gui_cache_coeff[31];
     int gui_cache_verify;cl_kernel gui_cache_check;
     int gui_gray_lut,gui_shared;cl_kernel gui_gray_prepare;cl_mem gui_gray;
@@ -139,6 +139,7 @@ void *dv_source_renderer_create_storage(uintptr_t va_display,uintptr_t egl_displ
     const char *gui_prepass=getenv("DV_OVERLAY_PREPASS");r->gui_prepass=gui_prepass&&!strcmp(gui_prepass,"1");
     const char *pixel_cache=getenv("DV_OVERLAY_PIXEL_CACHE");r->gui_pixel_cache=pixel_cache&&!strcmp(pixel_cache,"1");
     if(r->gui_pixel_cache)r->gui_prepass=1;
+    const char *sparse=getenv("DV_OVERLAY_SPARSE");r->gui_sparse=r->gui_pixel_cache&&sparse&&!strcmp(sparse,"1");
     const char *cache_verify=getenv("DV_OVERLAY_CACHE_VERIFY");r->gui_cache_verify=cache_verify&&!strcmp(cache_verify,"1");
     const char *gui_gray=getenv("DV_OVERLAY_GRAY_LUT");r->gui_gray_lut=gui_gray&&!strcmp(gui_gray,"1");
     const char *gui_shared=getenv("DV_OVERLAY_SHARED");r->gui_shared=gui_shared&&!strcmp(gui_shared,"1");
@@ -335,6 +336,9 @@ static int compile_overlay(source_renderer *r,unsigned variant)
         if(r->gui_pixel_cache){
             if(n>=0&&(size_t)n+32<sizeof(options)){strcat(options," -D SOURCE_OVERLAY_PIXEL_CACHE");n=(int)strlen(options);}
             else n=-1;}
+        if(r->gui_sparse){
+            if(n>=0&&(size_t)n+32<sizeof(options)){strcat(options," -D SOURCE_OVERLAY_SPARSE");n=(int)strlen(options);}
+            else n=-1;}
         if(n<0||(size_t)n>=sizeof(options)||clBuildProgram(program,1,&r->device,options,NULL,NULL)){
             clReleaseProgram(program);return DV_BACKEND;}
         cl_kernel kernel=clCreateKernel(program,"source_tunnel",&error);
@@ -517,7 +521,8 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
         CL_DO(clSetKernelArg(kernel,arg,sizeof(gui_input),&gui_input));
         CL_DO(clSetKernelArg(kernel,arg+1,sizeof(r->gui_coeff),&r->gui_coeff));
         CL_DO(clSetKernelArg(kernel,arg+2,sizeof(gui_flip),&gui_flip));
-        CL_DO(clSetKernelArg(kernel,arg+3,sizeof(r->gui_error),&r->gui_error));}
+        CL_DO(clSetKernelArg(kernel,arg+3,sizeof(r->gui_error),&r->gui_error));
+        if(r->gui_sparse)CL_DO(clSetKernelArg(kernel,arg+4,sizeof(r->gui_pixels),&r->gui_pixels));}
     size_t work[2]={ow/2,oh};CL_DO(clEnqueueNDRangeKernel(r->queue,kernel,2,NULL,work,NULL,0,NULL,
         profile_gui?&r->gui_events[2]:r->profile_async&&r->pack_profiles<120?&r->pack_done:NULL));
     if(trace_wait)stamp[5]=submit_clock();

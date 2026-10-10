@@ -68,11 +68,24 @@ kernel void source_gui_prepare(read_only image2d_t gui, constant float *coeff,
  colours[y*w+x]=source_gui_colour(gui,(int)x,y,w,h,flip,coeff,error);
 #endif
 }
-float4 source_gui(global const float4 *gui, int x, uint y, uint w, uint h,
-                  uint flip, constant float *coeff, volatile global int *error)
+float4 source_gui_cached(global const float4 *gui, int x, uint y, uint w, uint h,
+                  uint flip, constant float *coeff, volatile global int *error
+#ifdef SOURCE_OVERLAY_SPARSE
+                  ,global const uint *pixels
+#endif
+                  )
 {
- return gui[y*w+(uint)clamp(x,0,(int)w-1)];
+ uint index=y*w+(uint)clamp(x,0,(int)w-1);
+#ifdef SOURCE_OVERLAY_SPARSE
+ if(!as_uchar4(pixels[index]).w)return (float4)(0);
+#endif
+ return gui[index];
 }
+#ifdef SOURCE_OVERLAY_SPARSE
+#define source_gui(g,x,y,w,h,f,c,e) source_gui_cached(g,x,y,w,h,f,c,e,gui_pixels)
+#else
+#define source_gui source_gui_cached
+#endif
 #ifdef SOURCE_OVERLAY_PIXEL_CACHE
 kernel void source_gui_cache_check(read_only image2d_t gui,constant float *coeff,
  uint flip,volatile global int *error,global const float4 *colours,uint w,uint h)
@@ -168,6 +181,9 @@ kernel void source_tunnel(global const ushort *yplane,
 #endif
  ,constant float *gui_coeff,uint gui_flip,
  volatile global int *gui_error
+#ifdef SOURCE_OVERLAY_SPARSE
+ ,global const uint *gui_pixels
+#endif
 #if defined(SOURCE_OVERLAY_GRAY_LUT) && !defined(SOURCE_OVERLAY_CACHED)
  ,global const float4 *gui_gray
 #endif
