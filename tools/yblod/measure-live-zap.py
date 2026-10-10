@@ -82,6 +82,12 @@ def main():
         ("video_resync", "CVideoPlayerVideo - CDVDMsg::GENERAL_RESYNC"),
         ("av_started", "CApplicationPlayerCallback::OnAVStarted"),
         ("cache_state", "CVideoPlayer::SetCaching - caching state"),
+        ("audio_start_timing", "VideoPlayer::Sync - Audio - pts:"),
+        ("video_start_timing", "VideoPlayer::Sync - Video - pts:"),
+        ("audio_sync_start", "ActiveAE - start sync of audio stream"),
+        ("audio_sync_adjust", "ActiveAE::SyncStream - average error"),
+        ("audio_sink_ready", "OpenSink(): ALSA Initialized:"),
+        ("stream_stalled", "Stream stalled, start buffering"),
     ]
     timeline = []
     anchor = None
@@ -97,6 +103,13 @@ def main():
                 anchor = stamp
             entry = {"event": name, "device_time": match[1],
                      "log_ms": round((stamp - anchor).total_seconds() * 1000, 1)}
+            if name in ("audio_start_timing", "video_start_timing"):
+                for key, value in re.findall(r"(pts|cache|totalcache): ([-\d.]+)", line):
+                    entry[key + "_us"] = float(value)
+            if name == "audio_sync_adjust":
+                value = re.search(r"average error (?:of )?([-\d.]+)", line)
+                if value:
+                    entry["error_ms"] = float(value[1])
             if name == "renderer_config":
                 rate = re.search(r"framerate: (\d+\.\d+)", line)
                 if rate:
