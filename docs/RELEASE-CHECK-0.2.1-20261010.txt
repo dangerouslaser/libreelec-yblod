@@ -1,0 +1,43 @@
+YBLOD 0.2.1 validation
+
+Build source: 43a8831e22e0c31b036dde56af2ad897eadf7f15
+LibreELEC upstream base is unchanged from 0.2.
+The source tag corresponds to the full-image build source.
+
+Runtime change
+DV_PRIVATE_GUI_REVISION=0 disables reuse based solely on Kodi's GUI revision.
+DV_OVERLAY_PIXEL_CACHE=1, DV_OVERLAY_SPARSE=1 and DV_PRIVATE_ASYNC_PACK=1 remain.
+DV_PRIVATE_ASYNC_OVERLAY=0 remains unchanged.
+Movie reconstruction and shader source are unchanged from 0.2.
+The live MPEG-TS patch also has corrected hunk counts, without a semantic change.
+
+Observed playback
+On a tested device running 0.2, the user reported flickering controls in 1917.
+Only GUI revision reuse was disabled, followed by a Kodi restart. On replay
+near 01:01:20 with controls open, the user reported no flickering.
+This supports the mitigation, not a confirmed cause or complete repair.
+No reverse A/B, new performance measurement or broad profile sweep is claimed.
+
+Package verification passed: tar integrity, version/default checks, source shader
+matching, helper permissions and matching SYSTEM/KERNEL in tar and img.gz.
+Kodi, native engine, kernel and tunnel shader are byte-identical to 0.2.
+
+SHA256
+Update tar: dde50672febd29dd245fa5556a64065eab737122f20ef1109b475515a7143234
+Install img.gz: 33bf7cb7472d4aef85ba1abc443b70132fbee6ffeab01d6d532e974d5873bb9d
+SYSTEM: 6f17cd94bde5ee5b624b110aa922a1bd439b780150308ca37320c8e0142a20c8
+KERNEL: 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi: 38d03683a10dd98162d43a4f821b0ebe5659e779b3a5f85bb7636053c0a897ea
+Engine: afc84716a4104d958e4afbe8e35514b79bb0f79f1891eb01084a09e03b5fcfbb
+Runtime defaults: da2867a3b148ee96903b1e055772f3bbdebabe7b208aa70a79f00601c83c8636
+Tunnel shader: 5e4adf8161f6a7f07a47fd07a5b2906e47d99bc2d9120b00158ec07b246cce9a
+
+This 0.2.1 image has not received a separate boot/playback test. The visual test
+used 0.2 with the equivalent single-setting override. Source-level reconstruction
+and packing tests from 0.2 remain applicable to the unchanged engine code.
+Do not interpret package integrity checks as full display-chain qualification.
+
+Installation note
+An explicit DV_PRIVATE_GUI_REVISION=1 in /storage/.config/native-dv.env overrides
+the packaged mitigation. Remove that entry or change it to 0, preserving other
+settings, then restart Kodi.

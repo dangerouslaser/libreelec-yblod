@@ -1,0 +1,13 @@
+YBLOD 0.2.1 temporarily disables GUI revision reuse after a report of flickering playback controls.
+
+On the tested device, the flickering stopped when only this optimization was disabled. Pixel caching, transparent-pixel skipping and movie-only asynchronous packing remain enabled. Movie reconstruction and colour processing are unchanged.
+
+This is a mitigation, not a completed fix for the underlying GUI invalidation problem. Rechecking the GUI pixels may cost some processing time when controls are visible; no new before/after performance figure is claimed for this release.
+
+Update using the attached .tar in /storage/.update/, or use .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+The packaged default is DV_PRIVATE_GUI_REVISION=0. If you previously set DV_PRIVATE_GUI_REVISION=1 in /storage/.config/native-dv.env, remove that entry or set it to 0; user overrides take precedence over the packaged default. Preserve other entries.
+
+All other 0.2 features and known limitations remain, including possible 4K60 frame drops with controls open. Intel Dolby Vision support remains experimental.
+
+Full 0.2 changes: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2
