@@ -18,6 +18,11 @@ for path in sorted(pathlib.Path(sys.argv[1]).glob('*.json')):
     if path.name.startswith(('pilot-', 'summary')):
         continue
     data = json.loads(path.read_text())
+    expected_window = 10000 if data['overlay'] == 'home' else 12005
+    if (data.get('qualified_window') is False or
+            data['window']['currentwindow']['id'] != expected_window):
+        print(f'Skipping unqualified capture: {path.name}', file=sys.stderr)
+        continue
     groups = collections.defaultdict(list)
     for event in data['gpu_events']:
         for kind in ('source_wait_pts', 'source_async_profile_pts', 'source_piecewise_profile_pts',
