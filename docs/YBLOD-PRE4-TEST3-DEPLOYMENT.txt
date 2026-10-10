@@ -19,3 +19,18 @@ Packaged engine and OpenCL kernels unchanged from pre4.
 Filesystem comparison against pre4 changed only Kodi, os-release and issue.
 Live playback measurements were performed on the VM, not the N150; installation
 verification is not a substitute for N150 playback or audible lip-sync testing.
+
+Ollie Docker deployment
+Installed matching test3 userland as kodi-dv:yblod-pre4-test3.
+Image ID: cb0906fcc921b35f9113e5e0338c3a1ec939a592d920e993a9d87496320715c0
+Compose: /home/bryan/stacks/kodi/docker-compose.yml
+Rollback image retained: kodi-dv:native-packed-ef4eb9
+Backup/staging: /home/bryan/stacks/kodi/update-test3-20261010.ZsT7rZ
+Contains prior compose, userdata-before.tar.gz, build script and entrypoint.
+Container startup now exports packaged native-dv.env (systemd is not running).
+LibreELEC OS-management addon disabled as in the previous container image.
+Existing storage/media/device mounts retained. Host kernel not modified.
+Verified running with zero restarts, matching Kodi hash and native engine env,
+JSON-RPC pong on 8086, and library access (4355 movies). Playback not tested.
+Ollie's host exposes enable_dv_lab=Y but no qms module parameter; this container
+update does not install the VM/N150 QMS kernel support.
