@@ -37,6 +37,8 @@ On the VM, fallback OFF:
 - FEL movie regression: configured at 23.976 fps with no live-rate override;
   DV output enabled and frame timestamps advanced. Initial transition counters
   included one drop and five skips; this is not a zero-startup-drop claim.
+  Subsequent two ten-second windows each reported zero additional drops/skips,
+  advancing timestamps and stalled=false.
 These timings measure configuration-to-mode-commit, not channel-open latency
 or the exact first visible frame. Startup can still contain separate initial
 HDR and refresh commits; this patch does not merge all HDMI transitions.
@@ -50,3 +52,20 @@ detection. No new bounded buffering policy is implemented. Mixed/VFR material
 and interlaced live sources require further coverage. This is a targeted fix
 for the demonstrated missing-demux-rate/available-decoder-rate case, not proof
 of seamless startup for every IPTV channel.
+
+Persistent candidate
+Source commit: 93c37f95246f48bfca3d2b512a30f82dc78f33ed.
+Version: yblod-0.2-pre4-test2; includes the earlier SDR restore fix.
+Ollie package directory: /home/bryan/Projects/yblod-live-test.Tb7lQB
+Update tar SHA256:
+345d68ebbe8a6beefeef1f2095fa000bcec1eb9efd1b1474db077e3c05e7c657
+SYSTEM SHA256:
+efeea698b43bf041b35b92e9aa650cef77d795e3679fad69b5402bff27a32240
+The packed Kodi binary was extracted and its hash verified. File comparison
+with pre4 lists only Kodi and version identification changes. Both device
+uploads were checksum-verified before staging. Diagnostic advancedsettings
+on the VM were restored from the original backup before reboot.
+VM 192.168.1.175 and N150 192.168.1.179 both booted test2 with the expected
+Kodi SHA256 and active Kodi services. Fallback framerate and debug overlay
+remain OFF on both. No GitHub release was created. Playback qualification
+above was performed on the VM; N150 checks cover installation/startup only.
