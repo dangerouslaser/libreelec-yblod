@@ -1,0 +1,52 @@
+Live stream decoder timing — 2026-10-10
+
+Baseline (VM, pre4-test1, QMS on, debug log enabled without overlay)
+Sky Sports Main Event UHD initially configured at 0 fps at 11:09:20.900.
+Timestamp measurement first identified 50 fps at 11:09:25.531. Output changed
+from 60 Hz to 50 Hz at 11:09:26.080, 5.180 s after renderer configuration.
+This corresponds to the user's picture -> black -> resumed-picture report.
+
+Settings investigation
+PVR fallback framerate was OFF. A temporary 50 Hz fallback test did not supply
+the initial rate on this input path, which again configured at 0 fps. The
+setting was restored to OFF. A fixed fallback is not appropriate for the
+user's mixed-rate playlist and is not part of this change.
+The installed ffmpegdirect addon has Probe for FPS enabled by default and no
+saved override. Its service being loaded does not establish that it demuxed
+this particular playback. No addon configuration was changed.
+
+Change
+For realtime streams with no initial FPS, pass the decoder's parsed frame
+rate through ProcessInfo and use it before renderer configuration. Accept
+positive rates in the existing 5..120 fps range; retain normal duration
+normalization and interlaced output-rate handling. Existing stream rates and
+non-realtime movie playback are unaffected. Timestamp-based correction remains
+available. This does not assume all channels are 50 Hz.
+
+Build and test
+Incremental cross-build/link passed on Ollie (four workers, 7 GiB cap).
+Candidate Kodi SHA256:
+aeb1423b14549f4281eb4d4ad9b93935579d29b9562a45491e657acbb5024e97
+On the VM, fallback OFF:
+- Sky: decoder supplied 50/1 at 11:14:33.647, renderer configured at 50 fps
+  at 11:14:33.730, 50 Hz output committed at 11:14:34.347 (0.617 s later).
+  No delayed 0->50 correction. User confirmed no black screen this time.
+- Boston ABC 5 WCVB: existing 59.94 fps metadata retained; renderer configured
+  at 11:14:58.708 and 59.94 Hz output committed at 11:14:59.276 (0.568 s).
+  No decoder-rate override logged for this channel.
+- FEL movie regression: configured at 23.976 fps with no live-rate override;
+  DV output enabled and frame timestamps advanced. Initial transition counters
+  included one drop and five skips; this is not a zero-startup-drop claim.
+These timings measure configuration-to-mode-commit, not channel-open latency
+or the exact first visible frame. Startup can still contain separate initial
+HDR and refresh commits; this patch does not merge all HDMI transitions.
+
+Raw evidence: /storage/native-kodi-fixes-test/live-start-*.log on the VM.
+The debug overlay remained OFF. No codec, shader or pixel processing changed.
+
+Limitations
+Streams without reliable decoder timing still use Kodi's existing frame-rate
+detection. No new bounded buffering policy is implemented. Mixed/VFR material
+and interlaced live sources require further coverage. This is a targeted fix
+for the demonstrated missing-demux-rate/available-decoder-rate case, not proof
+of seamless startup for every IPTV channel.
