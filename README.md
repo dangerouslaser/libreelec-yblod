@@ -7,7 +7,7 @@ Please report build-specific problems here rather than to those upstream project
 ## YBLOD 0.2 release candidate
 
 This branch prepares 0.2 with the native playback engine and an updated LibreELEC
-base. Final packaged-image checks are in progress; this is not an announcement
+base. Bounded [packaged-image checks](docs/RELEASE-CHECK-0.2-20261010.txt) are complete; this is not an announcement
 that 0.2 has been published. See the [cumulative release notes](docs/RELEASE-0.2.md)
 and [available releases](https://github.com/dangerouslaser/libreelec-yblod/releases).
 

@@ -1,7 +1,7 @@
 # YBLOD 0.2 release candidate
 
 Changes since YBLOD 0.1, including the work shipped in 0.2-pre1 through pre7.
-The final upstream-resynced image is undergoing release checks. No final 0.2
+The upstream-resynced image completed bounded [release checks](RELEASE-CHECK-0.2-20261010.txt). No final 0.2
 release has been published by this document.
 
 ## Native Dolby Vision playback engine
@@ -99,6 +99,9 @@ This is a LibreELEC development base, not an official stable LibreELEC release.
 
 - Experimental, Intel-focused Dolby Vision support; no Dolby certification.
 - N150 4K59.94 playback can still drop frames with controls open.
+- An absolute seek to 25 seconds in the FEL all-layers test returns near the
+  beginning. This also reproduces on unchanged pre7; its cause remains unresolved.
+  The 30-second seek works. This is not evidence that seeking works for every file.
 - AMD OpenCL integration, AMD Dolby Vision signalling and a general native-engine
   DV-to-HDR10 fallback are not added. Unsupported P5 playback may have incorrect
   colours rather than valid SDR/HDR10 output.

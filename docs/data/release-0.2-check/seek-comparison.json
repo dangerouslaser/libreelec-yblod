@@ -1,0 +1,24 @@
+{
+  "scope": "Same FEL all-layers file; observations approximately four seconds after each absolute JSON-RPC seek. This is not an investigation of the underlying cause.",
+  "candidate": {
+    "device": "Intel N150",
+    "kodi_sha256": "38d03683a10dd98162d43a4f821b0ebe5659e779b3a5f85bb7636053c0a897ea",
+    "observations": [
+      {"requested_seconds": 20, "observed_seconds": 22.335},
+      {"requested_seconds": 25, "observed_seconds": 3.103},
+      {"requested_seconds": 30, "observed_seconds": 32.747}
+    ]
+  },
+  "pre7": {
+    "device": "Ollie container",
+    "kodi_sha256": "08d9e3c7cb9cf618784030abe7e6c5966815a4944bd421d195afdccd5676090b",
+    "engine_sha256": "fed0f2a5635ae4e78d28e6ebffb50b033bb5b2a27e3d7a4c8b74f214c50fb75b",
+    "shader_sha256": "956f5ad236cfbffe60618d594076e115710a02857ed85468facfee0e2bbdf3b9",
+    "observations": [
+      {"requested_seconds": 20, "observed_seconds": 22.444},
+      {"requested_seconds": 25, "observed_seconds": 3.032},
+      {"requested_seconds": 30, "observed_seconds": 32.659}
+    ]
+  },
+  "conclusion": "The 25-second seek problem reproduces on pre7; it is not unique to the release candidate. Retained as an unresolved existing issue. Other release smoke tests use 30 seconds, not a claim that 25 seconds was fixed."
+}
