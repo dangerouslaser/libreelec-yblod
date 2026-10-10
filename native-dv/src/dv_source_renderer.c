@@ -23,7 +23,7 @@ typedef struct {
     dv_frame_settings settings;unsigned char packed[640];unsigned count;
     dv_piecewise_surface_settings piecewise_settings;int piecewise_enabled,piecewise,space2_enabled,full_enabled,nv12_enabled;
     cl_program full_program;cl_kernel full_kernel;
-    int submitted;unsigned char dm[512];size_t dm_bytes;int overlay_visible;
+    int submitted;unsigned char dm[512];size_t dm_bytes;int overlay_visible;unsigned wait_profiles;
     dv_source_geometry geometry;
     unsigned submit_traces;
     int profile_async;
@@ -396,6 +396,9 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
 {
     source_renderer *r=opaque;if(!r||packet_id>15||gui_flip>1)return DV_INVALID;
     if(!r->submitted||r->settings.identity.frame_id!=frame_id||r->settings.identity.pts!=pts)return DV_IDENTITY;
+    const char *wait_trace=getenv("DV_SOURCE_WAIT_PROFILE");
+    int trace_wait=wait_trace&&!strcmp(wait_trace,"1")&&r->wait_profiles<480;
+    double stamp[8]={0};if(trace_wait)stamp[0]=submit_clock();
     r->valid=0;const dv_frame_settings *settings=&r->settings;const dv_source_geometry *geometry=&r->geometry;
     unsigned w=geometry->width,h=geometry->height;unsigned char dm[512],packed[640];
     memcpy(dm,r->dm,r->dm_bytes);if(refresh)dm[1]=1;
@@ -410,6 +413,7 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
     if(dv_source_map_active(geometry,dw,dh,settings->active,active.s))return DV_INVALID;
     for(unsigned c=0;c<3;++c)black.s[c]=settings->source.offset[c]>>16;
     int status=renderer_source_output(r,w,h,r->planes);if(status!=DV_OK)goto done;
+    if(trace_wait)stamp[1]=submit_clock();
     if(gui){
         unsigned variant=full?1u:resized?2u:0u;
         double started=submit_clock();
@@ -418,6 +422,7 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
         kernel=r->overlay_kernel[variant];
     }
     status=DV_BACKEND;
+    if(trace_wait)stamp[2]=submit_clock();
 #define CL_DO(call) do{if((call)!=CL_SUCCESS)goto done;}while(0)
     r->queued=1;
     if(resized){unsigned key[5]={w,h,dw,dh,geometry->chroma_siting};
@@ -431,7 +436,9 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
             memcpy(r->resize_key,key,sizeof(key));r->resize_key_valid=1;
         }
     }
+    if(trace_wait)stamp[3]=submit_clock();
     CL_DO(clEnqueueWriteBuffer(r->queue,r->packets,CL_TRUE,0,count*128u,packed,0,NULL,NULL));
+    if(trace_wait)stamp[4]=submit_clock();
     cl_mem objects[2]={r->output,r->gui};cl_uint object_count=r->gui?2u:1u;
     int profile_gui=gui&&r->gui_profile&&r->gui_profiles<240;
     CL_DO(clEnqueueAcquireGLObjects(r->queue,object_count,objects,0,NULL,profile_gui?&r->gui_events[0]:NULL));r->acquired=1;
@@ -481,12 +488,19 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
         CL_DO(clSetKernelArg(kernel,arg+3,sizeof(r->gui_error),&r->gui_error));}
     size_t work[2]={ow/2,oh};CL_DO(clEnqueueNDRangeKernel(r->queue,kernel,2,NULL,work,NULL,0,NULL,
         profile_gui?&r->gui_events[2]:r->profile_async&&r->pack_profiles<120?&r->pack_done:NULL));
+    if(trace_wait)stamp[5]=submit_clock();
     if(gui){int invalid=0;CL_DO(clEnqueueReadBuffer(r->queue,r->gui_error,CL_TRUE,0,sizeof(invalid),&invalid,0,NULL,NULL));
         if(invalid){status=DV_UNSUPPORTED;goto done;}}
     status=DV_OK;
 done:
+    if(trace_wait)stamp[6]=submit_clock();
     if(status!=DV_OK)r->resize_key_valid=0;
     if(dv_source_renderer_drain(r)!=DV_OK){r->resize_key_valid=0;return DV_BACKEND;}
+    if(trace_wait&&status==DV_OK){stamp[7]=submit_clock();
+        fprintf(stderr,"{\"source_wait_pts\":%lld,\"overlay\":%u,\"output_wait_ms\":%.6f,\"overlay_prepare_ms\":%.6f,\"packet_write_ms\":%.6f,\"enqueue_ms\":%.6f,\"error_read_ms\":%.6f,\"release_drain_ms\":%.6f,\"total_ms\":%.6f}\n",
+            (long long)pts,gui!=0,(stamp[1]-stamp[0])*1e3,(stamp[2]-stamp[1])*1e3,
+            (stamp[4]-stamp[3])*1e3,(stamp[5]-stamp[4])*1e3,(stamp[6]-stamp[5])*1e3,
+            (stamp[7]-stamp[6])*1e3,(stamp[7]-stamp[0])*1e3);++r->wait_profiles;}
     r->submitted=0;
     if(status==DV_OK){r->overlay_visible=gui!=0;r->valid=1;r->count=count;memcpy(r->packed,packed,sizeof(packed));}return status;
 #undef CL_DO
