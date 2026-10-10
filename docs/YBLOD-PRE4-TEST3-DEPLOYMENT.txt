@@ -1,0 +1,21 @@
+Persistent test3 deployment — 2026-10-10
+
+Installed and reboot-verified on VM 192.168.1.175 and N150 192.168.1.179.
+VERSION=yblod-0.2-pre4-test3
+BUILD_ID=cd2328b9ccc9167e6e358068c1a5b0e60a8b78cf
+Kodi active on both; no temporary Kodi binary bind mount or LD_PRELOAD.
+Update directories empty after installation. User profiles/settings preserved.
+
+Includes live single-open, coordinated HDR/refresh setup, and experimental
+buffered-duration audio preroll. No new GitHub release.
+
+Package on Ollie:
+/home/bryan/Projects/yblod-audio-test.PiA481/LibreELEC-Generic.x86_64-13.0-yblod-0.2-pre4-test3.tar
+SHA256: 22672a482247e3d039fe1b5ba5622473196aafd8422bf82a68be03b7798b852b
+SYSTEM: d10ad77c2af106ebc14bf8934fd922cafd20c8a197c1dd74f8a5915a9628cfe7
+KERNEL: 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi on both: 63385b2a09e1ba1d229221154df5ca7333a67d3570b5cf6747792f01f3401420
+Packaged engine and OpenCL kernels unchanged from pre4.
+Filesystem comparison against pre4 changed only Kodi, os-release and issue.
+Live playback measurements were performed on the VM, not the N150; installation
+verification is not a substitute for N150 playback or audible lip-sync testing.
