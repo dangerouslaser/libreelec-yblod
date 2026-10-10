@@ -23,7 +23,7 @@ typedef struct {
     dv_frame_settings settings;unsigned char packed[640];unsigned count;
     dv_piecewise_surface_settings piecewise_settings;int piecewise_enabled,piecewise,space2_enabled,full_enabled,nv12_enabled;
     cl_program full_program;cl_kernel full_kernel;
-    int submitted;unsigned char dm[512];size_t dm_bytes;
+    int submitted;unsigned char dm[512];size_t dm_bytes;int overlay_visible;
     dv_source_geometry geometry;
     unsigned submit_traces;
     int profile_async;
@@ -399,6 +399,7 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
     r->valid=0;const dv_frame_settings *settings=&r->settings;const dv_source_geometry *geometry=&r->geometry;
     unsigned w=geometry->width,h=geometry->height;unsigned char dm[512],packed[640];
     memcpy(dm,r->dm,r->dm_bytes);if(refresh)dm[1]=1;
+    if(dv_source_overlay_metadata(dm,r->dm_bytes,gui!=0,r->overlay_visible))return DV_INVALID;
     unsigned count=packetize(dm,r->dm_bytes,packet_id,packed);
     unsigned dw=dv_source_destination_width(geometry),dh=dv_source_destination_height(geometry);
     int resized=dw!=w||dh!=h;
@@ -487,7 +488,7 @@ done:
     if(status!=DV_OK)r->resize_key_valid=0;
     if(dv_source_renderer_drain(r)!=DV_OK){r->resize_key_valid=0;return DV_BACKEND;}
     r->submitted=0;
-    if(status==DV_OK){r->valid=1;r->count=count;memcpy(r->packed,packed,sizeof(packed));}return status;
+    if(status==DV_OK){r->overlay_visible=gui!=0;r->valid=1;r->count=count;memcpy(r->packed,packed,sizeof(packed));}return status;
 #undef CL_DO
 }
 int dv_source_renderer_present(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh)

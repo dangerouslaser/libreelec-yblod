@@ -1,0 +1,37 @@
+L5 overlay and background GUI candidates — 2026-10-10
+
+The native renderer now clears L5 margins only in the outgoing metadata copy
+while a GUI/subtitle texture is present. It retains the movie's active-area
+mask, which runs before overlay composition. Original frame metadata remains
+unchanged. Both overlay visibility edges request metadata refresh, and packet
+CRC generation follows the override.
+
+Tests: source_geometry_tests passed, including 138276 scaling interval checks,
+overlay enter/hold/leave cycles, unrelated-extension preservation, missing and
+zero L5, malformed/truncated/duplicate L5 rejection without partial mutation.
+The Linux renderer library built successfully on Ollie.
+
+Ollie test library SHA256:
+6015da16784127bda09394e78c76d450e76ee2cd736b97b7120cd8473cc4b3b0
+Rollback library is in /home/bryan/stacks/kodi/l5-osd-test.cPRINl on Ollie.
+User reports that the L5 clipping fix works. Paused/subtitle edge cases have
+not yet been independently confirmed on the display.
+
+Follow-up: Home briefly appeared, then disappeared over background playback.
+JSON-RPC reported Home (10000), fullscreen=false, for ten seconds after one
+Back action, while the user confirmed that only the movie was visible.
+This is not an observed window-navigation change.
+
+Native GUI rendering clears a separate FBO, but GUIWindowManager used the EGL
+swapchain buffer age to decide whether to redraw unchanged controls. The
+native-gui-redraw patch treats that cleared target as undefined for each GUI
+render pass. Application-level skipped passes still preserve the cached FBO.
+The user confirmed Home remains visible with this candidate. No old-library
+A/B was performed.
+The Kodi candidate compiled and linked successfully with four workers.
+Ollie's original Kodi binary is backed up alongside the original library.
+Tested Kodi SHA256:
+9255b43b74eee8d431a87f2da9243da8b66273681d4e7f7cfc7d2da18bed5e26
+
+Deployment is a container-local test override, not a published image/release.
+Container recreation from the unchanged image removes the test overrides.
