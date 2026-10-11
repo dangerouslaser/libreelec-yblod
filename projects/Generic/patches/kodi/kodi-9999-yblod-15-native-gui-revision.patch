@@ -180,7 +180,7 @@
  }
  void CDVPrivateSource::QueuePendingPack()
  {
-@@ -480,25 +499,45 @@
+@@ -480,29 +499,49 @@
        !m_scanout || !m_packBegin || !m_packComplete ||
        eglGetCurrentContext() == EGL_NO_CONTEXT)
      return;
@@ -214,7 +214,11 @@
 +                    m_scanout->Refresh(), 0, 0, nullptr, 0);
    m_packSubmitMs = std::chrono::duration<double, std::milli>(
        std::chrono::steady_clock::now() - started).count();
-   if (m_processed < 480)
+   static const bool frameTiming = [] {
+     const char* value = std::getenv("DV_PRIVATE_FRAME_TIMING");
+     return value && std::strcmp(value, "1") == 0;
+   }();
+   if (frameTiming && m_processed < 480)
 -    CLog::Log(LOGINFO, "Private source async pack: pts={} status={} enqueue_ms={}",
 -              m_pendingPts, result, m_packSubmitMs);
 +    CLog::Log(LOGINFO, "Private source async pack: pts={} status={} enqueue_ms={} overlay={} revision={}",
