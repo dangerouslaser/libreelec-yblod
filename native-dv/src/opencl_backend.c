@@ -23,7 +23,7 @@ static double host_seconds(void){struct timespec t;if(clock_gettime(CLOCK_MONOTO
 int dv_reference_luma(const dv_intel_composer_config *,uint16_t,uint16_t,int32_t *,int32_t *,uint16_t *);
 enum {B=0,E=3,BP=6,EP=8,V=9,ES=10,G=12,MT=13,RT=14,P=17,O=19,M=22,R=25,S=28,ERR=31,CP=32,CS=33,CO=34,CT=37,DL=38,ELUT=39,MASK=40,PCR=41,PCT=42,PRC=43,PRN=44,FDL=45,FELUT=46,PATCH=47,UL=48,VP=50,SM=51,SL=52,CM=53,NB=55};
 typedef struct {
-    cl_context context;cl_command_queue queue;cl_program program,input_program;cl_kernel kernel[29];int filter_fused,verify_filter,luma_pair,mmr_pair,mmr_uniform,mmr_mulhi,mmr_dual,verify_recon;
+    cl_context context;cl_command_queue queue;cl_program program,input_program;cl_kernel kernel[30];int filter_fused,verify_filter,luma_pair,mmr_pair,mmr_uniform,mmr_mulhi,mmr_dual,verify_recon;
     int direct_p010,direct_active,defer_va_release;
     cl_mem buffer[NB];size_t bytes[NB];cl_event events[32];unsigned event_kind[32],event_count;
     double kernel_seconds;size_t uploads,downloads,allocated;
@@ -56,7 +56,7 @@ typedef struct {
     cl_event piecewise_profile_event;
     unsigned piecewise_profile_frames,piecewise_profile_width,piecewise_profile_height,piecewise_profile_depth,piecewise_profile_layout;
     int64_t piecewise_profile_pts;
-    int base_fused,verify_base;unsigned base_checks;
+    int base_fused,verify_base,luma_guide;unsigned base_checks;
     int horizontal_fused,verify_horizontal;unsigned horizontal_checks;
 } backend;
 static const char *names[8]={"phase","vertical","scale_horizontal","guide","luma","mmr","colour","colour_refine"};
@@ -67,7 +67,7 @@ void dv_opencl_destroy(void *opaque)
     if(b->single_cache)fprintf(stderr,"{\"single_table_cache_hits\":%u,\"single_table_cache_misses\":%u}\n",b->single_hits,b->single_misses);
     for(unsigned i=0;i<b->event_count;++i)clReleaseEvent(b->events[i]);
     for(unsigned i=0;i<NB;++i)if(b->buffer[i])clReleaseMemObject(b->buffer[i]);
-    for(unsigned i=0;i<29;++i)if(b->kernel[i])clReleaseKernel(b->kernel[i]);
+    for(unsigned i=0;i<30;++i)if(b->kernel[i])clReleaseKernel(b->kernel[i]);
     if(b->input_program)clReleaseProgram(b->input_program);
     if(b->single)clReleaseKernel(b->single);
     if(b->piecewise_kernel)clReleaseKernel(b->piecewise_kernel);
@@ -108,6 +108,7 @@ static void *create_backend(cl_context supplied,cl_device_id supplied_device,int
     const char *defer=getenv("DV_DEFER_VA_RELEASE");b->defer_va_release=defer&&!strcmp(defer,"1");
     const char *profile=getenv("DV_SOURCE_PROFILE_ASYNC");b->profile_async=profile&&!strcmp(profile,"1");
     const char *base=getenv("DV_BASE_PREP_FUSED");b->base_fused=base&&!strcmp(base,"1");
+    const char *luma_guide=getenv("DV_LUMA_GUIDE_FUSED");b->luma_guide=b->base_fused&&luma_guide&&!strcmp(luma_guide,"1");
     const char *single_cache=getenv("DV_SINGLE_TABLE_CACHE");b->single_cache=single_cache&&!strcmp(single_cache,"1");
     const char *verify_base=getenv("DV_VERIFY_BASE_PREP");b->verify_base=verify_base&&!strcmp(verify_base,"1");
     if(supplied){err=clRetainContext(supplied);if(err)goto fail;b->context=supplied;}else b->context=clCreateContext(NULL,1,&device,NULL,NULL,&err);if(!b->context || err)goto fail;
@@ -231,6 +232,7 @@ static void *create_backend(cl_context supplied,cl_device_id supplied_device,int
         for(unsigned k=0;k<8;++k){b->kernel[17+k]=clCreateKernel(b->input_program,input_names[k],&err);if(!b->kernel[17+k]||err)goto fail;}
         b->kernel[28]=clCreateKernel(b->input_program,"luma_equal",&err);if(!b->kernel[28]||err)goto fail;
         if(b->base_fused){b->kernel[25]=clCreateKernel(b->input_program,"phase_guide",&err);if(!b->kernel[25]||err)goto fail;}
+        if(b->luma_guide){b->kernel[29]=clCreateKernel(b->input_program,"luma_phase_guide",&err);if(!b->kernel[29]||err)goto fail;}
     }
     fprintf(stderr,"{\"direct_p010_requested\":%d}\n",b->direct_p010);
     b->patch=clCreateKernel(b->program,"patch_colour",&err);if(!b->patch||err)goto fail;
@@ -335,7 +337,7 @@ static int inputarg(backend *b,unsigned k,unsigned slot,unsigned surface)
 static int inputextra(backend *b,unsigned k,unsigned start,unsigned channel)
 {return b->direct_active&&(uintarg(b,k,start,channel)||memarg(b,k,start+1,ERR));}
 static unsigned event_category(unsigned k)
-{if(k==17||k==22||k==25)return 0;if(k==18||k==20||k==11||k==23||k==24)return 1;if(k==19)return 3;if(k==21||k==12||k==27||k==28)return 4;return k>=8?5:k;}
+{if(k==17||k==22||k==25)return 0;if(k==18||k==20||k==11||k==23||k==24)return 1;if(k==19)return 3;if(k==21||k==12||k==27||k==28||k==29)return 4;return k>=8?5:k;}
 static int dispatch(backend *b,unsigned k,size_t count)
 {
     if(b->event_count>=32)return -1;
@@ -377,6 +379,25 @@ static int verify_base_preparation(backend *b,const dv_frame_settings *s,unsigne
  failed=differences!=0;++b->base_checks;
  fprintf(stderr,"{\"base_prep_verified_pts\":%lld,\"bytes\":%zu,\"differences\":%zu}\n",(long long)s->identity.pts,bytes*3,differences);
 done:for(unsigned c=0;c<3;++c)free(saved[c]);free(reference);return failed;
+}
+static int luma_pair_args(backend *b,unsigned k,unsigned w,unsigned h,unsigned diag)
+{
+ const unsigned slots[9]={B,V,MT,RT,M,R,S,O,ERR};if(inputarg(b,k,B,0))return -1;
+ for(unsigned a=1;a<9;++a)if(memarg(b,k,a,slots[a]))return -1;
+ return uintarg(b,k,9,w)||uintarg(b,k,10,h)||uintarg(b,k,11,diag);
+}
+/* Fused route: BL chroma phase and guide come from the luma kernel. Check
+ * them as above, then rerun luma_pair and compare the luma output. */
+static int verify_luma_guide(backend *b,const dv_frame_settings *s,unsigned w,unsigned h,unsigned diag)
+{
+ size_t bytes=(size_t)w*h*2,differences=0;unsigned char *saved=malloc(bytes),*reference=malloc(bytes);int failed=1;
+ if(!saved||!reference||read_buffer_sync(b,O,saved,bytes))goto done;
+ if(verify_base_preparation(b,s,w,h))goto done;
+ if(luma_pair_args(b,21,w,h,diag)||dispatch_spatial(b,21,w/2,h)||read_buffer_sync(b,O,reference,bytes))goto done;
+ for(size_t i=0;i<bytes;++i)differences+=saved[i]!=reference[i];
+ failed=differences!=0;
+ fprintf(stderr,"{\"luma_guide_verified_pts\":%lld,\"bytes\":%zu,\"differences\":%zu}\n",(long long)s->identity.pts,bytes,differences);
+done:free(saved);free(reference);return failed;
 }
 /* Checked once per prepared channel, not in the coefficient hot loop.
  * |coefficient|<=2^63, every clipped feature<2^20, <=21 products plus
@@ -472,8 +493,11 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
     }
     if(tracing)uploaded=host_seconds();
     /* Both phase-adjusted BL chroma planes are needed by either MMR. */
-    DO(prepare_base(b,s->chroma_phase,w,h,b->base_fused));
-    if(b->direct_active&&b->base_fused&&b->verify_base&&b->base_checks<3)DO(verify_base_preparation(b,s,w,h));
+    /* With resampled EL, the paired luma kernel can also write the BL chroma
+     * phase and guide planes. Nothing reads them before MMR, after luma. */
+    int luma_guide=!equal&&b->direct_active&&b->luma_guide;
+    if(!luma_guide)DO(prepare_base(b,s->chroma_phase,w,h,b->base_fused));
+    if(!luma_guide&&b->direct_active&&b->base_fused&&b->verify_base&&b->base_checks<3)DO(verify_base_preparation(b,s,w,h));
     int dual=s->composer.component[1].mapping&&s->composer.component[2].mapping&&b->mmr_dual&&b->mmr_lut&&!diag&&dv_mmr64_eligible(params[0],NULL)&&dv_mmr64_eligible(params[1],NULL)&&!memcmp(params[0]+2,params[1]+2,6*sizeof(uint32_t));
     int horizontal_fused=!equal&&dual&&b->horizontal_fused&&b->direct_active&&b->filter_fused&&!b->verify_filter;
     int verify_horizontal=horizontal_fused&&b->verify_horizontal&&b->horizontal_checks<3;
@@ -506,7 +530,10 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
                 free(host_m);free(host_r);host_m=host_r=NULL;if(different)goto done;}
         }
         }
-        if(!c){unsigned verify=b->verify_recon&&b->luma_pair;
+        if(!c&&luma_guide){DO(luma_pair_args(b,29,w,h,(unsigned)diag));DO(clSetKernelArg(b->kernel[29],12,sizeof(cl_mem),&b->owned_va[1])!=CL_SUCCESS);
+            DO(memarg(b,29,13,BP));DO(memarg(b,29,14,BP+1));DO(memarg(b,29,15,G));DO(uintarg(b,29,16,s->chroma_phase));DO(dispatch_spatial(b,29,w/2,h/2));
+            if(b->verify_base&&b->base_checks<3)DO(verify_luma_guide(b,s,w,h,(unsigned)diag));}
+        else if(!c){unsigned verify=b->verify_recon&&b->luma_pair;
             for(unsigned route=0;route<(verify?2u:1u);++route){unsigned kernel=b->direct_active?21u:b->luma_pair&&!route?12u:4u;
                 unsigned slots[9]={B,V,MT,RT,M,R,S,O,ERR};DO(inputarg(b,kernel,B,0));for(unsigned a=1;a<9;++a)DO(memarg(b,kernel,a,slots[a]));
                 DO(uintarg(b,kernel,9,w));DO(uintarg(b,kernel,10,h));DO(uintarg(b,kernel,11,(unsigned)diag));DO(dispatch_spatial(b,kernel,kernel==12||kernel==21?w/2:w,h));
