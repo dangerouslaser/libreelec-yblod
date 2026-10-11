@@ -51,7 +51,7 @@ typedef struct {
     dv_identity identity;dv_intel_composer_config config;int mmr96,mmr64,mmr_lut,recon2d;
     dv_mmr64_lut_cache mmr_lut_cache[2];
     unsigned submit_traces;
-    int profile_async,profile_pending;
+    int profile_async,profile_pending,frame_trace;
     unsigned profile_frames;
     cl_event piecewise_profile_event;
     unsigned piecewise_profile_frames,piecewise_profile_width,piecewise_profile_height,piecewise_profile_depth,piecewise_profile_layout;
@@ -107,6 +107,7 @@ static void *create_backend(cl_context supplied,cl_device_id supplied_device,int
     backend *b=calloc(1,sizeof(*b));if(!b)return NULL;b->device=device;cl_int err;
     const char *defer=getenv("DV_DEFER_VA_RELEASE");b->defer_va_release=defer&&!strcmp(defer,"1");
     const char *profile=getenv("DV_SOURCE_PROFILE_ASYNC");b->profile_async=profile&&!strcmp(profile,"1");
+    const char *frame_trace=getenv("DV_ENGINE_FRAME_TRACE");b->frame_trace=frame_trace&&!strcmp(frame_trace,"1");
     const char *base=getenv("DV_BASE_PREP_FUSED");b->base_fused=base&&!strcmp(base,"1");
     const char *single_cache=getenv("DV_SINGLE_TABLE_CACHE");b->single_cache=single_cache&&!strcmp(single_cache,"1");
     const char *verify_base=getenv("DV_VERIFY_BASE_PREP");b->verify_base=verify_base&&!strcmp(verify_base,"1");
@@ -399,14 +400,15 @@ static int prepare_mmr_lut(backend *b,unsigned channel,const uint32_t p[96])
 {
  dv_mmr64_lut_cache *cache=&b->mmr_lut_cache[channel];
  if(dv_mmr64_lut_matches(cache,p)){
-  fprintf(stderr,"{\"mmr_lut_channel\":%u,\"cache_hit\":1,\"prepare_seconds\":0,\"upload_seconds\":0,\"upload_bytes\":0}\n",channel+1);return 0;
+  if(b->frame_trace)fprintf(stderr,"{\"mmr_lut_channel\":%u,\"cache_hit\":1,\"prepare_seconds\":0,\"upload_seconds\":0,\"upload_bytes\":0}\n",channel+1);
+  return 0;
  }
  cache->valid=0;double start=host_seconds();
  if(!dv_mmr64_build_lut(p,cache->table))return -1;
  double prepared=host_seconds();
  if(reserve_one(b,UL+channel,sizeof(cache->table))||write_buffer_sync(b,UL+channel,cache->table,sizeof(cache->table)))return -1;
  double uploaded=host_seconds();dv_mmr64_lut_commit(cache,p);
- fprintf(stderr,"{\"mmr_lut_channel\":%u,\"cache_hit\":0,\"prepare_seconds\":%.9f,\"upload_seconds\":%.9f,\"upload_bytes\":%zu}\n",channel+1,prepared-start,uploaded-prepared,sizeof(cache->table));
+ if(b->frame_trace)fprintf(stderr,"{\"mmr_lut_channel\":%u,\"cache_hit\":0,\"prepare_seconds\":%.9f,\"upload_seconds\":%.9f,\"upload_bytes\":%zu}\n",channel+1,prepared-start,uploaded-prepared,sizeof(cache->table));
  return 0;
 }
 static int verify_recon_output(backend *b,const dv_frame_settings *s,unsigned c,size_t count,unsigned route,void **saved)
@@ -477,7 +479,7 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
     int dual=s->composer.component[1].mapping&&s->composer.component[2].mapping&&b->mmr_dual&&b->mmr_lut&&!diag&&dv_mmr64_eligible(params[0],NULL)&&dv_mmr64_eligible(params[1],NULL)&&!memcmp(params[0]+2,params[1]+2,6*sizeof(uint32_t));
     int horizontal_fused=!equal&&dual&&b->horizontal_fused&&b->direct_active&&b->filter_fused&&!b->verify_filter;
     int verify_horizontal=horizontal_fused&&b->verify_horizontal&&b->horizontal_checks<3;
-    if(b->mmr_dual)fprintf(stderr,"{\"mmr_dual_pts\":%lld,\"eligible\":%d,\"diagnostics\":%d}\n",(long long)s->identity.pts,dual,diag);
+    if(b->mmr_dual&&b->frame_trace)fprintf(stderr,"{\"mmr_dual_pts\":%lld,\"eligible\":%d,\"diagnostics\":%d}\n",(long long)s->identity.pts,dual,diag);
     for(unsigned c=0;c<3;++c){unsigned cw=c?w/2:w,ch=c?h/2:h,input=E+c;
         if(equal){
             if(!c){unsigned k=b->direct_active?28u:27u;
@@ -548,8 +550,8 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
                 if(kernel==10u||kernel>=13u)DO(memarg(b,kernel,13,UL+c-1));DO(dispatch(b,kernel,kernel==13?(n/4+1)/2:n/4));
                 if(verify)DO(verify_recon_output(b,s,c,n/4,route,&host_m));
             }
-            if(b->mmr96)fprintf(stderr,"{\"mmr96_channel\":%u,\"mmr96_eligible\":%u}\n",c,kernel==8u);
-            if(b->mmr64)fprintf(stderr,"{\"mmr64_channel\":%u,\"mmr64_eligible\":%d,\"mmr64_absolute_bound\":%llu,\"mmr_fallback_kernel\":%u}\n",c,eligible64,(unsigned long long)bound,kernel);
+            if(b->mmr96&&b->frame_trace)fprintf(stderr,"{\"mmr96_channel\":%u,\"mmr96_eligible\":%u}\n",c,kernel==8u);
+            if(b->mmr64&&b->frame_trace)fprintf(stderr,"{\"mmr64_channel\":%u,\"mmr64_eligible\":%d,\"mmr64_absolute_bound\":%llu,\"mmr_fallback_kernel\":%u}\n",c,eligible64,(unsigned long long)bound,kernel);
         }
     }
     DO(read_reconstruction_error(b));
@@ -569,8 +571,8 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
         if(clGetEventProfilingInfo(b->events[i],CL_PROFILING_COMMAND_START,sizeof(start),&start,NULL) || clGetEventProfilingInfo(b->events[i],CL_PROFILING_COMMAND_END,sizeof(end),&end,NULL))goto done;
         double elapsed=(double)(end-start)/1e9;b->kernel_seconds+=elapsed;stage_seconds[b->event_kind[i]]+=elapsed;
     }
-    fprintf(stderr,"{\"reconstruction_gpu_stages_seconds\":{\"phase\":%.9f,\"vertical\":%.9f,\"horizontal\":%.9f,\"guide\":%.9f,\"luma\":%.9f,\"chroma_mmr\":%.9f}}\n",stage_seconds[0],stage_seconds[1],stage_seconds[2],stage_seconds[3],stage_seconds[4],stage_seconds[5]);
-    fprintf(stderr,"{\"opencl_kernel_seconds\":%.9f,\"upload_bytes\":%zu,\"download_bytes\":%zu,\"retained_gpu_buffer_bytes\":%zu,\"diagnostics\":%d}\n",b->kernel_seconds,b->uploads,b->downloads,b->allocated,diag);
+    if(b->frame_trace)fprintf(stderr,"{\"reconstruction_gpu_stages_seconds\":{\"phase\":%.9f,\"vertical\":%.9f,\"horizontal\":%.9f,\"guide\":%.9f,\"luma\":%.9f,\"chroma_mmr\":%.9f}}\n",stage_seconds[0],stage_seconds[1],stage_seconds[2],stage_seconds[3],stage_seconds[4],stage_seconds[5]);
+    if(b->frame_trace)fprintf(stderr,"{\"opencl_kernel_seconds\":%.9f,\"upload_bytes\":%zu,\"download_bytes\":%zu,\"retained_gpu_buffer_bytes\":%zu,\"diagnostics\":%d}\n",b->kernel_seconds,b->uploads,b->downloads,b->allocated,diag);
     status=DV_OK;
 done:
     /* Even on enqueue failure, host upload pointers must remain alive until
@@ -796,7 +798,7 @@ static dv_status colour_impl(void *opaque,const dv_frame_settings *s,unsigned w,
     unsigned slots[9]={O,O+1,O+2,CP,CS,CO,CO+1,CO+2,CT};for(unsigned a=0;a<9;++a)TRY(memarg(b,6,a,slots[a]));
     TRY(uintarg(b,6,9,w));TRY(uintarg(b,6,10,h));TRY(uintarg(b,6,11,s->pq_policy));
     TRY(clSetKernelArg(b->kernel[6],12,sizeof(s->active),s->active)!=CL_SUCCESS);
-    fprintf(stderr,"{\"colour_work_group\":%zu}\n",local);
+    if(b->frame_trace)fprintf(stderr,"{\"colour_work_group\":%zu}\n",local);
 #ifdef DV_COLOUR_LUT
     TRY(memarg(b,6,13,DL));TRY(memarg(b,6,14,ELUT));TRY(memarg(b,6,15,MASK));
     if(b->compact){TRY(memarg(b,6,16,PCR));TRY(memarg(b,6,17,PCT));TRY(uintarg(b,6,18,(unsigned)capacity));}
@@ -814,7 +816,7 @@ static dv_status colour_impl(void *opaque,const dv_frame_settings *s,unsigned w,
         if(b->sparse_repair){TRY(memarg(b,7,18,PRC));TRY(memarg(b,7,19,PRN));TRY(uintarg(b,7,20,(unsigned)repair_capacity));}
 #endif
         size_t refine_global=(work+local-1)/local*local;
-        fprintf(stderr,"{\"colour_refine_launch_items\":%zu,\"colour_frame_pixels\":%zu}\n",refine_global,n);
+        if(b->frame_trace)fprintf(stderr,"{\"colour_refine_launch_items\":%zu,\"colour_frame_pixels\":%zu}\n",refine_global,n);
         TRY(clEnqueueNDRangeKernel(b->queue,b->kernel[7],1,NULL,&refine_global,&local,0,NULL,&b->events[1])!=CL_SUCCESS);b->event_count=2;
     }
     TRY(read_buffer_sync(b,CT,stats,groups*8));if(b->compact)TRY(read_buffer_sync(b,PCT,&candidates,4));
@@ -865,16 +867,16 @@ static dv_status colour_impl(void *opaque,const dv_frame_settings *s,unsigned w,
         /* The blocking upload owns transient host-patch lifetime independently
          * of any later queue failure. Finish also confirms GPU patch execution. */
         TRY(clFinish(b->queue)!=CL_SUCCESS);}
-    fprintf(stderr,"{\"lut_cpu_corrected_pixels\":%zu,\"lut_cpu_evaluated_pixels\":%zu,\"lut_precision_experiment\":true}\n",corrected,evaluated);
-    fprintf(stderr,"{\"selective_gpu_precise_pixels\":%zu}\n",gpu_precise);
-    fprintf(stderr,"{\"lut_correction_reasons\":[%zu,%zu,%zu,%zu,%zu]}\n",reasons[0],reasons[1],reasons[2],reasons[3],reasons[4]);
-    if(b->sparse_repair)fprintf(stderr,"{\"sparse_repair_count\":%u,\"sparse_repair_capacity\":%zu,\"sparse_repair_fallback\":%d}\n",repair_count,repair_capacity,sparse_fallback);
+    if(b->frame_trace)fprintf(stderr,"{\"lut_cpu_corrected_pixels\":%zu,\"lut_cpu_evaluated_pixels\":%zu,\"lut_precision_experiment\":true}\n",corrected,evaluated);
+    if(b->frame_trace)fprintf(stderr,"{\"selective_gpu_precise_pixels\":%zu}\n",gpu_precise);
+    if(b->frame_trace)fprintf(stderr,"{\"lut_correction_reasons\":[%zu,%zu,%zu,%zu,%zu]}\n",reasons[0],reasons[1],reasons[2],reasons[3],reasons[4]);
+    if(b->sparse_repair&&b->frame_trace)fprintf(stderr,"{\"sparse_repair_count\":%u,\"sparse_repair_capacity\":%zu,\"sparse_repair_fallback\":%d}\n",repair_count,repair_capacity,sparse_fallback);
 #endif
     double seconds[2]={0};for(unsigned k=0;k<b->event_count;++k){cl_ulong begin,end;
         TRY(clGetEventProfilingInfo(b->events[k],CL_PROFILING_COMMAND_START,sizeof(begin),&begin,NULL)!=CL_SUCCESS);
         TRY(clGetEventProfilingInfo(b->events[k],CL_PROFILING_COMMAND_END,sizeof(end),&end,NULL)!=CL_SUCCESS);seconds[k]=(double)(end-begin)/1e9;}
-    if(b->compact)fprintf(stderr,"{\"compact_candidates\":%u,\"compact_capacity\":%zu,\"compact_dense_fallback\":%d,\"colour_screen_seconds\":%.9f,\"colour_refine_seconds\":%.9f}\n",candidates,capacity,dense,seconds[0],seconds[1]);
-    fprintf(stderr,"{\"experimental_gpu_colour_seconds\":%.9f,\"colour_upload_bytes\":%zu,\"colour_download_bytes\":%zu,\"retained_gpu_buffer_bytes\":%zu,\"resident_gpu_colour\":true}\n",seconds[0]+seconds[1],b->uploads,b->downloads,b->allocated);
+    if(b->compact&&b->frame_trace)fprintf(stderr,"{\"compact_candidates\":%u,\"compact_capacity\":%zu,\"compact_dense_fallback\":%d,\"colour_screen_seconds\":%.9f,\"colour_refine_seconds\":%.9f}\n",candidates,capacity,dense,seconds[0],seconds[1]);
+    if(b->frame_trace)fprintf(stderr,"{\"experimental_gpu_colour_seconds\":%.9f,\"colour_upload_bytes\":%zu,\"colour_download_bytes\":%zu,\"retained_gpu_buffer_bytes\":%zu,\"resident_gpu_colour\":true}\n",seconds[0]+seconds[1],b->uploads,b->downloads,b->allocated);
     if(b->output_event){clReleaseEvent(b->output_event);b->output_event=NULL;}
     TRY(clEnqueueMarkerWithWaitList(b->queue,0,NULL,&b->output_event)!=CL_SUCCESS);TRY(clFlush(b->queue)!=CL_SUCCESS);
     *excursions=count;status=DV_OK;b->output_ready=1;b->image_output=b->image_active;
@@ -907,7 +909,7 @@ dv_status dv_opencl_colour_gl_resident(void *p,const dv_frame_settings *s,unsign
  b->image_active=0;b->kernel[6]=screen;b->kernel[7]=refine;b->patch=patch;
  if(status!=DV_OK)return status; /* caller drain recovers/quarantines ownership */
  cl_event done=NULL;double release_start=host_seconds();e=clEnqueueReleaseGLObjects(b->queue,3,images,0,NULL,&done);double release_cpu=host_seconds()-release_start;b->gl_release=done;
- fprintf(stderr,"{\"direct_colour_images\":true,\"gl_acquire_enqueue_cpu_seconds\":%.9f,\"gl_release_enqueue_cpu_seconds\":%.9f,\"co_buffer_bytes_avoided\":%zu}\n",acquire_cpu,release_cpu,(size_t)w*h*6);
+ if(b->frame_trace)fprintf(stderr,"{\"direct_colour_images\":true,\"gl_acquire_enqueue_cpu_seconds\":%.9f,\"gl_release_enqueue_cpu_seconds\":%.9f,\"co_buffer_bytes_avoided\":%zu}\n",acquire_cpu,release_cpu,(size_t)w*h*6);
  if(e||clFlush(b->queue)||clRetainEvent(done)){b->output_ready=0;return DV_BACKEND;}*event=done;return DV_OK;}
 dv_status dv_opencl_output(void *p,cl_mem out[3],cl_event *event)
 {backend *b=p;if(!b||!out||!event)return DV_INVALID;if(!b->output_ready||!b->output_event||b->image_output)return DV_BACKEND;
@@ -944,7 +946,7 @@ dv_status dv_opencl_reconstruct_p010(void *p,const dv_frame_settings *s,unsigned
   e=b->defer_va_release?CL_SUCCESS:release(b->queue,4,images,0,NULL,&b->va_release);
   if(e||clFlush(b->queue)||status!=DV_OK){(void)dv_opencl_drain(b);return status!=DV_OK?status:DV_BACKEND;}
   size_t raw_bytes=0;for(unsigned k=0;k<6;++k)raw_bytes+=b->bytes[k];
-  fprintf(stderr,"{\"direct_p010_pts\":%lld,\"unpack_dispatches\":0,\"raw_planar_allocation_bytes\":%zu,\"raw_planar_write_bytes\":0}\n",(long long)s->identity.pts,raw_bytes);
+  if(b->frame_trace)fprintf(stderr,"{\"direct_p010_pts\":%lld,\"unpack_dispatches\":0,\"raw_planar_allocation_bytes\":%zu,\"raw_planar_write_bytes\":0}\n",(long long)s->identity.pts,raw_bytes);
   return DV_OK;
  }
  for(unsigned layer=0;layer<2&&!e;++layer){cl_uint ww=layer?w/scale:w,hh=layer?h/scale:h;unsigned offset=layer?E:B;
@@ -1119,7 +1121,7 @@ dv_status dv_opencl_publish_gl(void *p,const cl_mem images[3],cl_event *event)
  cl_uint w=b->width,h=b->height;if(!e)e=clSetKernelArg(b->pack,6,sizeof(w),&w);if(!e)e=clSetKernelArg(b->pack,7,sizeof(h),&h);size_t work=(size_t)w*h;
  if(!e)e=clEnqueueNDRangeKernel(b->queue,b->pack,1,NULL,&work,NULL,0,NULL,&b->pack_event);
  cl_event done=NULL;double release_start=host_seconds();cl_int re=clEnqueueReleaseGLObjects(b->queue,3,images,0,NULL,&done);double release_cpu=host_seconds()-release_start;b->gl_release=done;
- fprintf(stderr,"{\"gl_acquire_enqueue_cpu_seconds\":%.9f,\"gl_release_enqueue_cpu_seconds\":%.9f}\n",acquire_cpu,release_cpu);
+ if(b->frame_trace)fprintf(stderr,"{\"gl_acquire_enqueue_cpu_seconds\":%.9f,\"gl_release_enqueue_cpu_seconds\":%.9f}\n",acquire_cpu,release_cpu);
  if(e||re||clFlush(b->queue)){(void)dv_opencl_drain(b);return DV_BACKEND;}if(clRetainEvent(done))return DV_BACKEND;*event=done;return DV_OK;}
 dv_status dv_opencl_drain(void *p)
 {backend *b=p;if(!b||!b->queue)return DV_INVALID;
@@ -1154,8 +1156,8 @@ dv_status dv_opencl_drain(void *p)
   clReleaseEvent(b->gl_release);b->gl_release=NULL;for(unsigned i=0;i<b->gl_count;++i){clReleaseMemObject(b->owned_gl[i]);b->owned_gl[i]=NULL;}b->gl_count=0;}
  if(b->unpack_event_count){double seconds=0;for(unsigned i=0;i<b->unpack_event_count;++i){cl_ulong start=0,end=0;
    if(!clGetEventProfilingInfo(b->unpack_event[i],CL_PROFILING_COMMAND_START,sizeof(start),&start,NULL)&&!clGetEventProfilingInfo(b->unpack_event[i],CL_PROFILING_COMMAND_END,sizeof(end),&end,NULL))seconds+=(double)(end-start)/1e9;
-   clReleaseEvent(b->unpack_event[i]);b->unpack_event[i]=NULL;}b->unpack_event_count=0;fprintf(stderr,"{\"p010_unpack_gpu_seconds\":%.9f,\"decoded_sample_host_upload_bytes\":0}\n",seconds);}
+   clReleaseEvent(b->unpack_event[i]);b->unpack_event[i]=NULL;}b->unpack_event_count=0;if(b->frame_trace)fprintf(stderr,"{\"p010_unpack_gpu_seconds\":%.9f,\"decoded_sample_host_upload_bytes\":0}\n",seconds);}
  if(b->pack_event){cl_ulong start=0,end=0;double seconds=0;
   if(!clGetEventProfilingInfo(b->pack_event,CL_PROFILING_COMMAND_START,sizeof(start),&start,NULL)&&!clGetEventProfilingInfo(b->pack_event,CL_PROFILING_COMMAND_END,sizeof(end),&end,NULL))seconds=(double)(end-start)/1e9;
-  clReleaseEvent(b->pack_event);b->pack_event=NULL;fprintf(stderr,"{\"r16ui_pack_gpu_seconds\":%.9f,\"host_output_download_bytes\":0}\n",seconds);}
+  clReleaseEvent(b->pack_event);b->pack_event=NULL;if(b->frame_trace)fprintf(stderr,"{\"r16ui_pack_gpu_seconds\":%.9f,\"host_output_download_bytes\":0}\n",seconds);}
  return DV_OK;}
