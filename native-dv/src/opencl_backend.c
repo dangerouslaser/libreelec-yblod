@@ -529,7 +529,7 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
             if(dual){if(c==1)continue;
                 unsigned k=horizontal_fused?26u:16u;
                 unsigned slots[12]={G,BP,BP+1,horizontal_fused?V:ES,horizontal_fused?VP:ES+1,P,P+1,RT+1,RT+2,O+1,O+2,ERR};for(unsigned a=0;a<12;++a)DO(memarg(b,k,a,slots[a]));
-                DO(uintarg(b,k,12,(unsigned)(n/4)));DO(memarg(b,k,13,UL));DO(memarg(b,k,14,UL+1));if(horizontal_fused)DO(uintarg(b,k,15,cw));DO(dispatch(b,k,n/4));
+                DO(uintarg(b,k,12,(unsigned)(n/4)));DO(memarg(b,k,13,UL));DO(memarg(b,k,14,UL+1));if(horizontal_fused)DO(uintarg(b,k,15,cw));DO(dispatch(b,k,horizontal_fused?n/8:n/4));
                 if(b->verify_recon||verify_horizontal)for(unsigned channel=1;channel<3;++channel){DO(verify_recon_output(b,s,channel,n/4,0,&host_m));
                     unsigned reference[11]={G,BP,BP+1,ES+channel-1,P+channel-1,RT+channel,M+channel,R+channel,S+channel,O+channel,ERR};
                     for(unsigned a=0;a<11;++a)DO(memarg(b,10,a,reference[a]));DO(uintarg(b,10,11,(unsigned)(n/4)));DO(uintarg(b,10,12,0));DO(memarg(b,10,13,UL+channel-1));DO(dispatch(b,10,n/4));
