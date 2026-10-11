@@ -148,6 +148,29 @@ kernel void vertical_pair(read_only image2d_t src,global ushort *dst,uint w,uint
  int s0=input_sample(src,w,x,(uint)edge((int)y-2,h),channel,error),s1=input_sample(src,w,x,(uint)edge((int)y-1,h),channel,error),s2=input_sample(src,w,x,y,channel,error),s3=input_sample(src,w,x,(uint)edge((int)y+1,h),channel,error),s4=input_sample(src,w,x,(uint)edge((int)y+2,h),channel,error);
  dst[y*2*w+x]=rounded(-3*s0+29*s1+111*s2-9*s3,128);dst[(y*2+1)*w+x]=rounded(-9*s1+111*s2+29*s3-3*s4,128);
 }
+/* One work item per 2x2 BL luma block: luma_pair for both rows, plus the
+ * co-sited BL chroma phase and guide sample, reading each BL luma sample once. */
+kernel void luma_phase_guide(read_only image2d_t bl,global const ushort *temp,global const ushort *mt,global const int *rt,
+    global ushort *mapped,global int *residual,global int *sum,global ushort *out,global uint *error,uint w,uint h,uint diag,
+    read_only image2d_t uv,global ushort *cb,global ushort *cr,global ushort *guide_out,uint method){
+ uint gx=GRID_X(w/2),gy=GRID_Y(w/2);if(gx>=w/2||gy>=h/2)return;
+ uint gi=gy*(w/2)+gx;ushort2 value=phase_uv_sample(uv,gx,(int)gy,h/2,method,error);cb[gi]=value.x;cr[gi]=value.y;
+ uint x0=gx*2,left=(uint)edge((int)x0-1,w),s[2][3],a[2];
+ #pragma unroll
+ for(uint r=0;r<2;++r){uint y=gy*2+r;
+  s[r][0]=input_sample(bl,w,left,y,0,error);s[r][1]=input_sample(bl,w,x0,y,0,error);s[r][2]=input_sample(bl,w,x0+1,y,0,error);
+  a[r]=(s[r][0]+2u*s[r][1]+s[r][2]+2u)/4u;}
+ guide_out[gi]=(ushort)((a[0]+a[1]+1u)/2u);
+ #pragma unroll
+ for(uint r=0;r<2;++r){uint y=gy*2+r;
+  #pragma unroll
+  for(uint lane=0;lane<2;++lane){uint x=x0+lane,i=y*w+x;ushort el=horizontal(temp,w/2,x,y);
+   if(el>1023){atomic_or(error,1u);continue;}
+   uint m=mt[s[r][1+lane]];int rv=rt[el];
+   long total=(long)m+rv;if(total>2147483647L || total<(-2147483647L-1L)){atomic_or(error,2u);continue;}
+   out[i]=(ushort)clamp(total>-8?(total+8)/16:0L,0L,4095L);if(diag){mapped[i]=(ushort)m;residual[i]=rv;sum[i]=(int)total;}
+  }}
+}
 #endif
 uint2 multiply(uint a,uint b){
 #ifdef DV_MMR_NATIVE_MUL
