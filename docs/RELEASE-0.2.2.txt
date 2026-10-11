@@ -1,0 +1,20 @@
+YBLOD 0.2.2 makes Profile 7 FEL playback lighter on the GPU, gives the Dolby Vision settings their own page, fixes playback through the compatibility renderer, and adds an LG edition.
+
+What changed
+- Faster FEL reconstruction. Two changes to the native engine cut its GPU work for a 4K Profile 7 FEL frame from 18.2 ms to 16.3 ms on an Intel N150 (about 10%). The picture is byte-for-byte identical to 0.2.1: this was checked on real frames during playback. At 24 fps playback already ran without drops; the saving is headroom for heavier scenes and higher frame rates.
+- Settings > Player > Dolby Vision. Every YBLOD setting now lives on its own page, in Video and Menu output groups, instead of at the top of Player > Videos. Your current values carry over.
+- Colour upscaling setting. Gaussian (the default) matches Dolby Vision hardware players most closely; Lanczos is slightly sharper at colour edges. It only affects videos shown through the compatibility renderer, not the native engine.
+- Compatibility renderer fixes. Videos the native engine cannot take (for example unusual sizes or formats) are shown through the compatibility renderer. Opening the Home menu or the playback controls over such a video froze playback, starting it waited about 10 seconds, and seeks stalled. All three are fixed.
+- Quieter logs. Per-frame timing messages are off by default. DV_ENGINE_FRAME_TRACE=1 and DV_PRIVATE_FRAME_TIMING=1 in /storage/.config/native-dv.env turn them back on.
+
+Two editions
+- Standard: the same kind of build as earlier releases.
+- LG edition (file names end in -lg): also includes the Estuary LG skin, the LG webOS TV Control add-on and the dangerouslaser add-on repository, which keeps both up to date. A fresh installation starts with Estuary LG; an update keeps your current skin, so choose Estuary LG under Settings > Interface > Skin if you want it. The LG edition has its own update channel, yblod-lg-13.0. Stay on that channel: updating an LG installation from the standard channel removes the LG skin and add-on.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+Known limitations
+All 0.2.1 limitations remain, including possible 4K60 frame drops with the playback controls open. In the FEL test file, a seek to about 25 seconds returns near 3 seconds; this also happens on earlier builds. Intel Dolby Vision support remains experimental.
+
+Full 0.2.1 notes: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.1
