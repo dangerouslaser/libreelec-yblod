@@ -1,0 +1,18 @@
+diff --git a/xbmc/addons/AddonRepos.cpp b/xbmc/addons/AddonRepos.cpp
+--- a/xbmc/addons/AddonRepos.cpp
++++ b/xbmc/addons/AddonRepos.cpp
+@@ -262,6 +262,14 @@
+       }
+     }
+   }
++  // YBLOD: optional system add-ons pre-installed from a third-party repository (the LG edition's
++  // skin and webOS add-on) keep the system origin, so they would only ever be updated from the
++  // official repositories. Also take updates from an installed repository that carries them.
++  else if (addon->Origin() == ORIGIN_SYSTEM && !hasOfficialUpdate &&
++           CServiceBroker::GetAddonMgr().IsOptionalSystemAddon(addon->ID()))
++  {
++    FindAddonAndCheckForUpdate(addon, m_latestPrivateVersions, update);
++  }
+ 
+   if (update)
+   {
