@@ -402,9 +402,14 @@ kernel void mmr64_lut_dual_horizontal(global const ushort *y,global const ushort
     global const ushort *el0,global const ushort *el1,global const uint *p0,global const uint *p1,
     global const int *rt0,global const int *rt1,global ushort *out0,global ushort *out1,
     global uint *error,uint count,global const long *table0,global const long *table1,uint width){
-    uint i=get_global_id(0);if(i>=count)return;uint x=i%width,row=i/width;
-    uint2 enhancement=(uint2)(horizontal(el0,width/2,x,row),horizontal(el1,width/2,x,row));
-    mmr64_dual_pixel(i,enhancement,DUAL_PASS);
+    /* One even/odd pair per work item (count and width are even): parity no
+     * longer diverges within a subgroup. Keep the loop rolled; unrolling two
+     * order-3 pixels was slower on N150. Host launches count/2 work items. */
+    uint first=get_global_id(0)*2;if(first>=count)return;uint x=first%width,row=first/width;
+    #pragma unroll 1
+    for(uint lane=0;lane<2;++lane){uint i=first+lane;
+    uint2 enhancement=(uint2)(horizontal(el0,width/2,x+lane,row),horizontal(el1,width/2,x+lane,row));
+    mmr64_dual_pixel(i,enhancement,DUAL_PASS);}
 }
 #undef DUAL_ARGS
 #undef DUAL_PASS
