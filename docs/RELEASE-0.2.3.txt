@@ -1,0 +1,14 @@
+YBLOD 0.2.3 fixes updates of the LG edition's add-ons and ships their latest versions.
+
+What changed
+- LG edition add-ons now update. In 0.2.2-lg, the pre-installed Estuary LG skin and LG webOS TV Control add-on never received updates from the dangerouslaser repository: Kodi only updates pre-installed (system) add-ons from the official Kodi repositories. They now update from the repository that publishes them. This was tested with Kodi's default setting, which only allows updates from official repositories.
+- LG edition: Estuary LG 4.1.0+lg.9 and LG webOS TV Control 0.6.1 (motion smoothing by frame rate, source-quality and sound output rules, an LG TV menu on the playback controls, and no more deadlock when Kodi shuts down).
+- Standard edition: no visible change. It is built from the same source so both editions keep the same version.
+
+If you run 0.2.2-lg
+Update to 0.2.3-lg from the yblod-lg-13.0 channel. Kodi then updates both add-ons by itself at its next repository check (normally within a day).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
