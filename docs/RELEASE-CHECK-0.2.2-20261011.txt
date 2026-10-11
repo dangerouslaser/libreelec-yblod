@@ -1,0 +1,69 @@
+YBLOD 0.2.2 validation
+
+Build source: 0e61204c9a3146983a216afef761e81b88f2713b
+LibreELEC upstream base is unchanged from 0.2.1. Both editions are built from this
+source; the LG edition with YBLOD_EDITION=lg.
+
+Changes since 0.2.1
+- Engine: paired dual-channel MMR work items; fused BL chroma phase, guide and
+  paired luma reconstruction (DV_LUMA_GUIDE_FUSED=1).
+- Engine and Kodi: per-frame timing logs off by default (DV_ENGINE_FRAME_TRACE=0,
+  DV_PRIVATE_FRAME_TIMING=0).
+- Kodi patch 16: dvbridge.chromaupscaler (Gaussian default, Lanczos) for the
+  compatibility renderer.
+- Kodi patch 17: the compatibility renderer accepts the ordinary GUI (no coverage-alpha
+  GUI unless the native route is expected) and completes the presentation drain.
+- Kodi patch 18: Settings > Player > Dolby Vision category; setting IDs unchanged.
+- LG edition: skin.estuary.lg 4.1.0+lg.7, service.webostv 0.5.3 and
+  repository.dangerouslaser 1.0.1 as optional system add-ons; Estuary LG is the skin
+  of a fresh installation only.
+
+Reconstruction accuracy (N150, P7 FEL fixture, real playback frames)
+Engine verification against the unfused reference kernels, first three frames:
+base planes 12441600 bytes, luma 16588800 bytes, each MMR chroma channel 4147200
+bytes: zero byte differences in all 12 comparisons, on the installed image.
+Standalone kernel tests: byte-identical across MMR orders 1-3, smooth/noise input,
+both chroma phase methods and invalid-sample inputs, including error flags.
+
+Performance (N150, P7 FEL fixture, 3 x 20 s playback per variant, GPU event medians)
+                     0.2.1 engine     0.2.2 engine
+Chroma/MMR             8.66 ms          8.08 ms
+All reconstruction    18.15 ms         16.26 ms
+Kodi processing_ms p50 is unchanged (~8.9 ms): at 24 fps the GPU work overlaps it.
+
+Playback checks (play, pause, resume, seek forward/back, paused seek, Home over video,
+return to fullscreen, playback controls, stop; zero errors unless noted)
+- N150, 0.2.2 test images: P7 FEL and P8.4 via the native engine pass.
+- N150, compatibility renderer forced (DV_PRIVATE_SOURCE=0), P8.4, both colour
+  upscaling options: pass. Startup presentation wait 50-70 ms (was 10 s), seeks ~40 ms.
+  One frame is dropped by design when the GUI route changes at startup.
+- N150, yblod-0.2.2-lg: FEL passes. Add-ons previously recorded as disabled on this
+  device were enabled manually (Kodi keeps a recorded add-on state).
+- Petunia VM (Tiger Lake), yblod-0.2.2-lg installed over 0.2.2 test builds: the three
+  add-ons were enabled automatically on first boot; P8.1 passes.
+- Ollie container: kodi-dv:yblod-0.2.2-lg starts; add-ons enabled; the LibreELEC
+  settings add-on is kept but its service cannot reach D-Bus in a container.
+Seeks near 23-25 s in the FEL fixture return near 3 s and one paused seek was ignored
+there; the same happens with the 0.2.1 engine on this image.
+
+SHA256
+Standard update tar: 67225220eed1b7bc58412a7f097a20c7d279eddccf199917758e6691c2480d4c
+Standard install img.gz: 75a52d9f47a2fd8aedc908ce3403d626ed2ee3105a787c734378944c05755707
+Standard SYSTEM: 750470c206301908c84aacc7b3cbe61ea10e598fac49e8d54579e3abadc77fd1
+LG update tar: 23721088d554d2b1ddb8620655c514ef44fb10367a6754df5ed2b67559612127
+LG install img.gz: 2cdf18df363e0ae14756a27aa9fcacd8a51c7f5cba6d196270f7d98082a8bcef
+LG SYSTEM: 7e50bb98932362b9b6fa387d5c1d8d565640f76fd42fea70f1983efd62dce1e9
+KERNEL (both, unchanged from 0.2.1): 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi (both): 2e40ddf096f224c22cdb0f2aafc5e122bbd87811fd18dc3af9a50a8e0fc3000f
+Engine (both): fc47a9add85a7f40b9b1cc5ab192b2f5ded924364dd5324ed10ee5d00a39c8f0
+Runtime defaults (both): 93c85390a1c6886307be40f961cff3f3117472474e90783718bc073cbe9eb1c4
+Reconstruction shader (both): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Tunnel shader (both, unchanged): 5e4adf8161f6a7f07a47fd07a5b2906e47d99bc2d9120b00158ec07b246cce9a
+Source bundle: b123e44d8e0d84a00b74a540c2f5b6346c32ef100a2c7425609fe4be14a225db
+
+Limitations
+Checks inspect player/window state, logs and engine byte comparisons, not the
+picture on a TV: no visual TV confirmation is part of this report. The compatibility
+renderer was exercised by disabling the native engine, not with a stream the native
+engine rejects on its own. Fresh-install defaults of the LG edition (Estuary LG skin)
+were tested as a script, not with a fresh installation.
