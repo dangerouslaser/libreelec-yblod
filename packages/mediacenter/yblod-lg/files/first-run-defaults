@@ -1,0 +1,11 @@
+#!/bin/sh
+# YBLOD LG edition: on a fresh installation only (no Kodi settings yet), start with the
+# Estuary LG skin. Existing settings, including a skin chosen later, are never changed.
+SETTINGS=/storage/.kodi/userdata/guisettings.xml
+[ -e "$SETTINGS" ] && exit 0
+mkdir -p "${SETTINGS%/*}" || exit 0
+cat > "$SETTINGS.yblod-lg" <<'XML' && mv "$SETTINGS.yblod-lg" "$SETTINGS"
+<settings version="4">
+    <setting id="lookandfeel.skin">skin.estuary.lg</setting>
+</settings>
+XML

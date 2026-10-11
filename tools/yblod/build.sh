@@ -9,9 +9,13 @@
 # retry resumes where it stopped.
 #
 # usage: tools/yblod/build.sh <version>        e.g. tools/yblod/build.sh 0.1
-# env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3")
+# env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3"),
+#        YBLOD_EDITION=lg for the LG edition (version suffix -lg; LG skin, webOS add-on, repository)
 set -u
 V=${1:?usage: tools/yblod/build.sh <version>}
+EDITION=${YBLOD_EDITION:-}
+[ -z "$EDITION" ] || [ "$EDITION" = lg ] || { echo "unknown YBLOD_EDITION: $EDITION" >&2; exit 2; }
+[ -n "$EDITION" ] && V="$V-$EDITION"
 T=$(cd "$(dirname "$0")/../.." && pwd)
 IMAGE=${BUILD_IMAGE:-libreelec-dv-build}
 MEM=${BUILD_MEMORY:-12g}
@@ -22,7 +26,7 @@ for JOBS in ${BUILD_JOBS:-7 5 3}; do
     -v "$T":/build -w /build \
     -e PROJECT=Generic -e DEVICE=Generic -e ARCH=x86_64 \
     -e CONCURRENCY_MAKE_LEVEL="$JOBS" -e CMAKE_BUILD_PARALLEL_LEVEL="$JOBS" -e THREADCOUNT=4 \
-    -e CUSTOM_VERSION="yblod-$V" -e BUILDER_NAME=yblod \
+    -e CUSTOM_VERSION="yblod-$V" -e BUILDER_NAME=yblod -e YBLOD_EDITION="$EDITION" \
     "$IMAGE" bash -c "make image" >> "$LOG" 2>&1
   rc=$?
   if [ $rc -eq 0 ]; then

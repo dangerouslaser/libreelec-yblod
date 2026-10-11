@@ -33,6 +33,11 @@ if [ "${MEDIACENTER}" = "kodi" ]; then
   # other packages
   PKG_DEPENDS_TARGET+=" xmlstarlet"
 
+  # YBLOD LG edition (YBLOD_EDITION=lg): LG skin, webOS add-on and their repository
+  if [ "${YBLOD_EDITION}" = "lg" ]; then
+    PKG_DEPENDS_TARGET+=" yblod-lg"
+  fi
+
   if [ "${JOYSTICK_SUPPORT}" = "yes" ]; then
     PKG_DEPENDS_TARGET+=" peripheral.joystick"
   fi
