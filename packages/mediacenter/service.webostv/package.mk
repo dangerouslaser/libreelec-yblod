@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 PKG_NAME="service.webostv"
-PKG_VERSION="0.5.3"
-PKG_SHA256="99f742e9e7f1accc834329bb9e2449d19c012500dd7c18e1f2ab6de0967db0a9"
+PKG_VERSION="0.6.1"
+PKG_SHA256="c20c84c18c055e1a9d880c63b930ef38e5210499255189a54ccd66a73adcb79b"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/dangerouslaser/kodi-webos-control"
 PKG_URL="https://github.com/dangerouslaser/kodi-webos-control/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.zip"

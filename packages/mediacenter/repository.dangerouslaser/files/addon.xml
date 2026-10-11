@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.dangerouslaser"
+       name="dangerouslaser Repository"
+       version="1.0.1"
+       provider-name="dangerouslaser">
+  <requires>
+    <import addon="xbmc.addon" version="12.0.0"/>
+  </requires>
+  <extension point="xbmc.addon.repository">
+    <dir>
+      <info compressed="false">https://dangerouslaser.github.io/addons.xml</info>
+      <checksum>https://dangerouslaser.github.io/addons.xml.md5</checksum>
+      <datadir zip="true">https://dangerouslaser.github.io</datadir>
+    </dir>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">dangerouslaser Kodi Addon Repository</summary>
+    <description lang="en_GB">Install and update Kodi addons by dangerouslaser, including Verse web interface and more.</description>
+    <platform>all</platform>
+    <source>https://github.com/dangerouslaser/dangerouslaser.github.io</source>
+  </extension>
+</addon>
