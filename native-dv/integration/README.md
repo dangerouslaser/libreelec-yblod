@@ -68,6 +68,8 @@ Per-frame engine diagnostics (MMR table cache, dual-MMR eligibility, direct
 P010 and GPU timing lines) are off by default because they reach the Kodi
 journal on every frame; set `DV_ENGINE_FRAME_TRACE=1` to enable them for a
 diagnostic run. Startup configuration lines and errors are always logged.
+Kodi's per-frame startup timing lines (including the first-480-frame
+`Private source async pack` line) likewise require `DV_PRIVATE_FRAME_TIMING=1`.
 
 Legacy `DV_PRIVATE_*` names and the library SONAME are retained for ABI
 compatibility. Readback, half-resolution GUI and rejected GUI-tile experiments
