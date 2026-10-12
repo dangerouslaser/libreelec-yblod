@@ -68,6 +68,15 @@ Per-frame engine diagnostics (MMR table cache, dual-MMR eligibility, direct
 P010 and GPU timing lines) are off by default because they reach the Kodi
 journal on every frame; set `DV_ENGINE_FRAME_TRACE=1` to enable them for a
 diagnostic run. Startup configuration lines and errors are always logged.
+
+Byte-exact performance switches (all on in `runtime.env`; set to 0 to disable):
+`DV_RECON_ACTIVE_ROWS` reconstructs only the RPU L5 active rows plus a filter
+margin; `DV_OVERLAY_INLINE` lets the overlay pack check the GUI pixel cache
+itself instead of running a separate colour pass; `DV_SINGLE_TABLE_CACHE` and
+`DV_DUAL_TABLE_CACHE` reuse reshaping tables while the composer config is
+unchanged. Their diagnostics compare against the uncached/full-frame path:
+`DV_VERIFY_ACTIVE_ROWS=N`, `DV_OVERLAY_INLINE_VERIFY=N`,
+`DV_SINGLE_TABLE_CACHE_VERIFY=1` and `DV_DUAL_TABLE_CACHE_VERIFY=1`.
 Kodi's per-frame startup timing lines (including the first-480-frame
 `Private source async pack` line) likewise require `DV_PRIVATE_FRAME_TIMING=1`.
 

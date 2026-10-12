@@ -159,8 +159,10 @@ void *dv_source_renderer_create_storage(uintptr_t va_display,uintptr_t egl_displ
      * pixel cache itself. DV_OVERLAY_INLINE_VERIFY=N repacks the first N
      * overlay frames from fresh GUI colours and compares every byte. */
     const char *gui_inline=getenv("DV_OVERLAY_INLINE");r->gui_inline=gui_inline&&!strcmp(gui_inline,"1");
+    /* Missing prerequisites (e.g. a user override) keep the prepass route. */
+    if(r->gui_inline&&(!r->gui_pixel_cache||!r->gui_gray_lut||!r->gui_shared||r->gui_tiled||r->gui_cache_verify)){
+        fprintf(stderr,"{\"overlay_inline\":\"disabled\",\"reason\":\"prerequisites\"}\n");r->gui_inline=0;}
     if(r->gui_inline){
-        if(!r->gui_pixel_cache||!r->gui_gray_lut||!r->gui_shared||r->gui_tiled||r->gui_cache_verify)goto fail;
         r->gui_prepass=0;r->gui_sparse=0;
         const char *inline_verify=getenv("DV_OVERLAY_INLINE_VERIFY");
         r->gui_inline_verify=inline_verify&&atoi(inline_verify)>0?(unsigned)atoi(inline_verify):0;
