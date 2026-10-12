@@ -32,7 +32,8 @@ typedef struct {
     uint16_t single_mapping[3][1024];
     dv_intel_composer_config single_config;
     /* MT is shared with dual-layer reconstruction; host and GPU validity differ. */
-    int single_cache,single_cpu_valid,single_gpu_valid;
+    int single_cache,single_cpu_valid,single_gpu_valid,single_verify;unsigned single_mismatches;
+    int dual_cache,dual_valid,dual_verify;unsigned dual_hits,dual_misses,dual_mismatches;dv_intel_composer_config dual_config;
     unsigned single_hits,single_misses;
     cl_program piecewise_program;cl_kernel piecewise_kernel,piecewise_full_kernel;
     cl_program piecewise_order2_program;cl_kernel piecewise_order2_kernel;
@@ -64,7 +65,8 @@ void dv_opencl_destroy(void *opaque)
 {
     backend *b=opaque;if(!b)return;
     if(b->queue&&dv_opencl_drain(b)!=DV_OK)return; /* leak rather than free live ownership */
-    if(b->single_cache)fprintf(stderr,"{\"single_table_cache_hits\":%u,\"single_table_cache_misses\":%u}\n",b->single_hits,b->single_misses);
+    if(b->single_cache)fprintf(stderr,"{\"single_table_cache_hits\":%u,\"single_table_cache_misses\":%u,\"single_table_verify_mismatches\":%u}\n",b->single_hits,b->single_misses,b->single_mismatches);
+    if(b->dual_cache)fprintf(stderr,"{\"dual_table_cache_hits\":%u,\"dual_table_cache_misses\":%u,\"dual_table_verify_mismatches\":%u}\n",b->dual_hits,b->dual_misses,b->dual_mismatches);
     for(unsigned i=0;i<b->event_count;++i)clReleaseEvent(b->events[i]);
     for(unsigned i=0;i<NB;++i)if(b->buffer[i])clReleaseMemObject(b->buffer[i]);
     for(unsigned i=0;i<30;++i)if(b->kernel[i])clReleaseKernel(b->kernel[i]);
@@ -111,6 +113,10 @@ static void *create_backend(cl_context supplied,cl_device_id supplied_device,int
     const char *base=getenv("DV_BASE_PREP_FUSED");b->base_fused=base&&!strcmp(base,"1");
     const char *luma_guide=getenv("DV_LUMA_GUIDE_FUSED");b->luma_guide=b->base_fused&&luma_guide&&!strcmp(luma_guide,"1");
     const char *single_cache=getenv("DV_SINGLE_TABLE_CACHE");b->single_cache=single_cache&&!strcmp(single_cache,"1");
+    const char *single_verify=getenv("DV_SINGLE_TABLE_CACHE_VERIFY");b->single_verify=single_verify&&!strcmp(single_verify,"1");
+    /* Dual-layer luma/chroma tables depend only on the composer config. */
+    const char *dual_cache=getenv("DV_DUAL_TABLE_CACHE");b->dual_cache=dual_cache&&!strcmp(dual_cache,"1");
+    const char *dual_verify=getenv("DV_DUAL_TABLE_CACHE_VERIFY");b->dual_verify=dual_verify&&!strcmp(dual_verify,"1");
     const char *verify_base=getenv("DV_VERIFY_BASE_PREP");b->verify_base=verify_base&&!strcmp(verify_base,"1");
     if(supplied){err=clRetainContext(supplied);if(err)goto fail;b->context=supplied;}else b->context=clCreateContext(NULL,1,&device,NULL,NULL,&err);if(!b->context || err)goto fail;
     b->queue=clCreateCommandQueue(b->context,device,CL_QUEUE_PROFILING_ENABLE,&err);if(!b->queue || err)goto fail;
@@ -456,6 +462,13 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
     dv_status status=DV_BACKEND;uint16_t *mt=b->mapping,unused;int32_t (*rt)[1024]=b->residual_table,mapped,residual;uint32_t (*params)[96]=b->mmr_params;
     void *host_m=NULL,*host_r=NULL,*host_s=NULL;
     release_events(b);b->uploads=b->downloads=0;b->kernel_seconds=0;
+    int table_hit=b->dual_cache&&b->dual_valid&&!memcmp(&b->dual_config,&s->composer,sizeof(s->composer));
+    if(table_hit&&!b->dual_verify)++b->dual_hits;
+    else{
+    uint16_t kept_mt[1024],kept_cm[2][1024];int32_t kept_rt[3][1024];uint32_t kept_params[2][96];
+    if(table_hit){memcpy(kept_mt,mt,sizeof(kept_mt));memcpy(kept_cm,b->chroma_mapping,sizeof(kept_cm));
+        memcpy(kept_rt,rt,sizeof(kept_rt));memcpy(kept_params,params,sizeof(kept_params));}
+    b->dual_valid=0;
     for(unsigned i=0;i<1024;++i){
         if(dv_reference_luma(&s->composer,(uint16_t)i,(uint16_t)s->composer.component[0].nlq_offset,&mapped,&residual,&unused))return DV_UNSUPPORTED;
         mt[i]=(uint16_t)mapped;
@@ -466,6 +479,15 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
             if(dv_prepare_polynomial_component(&s->composer,c,b->chroma_mapping[c-1],rt[c]))return DV_UNSUPPORTED;
             memset(params[c-1],0,sizeof(params[c-1]));
         }else if(dv_mmr_prepare(&s->composer,c,params[c-1],rt[c])!=DV_OK)return DV_UNSUPPORTED;
+    }
+    if(table_hit){++b->dual_hits;
+        /* Unused chroma mapping/params for the other mode are not compared. */
+        int same=!memcmp(kept_mt,mt,sizeof(kept_mt))&&!memcmp(kept_rt,rt,sizeof(kept_rt));
+        for(unsigned c=1;c<3;++c)same=same&&(s->composer.component[c].mapping?
+            !memcmp(kept_params[c-1],params[c-1],sizeof(kept_params[c-1])):!memcmp(kept_cm[c-1],b->chroma_mapping[c-1],sizeof(kept_cm[c-1])));
+        if(!same)++b->dual_mismatches;
+    }else ++b->dual_misses;
+    if(b->dual_cache){b->dual_config=s->composer;b->dual_valid=1;}
     }
     if(tracing)prepared=host_seconds();
     for(unsigned c=0;!b->shared_prepared && c<3;++c){size_t count=c?n/4:n;
@@ -1003,7 +1025,11 @@ static dv_status prepare_single_mapping(backend *b,const dv_intel_composer_confi
  if(!hit){uint16_t table[3][1024];if(dv_prepare_polynomial_tables(cfg,table))return DV_UNSUPPORTED;
   memcpy(b->single_mapping,table,sizeof(table));b->single_config=*cfg;
   b->single_cpu_valid=1;b->single_gpu_valid=0;++b->single_misses;
- }else ++b->single_hits;
+ }else{++b->single_hits;
+  /* Diagnostic: rebuild on a hit and compare with the cached table. */
+  if(b->single_verify){uint16_t table[3][1024];
+   if(dv_prepare_polynomial_tables(cfg,table))return DV_UNSUPPORTED;
+   if(memcmp(table,b->single_mapping,sizeof(table)))++b->single_mismatches;}}
  return DV_OK;
 }
 dv_status dv_opencl_reconstruct_single_p010(void *p,const dv_frame_settings *s,
