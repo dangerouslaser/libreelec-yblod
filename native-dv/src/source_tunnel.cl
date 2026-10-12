@@ -95,6 +95,35 @@ kernel void source_gui_cache_check(read_only image2d_t gui,constant float *coeff
  if(any(as_uint4(reference)!=as_uint4(colours[y*w+x])))atomic_or(error,2);
 }
 #endif
+#elif defined(SOURCE_OVERLAY_INLINE)
+#if !defined(SOURCE_OVERLAY_GRAY_LUT) || !defined(SOURCE_OVERLAY_SHARED) || !defined(SOURCE_PACK_PAIR)
+#error SOURCE_OVERLAY_INLINE requires the gray LUT and shared pair packing
+#endif
+/* Exact cache consulted by the pack itself: no separate full-canvas pass.
+ * Transparent and gray pixels never touch it. Alpha-zero keys never match a
+ * visible pixel, so the host clears the keys whenever colours may be stale. */
+uchar4 source_gui_rgba(read_only image2d_t gui,int x,uint y,uint w,uint h,uint flip)
+{
+ const sampler_t sampler=CLK_NORMALIZED_COORDS_FALSE|CLK_ADDRESS_CLAMP_TO_EDGE|CLK_FILTER_NEAREST;
+ return convert_uchar4_sat_rte(read_imagef(gui,sampler,(int2)(clamp(x,0,(int)w-1),(int)(flip?h-1-y:y)))*255.0f);
+}
+float4 source_gui_convert(uchar4 p,constant float *coeff,volatile global int *error,global const float4 *gray)
+{
+ float4 value=(float4)(0);
+ if(!p.w)return value;
+ if(p.x==p.y&&p.y==p.z){value=gray[((uint)p.w<<8)|p.x];if(value.w<0){atomic_or(error,1);value=(float4)(0);}return value;}
+ if(overlay_source_colour(p,coeff,&value))atomic_or(error,1);
+ return value;
+}
+float4 source_gui_owned(uchar4 p,uint index,constant float *coeff,volatile global int *error,
+ global const float4 *gray,global uint *keys,global float4 *colours)
+{
+ if(!p.w||(p.x==p.y&&p.y==p.z))return source_gui_convert(p,coeff,error,gray);
+ if(keys[index]==as_uint(p))return colours[index];
+ float4 value=source_gui_convert(p,coeff,error,gray);
+ colours[index]=value;keys[index]=as_uint(p);
+ return value;
+}
 #else
 #ifdef SOURCE_OVERLAY_GRAY_LUT
 #define source_gui(g,x,y,w,h,f,c,e) source_gui_colour(g,x,y,w,h,f,c,e,gui_gray)
@@ -152,6 +181,9 @@ uint source_vertical_mapped(global const ushort *plane,uint w,uint x,uint4 y)
 }
 #endif
 #endif
+#ifdef SOURCE_OVERLAY_INLINE
+__attribute__((reqd_work_group_size(SOURCE_OVERLAY_GROUP,1,1)))
+#endif
 kernel void source_tunnel(global const ushort *yplane,
  global const ushort *cb,global const ushort *cr,
  global const uchar *packets,uint packet_count,uint w,uint h,
@@ -187,11 +219,32 @@ kernel void source_tunnel(global const ushort *yplane,
 #if defined(SOURCE_OVERLAY_GRAY_LUT) && !defined(SOURCE_OVERLAY_CACHED)
  ,global const float4 *gui_gray
 #endif
+#ifdef SOURCE_OVERLAY_INLINE
+ ,global uint *gui_keys,global float4 *gui_colours
+#endif
 #endif
  )
 {
  uint sx=get_global_id(0),y=get_global_id(1);
-#if defined(SOURCE_OVERLAY_SHARED) && defined(SOURCE_OVERLAY) && defined(SOURCE_PACK_PAIR)
+#ifdef SOURCE_OVERLAY_INLINE
+ /* The grid is padded to whole groups; padding items only join the barrier.
+  * The left chroma neighbour is the previous item's right pixel. */
+ local float4 gui_edge[SOURCE_OVERLAY_GROUP];
+ uint lid=get_local_id(0),live=sx*2<w&&y<h;
+ int gui_center=(int)(sx*2);
+ float4 shared_left,shared_middle=(float4)(0),shared_right=(float4)(0);
+ if(live){
+  shared_middle=source_gui_owned(source_gui_rgba(gui,gui_center,y,w,h,gui_flip),y*w+sx*2,
+                                 gui_coeff,gui_error,gui_gray,gui_keys,gui_colours);
+  shared_right=source_gui_owned(source_gui_rgba(gui,gui_center+1,y,w,h,gui_flip),y*w+sx*2+1,
+                                gui_coeff,gui_error,gui_gray,gui_keys,gui_colours);
+ }
+ gui_edge[lid]=shared_right;
+ barrier(CLK_LOCAL_MEM_FENCE);
+ if(!live)return;
+ shared_left=lid?gui_edge[lid-1]:
+  source_gui_convert(source_gui_rgba(gui,gui_center-1,y,w,h,gui_flip),gui_coeff,gui_error,gui_gray);
+#elif defined(SOURCE_OVERLAY_SHARED) && defined(SOURCE_OVERLAY) && defined(SOURCE_PACK_PAIR)
  if(sx*2>=w||y>=h)return;
  /* Both output pixels use the same three GUI samples for chroma. */
  int gui_center=(int)(sx*2);
