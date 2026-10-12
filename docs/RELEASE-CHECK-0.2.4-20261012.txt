@@ -1,0 +1,67 @@
+YBLOD 0.2.4 validation
+
+Build source: ce6415655c348bf01a0d77b0b9e5aadcab3cfc3a (PR #6)
+LibreELEC upstream base, Kodi, FFmpeg, libplacebo, kernel and LG add-ons are
+unchanged from 0.2.3. Only the native engine and its runtime defaults changed.
+
+Changes since 0.2.3 (engine only, all enabled in runtime.env)
+- DV_RECON_ACTIVE_ROWS=1: reconstruct only the RPU L5 active rows plus a filter
+  margin (FEL/MEL, single polynomial and piecewise routes). Launch-offset window;
+  reconstruction kernels unchanged.
+- DV_OVERLAY_INLINE=1: the overlay pack checks the exact GUI pixel cache itself;
+  the separate full-canvas GUI colour pass is removed. Falls back to the prepass
+  route (logged) when a user override removes a prerequisite.
+- DV_SINGLE_TABLE_CACHE=1, DV_DUAL_TABLE_CACHE=1: reshaping tables are reused
+  while the RPU composer config is unchanged.
+
+Byte-exact check (N150, installed yblod-0.2.4-lg, packaged defaults plus
+DV_VERIFY_ACTIVE_ROWS=200, DV_OVERLAY_INLINE_VERIFY=200 and both table-cache
+verify switches; 1917, No Country for Old Men, Deadpool, Gemini Man, Sol Levante
+P8.4; each with playback controls, Home over video, navigation, return and stop)
+- Active-row reconstruction: 801 frames re-run over the full frame, 0 byte
+  differences in the displayed rows.
+- Inline overlay pack: 971 overlay frames repacked from fresh, uncached GUI
+  colours, 0 byte differences over the full 3840x2160 scanout.
+- Table caches rebuilt on every hit: 0 mismatches (single 780/1 and 1247/1
+  hits/misses; dual 835/1 and 203/495).
+- No inline fallback, no Kodi log errors, native route active throughout.
+Earlier per-feature checks: letterbox 0 differences on 9 titles incl. a forced
+P8.4 window; inline overlay 750 frames incl. P8.4 4:2:2.
+
+Performance (N150, yblod-0.2.4-lg defaults, GPU max clock requested, 30 s per
+cell; engine GPU ms per source frame, 0.2.3 values from 2x60 s runs)
+                          controls closed        controls open
+1917 (P7 FEL, 2.39:1)     22.8 -> 19.0           31.0 -> 23.0
+Sol Levante (P8.4)        19.6 -> 19.7           25.2 -> 24.1
+Gemini Man (P7 MEL 60p)    8.2 -> 6.7            ~30 -> 44 fps output
+No missed vblanks except Gemini Man with controls open (the N150 reaches its
+power limit; the GPU clock drops to 700-750 MHz). 30 s windows read this case
+higher than 60 s runs (38 fps in 60 s runs of the same change).
+
+Petunia VM (Tiger Lake, yblod-0.2.4-lg): boots, Kodi starts, six titles (P7 FEL,
+P7 MEL, P8.1, P8 with L5) play 45 s each with controls, Home, navigation and stop,
+zero log errors. This VM has no display connected, so it uses the compatibility
+route; it does not exercise the native engine.
+
+Ollie Kodi container: switched to kodi-dv:yblod-0.2.4-lg, Kodi starts.
+
+SHA256
+Standard update tar: d6f82a39ed68118137a4c69a91ef20d0de37df88420dc42a4868b97c370cd4c3
+Standard install img.gz: 2a7f59dafd07721261c8d81641df0238f73dd683a48a11bbccb40906abc7a1e2
+Standard SYSTEM: 89ef4300e38390305e4c01528e487347886f04d4aa88a6c22c581b57c2e89556
+LG update tar: e0507ae88f6c7d9ea84a2dd8cf10eb6e1540c3dacf6dcb31908618f1dcb6df74
+LG install img.gz: 169e1ee9679c277f349f520cd2d0f33b78fe47992f99ed94a2d5c1b19ac4a06b
+LG SYSTEM: d07efe0976f6156c67ff2b0075904d057d8f5f8c92cff8effbafc91c4907eb51
+KERNEL (both, unchanged): 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi (both, unchanged): 76ce75876be9b018e56c5377bc73c2c1ee9bd0ab1d16e8cbf65d13e01c0346b1
+Engine (both): 130795026741f7d949869feef0a0d0955d27ae5edef36b298804f9814948a033
+Runtime defaults (both): b72a73f5106f5edeccf0353636814fcfbcd253fa419a8689bf78eed3ebba0556
+Reconstruction shader (both, unchanged): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Pack shader (both): 08c4905976366e810d6c5a83be6a50e7aa20dc6d012ee6f422344506d25cf296
+Source bundle: 703b796f78fffa7bd82929726bc3aca1595d4debe60211b87000853b133d96b5
+
+Limitations
+The standard 0.2.4 image was not separately installed; its Kodi, engine, shaders
+and kernel match the tested LG image. No visual TV confirmation is part of this
+report. Titles without L5 active-area metadata do not benefit from the letterbox
+change.

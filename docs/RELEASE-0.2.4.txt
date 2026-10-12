@@ -1,0 +1,17 @@
+YBLOD 0.2.4 makes Dolby Vision playback lighter on the GPU, with identical picture output.
+
+What changed
+- Letterboxed films need less GPU time. For films with black bars, the engine now reconstructs only the picture area the Dolby Vision metadata (L5) marks as active, instead of the whole 3840x2160 frame. On an Intel N150: 1917 (Profile 7 FEL) went from 22.8 to 19.0 ms of GPU time per frame, No Country for Old Men from 18.0 to 15.3 ms. Titles without L5 offsets (many web releases are already cropped) are unchanged.
+- The playback controls cost less to draw. The on-screen controls are now converted inside the final packing pass instead of in a separate full-screen pass. GPU time per frame with the controls open fell by 2-4.6 ms; 4K60 Profile 7 with the controls open improved from about 30 to about 38-44 fps on an N150 (still below 60 fps there).
+- Less CPU per frame: reshaping tables are reused while the stream's Dolby Vision curves are unchanged.
+- Output is byte-identical to 0.2.3. Every change was checked frame by frame against the previous method on Profile 7 FEL (MMR and polynomial), Profile 7 MEL, Profile 8.1 and 8.4 titles, with and without the controls, Home over video and seeking.
+- If a setting in /storage/.config/native-dv.env conflicts with the new controls pass, YBLOD now keeps the previous method instead of falling back to the compatibility renderer.
+- Kodi and the kernel are unchanged from 0.2.3. Both editions are built from the same source.
+
+If you run 0.2.3
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). The new behaviour is on by default; each part can be turned off in /storage/.config/native-dv.env (DV_RECON_ACTIVE_ROWS=0, DV_OVERLAY_INLINE=0, DV_SINGLE_TABLE_CACHE=0, DV_DUAL_TABLE_CACHE=0), then restart Kodi.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
