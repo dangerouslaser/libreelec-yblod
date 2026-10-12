@@ -46,7 +46,7 @@ configure_package() {
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     PKG_DEPENDS_TARGET+=" pciutils"
     if [ "${PROJECT}" = "Generic" ]; then
-      PKG_DEPENDS_TARGET+=" native-dv"
+      PKG_DEPENDS_TARGET+=" yblod-engine"
     fi
   fi
 

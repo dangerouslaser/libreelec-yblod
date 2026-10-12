@@ -1,0 +1,16 @@
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -1126,6 +1126,12 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+     m_dvMenu = true;
+     m_dvFrame = false;
+     m_dvBridge->Reset();
++    // The menu must not reuse the GUI target shared with native movie composition.
++    glBindFramebuffer(GL_FRAMEBUFFER, 0);
++    m_guiFbo.Cleanup();
++    m_guiFboWidth = m_guiFboHeight = 0;
++    m_guiFboClean = false;
++    m_guiRasterReady = false;
+     CLog::Log(LOGINFO, "DVBridge: output handed back to the menu");
+     return true;
+   }

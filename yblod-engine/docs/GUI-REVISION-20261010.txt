@@ -1,0 +1,121 @@
+GUI revision reuse and bounded asynchronous overlays
+===================================================
+
+Experimental follow-up to OSD-EXPLORATION-20261010.txt. Release defaults remain
+unchanged. This is not a smooth 4K60-with-controls qualification.
+
+Implementation
+--------------
+Kodi now supplies a monotonically advancing GUI render revision. The engine
+can skip importing the GUI texture and dispatching the full-canvas comparison/
+colour-preparation kernel when the revision, texture, dimensions, orientation
+and exact colour coefficients still match its valid pixel cache. GUI writes
+and FBO recreation advance the revision; a zero revision retains the old API
+behaviour. Changed GUI state is recomputed, not approximated.
+
+DV_PRIVATE_GUI_REVISION=1 enables this additive ABI4 API in Kodi. It requires
+the existing DV_OVERLAY_PIXEL_CACHE=1. The optional symbols preserve operation
+with an older engine. No new persistent full-frame buffers are allocated.
+
+DV_PRIVATE_ASYNC_OVERLAY=1 additionally permits one deferred overlay pack,
+using only engine-owned cached GUI data. It does not borrow Kodi's mutable GL
+GUI texture. Publication rechecks GUI identity as well as the existing video
+frame, PTS, geometry and scanout-slot contracts. Stale work is drained/discarded
+and regenerated. Cancellation of a read-only cached pack can retain valid GUI
+colours, but cannot publish the canceled output. Uncertain ownership is fatal
+rather than freeing live buffers.
+
+An initial unconditional version was rejected: Gemini Man skipped ahead while
+packing the predicted next frame, repeatedly wasting that work. Admission now
+requires two consecutive stable prefetch hits and processing below 85% of the
+next-frame interval. This is a conservative heuristic, not a scheduler proof.
+The final timing counter includes discarded enqueue work and setup/cancel wait
+inside Prepare; earlier exploratory host timing numbers are not directly
+comparable. It is still not an end-to-end frame latency measurement: cancellation
+inside Prefetch before its submit timer and display/compositor time are outside
+this counter. Frame-delivery counters therefore remain essential, especially
+when evaluating speculative work.
+
+Accuracy and lifecycle checks
+----------------------------
+pack_completion_gpu_tests passed on the N150 using real OpenCL user events:
+revision-key rejection, pending identity, no publication before completion,
+bounded submission, error rejection, cancellation/drain and ownership retention
+on a failed event. Canceling a cached read-only pack preserves only GUI state.
+A host-side SameContents assertion test checked each descriptor field.
+
+DV_OVERLAY_CACHE_VERIFY=1 independently recomputed GUI colours on reuse. The
+Gemini diagnostic run recorded 187 reused revisions among 240 overlay records
+without verification errors. Separate FEL controls/focus/Home/pause/resume/
+seek/stop checks passed. These expensive diagnostics are excluded from timings.
+
+DV_PRIVATE_VERIFY=1 plus DV_PRIVATE_VERIFY_OVERLAY=1 compares scanout readback
+against a synchronous repack of retained planes and cached GUI data into a
+scratch image. Six FEL prepacked frames matched all 33,177,600 bytes each; five
+were startup GUI and one was after controls opened. This tests scheduling and
+packing consistency, NOT independent colour arithmetic or HDMI capture.
+Cached asynchronous packing deliberately rejects cache-verification mode;
+fresh-colour and asynchronous-repack checks must be run separately.
+The final binary also passed six P8.4 prepacked byte comparisons, all during
+startup GUI (before steady controls); this does not qualify steady P8.4 controls
+pixel accuracy. The diagnostic run is not a performance measurement.
+
+Performance procedure
+---------------------
+N150, Gemini Man 59.940 fps starting at 03:00, Estuary, 4K GUI. Open controls
+once after the clock advances two seconds; check visibility every two seconds
+for 30 seconds. Restart Kodi between flag combinations. Exclude the first 24
+selected timing records. Profiling is bounded to early playback and does not
+cover every frame in the 30-second run. Host processing/wait is not GPU time;
+do not add it to GPU kernel times. Drop and skip counters are separate Kodi
+signals, not externally captured missed HDMI frames.
+
+Use yblod-engine/tools/profile-native-playback.py HOST FILE OUTPUT --overlay controls
+--start-seconds 180 --seconds 30 with a temporary service override. Performance
+flags: DV_SOURCE_PROFILE_ASYNC, DV_SOURCE_WAIT_PROFILE, DV_OVERLAY_PROFILE,
+DV_PRIVATE_FRAME_TIMING, DV_PRIVATE_TRANSITION_TIMING (all 1). No oracle readback
+or debug overlay during performance runs. DV_OVERLAY_SPARSE is the earlier
+transparent-pixel read optimization, independently switchable from this work.
+
+Final same-binary measurements
+-----------------------------
+                                  Host p50 / p95 ms   Drops / skips at ~30s
+Revision OFF, sparse OFF, async OFF  22.293 / 25.792            55 /  0
+Revision ON,  sparse OFF, async OFF  19.930 / 24.432            59 /  1
+Revision ON,  sparse ON,  async OFF  11.436 / 18.051            32 /  1
+Revision ON,  sparse ON,  async ON   15.599 / 28.605            67 / 19
+
+GPU median GUI-prepare / pack-blend times, same row order:
+4.948 / 11.438; 0 / 14.137; 0 / 10.026; 0 / 8.510 ms.
+Zero means the prepare dispatch was skipped, not that changed controls are free.
+All routes passed all 15 controls-visible checks. The 59.940 fps budget is
+16.683 ms; even the best route's early p95 exceeds it and later drops persist.
+The host median improves by about 49% for revision+sparse in this short capture,
+but that is not a sustained-throughput or smoothness claim. Counters cover
+startup too; the JSON preserves each interval for separating later playback.
+One revision-only attempt lost its log capture to transient SSH authentication;
+it is excluded and the table uses a complete repeat after restarting Kodi.
+
+Recommendation: retain revision+sparse as the promising candidate, qualify it
+more broadly before changing defaults, and keep asynchronous overlays OFF.
+The guarded asynchronous version still wastes work when frame selection moves
+ahead. Its lower pack-kernel median did not translate to better frame delivery.
+An earlier unconditional implementation produced 386 drops and 2 skips in a
+similar short run and was rejected. Future asynchronous work needs selection-
+aware scheduling, not simply more queue depth or a looser admission threshold.
+
+Data: data/gui-revision-20261010/summary.json. All final performance rows use:
+Kodi   f6c00cd8e7b09260eb16f7714dbe15755b6fefbbc37825901455963068e42d15
+engine 96b5a7bb3a40162cdaf6ef1e1206cde9648897f2a60b7281b5bec26b334988f8
+shader 5e4adf8161f6a7f07a47fd07a5b2906e47d99bc2d9120b00158ec07b246cce9a
+Kodi and native engine built successfully on Ollie. Patch 15 dry-applies to its
+pre7 inputs; git diff --check passed. No new release or default flag change.
+
+Final async FEL controls/focus/Home/pause/resume/seek/stop checks also passed,
+with no reported renderer/verification/ownership errors. Detailed check scope
+and states are in data/gui-revision-20261010/verification.json. Those diagnostic
+runs do not establish performance or visual correctness of every UI frame.
+
+Cleanup: stopped the test player, removed the three temporary Kodi/engine/shader
+bind mounts and disabled the profiling service override. Normal pre7 restarted
+successfully; restored Kodi/engine/shader hashes match the pre-test originals.

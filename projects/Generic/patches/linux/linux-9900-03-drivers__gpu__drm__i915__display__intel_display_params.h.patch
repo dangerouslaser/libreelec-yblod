@@ -1,10 +1,1 @@
---- a/drivers/gpu/drm/i915/display/intel_display_params.h
-+++ b/drivers/gpu/drm/i915/display/intel_display_params.h
-@@ -23,6 +23,7 @@
-  *       debugfs file
-  */
- #define INTEL_DISPLAY_PARAMS_FOR_EACH(param) \
-+	param(bool, enable_dv_lab, true, 0) \
- 	param(char *, dmc_firmware_path, NULL, 0400) \
- 	param(char *, vbt_firmware, NULL, 0400) \
- 	param(int, lvds_channel_mode, 0, 0400) \
+../../../../yblod-engine/patches/linux/linux-9900-03-drivers__gpu__drm__i915__display__intel_display_params.h.patch
