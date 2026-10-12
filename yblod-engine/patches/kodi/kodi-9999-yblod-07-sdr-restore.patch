@@ -1,0 +1,40 @@
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.h b/xbmc/windowing/gbm/drm/DVBridgeState.h
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.h
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.h
+@@ -14,5 +14,6 @@ public:
+   bool Capture(CDRMAtomic& drm);
+   bool Stage(CDRMAtomic& drm, bool restore);
++  void RestoreSDR();
+   void Restored() { m_saved.clear(); m_owner = nullptr; }
+   bool Captured() const { return !m_saved.empty(); }
+ 
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.cpp b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.cpp
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+@@ -92,6 +92,16 @@ bool CDVBridgeState::Capture(CDRMAtomic& drm)
+   return true;
+ }
+ 
++void CDVBridgeState::RestoreSDR()
++{
++  // Renderer teardown invalidates the previous video's HDR/colorimetry snapshot.
++  for (auto& property : m_saved)
++  {
++    if (property.name == "HDR_OUTPUT_METADATA" || property.name == "Colorspace")
++      property.original = property.transport;
++  }
++}
++
+ bool CDVBridgeState::Stage(CDRMAtomic& drm, bool restore)
+ {
+   if (!Captured() || m_owner != &drm || m_saved.front().object != drm.GetConnector())
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -1120,5 +1120,6 @@
+ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+ {
++  m_dvState.RestoreSDR();
+   // The menu output continues; a refresh restore is carried by its next frame.
+   if (m_dvState.Captured() && !m_hdrConversion && m_dvBridge && !m_dvMenuFailed &&
+       DVBRIDGE::MenuModeEnabled())

@@ -1,0 +1,91 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -9,6 +9,7 @@
+ 
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "DVPrivateSource.h"
++#include "DVPrivateDrain.h"
+ #include "DVPrivateOverlay.h"
+ #include "DVBridgeShaders.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
+@@ -173,6 +174,8 @@
+ {
+   if (m_source) m_source->Reset();
+   m_sourceFrame = m_wasSource = false;
++  m_nativeRoute = true;
++  m_drainTicket = 0;
+   Summary("reset");
+   m_firstFrame = true;
+   CDVPlaybackInfo::presented.store(0);
+@@ -353,6 +356,7 @@
+     if (result < 0) return Failure("private-source");
+     if (result > 0)
+     {
++      m_nativeRoute = true;
+       const bool entering = !m_wasSource;
+       m_sourceFrame = m_wasSource = m_prepared = true;
+       m_packed = m_direct = false;
+@@ -367,8 +371,16 @@
+       return true;
+     }
+   }
+-  // A coverage-alpha GUI cannot be handed to the older squared-alpha composer.
+-  if (overlay) return Failure("private-overlay-source-required");
++  // Only a real attempt decides the route: with a visible squared-alpha GUI, allowPacked is false.
++  if (allowPacked)
++    m_nativeRoute = false;
++  // A coverage-alpha GUI cannot be handed to the older squared-alpha composer. This frame is
++  // dropped; from the next frame the GUI is rasterized for this route (NativeRouteExpected).
++  if (overlay && overlay->texture) return Failure("private-overlay-source-required");
++  // Startup, seek and EOF wait for the queued picture to be presented; commit it on this route too.
++  m_drainTicket = CDVPrivateDrain::Enabled()
++                      ? CDVPrivateDrain::Get().Ticket(base.vaOwner, static_cast<int64_t>(base.pts))
++                      : 0;
+   if (m_wasSource)
+   {
+     const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
+@@ -563,6 +575,9 @@
+   if (success && m_source && !m_source->DisplayReplaced())
+     return Failure("private-scanout-retirement");
+   const bool committed = success && m_prepared && m_packed && dvbridge_render_commit(m_renderer);
++  if (committed && m_drainTicket)
++    CDVPrivateDrain::Get().Commit(m_drainTicket);
++  m_drainTicket = 0;
+   // A held frame during paced recovery is not a new presentation attempt.
+   if (DVBRIDGE::DiagnosticsEnabled() && m_prepared)
+   {
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -60,6 +60,10 @@
+   bool Presented(bool success);
+   gbm_bo* GetPrivateScanout();
+   bool DisplayReplaced();
++  // Whether video is expected on the native source route, from the latest attempt. The GUI is
++  // rasterized with native coverage alpha only then; the compatibility renderer composes the
++  // ordinary squared-alpha GUI.
++  bool NativeRouteExpected() const { return m_nativeRoute; }
+ 
+ private:
+   bool SourceEligible(const Layer& base, const AVFrame* enhancement,
+@@ -93,4 +97,7 @@
+   bool m_vppLogged = false;
+   CDVPrivateSource* m_source{nullptr};
+   bool m_sourceFrame{false}, m_wasSource{false};
++  bool m_nativeRoute{true};
++  // Presentation drain ticket of a compatibility-route frame (the native source holds its own).
++  uint64_t m_drainTicket{0};
+ };
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -450,7 +450,7 @@
+ #ifdef HAVE_DVBRIDGE
+   const char* overlay = std::getenv("DV_PRIVATE_OVERLAY");
+   nativeCoverage = m_dvState.Captured() && !m_dvMenu && !m_hdrConversion && overlay &&
+-                   std::strcmp(overlay, "1") == 0;
++                   std::strcmp(overlay, "1") == 0 && (!m_dvBridge || m_dvBridge->NativeRouteExpected());
+ #endif
+   if (nativeCoverage != m_nativeGuiCoverage)
+     m_guiFboClean = false;

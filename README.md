@@ -7,8 +7,8 @@ Please report build-specific problems here rather than to those upstream project
 ## YBLOD 0.2
 
 YBLOD 0.2 includes the native playback engine and an updated LibreELEC
-base. Bounded [packaged-image checks](docs/RELEASE-CHECK-0.2-20261010.txt) are complete.
-See the [cumulative release notes](docs/RELEASE-0.2.md)
+base. Bounded [packaged-image checks](yblod/docs/releases/RELEASE-CHECK-0.2-20261010.txt) are complete.
+See the [cumulative release notes](yblod/docs/releases/RELEASE-0.2.md)
 and [available releases](https://github.com/dangerouslaser/libreelec-yblod/releases).
 
 ## What changed
@@ -48,8 +48,8 @@ Profile 7 FEL uses the enhancement layer to rebuild the source picture.
 Single-layer content skips that branch. CM4 metadata transport is distinct from
 display mapping: the TV performs display management in TV-led mode.
 
-The [engine source](native-dv/README.md), [Kodi adapter](native-dv/integration/README.md)
-and [implementation references](native-dv/SOURCES.md) are public. The build retains
+The [engine source](yblod-engine/README.md), [Kodi adapter](yblod-engine/integration/README.md)
+and [implementation references](yblod-engine/SOURCES.md) are public. The build retains
 components from the existing Kodi/libplacebo display and menu integration; the
 new engine does not remove every libplacebo dependency.
 
@@ -69,15 +69,15 @@ they are not Dolby conformance certification or a guarantee for every file.
   or SDR conversion. The native engine does not add a general DV-to-HDR10 fallback.
 - Retired Dolby Vision profiles are unsupported; profile 20 remains deferred.
 - Some overlay and screenshot formats remain unsupported; see the
-  [adapter limitations](native-dv/integration/README.md#qualification-boundaries).
+  [adapter limitations](yblod-engine/integration/README.md#qualification-boundaries).
 - GUI pixel caching uses about 158 MiB of additional GPU-accessible memory at 4K.
 - First playback can be slower while GPU shaders compile.
 - Short test results do not establish long-run stability, physical lip-sync or
   correct appearance on every display and skin.
 
-Measured comparisons and their scope are in [GUI caching](docs/GUI-CACHE-20261010.txt),
-[movie-only asynchronous packing](docs/ASYNC-PACK-20261010.txt) and
-[GUI revision reuse](docs/GUI-REVISION-20261010.txt). Processing/wait timings are
+Measured comparisons and their scope are in [GUI caching](yblod-engine/docs/GUI-CACHE-20261010.txt),
+[movie-only asynchronous packing](yblod-engine/docs/ASYNC-PACK-20261010.txt) and
+[GUI revision reuse](yblod-engine/docs/GUI-REVISION-20261010.txt). Processing/wait timings are
 not end-to-end playback latency and must not be equated to GPU usage percentages.
 
 ## QMS and Dolby Vision menus
@@ -105,18 +105,22 @@ Use the checksums and validation notes attached to the specific release.
 The YBLOD update channel is separate from official LibreELEC builds. Add-ons
 continue to use the configured Kodi/LibreELEC repositories.
 
-`tools/yblod/build.sh <version>` builds in the LibreELEC Docker environment with
+`yblod/tools/build.sh <version>` builds in the LibreELEC Docker environment with
 a memory cap. Source versions and patches live in the repository at the release
-commit. See [branches and updates](docs/yblod/BRANCHES.md).
+commit. See [branches and updates](yblod/docs/BRANCHES.md).
+
+YBLOD's own code and docs live in [`yblod-engine/`](yblod-engine/README.md) (the Dolby
+Vision pipeline) and [`yblod/`](yblod/README.md) (the distribution, LG edition, build and
+release tools); see [repository layout](yblod/README.md).
 
 ## Credits and licences
 
 YBLOD builds on LibreELEC, Kodi, FFmpeg, Intel's graphics/media stack, libplacebo,
 and CroqueMr's Intel Dolby Vision integration. The native engine's references
 include ETSI GS CCM 001 and quietvoid's dovi_tool; see
-[native engine source notices](native-dv/SOURCES.md) and [licences](native-dv/LICENSE).
-Existing integration notices remain in [docs/intel-dv](docs/intel-dv) and
-[licenses](licenses).
+[native engine source notices](yblod-engine/SOURCES.md) and [licences](yblod-engine/LICENSE).
+Existing integration notices remain in [yblod-engine/docs/intel-dv](yblod-engine/docs/intel-dv) and
+[licences](yblod-engine/licenses).
 
 Dolby, Dolby Vision and the double-D symbol are trademarks of Dolby Laboratories.
 LibreELEC is a trademark of Team LibreELEC. This project is independent.
