@@ -1,0 +1,442 @@
+diff -ruN a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+--- a/addons/resource.language.en_gb/resources/strings.po	2026-10-12 09:39:23
++++ b/addons/resource.language.en_gb/resources/strings.po	2026-10-12 10:08:56
+@@ -26001,3 +26001,128 @@
+ msgctxt "#40869"
+ msgid "Menu output"
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40870"
++msgid "Engine"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40871"
++msgid "Diagnostics"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40872"
++msgid "Native Dolby Vision engine"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40873"
++msgid "Rebuild Dolby Vision pictures on the GPU with YBLOD's engine. When off, videos use the compatibility renderer. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40874"
++msgid "Process only the picture area"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40875"
++msgid "For letterboxed films, rebuild only the area the Dolby Vision metadata marks as picture, not the black bars. The picture is identical and uses less GPU time. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40876"
++msgid "Fast on-screen controls"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40877"
++msgid "Convert the playback controls and menus inside the final packing step instead of in a separate full-screen pass. The picture is identical and uses less GPU time while controls are shown. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40878"
++msgid "Reuse reshaping tables"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40879"
++msgid "Reuse the Dolby Vision reshaping tables while a scene's curves stay the same instead of rebuilding them for every frame. The picture is identical and uses less CPU. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40880"
++msgid "Reuse unchanged controls"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40881"
++msgid "Keep using the drawn playback controls while they do not change instead of drawing them again for every video frame."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40882"
++msgid "Reuse the home screen over video"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40883"
++msgid "Also keep using an unchanged home screen while a video plays in the background."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40884"
++msgid "Prepare frames ahead"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40885"
++msgid "Pack the next video frame into the other display buffer while the current one is shown. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40886"
++msgid "Half-resolution menus"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40887"
++msgid "Draw the menus and playback controls at 1920x1080 and upscale them. Faster with controls open, especially for 4K 50/60 fps video, but menu text is softer. The video itself is not affected."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40888"
++msgid "Verify output"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40889"
++msgid "Check the engine's output against a slower reference method for the first frames of each video and write the result to the log. For troubleshooting: can cause dropped frames while checking. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40890"
++msgid "Frame timing log"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40891"
++msgid "Write per-frame engine and timing details to the log. For troubleshooting only. Restart Kodi to apply fully."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40892"
++msgid "GPU timing log"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40893"
++msgid "Write the GPU time of each engine stage to the log. For troubleshooting only. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40894"
++msgid "YBLOD build"
++msgstr ""
+diff -ruN a/system/settings/settings.xml b/system/settings/settings.xml
+--- a/system/settings/settings.xml	2026-10-12 09:39:23
++++ b/system/settings/settings.xml	2026-10-12 10:09:19
+@@ -411,6 +411,157 @@
+           <control type="toggle" />
+         </setting>
+       </group>
++      <group id="3" label="40870">
++        <setting id="dvbridge.engine" type="boolean" label="40872" help="40873">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.letterboxskip" type="boolean" label="40874" help="40875">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.inlineoverlay" type="boolean" label="40876" help="40877">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.tablecache" type="boolean" label="40878" help="40879">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.guicache" type="boolean" label="40880" help="40881">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.homecache" type="boolean" label="40882" help="40883">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.guicache">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.packahead" type="boolean" label="40884" help="40885">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.halfgui" type="boolean" label="40886" help="40887">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++      </group>
++      <group id="4" label="40871">
++        <setting id="dvbridge.verify" type="boolean" label="40888" help="40889">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.frametrace" type="boolean" label="40890" help="40891">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.gputiming" type="boolean" label="40892" help="40893">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++      </group>
++      <group id="5">
++        <!-- Lets skins detect YBLOD: System.GetBool(yblod.build) is false on other Kodi builds. -->
++        <setting id="yblod.build" type="boolean" label="40894">
++          <level>4</level>
++          <default>true</default>
++          <visible>false</visible>
++          <control type="toggle" />
++        </setting>
++      </group>
+     </category>
+     <category id="musicplayer" label="14216" help="38104">
+       <group id="1" label="14230">
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h	1969-12-31 19:00:00
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h	2026-10-12 10:10:27
+@@ -0,0 +1,123 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++
++#include "ServiceBroker.h"
++#include "settings/Settings.h"
++#include "settings/SettingsComponent.h"
++#include "settings/lib/ISettingCallback.h"
++#include "settings/lib/Setting.h"
++#include "settings/SettingsContainer.h"
++#include "utils/log.h"
++
++#include <cstdlib>
++#include <cstring>
++#include <memory>
++#include <string>
++#include <utility>
++#include <vector>
++
++/*!
++ * Settings > Player > Dolby Vision > Engine and Diagnostics.
++ *
++ * Each setting maps to native engine environment switches (normally set by
++ * native-dv.env). The values are applied once at window-system start, before
++ * any playback, and again whenever a setting changes; they take precedence over
++ * native-dv.env. Every managed variable is defined at start, so a later change
++ * only replaces an existing value and never grows the environment table that
++ * other threads may be reading. Most switches are read when a video starts.
++ */
++namespace DVEngineSettings
++{
++using Values = std::vector<std::pair<const char*, const char*>>;
++struct Mapping
++{
++  const char* setting;
++  Values on;
++  Values off;
++};
++
++inline const std::vector<Mapping>& Mappings()
++{
++  static const std::vector<Mapping> mappings = {
++      // Disabling the source alone would leave native-only composition and drain hooks active.
++      {"dvbridge.engine",
++       {{"DV_PRIVATE_SOURCE", "1"}, {"DV_PRIVATE_OVERLAY", "1"}, {"DV_PRIVATE_DRAIN_EOF", "1"}},
++       {{"DV_PRIVATE_SOURCE", "0"}, {"DV_PRIVATE_OVERLAY", "0"}, {"DV_PRIVATE_DRAIN_EOF", "0"}}},
++      {"dvbridge.letterboxskip", {{"DV_RECON_ACTIVE_ROWS", "1"}}, {{"DV_RECON_ACTIVE_ROWS", "0"}}},
++      {"dvbridge.inlineoverlay", {{"DV_OVERLAY_INLINE", "1"}}, {{"DV_OVERLAY_INLINE", "0"}}},
++      {"dvbridge.tablecache",
++       {{"DV_SINGLE_TABLE_CACHE", "1"}, {"DV_DUAL_TABLE_CACHE", "1"}},
++       {{"DV_SINGLE_TABLE_CACHE", "0"}, {"DV_DUAL_TABLE_CACHE", "0"}}},
++      {"dvbridge.guicache", {{"DV_PRIVATE_GUI_CACHE", "1"}}, {{"DV_PRIVATE_GUI_CACHE", "0"}}},
++      {"dvbridge.homecache", {{"DV_PRIVATE_GUI_CACHE_HOME", "1"}}, {{"DV_PRIVATE_GUI_CACHE_HOME", "0"}}},
++      {"dvbridge.packahead", {{"DV_PRIVATE_ASYNC_PACK", "1"}}, {{"DV_PRIVATE_ASYNC_PACK", "0"}}},
++      {"dvbridge.halfgui", {{"DV_PRIVATE_GUI_HALF", "1"}}, {{"DV_PRIVATE_GUI_HALF", "0"}}},
++      {"dvbridge.verify",
++       {{"DV_PRIVATE_VERIFY", "1"},
++        {"DV_VERIFY_ACTIVE_ROWS", "100"},
++        {"DV_OVERLAY_INLINE_VERIFY", "100"},
++        {"DV_SINGLE_TABLE_CACHE_VERIFY", "1"},
++        {"DV_DUAL_TABLE_CACHE_VERIFY", "1"}},
++       {{"DV_PRIVATE_VERIFY", "0"},
++        {"DV_VERIFY_ACTIVE_ROWS", "0"},
++        {"DV_OVERLAY_INLINE_VERIFY", "0"},
++        {"DV_SINGLE_TABLE_CACHE_VERIFY", "0"},
++        {"DV_DUAL_TABLE_CACHE_VERIFY", "0"}}},
++      {"dvbridge.frametrace",
++       {{"DV_ENGINE_FRAME_TRACE", "1"}, {"DV_PRIVATE_FRAME_TIMING", "1"}},
++       {{"DV_ENGINE_FRAME_TRACE", "0"}, {"DV_PRIVATE_FRAME_TIMING", "0"}}},
++      {"dvbridge.gputiming",
++       {{"DV_SOURCE_PROFILE_ASYNC", "1"}, {"DV_OVERLAY_PROFILE", "1"}},
++       {{"DV_SOURCE_PROFILE_ASYNC", "0"}, {"DV_OVERLAY_PROFILE", "0"}}},
++  };
++  return mappings;
++}
++
++inline void Apply(const Mapping& mapping, bool enabled)
++{
++  for (const auto& [name, value] : enabled ? mapping.on : mapping.off)
++  {
++    const char* current = std::getenv(name);
++    if (!current || std::strcmp(current, value) != 0)
++      setenv(name, value, 1);
++  }
++}
++
++class Callback : public ISettingCallback
++{
++public:
++  void OnSettingChanged(const std::shared_ptr<const CSetting>& setting) override
++  {
++    if (!setting)
++      return;
++    const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
++    for (const auto& mapping : Mappings())
++      if (setting->GetId() == mapping.setting)
++      {
++        Apply(mapping, settings->GetBool(mapping.setting));
++        CLog::Log(LOGINFO, "Dolby Vision engine setting {} = {}", mapping.setting,
++                  settings->GetBool(mapping.setting));
++      }
++  }
++};
++
++//! Apply all settings and watch for changes. Call once settings are loaded.
++inline void Register()
++{
++  static bool registered = false;
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  if (registered || !settings)
++    return;
++  registered = true;
++  SettingsContainer ids;
++  for (const auto& mapping : Mappings())
++  {
++    Apply(mapping, settings->GetBool(mapping.setting));
++    ids.insert(mapping.setting);
++  }
++  static Callback callback;
++  settings->RegisterCallback(&callback, ids);
++  CLog::Log(LOGINFO, "Dolby Vision engine settings applied ({} switches)", ids.size());
++}
++} // namespace DVEngineSettings
+diff -ruN a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp	2026-10-12 09:39:23
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp	2026-10-12 10:10:01
+@@ -8,6 +8,7 @@
+ 
+ #include "WinSystemGbmGLESContext.h"
+ #include "cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h"
++#include "cores/VideoPlayer/VideoRenderers/DVEngineSettings.h"
+ 
+ #include "OptionalsReg.h"
+ #include "cores/RetroPlayer/process/gbm/RPProcessInfoGbm.h"
+@@ -86,6 +87,10 @@
+ 
+ bool CWinSystemGbmGLESContext::InitWindowSystem()
+ {
++#ifdef HAVE_DVBRIDGE
++  // Settings > Player > Dolby Vision engine switches, before anything reads them.
++  DVEngineSettings::Register();
++#endif
+   VIDEOPLAYER::CRendererFactory::ClearRenderer();
+   CDVDFactoryCodec::ClearHWAccels();
+   CLinuxRendererGLES::Register();

@@ -60,8 +60,19 @@ File -> Kodi / FFmpeg (decode on the Intel GPU, pair layers and metadata)
   Vision videos start without the TV switching picture mode (needs a 3840x2160 desktop),
   with menu brightness, saturation, gamma and wide colour.
 
-Advanced engine settings can be overridden in `/storage/.config/native-dv.env` (restart Kodi
-afterwards); see the [engine integration notes](yblod-engine/integration/README.md).
+With the settings level set to Expert, two more groups appear:
+
+- **Engine:** the native engine itself, processing only the picture area of letterboxed
+  films, fast on-screen controls, reusing reshaping tables, reusing unchanged controls and
+  the home screen over video, preparing frames ahead, and half-resolution menus (faster
+  with controls open, softer menu text). Everything except half-resolution menus is on by
+  default and leaves the picture unchanged.
+- **Diagnostics:** output verification, a frame timing log and a GPU timing log, for
+  troubleshooting.
+
+These settings take precedence over the same switches in `/storage/.config/native-dv.env`.
+Other engine switches can still be set there (restart Kodi afterwards); see the
+[engine integration notes](yblod-engine/integration/README.md).
 
 ## Requirements and limitations
 
