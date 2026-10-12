@@ -1,0 +1,71 @@
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp	2026-10-12 10:25:48
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp	2026-10-12 10:25:48
+@@ -152,8 +152,11 @@
+   std::unique_lock lock(m_section);
+ 
+   // during HDR composite the m_isHDROverlay overlays render via
+-  // RenderHDROverlays instead
+-  const bool hdrComposite = CServiceBroker::GetWinSystem()->IsHdrComposite();
++  // RenderHDROverlays instead, except with native Dolby Vision GUI coverage:
++  // there the GUI layer is composited by the engine, so PGS subtitles are drawn
++  // into it like other subtitles (palette converted to sRGB)
++  const bool hdrComposite = CServiceBroker::GetWinSystem()->IsHdrComposite() &&
++                            !CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage();
+   const RenderStereoView stereoView =
+       CServiceBroker::GetWinSystem()->GetGfxContext().GetStereoView();
+ 
+@@ -182,7 +185,8 @@
+ // FBO's sRGB->HDR conversion
+ void CRenderer::RenderHDROverlays(int idx)
+ {
+-  if (!CServiceBroker::GetWinSystem()->IsHdrComposite())
++  if (!CServiceBroker::GetWinSystem()->IsHdrComposite() ||
++      CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
+     return;
+ 
+   std::unique_lock lock(m_section);
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp	2026-10-12 10:25:48
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp	2026-10-12 10:25:48
+@@ -182,6 +182,7 @@
+     //! full-range GUI shader variants are kept compiled in parallel and
+     //! selectable per draw; then this draw selects the limited variant.
+     if (m_isHDROverlay && CServiceBroker::GetWinSystem()->IsHdrComposite() &&
++        !CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage() &&
+         CServiceBroker::GetWinSystem()->UseLimitedColor())
+     {
+       for (uint32_t& px : rgba)
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp	2026-10-12 10:25:48
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp	2026-10-12 10:25:48
+@@ -287,8 +287,11 @@
+     return false;
+ 
+   // Convert to sRGB unless the overlay is going to a PQ destination: the HDR
+-  // composite, or a GUI layer that is output as an HDR signal.
++  // composite, or a GUI layer that is output as an HDR signal. The native Dolby
++  // Vision engine converts its sRGB GUI layer itself, so it always gets sRGB.
+   const CWinSystemBase* winSystem = CServiceBroker::GetWinSystem();
++  if (winSystem->UsesNativeGuiCoverage())
++    return true;
+   const bool destinationIsPQ =
+       winSystem->IsHdrComposite() || winSystem->GetEotf() != KODI::UTILS::Eotf::TRADITIONAL_SDR;
+   return !destinationIsPQ;
+diff -ruN a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp	2026-10-12 10:25:48
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp	2026-10-12 10:25:48
+@@ -1020,11 +1020,8 @@
+     return false;
+   if (!BeginDVBridge())
+     return false;
+-  if (m_nativeGuiCoverage && m_dvHDROverlays)
+-  {
+-    CLog::Log(LOGERROR, "Private native overlay test rejects late PQ bitmap subtitles");
+-    return false;
+-  }
++  // PGS (PQ bitmap) subtitles are drawn into the GUI layer with native coverage
++  // (palette converted to sRGB), so the engine composites them like other GUI.
+   const bool overlayFree = !m_dvOverlays &&
+       (m_guiWillRender ? GetGUIElementCount() == 0 : CanReuseGuiComposite() && m_guiFboClean);
+   DVPrivateOverlay gui;
