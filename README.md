@@ -1,126 +1,112 @@
 # LibreELEC YBLOD
 
-An unofficial LibreELEC build with TV-led Dolby Vision for compatible Intel HDMI systems.
-YBLOD is not affiliated with or certified by LibreELEC, Kodi, Dolby or Intel.
-Please report build-specific problems here rather than to those upstream projects.
+An unofficial LibreELEC build for Intel PCs that sends Dolby Vision to the TV (TV-led
+Dolby Vision over HDMI), with Kodi as the player.
 
-## YBLOD 0.2
+YBLOD is not affiliated with or certified by LibreELEC, Kodi, Dolby or Intel. Please report
+problems with this build here, not to those projects.
 
-YBLOD 0.2 includes the native playback engine and an updated LibreELEC
-base. Bounded [packaged-image checks](yblod/docs/releases/RELEASE-CHECK-0.2-20261010.txt) are complete.
-See the [cumulative release notes](yblod/docs/releases/RELEASE-0.2.md)
-and [available releases](https://github.com/dangerouslaser/libreelec-yblod/releases).
+**Download:** [latest release](https://github.com/dangerouslaser/libreelec-yblod/releases/latest).
+Each release has its notes, a validation report and checksums.
 
-## What changed
+## Editions
 
-- A standalone C/OpenCL engine reconstructs Dolby Vision pictures and packs them
-  with frame-matched metadata for TV-led output. Kodi remains the player.
-- Decoded surfaces stay on the GPU. Reconstruction uses planar intermediate
-  buffers and avoids an unnecessary movie colour-conversion round trip.
-- Unchanged GUI graphics reuse cached work. The engine skips its full-screen
-  pixel scan when Kodi has not redrawn the GUI and avoids unnecessary reads for
-  transparent pixels.
-- Movie-only packing can run ahead into the other display buffer. Asynchronous
-  overlay packing remains disabled because testing found worse frame delivery.
-- Faster live-TV startup avoids duplicate MPEG-TS opens, uses decoded frame-rate
-  information, coordinates display changes, and reduces audio startup buffering.
-- Playback and menu fixes cover polynomial FEL reconstruction, stale HDR
-  signalling, distorted menus after stopping, controls over letterbox bars, and
-  Home-screen visibility while a movie plays in the background.
+| Edition | Contents |
+|---|---|
+| Standard | LibreELEC with YBLOD's Dolby Vision playback. |
+| LG | The same build, plus the Estuary LG skin (set on a fresh installation), the LG webOS TV Control add-on and the repository that keeps both updated. |
 
-The old **Quick Sync scaling** and **Match Dolby hardware levels** settings have
-been removed and their legacy behaviours forced off. Hardware video decoding
-remains enabled. The old 0.1 GPU-load and hardware-comparison figures do not
-describe this engine.
+Both editions are built from the same source and released together, each with its own update
+channel.
 
-## Playback pipeline
+## What it does
+
+- **Dolby Vision to the TV.** YBLOD's engine rebuilds each Dolby Vision picture on the
+  Intel GPU and sends it with its frame-matched metadata to the TV, which does the display
+  mapping. Decoded frames stay on the GPU, and reconstruction uses exact integer arithmetic,
+  so performance work never changes the output.
+- **Profiles.** Profile 7 (FEL and MEL) and Profile 8 (tested with 8.1 and 8.4). For FEL, the
+  enhancement layer is used to rebuild the full picture.
+- **Menus and subtitles in Dolby Vision.** Kodi's controls, menus and subtitles are composited
+  into the Dolby Vision picture, including over letterbox bars.
+- **Light on the GPU.** Only the active picture area of letterboxed films is processed, and
+  unchanged on-screen graphics are not reprocessed.
+- **HDR10 conversion.** Dolby Vision can instead be converted to HDR10 output for TVs
+  without Dolby Vision.
+- **QMS refresh switching** on HDMI paths that support it, for fewer blackouts when the
+  refresh rate changes. VRR support alone does not mean QMS support. Disable it with the
+  kernel option `i915.qms=0`.
+- **Faster live TV startup**, through fewer stream opens, coordinated display changes and
+  less audio buffering.
 
 ```text
-File -> Kodi / FFmpeg: decode, pair layers and metadata
-     -> Intel hardware decoder surfaces
-     -> Native C/OpenCL engine: source-picture reconstruction
-     -> Planar picture + matching frame metadata
-     -> GUI/subtitle composition when needed + Dolby Vision tunnel packing
-     -> Patched Intel display driver -> HDMI -> TV display mapping
+File -> Kodi / FFmpeg (decode on the Intel GPU, pair layers and metadata)
+     -> YBLOD engine (OpenCL): rebuild the Dolby Vision picture
+     -> menus/subtitles composited, packed for the Dolby Vision HDMI tunnel
+     -> patched Intel display driver -> HDMI -> TV display mapping
 ```
 
-Profile 7 FEL uses the enhancement layer to rebuild the source picture.
-Single-layer content skips that branch. CM4 metadata transport is distinct from
-display mapping: the TV performs display management in TV-led mode.
+## Settings
 
-The [engine source](yblod-engine/README.md), [Kodi adapter](yblod-engine/integration/README.md)
-and [implementation references](yblod-engine/SOURCES.md) are public. The build retains
-components from the existing Kodi/libplacebo display and menu integration; the
-new engine does not remove every libplacebo dependency.
+**Settings > Player > Dolby Vision:**
 
-## Hardware and limitations
+- **Dolby Vision output:** TV-led Dolby Vision, conversion to HDR10, or Kodi's standard
+  playback. Applies to the next video.
+- **Colour upscaling:** Gaussian or Lanczos, for videos shown through the compatibility
+  renderer.
+- **Enhanced player information:** video, audio, metadata and GPU usage on the player
+  information panel (O).
+- **Dolby Vision for the menu:** keeps Dolby Vision on while the menu is shown, so Dolby
+  Vision videos start without the TV switching picture mode (needs a 3840x2160 desktop),
+  with menu brightness, saturation, gamma and wide colour.
 
-This remains an experimental Intel-focused Dolby Vision implementation.
-A compatible Intel GPU/HDMI route and a TV supporting Standard TV-led Dolby Vision
-are required. AVR and adapter compatibility matters too.
+Advanced engine settings can be overridden in `/storage/.config/native-dv.env` (restart Kodi
+afterwards); see the [engine integration notes](yblod-engine/integration/README.md).
 
-Selected P7 FEL and single-layer scenes have been tested on the N150 and Intel
-VM/container setups. Results are specific to the recorded device and workload;
-they are not Dolby conformance certification or a guarantee for every file.
+## Requirements and limitations
 
-- N150 4K59.94 playback can still drop frames with controls open.
-- AMD Dolby Vision signalling and AMD OpenCL integration are not included.
-  Unsupported P5 playback can have incorrect colours; this is not valid HDR10
-  or SDR conversion. The native engine does not add a general DV-to-HDR10 fallback.
-- Retired Dolby Vision profiles are unsupported; profile 20 remains deferred.
-- Some overlay and screenshot formats remain unsupported; see the
-  [adapter limitations](yblod-engine/integration/README.md#qualification-boundaries).
-- GUI pixel caching uses about 158 MiB of additional GPU-accessible memory at 4K.
-- First playback can be slower while GPU shaders compile.
-- Short test results do not establish long-run stability, physical lip-sync or
-  correct appearance on every display and skin.
+- An Intel GPU with HDMI output, and a TV that supports standard (TV-led) Dolby Vision.
+  AVRs and adapters in the HDMI path must pass Dolby Vision through. Most testing is on an
+  Intel N150 and an 11th-generation Core (Tiger Lake).
+- 4K at 50/60 fps with the playback controls open can drop frames on low-power Intel GPUs
+  such as the N150. 24 fps films are not affected.
+- Profile 5 is not supported and can show incorrect colours. Retired Dolby Vision profiles
+  are not supported. There is no general Dolby Vision to SDR fallback.
+- AMD GPUs are not supported.
+- The first playback after an update can start more slowly while GPU shaders are compiled.
+- Switching between HDR and SDR picture modes can still cause a short blackout.
+- Testing covers specific devices, files and TVs. It is not Dolby certification and does
+  not guarantee every file, display or skin.
 
-Measured comparisons and their scope are in [GUI caching](yblod-engine/docs/GUI-CACHE-20261010.txt),
-[movie-only asynchronous packing](yblod-engine/docs/ASYNC-PACK-20261010.txt) and
-[GUI revision reuse](yblod-engine/docs/GUI-REVISION-20261010.txt). Processing/wait timings are
-not end-to-end playback latency and must not be equated to GPU usage percentages.
+## Installing and updating
 
-## QMS and Dolby Vision menus
+Back up your settings first. To update, copy the `.tar` for your edition to
+`/storage/.update/` and reboot; for a fresh installation, write the `.img.gz` to a drive. After
+that, updates arrive through YBLOD's own update channel in LibreELEC's settings. Add-ons
+keep using your configured Kodi repositories.
 
-YBLOD retains QMS refresh switching and optional Dolby Vision menus.
-QMS requires a compatible end-to-end HDMI path; ordinary VRR support alone does
-not establish QMS support. HDR/SDR colour-mode changes can still cause a blackout.
+## Building and contributing
 
-Kodi's refresh-rate selection uses Settings > System > Display > Whitelist.
-The kernel option `i915.qms=0` disables the QMS extension for troubleshooting.
+`yblod/tools/build.sh <version>` builds the standard edition in the LibreELEC Docker build
+environment; `YBLOD_EDITION=lg yblod/tools/build.sh <version>` builds the LG edition.
 
-Player > Videos > Dolby Vision retains the menu controls:
+YBLOD's own code and docs live in two folders, which keeps it easy to follow upstream
+LibreELEC:
 
-- **Dolby Vision for the menu** keeps the menu in Dolby Vision at a 3840x2160 desktop.
-- **Menu brightness, saturation, gamma and wide colour** control the standalone
-  menu appearance, not the film's colour processing.
+- [`yblod-engine/`](yblod-engine/README.md): the Dolby Vision pipeline (engine source,
+  tests, its Kodi, FFmpeg, libplacebo and kernel patches, tools and docs).
+- [`yblod/`](yblod/README.md): the distribution (other patches, the LG edition, build and
+  release tools, release notes).
 
-## Install and build
-
-Back up your configuration before updating. Download an update `.tar` from
-[Releases](https://github.com/dangerouslaser/libreelec-yblod/releases), copy it to
-`/storage/.update/`, and reboot. Fresh installations use the `.img.gz`.
-Use the checksums and validation notes attached to the specific release.
-
-The YBLOD update channel is separate from official LibreELEC builds. Add-ons
-continue to use the configured Kodi/LibreELEC repositories.
-
-`yblod/tools/build.sh <version>` builds in the LibreELEC Docker environment with
-a memory cap. Source versions and patches live in the repository at the release
-commit. See [branches and updates](yblod/docs/BRANCHES.md).
-
-YBLOD's own code and docs live in [`yblod-engine/`](yblod-engine/README.md) (the Dolby
-Vision pipeline) and [`yblod/`](yblod/README.md) (the distribution, LG edition, build and
-release tools); see [repository layout](yblod/README.md).
+See [repository layout](yblod/README.md) and [branches, releases and contributing](yblod/docs/BRANCHES.md).
 
 ## Credits and licences
 
-YBLOD builds on LibreELEC, Kodi, FFmpeg, Intel's graphics/media stack, libplacebo,
-and CroqueMr's Intel Dolby Vision integration. The native engine's references
-include ETSI GS CCM 001 and quietvoid's dovi_tool; see
-[native engine source notices](yblod-engine/SOURCES.md) and [licences](yblod-engine/LICENSE).
-Existing integration notices remain in [yblod-engine/docs/intel-dv](yblod-engine/docs/intel-dv) and
-[licences](yblod-engine/licenses).
+YBLOD builds on LibreELEC, Kodi, FFmpeg, Intel's graphics and media stack, libplacebo, and
+CroqueMr's Intel Dolby Vision work ([libreelec-x86-DV](https://github.com/CroqueMr/libreelec-x86-DV)).
+The engine's references include ETSI GS CCM 001 and quietvoid's dovi_tool; see the
+[engine source notices](yblod-engine/SOURCES.md), [engine licence](yblod-engine/LICENSE),
+and the [integration notices](yblod-engine/docs/intel-dv) and [licences](yblod-engine/licenses).
 
-Dolby, Dolby Vision and the double-D symbol are trademarks of Dolby Laboratories.
-LibreELEC is a trademark of Team LibreELEC. This project is independent.
+Dolby, Dolby Vision and the double-D symbol are trademarks of Dolby Laboratories. LibreELEC
+is a trademark of Team LibreELEC. This project is independent.
