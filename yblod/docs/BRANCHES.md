@@ -47,6 +47,9 @@ committed there. To offer a change upstream:
     git switch -c <feature> origin/main     # CroqueMr's tree, with his CB1 engine
     # port the change (not the YBLOD engine) and open a pull request to CroqueMr/libreelec-x86-DV
 
-The fork's history before 2026-10-12 is kept as branch `archive/intel-dv-libreelec-main` and
-tags `intel-dv-libreelec/*` here, and as tag `archive/2026-10-12/main-before-croque-reset`
-in the fork.
+The fork's history before 2026-10-12 is kept as tags `intel-dv-libreelec/*` here (its last
+`main` is `intel-dv-libreelec/archive/2026-10-12/main-before-croque-reset`), and as tag
+`archive/2026-10-12/main-before-croque-reset` in the fork.
+
+Finished experiments are kept as `archive/*` tags rather than branches, so only `main` and
+active work appear as branches.
