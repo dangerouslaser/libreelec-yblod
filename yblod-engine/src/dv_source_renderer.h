@@ -75,6 +75,11 @@ int dv_source_renderer_present_overlay_revision(void *,uint64_t,int64_t,unsigned
  * cancel and regenerate. Existing one-pending-pack and output lease rules apply. */
 int dv_source_renderer_pack_overlay_cached(void *,uint64_t,int64_t,unsigned,int,
                                       unsigned,unsigned,const double[9],double,uint64_t revision);
+/* Additive ABI4: top-down GUI canvas pixel bounds [x0,y0,x1,y1) for the next
+ * overlay present only. The caller guarantees every GUI pixel outside them is
+ * fully transparent (zero), e.g. by scissoring the GUI pass after a clear.
+ * Only the inline overlay pack uses them; others read the whole GUI. */
+int dv_source_renderer_set_gui_bounds(void *,unsigned x0,unsigned y0,unsigned x1,unsigned y1);
 /* Additive ABI4 asynchronous packing. One pending pack per renderer. The same
  * GL/VA ownership rules apply until complete or successful cancel/drain.
  * begin may wait for reconstruction, but does not wait for packing. gui=0

@@ -1,0 +1,351 @@
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h	2026-10-11 14:45:53
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h	2026-10-12 08:05:33
+@@ -8,12 +8,16 @@
+   unsigned texture{0};
+   unsigned flipY{0};
+   uint64_t revision{0};
++  // Top-down GUI pixel bounds [x0,y0,x1,y1); outside is transparent.
++  bool bounded{false};
++  unsigned bounds[4]{};
+   double rgbToLms[9]{};
+   double whiteNits{203.0};
+   bool SameContents(const DVPrivateOverlay& other) const
+   {
+     return revision && revision == other.revision && texture == other.texture &&
+-           flipY == other.flipY && whiteNits == other.whiteNits &&
++           flipY == other.flipY && whiteNits == other.whiteNits && bounded == other.bounded &&
++           std::memcmp(bounds, other.bounds, sizeof(bounds)) == 0 &&
+            std::memcmp(rgbToLms, other.rgbToLms, sizeof(rgbToLms)) == 0;
+   }
+ };
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp	2026-10-11 14:45:53
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp	2026-10-12 08:06:06
+@@ -50,6 +50,7 @@
+   m_packBegin = reinterpret_cast<decltype(m_packBegin)>(dlsym(m_library, "dv_source_renderer_pack_begin"));
+   m_packComplete = reinterpret_cast<decltype(m_packComplete)>(dlsym(m_library, "dv_source_renderer_pack_complete"));
+   m_packOverlayCached = reinterpret_cast<decltype(m_packOverlayCached)>(dlsym(m_library, "dv_source_renderer_pack_overlay_cached"));
++  m_setGuiBounds = reinterpret_cast<decltype(m_setGuiBounds)>(dlsym(m_library, "dv_source_renderer_set_gui_bounds"));
+   if (!abi || abi() != 4 || !m_create || !m_render || !m_drain || !m_destroy)
+     return false;
+   const char* direct = std::getenv("DV_PRIVATE_SCANOUT");
+@@ -315,6 +316,8 @@
+   const unsigned elSurface = enhancement ? static_cast<unsigned>(reinterpret_cast<uintptr_t>(enhancement->data[3])) : UINT32_MAX;
+   const auto present = [&](uint64_t id)
+   {
++    if (overlay)
++      SetGuiBounds(*overlay);
+     if (overlay && overlay->revision && m_presentOverlayRevision)
+       return m_presentOverlayRevision(m_engine, id, pts, packet, refresh, overlay->texture,
+                                       overlay->flipY, overlay->rgbToLms, overlay->whiteNits, overlay->revision);
+@@ -492,6 +495,12 @@
+   m_ready = false;
+   if (success && !m_unsafe) QueuePendingPack();
+ }
++void CDVPrivateSource::SetGuiBounds(const DVPrivateOverlay& overlay)
++{
++  // An engine without the symbol reads the whole GUI, which is always exact.
++  if (overlay.bounded && m_setGuiBounds)
++    m_setGuiBounds(m_engine, overlay.bounds[0], overlay.bounds[1], overlay.bounds[2], overlay.bounds[3]);
++}
+ void CDVPrivateSource::QueuePendingPack()
+ {
+   const char* enabled = std::getenv("DV_PRIVATE_ASYNC_PACK");
+@@ -519,6 +528,8 @@
+   m_packGui = m_preparedGui;
+   int result = m_selectOutput(m_engine, m_scanout->Slot());
+   if (result == 0)
++    if (m_packOverlay)
++      SetGuiBounds(m_packGui);
+     result = m_packOverlay ?
+         m_packOverlayCached(m_engine, m_pendingId, m_pendingPts, m_scanout->Packet(),
+                             m_scanout->Refresh(), m_packGui.texture, m_packGui.flipY,
+diff -ruN a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h	2026-10-11 14:45:53
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h	2026-10-12 08:06:06
+@@ -68,6 +68,9 @@
+   int (*m_packComplete)(void*, uint64_t, int64_t, int, int*){nullptr};
+   int (*m_packOverlayCached)(void*, uint64_t, int64_t, unsigned, int, unsigned,
+                             unsigned, const double*, double, uint64_t){nullptr};
++  // Optional: GUI pixel bounds for the next overlay pack only.
++  int (*m_setGuiBounds)(void*, unsigned, unsigned, unsigned, unsigned){nullptr};
++  void SetGuiBounds(const DVPrivateOverlay& overlay);
+   CVideoBuffer* m_owner{nullptr};
+   std::shared_ptr<AVFrame> m_enhancement;
+   unsigned m_texture{0}, m_framebuffer{0}, m_packetId{0};
+diff -ruN a/xbmc/guilib/DVNativeGuiBounds.h b/xbmc/guilib/DVNativeGuiBounds.h
+--- a/xbmc/guilib/DVNativeGuiBounds.h	1969-12-31 19:00:00
++++ b/xbmc/guilib/DVNativeGuiBounds.h	2026-10-12 08:24:25
+@@ -0,0 +1,38 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++
++#include "utils/Geometry.h"
++
++#include <cstdlib>
++
++/*!
++ * Native DV GUI bounds, render thread only.
++ *
++ * Window processing collects the screen-clipped render regions of every
++ * visible leaf control. The GBM context requests bounds before the GUI pass;
++ * the window manager then renders that pass with their union as the GL
++ * scissor, so the cleared FBO is guaranteed transparent outside it. The
++ * native packer reads GUI pixels only inside the published rectangle.
++ */
++namespace DVNativeGuiBounds
++{
++struct State
++{
++  bool requested{false}; // set by the GBM context for this GUI pass
++  bool check{false}; // diagnostic: compute bounds but do not scissor
++  bool processed{false}; // leaves were collected since the last pass
++  CRect leaves; // union of visible leaf regions, clipped to the screen
++  bool valid{false}; // published by the window manager after the pass
++  CRect rect;
++};
++inline State& Get()
++{
++  static State state;
++  return state;
++}
++inline bool Collecting()
++{
++  static const bool enabled = std::getenv("DV_PRIVATE_GUI_BOUNDS") != nullptr;
++  return enabled;
++}
++} // namespace DVNativeGuiBounds
+diff -ruN a/xbmc/guilib/GUIControl.cpp b/xbmc/guilib/GUIControl.cpp
+--- a/xbmc/guilib/GUIControl.cpp	2026-10-12 08:24:25
++++ b/xbmc/guilib/GUIControl.cpp	2026-10-12 08:40:26
+@@ -8,6 +8,8 @@
+ 
+ #include "GUIControl.h"
+ 
++#include "DVNativeGuiBounds.h"
++
+ #include "GUIAction.h"
+ #include "GUIComponent.h"
+ #include "GUIControlProfiler.h"
+@@ -152,6 +154,16 @@
+ 
+     Process(currentTime, dirtyregions);
+     m_bInvalidated = false;
++
++    // Groups only render their children; leaves draw inside their regions.
++    if (DVNativeGuiBounds::Collecting() && !IsGroup() && !m_isCulled)
++    {
++      auto& gfx = CServiceBroker::GetWinSystem()->GetGfxContext();
++      CRect region = m_renderRegion;
++      region.Intersect(CRect(0, 0, static_cast<float>(gfx.GetWidth()), static_cast<float>(gfx.GetHeight())));
++      if (!region.IsEmpty())
++        DVNativeGuiBounds::Get().leaves.Union(region);
++    }
+ 
+     if (dirtyRegion != m_renderRegion)
+     {
+diff -ruN a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
+--- a/xbmc/guilib/GUIWindowManager.cpp	2026-10-11 14:45:53
++++ b/xbmc/guilib/GUIWindowManager.cpp	2026-10-12 08:24:25
+@@ -15,6 +15,7 @@
+ #include "GUITexture.h"
+ #include "ServiceBroker.h"
+ #include "WindowIDs.h"
++#include "guilib/DVNativeGuiBounds.h"
+ #include "addons/Skin.h"
+ #include "addons/gui/GUIWindowAddonBrowser.h"
+ #include "addons/interfaces/gui/Window.h"
+@@ -1281,6 +1282,8 @@
+   std::unique_lock lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+ 
+   m_dirtyregions.clear();
++  DVNativeGuiBounds::Get().leaves = CRect();
++  DVNativeGuiBounds::Get().processed = true;
+ 
+   CGUIWindow* pWindow = GetWindow(GetActiveWindow());
+   if (pWindow)
+@@ -1441,7 +1444,35 @@
+   bool hasRendered = false;
+   // If we visualize the regions we will always render the entire viewport
+   // If the buffer age is zero, the current content is undefined and has to be rendered
+-  if (visualizeDirtyRegions || bufferAge == 0 ||
++  auto& nativeBounds = DVNativeGuiBounds::Get();
++  nativeBounds.valid = false;
++  if (nativeBounds.requested && !visualizeDirtyRegions && bufferAge == 0 &&
++      nativeBounds.processed &&
++      !CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiFrontToBackRendering &&
++      CServiceBroker::GetWinSystem()->GetGfxContext().GetStereoMode() == RenderStereoMode::OFF)
++  {
++    // Only fullscreen video draws nothing but controls here: other active
++    // windows clear opaque, and subtitles/debug overlays draw outside regions.
++    const CGUIWindow* active = GetWindow(GetActiveWindow());
++    const auto& components = CServiceBroker::GetAppComponents();
++    const auto appPlayer = components.GetComponent<CApplicationPlayer>();
++    if (active && active->GetID() == WINDOW_FULLSCREEN_VIDEO && !appPlayer->GetSubtitleVisible())
++    {
++      const CRect bounds = nativeBounds.leaves;
++      nativeBounds.rect = bounds;
++      nativeBounds.valid = true;
++    }
++  }
++  nativeBounds.processed = false;
++  if (nativeBounds.valid && !nativeBounds.check)
++  {
++    // Hardware scissor: nothing outside the bounds reaches the cleared FBO.
++    CServiceBroker::GetWinSystem()->GetGfxContext().SetScissors(nativeBounds.rect);
++    RenderPass();
++    CServiceBroker::GetWinSystem()->GetGfxContext().ResetScissors();
++    hasRendered = true;
++  }
++  else if (visualizeDirtyRegions || bufferAge == 0 ||
+       CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiAlgorithmDirtyRegions ==
+           DIRTYREGION_SOLVER_FILL_VIEWPORT_ALWAYS)
+   {
+diff -ruN a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp	2026-10-11 14:45:53
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp	2026-10-12 08:05:47
+@@ -8,6 +8,7 @@
+ 
+ #include "WinSystemGbmGLESContext.h"
+ #include "cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h"
++#include "guilib/DVNativeGuiBounds.h"
+ 
+ #include "OptionalsReg.h"
+ #include "cores/RetroPlayer/process/gbm/RPProcessInfoGbm.h"
+@@ -41,6 +42,7 @@
+ #include "windowing/WindowSystemFactory.h"
+ 
+ #include <mutex>
++#include <algorithm>
+ #include <cmath>
+ #include <cstdlib>
+ #include <cstring>
+@@ -473,10 +475,22 @@
+   }
+   m_guiHalf = guiHalf;
+ 
++  // DV_PRIVATE_GUI_BOUNDS=1 scissors this GUI pass to the visible GUI regions;
++  // "check" computes them without scissoring and reads the FBO back.
++  const char* boundsMode = std::getenv("DV_PRIVATE_GUI_BOUNDS");
++  const bool boundsCheck = boundsMode && std::strcmp(boundsMode, "check") == 0;
++  auto& nativeBounds = DVNativeGuiBounds::Get();
++  nativeBounds.requested = guiWillRender && nativeCoverage && !guiHalf && !m_dvOverlays &&
++                           boundsMode && (boundsCheck || std::strcmp(boundsMode, "1") == 0);
++  nativeBounds.check = boundsCheck;
++  if (guiWillRender)
++    m_guiBoundsValid = false;
++
+   // create or recreate FBO if size changed
+   if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height)
+   {
+     ++m_guiRevision;
++    m_guiBoundsValid = false;
+     m_guiFbo.Cleanup();
+ 
+     if (!m_guiFbo.Initialize())
+@@ -565,6 +579,23 @@
+   return true;
+ }
+ 
++// Top-down pixel rectangle covering the GL scissor of a CRect, plus a margin
++// for scissor truncation. Everything outside it is the cleared FBO.
++std::array<unsigned, 4> CWinSystemGbmGLESContext::PublishedGuiBounds(const CRect& rect, int width, int height)
++{
++  std::array<unsigned, 4> result{};
++  const auto clampTo = [](double v, int limit) {
++    return static_cast<unsigned>(std::max(0.0, std::min(v, static_cast<double>(limit))));
++  };
++  result[0] = clampTo(std::floor(rect.x1) - 2, width);
++  result[1] = clampTo(std::floor(rect.y1) - 2, height);
++  result[2] = clampTo(std::ceil(rect.x2) + 2, width);
++  result[3] = clampTo(std::ceil(rect.y2) + 2, height);
++  if (rect.IsEmpty())
++    result.fill(0);
++  return result;
++}
++
+ void CWinSystemGbmGLESContext::EndGuiComposite()
+ {
+   if (m_guiHalfBound)
+@@ -593,6 +624,44 @@
+   }
+   else if (m_guiWillRender)
+     m_guiRasterReady = true;
++  if (m_guiWillRender)
++  {
++    auto& nativeBounds = DVNativeGuiBounds::Get();
++    // Overlays drawn this frame (subtitles, debug) are outside the regions.
++    const bool computed = nativeBounds.requested && nativeBounds.valid && !m_dvOverlays;
++    m_guiBoundsValid = computed && !nativeBounds.check;
++    m_guiBounds = nativeBounds.rect;
++    nativeBounds.requested = false;
++    if (computed && nativeBounds.check && m_guiRasterReady && m_guiBoundsChecks < 40 &&
++        m_guiFboWidth > 0 && m_guiFboHeight > 0)
++    {
++      // Intrusive readback: count visible pixels outside the published bounds.
++      ++m_guiBoundsChecks;
++      const int width = m_guiFboWidth, height = m_guiFboHeight;
++      std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 4);
++      GLint buffer = 0;
++      glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &buffer);
++      glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
++      glPixelStorei(GL_PACK_ALIGNMENT, 1);
++      glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
++      glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer);
++      const auto published = PublishedGuiBounds(m_guiBounds, width, height);
++      unsigned long visible = 0, outside = 0;
++      for (int y = 0; y < height; ++y)
++        for (int x = 0; x < width; ++x)
++          if (pixels[(static_cast<size_t>(y) * width + x) * 4 + 3])
++          {
++            ++visible;
++            const unsigned top = static_cast<unsigned>(height - 1 - y);
++            if (static_cast<unsigned>(x) < published[0] || top < published[1] ||
++                static_cast<unsigned>(x) >= published[2] || top >= published[3])
++              ++outside;
++          }
++      CLog::Log(LOGINFO, "Private GUI bounds check: sample={} bounds={},{},{},{} visible={} outside={}",
++                m_guiBoundsChecks, published[0], published[1], published[2], published[3],
++                visible, outside);
++    }
++  }
+   const char* coverage = std::getenv("DV_PRIVATE_GUI_COVERAGE");
+   if (coverage && std::strcmp(coverage, "1") == 0 && m_nativeGuiCoverage &&
+       m_guiWillRender && m_guiRasterReady && m_guiFboWidth > 0 && m_guiFboHeight > 0)
+@@ -1031,6 +1100,12 @@
+     if (!overlayFree)
+       gui.texture = m_guiFbo.Texture();
+     gui.flipY = 1;
++    if (!overlayFree && m_guiBoundsValid)
++    {
++      const auto published = PublishedGuiBounds(m_guiBounds, m_guiFboWidth, m_guiFboHeight);
++      gui.bounded = true;
++      std::copy(published.begin(), published.end(), gui.bounds);
++    }
+     const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
+     if (revisionCache && std::strcmp(revisionCache, "1") == 0)
+       gui.revision = m_guiRevision;
+diff -ruN a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h	2026-10-11 14:45:53
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h	2026-10-12 08:05:47
+@@ -13,6 +13,7 @@
+ #include "rendering/gles/RenderSystemGLES.h"
+ #include "utils/EGLUtils.h"
+ 
++#include <array>
+ #include <memory>
+ #include <optional>
+ #ifdef HAVE_DVBRIDGE
+@@ -99,6 +100,11 @@
+   bool m_guiHalfBound{false};
+   bool m_guiRasterReady{true};
+   uint64_t m_guiRevision{0};
++  // GUI scissor bounds stored with the FBO contents (native DV only).
++  static std::array<unsigned, 4> PublishedGuiBounds(const CRect& rect, int width, int height);
++  bool m_guiBoundsValid{false};
++  CRect m_guiBounds;
++  unsigned m_guiBoundsChecks{0};
+   unsigned m_guiReusedFrames{0};
+   GLint m_guiSavedViewport[4]{};
+   GLint m_guiSavedScissor[4]{};

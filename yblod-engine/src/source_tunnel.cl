@@ -102,10 +102,13 @@ kernel void source_gui_cache_check(read_only image2d_t gui,constant float *coeff
 /* Exact cache consulted by the pack itself: no separate full-canvas pass.
  * Transparent and gray pixels never touch it. Alpha-zero keys never match a
  * visible pixel, so the host clears the keys whenever colours may be stale. */
-uchar4 source_gui_rgba(read_only image2d_t gui,int x,uint y,uint w,uint h,uint flip)
+uchar4 source_gui_rgba(read_only image2d_t gui,int x,uint y,uint w,uint h,uint flip,uint4 bounds)
 {
  const sampler_t sampler=CLK_NORMALIZED_COORDS_FALSE|CLK_ADDRESS_CLAMP_TO_EDGE|CLK_FILTER_NEAREST;
- return convert_uchar4_sat_rte(read_imagef(gui,sampler,(int2)(clamp(x,0,(int)w-1),(int)(flip?h-1-y:y)))*255.0f);
+ uint cx=(uint)clamp(x,0,(int)w-1);
+ /* The caller guarantees GUI pixels outside the bounds are zero. */
+ if(cx<bounds.x||y<bounds.y||cx>=bounds.z||y>=bounds.w)return (uchar4)(0);
+ return convert_uchar4_sat_rte(read_imagef(gui,sampler,(int2)((int)cx,(int)(flip?h-1-y:y)))*255.0f);
 }
 float4 source_gui_convert(uchar4 p,constant float *coeff,volatile global int *error,global const float4 *gray)
 {
@@ -220,7 +223,7 @@ kernel void source_tunnel(global const ushort *yplane,
  ,global const float4 *gui_gray
 #endif
 #ifdef SOURCE_OVERLAY_INLINE
- ,global uint *gui_keys,global float4 *gui_colours
+ ,global uint *gui_keys,global float4 *gui_colours,uint4 gui_bounds
 #endif
 #endif
  )
@@ -234,16 +237,16 @@ kernel void source_tunnel(global const ushort *yplane,
  int gui_center=(int)(sx*2);
  float4 shared_left,shared_middle=(float4)(0),shared_right=(float4)(0);
  if(live){
-  shared_middle=source_gui_owned(source_gui_rgba(gui,gui_center,y,w,h,gui_flip),y*w+sx*2,
+  shared_middle=source_gui_owned(source_gui_rgba(gui,gui_center,y,w,h,gui_flip,gui_bounds),y*w+sx*2,
                                  gui_coeff,gui_error,gui_gray,gui_keys,gui_colours);
-  shared_right=source_gui_owned(source_gui_rgba(gui,gui_center+1,y,w,h,gui_flip),y*w+sx*2+1,
+  shared_right=source_gui_owned(source_gui_rgba(gui,gui_center+1,y,w,h,gui_flip,gui_bounds),y*w+sx*2+1,
                                 gui_coeff,gui_error,gui_gray,gui_keys,gui_colours);
  }
  gui_edge[lid]=shared_right;
  barrier(CLK_LOCAL_MEM_FENCE);
  if(!live)return;
  shared_left=lid?gui_edge[lid-1]:
-  source_gui_convert(source_gui_rgba(gui,gui_center-1,y,w,h,gui_flip),gui_coeff,gui_error,gui_gray);
+  source_gui_convert(source_gui_rgba(gui,gui_center-1,y,w,h,gui_flip,gui_bounds),gui_coeff,gui_error,gui_gray);
 #elif defined(SOURCE_OVERLAY_SHARED) && defined(SOURCE_OVERLAY) && defined(SOURCE_PACK_PAIR)
  if(sx*2>=w||y>=h)return;
  /* Both output pixels use the same three GUI samples for chroma. */

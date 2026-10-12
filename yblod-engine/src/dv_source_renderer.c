@@ -50,6 +50,7 @@ typedef struct {
     int gui_profile;unsigned gui_profiles;cl_event gui_events[3];double gui_host_ms;
     int gui_inline;unsigned gui_inline_verify,gui_inline_checks;
     cl_program overlay_ref_program[3];cl_kernel overlay_ref_kernel[3];cl_mem gui_ref_output;
+    unsigned gui_bounds_request[4],gui_bounds_used[4];int gui_bounds_set;
 } source_renderer;
 static double submit_clock(void)
 {struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (double)t.tv_sec+(double)t.tv_nsec/1e9;}
@@ -509,9 +510,10 @@ static cl_int verify_inline_overlay(source_renderer *r,unsigned variant,unsigned
                               clEnqueueReadImage(r->queue,r->gui_ref_output,CL_TRUE,origin,region,0,0,b,0,NULL,NULL);
     size_t differences=0,first=bytes;
     if(!read_error)for(size_t i=0;i<bytes;++i)if(a[i]!=b[i]){if(first==bytes)first=i;++differences;}
-    fprintf(stderr,"{\"overlay_inline_verified_pts\":%lld,\"compared_bytes\":%zu,\"byte_differences\":%zu,\"first_difference\":%lld,\"read_error\":%d,\"cache_cleared\":%d}\n",
+    fprintf(stderr,"{\"overlay_inline_verified_pts\":%lld,\"compared_bytes\":%zu,\"byte_differences\":%zu,\"first_difference\":%lld,\"read_error\":%d,\"cache_cleared\":%d,\"bounds\":[%u,%u,%u,%u]}\n",
             (long long)r->settings.identity.pts,read_error?(size_t)0:bytes,differences,
-            first==bytes?-1LL:(long long)first,read_error,r->gui_cache_invalidate);
+            first==bytes?-1LL:(long long)first,read_error,r->gui_cache_invalidate,
+            r->gui_bounds_used[0],r->gui_bounds_used[1],r->gui_bounds_used[2],r->gui_bounds_used[3]);
     free(a);free(b);++r->gui_inline_checks;return CL_SUCCESS;
 }
 static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned packet_id,int refresh,
@@ -519,6 +521,8 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
                             uint64_t revision,int cached_only)
 {
     source_renderer *r=opaque;if(!r||packet_id>15||gui_flip>1)return DV_INVALID;
+    /* GUI bounds apply to this present only, whatever its outcome. */
+    int bounded=r->gui_bounds_set;unsigned bounds[4];memcpy(bounds,r->gui_bounds_request,sizeof(bounds));r->gui_bounds_set=0;
     if(r->pack_pending)return DV_INVALID;
     if(!r->submitted||r->settings.identity.frame_id!=frame_id||r->settings.identity.pts!=pts)return DV_IDENTITY;
     const char *wait_trace=getenv("DV_SOURCE_WAIT_PROFILE");
@@ -629,6 +633,10 @@ static int present_internal(void *opaque,uint64_t frame_id,int64_t pts,unsigned 
                 CL_DO(clEnqueueFillBuffer(r->queue,r->gui_pixels,&zero,sizeof(zero),0,(size_t)ow*oh*sizeof(zero),0,NULL,NULL));}
             CL_DO(clSetKernelArg(kernel,arg+5,sizeof(r->gui_pixels),&r->gui_pixels));
             CL_DO(clSetKernelArg(kernel,arg+6,sizeof(r->gui_colours),&r->gui_colours));
+            cl_uint4 gui_bounds={{0,0,ow,oh}};
+            if(bounded)for(unsigned i=0;i<4;++i)gui_bounds.s[i]=bounds[i]<(i&1?oh:ow)?bounds[i]:(i&1?oh:ow);
+            memcpy(r->gui_bounds_used,gui_bounds.s,sizeof(r->gui_bounds_used));
+            CL_DO(clSetKernelArg(kernel,arg+7,sizeof(gui_bounds),&gui_bounds));
         }
         cl_mem gui_input=r->gui_prepass?r->gui_colours:r->gui;
         CL_DO(clSetKernelArg(kernel,arg,sizeof(gui_input),&gui_input));
@@ -668,6 +676,12 @@ done:
     r->submitted=0;
     if(status==DV_OK){r->overlay_visible=gui!=0;r->valid=1;r->count=count;memcpy(r->packed,packed,sizeof(packed));}return status;
 #undef CL_DO
+}
+int dv_source_renderer_set_gui_bounds(void *opaque,unsigned x0,unsigned y0,unsigned x1,unsigned y1)
+{
+    source_renderer *r=opaque;if(!r||x0>x1||y0>y1)return DV_INVALID;
+    r->gui_bounds_request[0]=x0;r->gui_bounds_request[1]=y0;r->gui_bounds_request[2]=x1;r->gui_bounds_request[3]=y1;
+    r->gui_bounds_set=1;return DV_OK;
 }
 int dv_source_renderer_present(void *opaque,uint64_t id,int64_t pts,unsigned packet,int refresh)
 {return present_internal(opaque,id,pts,packet,refresh,0,0,NULL,0,0,0,0);}
