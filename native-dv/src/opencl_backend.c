@@ -56,6 +56,9 @@ typedef struct {
     cl_event piecewise_profile_event;
     unsigned piecewise_profile_frames,piecewise_profile_width,piecewise_profile_height,piecewise_profile_depth,piecewise_profile_layout;
     int64_t piecewise_profile_pts;
+    /* Source-route letterbox window, luma rows [first,last). The request is
+     * consumed by the next tunnel reconstruction; zero means the full frame. */
+    unsigned row_request[2],row_window[2],row_checks;int verify_rows;
     int base_fused,verify_base,luma_guide;unsigned base_checks;
     int horizontal_fused,verify_horizontal;unsigned horizontal_checks;
 } backend;
@@ -112,6 +115,8 @@ static void *create_backend(cl_context supplied,cl_device_id supplied_device,int
     const char *luma_guide=getenv("DV_LUMA_GUIDE_FUSED");b->luma_guide=b->base_fused&&luma_guide&&!strcmp(luma_guide,"1");
     const char *single_cache=getenv("DV_SINGLE_TABLE_CACHE");b->single_cache=single_cache&&!strcmp(single_cache,"1");
     const char *verify_base=getenv("DV_VERIFY_BASE_PREP");b->verify_base=verify_base&&!strcmp(verify_base,"1");
+    /* DV_VERIFY_ACTIVE_ROWS=N: check the first N windowed frames (1 means 3). */
+    const char *verify_rows=getenv("DV_VERIFY_ACTIVE_ROWS");b->verify_rows=verify_rows?atoi(verify_rows):0;if(b->verify_rows==1)b->verify_rows=3;if(b->verify_rows<0)b->verify_rows=0;
     if(supplied){err=clRetainContext(supplied);if(err)goto fail;b->context=supplied;}else b->context=clCreateContext(NULL,1,&device,NULL,NULL,&err);if(!b->context || err)goto fail;
     b->queue=clCreateCommandQueue(b->context,device,CL_QUEUE_PROFILING_ENABLE,&err);if(!b->queue || err)goto fail;
     FILE *f=shader_file(directory,"opencl_kernels.cl");if(!f)goto fail;
@@ -339,19 +344,35 @@ static int inputextra(backend *b,unsigned k,unsigned start,unsigned channel)
 {return b->direct_active&&(uintarg(b,k,start,channel)||memarg(b,k,start+1,ERR));}
 static unsigned event_category(unsigned k)
 {if(k==17||k==22||k==25)return 0;if(k==18||k==20||k==11||k==23||k==24)return 1;if(k==19)return 3;if(k==21||k==12||k==27||k==28||k==29)return 4;return k>=8?5:k;}
-static int dispatch(backend *b,unsigned k,size_t count)
+static int dispatch_range(backend *b,unsigned k,size_t offset,size_t count)
 {
     if(b->event_count>=32)return -1;
-    cl_int r=clEnqueueNDRangeKernel(b->queue,b->kernel[k],1,NULL,&count,NULL,0,NULL,&b->events[b->event_count]);
+    cl_int r=clEnqueueNDRangeKernel(b->queue,b->kernel[k],1,offset?&offset:NULL,&count,NULL,0,NULL,&b->events[b->event_count]);
     if(r)return -1;b->event_kind[b->event_count]=event_category(k);++b->event_count;return 0;
 }
-static int dispatch_spatial(backend *b,unsigned k,size_t width,size_t height)
+/* Every reconstruction writer is row-local in its intermediate/output planes
+ * (vertical filters read only the VA inputs), so a letterbox window is a
+ * launch offset, not a kernel change. row_items counts work items per chroma
+ * row (one chroma row covers two luma rows). */
+static int dispatch(backend *b,unsigned k,size_t count,size_t row_items)
 {
-    if(!b->recon2d)return dispatch(b,k,width*height);
+    if(!b->row_window[1])return dispatch_range(b,k,0,count);
+    size_t offset=(size_t)(b->row_window[0]/2)*row_items,extent=(size_t)((b->row_window[1]-b->row_window[0])/2)*row_items;
+    if(offset>=count)return -1;if(extent>count-offset)extent=count-offset;
+    return dispatch_range(b,k,offset,extent);
+}
+/* luma_rows: luma rows covered by one grid row of this launch (1, 2 or 4).
+ * Window bounds are multiples of 8, or the frame height (a multiple of 4). */
+static int dispatch_spatial(backend *b,unsigned k,size_t width,size_t height,unsigned luma_rows)
+{
+    size_t first=0;
+    if(b->row_window[1]){if(b->row_window[1]>height*luma_rows)return -1;
+        first=b->row_window[0]/luma_rows;height=(b->row_window[1]-b->row_window[0])/luma_rows;}
+    if(!b->recon2d)return dispatch_range(b,k,first*width,width*height);
     if(b->event_count>=32)return -1;
     /* Exact logical extent: no padded global grid is legal with these kernels. */
-    const size_t dimensions[2]={width,height};
-    cl_int r=clEnqueueNDRangeKernel(b->queue,b->kernel[k],2,NULL,dimensions,NULL,0,NULL,&b->events[b->event_count]);
+    const size_t dimensions[2]={width,height},offsets[2]={0,first};
+    cl_int r=clEnqueueNDRangeKernel(b->queue,b->kernel[k],2,first?offsets:NULL,dimensions,NULL,0,NULL,&b->events[b->event_count]);
     if(r)return -1;b->event_kind[b->event_count]=event_category(k);++b->event_count;return 0;
 }
 static int prepare_base(backend *b,unsigned phase,unsigned w,unsigned h,int fused)
@@ -361,12 +382,12 @@ static int prepare_base(backend *b,unsigned phase,unsigned w,unsigned h,int fuse
   BASE_DO(inputarg(b,25,B,0));BASE_DO(clSetKernelArg(b->kernel[25],1,sizeof(cl_mem),&b->owned_va[1]));
   BASE_DO(memarg(b,25,2,BP));BASE_DO(memarg(b,25,3,BP+1));BASE_DO(memarg(b,25,4,G));
   BASE_DO(uintarg(b,25,5,w));BASE_DO(uintarg(b,25,6,h));BASE_DO(uintarg(b,25,7,phase));BASE_DO(memarg(b,25,8,ERR));
-  BASE_DO(dispatch_spatial(b,25,w/2,h/2));return 0;
+  BASE_DO(dispatch_spatial(b,25,w/2,h/2,2));return 0;
  }
  unsigned phase_kernel=b->direct_active?17u:0u,guide_kernel=b->direct_active?19u:3u;
- if(b->direct_active){BASE_DO(inputarg(b,22,B+1,1));BASE_DO(memarg(b,22,1,BP));BASE_DO(memarg(b,22,2,BP+1));BASE_DO(uintarg(b,22,3,w/2));BASE_DO(uintarg(b,22,4,h/2));BASE_DO(uintarg(b,22,5,phase));BASE_DO(memarg(b,22,6,ERR));BASE_DO(dispatch_spatial(b,22,w/2,h/2));}
- else for(unsigned c=1;c<3;++c){BASE_DO(inputarg(b,phase_kernel,B+c,1));BASE_DO(memarg(b,phase_kernel,1,BP+c-1));BASE_DO(uintarg(b,phase_kernel,2,w/2));BASE_DO(uintarg(b,phase_kernel,3,h/2));BASE_DO(uintarg(b,phase_kernel,4,phase));BASE_DO(inputextra(b,phase_kernel,5,c-1));BASE_DO(dispatch_spatial(b,phase_kernel,w/2,h/2));}
- BASE_DO(inputarg(b,guide_kernel,B,0));BASE_DO(memarg(b,guide_kernel,1,G));BASE_DO(uintarg(b,guide_kernel,2,w));BASE_DO(uintarg(b,guide_kernel,3,h));BASE_DO(inputextra(b,guide_kernel,4,0));BASE_DO(dispatch_spatial(b,guide_kernel,w/2,h/2));return 0;
+ if(b->direct_active){BASE_DO(inputarg(b,22,B+1,1));BASE_DO(memarg(b,22,1,BP));BASE_DO(memarg(b,22,2,BP+1));BASE_DO(uintarg(b,22,3,w/2));BASE_DO(uintarg(b,22,4,h/2));BASE_DO(uintarg(b,22,5,phase));BASE_DO(memarg(b,22,6,ERR));BASE_DO(dispatch_spatial(b,22,w/2,h/2,2));}
+ else for(unsigned c=1;c<3;++c){BASE_DO(inputarg(b,phase_kernel,B+c,1));BASE_DO(memarg(b,phase_kernel,1,BP+c-1));BASE_DO(uintarg(b,phase_kernel,2,w/2));BASE_DO(uintarg(b,phase_kernel,3,h/2));BASE_DO(uintarg(b,phase_kernel,4,phase));BASE_DO(inputextra(b,phase_kernel,5,c-1));BASE_DO(dispatch_spatial(b,phase_kernel,w/2,h/2,2));}
+ BASE_DO(inputarg(b,guide_kernel,B,0));BASE_DO(memarg(b,guide_kernel,1,G));BASE_DO(uintarg(b,guide_kernel,2,w));BASE_DO(uintarg(b,guide_kernel,3,h));BASE_DO(inputextra(b,guide_kernel,4,0));BASE_DO(dispatch_spatial(b,guide_kernel,w/2,h/2,2));return 0;
 #undef BASE_DO
 }
 static int verify_base_preparation(backend *b,const dv_frame_settings *s,unsigned w,unsigned h)
@@ -394,7 +415,7 @@ static int verify_luma_guide(backend *b,const dv_frame_settings *s,unsigned w,un
  size_t bytes=(size_t)w*h*2,differences=0;unsigned char *saved=malloc(bytes),*reference=malloc(bytes);int failed=1;
  if(!saved||!reference||read_buffer_sync(b,O,saved,bytes))goto done;
  if(verify_base_preparation(b,s,w,h))goto done;
- if(luma_pair_args(b,21,w,h,diag)||dispatch_spatial(b,21,w/2,h)||read_buffer_sync(b,O,reference,bytes))goto done;
+ if(luma_pair_args(b,21,w,h,diag)||dispatch_spatial(b,21,w/2,h,1)||read_buffer_sync(b,O,reference,bytes))goto done;
  for(size_t i=0;i<bytes;++i)differences+=saved[i]!=reference[i];
  failed=differences!=0;
  fprintf(stderr,"{\"luma_guide_verified_pts\":%lld,\"bytes\":%zu,\"differences\":%zu}\n",(long long)s->identity.pts,bytes,differences);
@@ -443,6 +464,36 @@ static int verify_recon_output(backend *b,const dv_frame_settings *s,unsigned c,
  free(reference);free(*saved);*saved=NULL;return error||different;
 }
 static int reserve_one(backend *b,unsigned slot,size_t bytes);
+/* Consume the pending request for an h-row frame. Expand to 8-row bounds so
+ * every launch granularity (1, 2 or 4 luma rows) divides the window. */
+static void take_row_window(backend *b,unsigned h)
+{
+    unsigned first=b->row_request[0],last=b->row_request[1];
+    b->row_request[0]=b->row_request[1]=0;b->row_window[0]=b->row_window[1]=0;
+    if(last<=first||first>=h)return;
+    first&=~7u;last=last>h-(h%8u)?h:(last+7u)&~7u;if(last>h)last=h;
+    if(!first&&last==h)return;
+    b->row_window[0]=first;b->row_window[1]=last;
+}
+dv_status dv_opencl_set_row_window(void *p,unsigned first,unsigned last)
+{backend *b=p;if(!b||first>=last)return DV_INVALID;b->row_request[0]=first;b->row_request[1]=last;return DV_OK;}
+/* DV_VERIFY_ACTIVE_ROWS: windowed output rows against a full-frame rerun. */
+static int read_row_window(backend *b,unsigned w,unsigned chroma_full,unsigned char *dst[3],size_t bytes[3])
+{
+    for(unsigned c=0;c<3;++c){unsigned rows=b->row_window[1]-b->row_window[0],first=b->row_window[0],width=c?w/2:w;
+        if(c&&!chroma_full){rows/=2;first/=2;}
+        bytes[c]=(size_t)rows*width*2;if(!dst[c]&&!(dst[c]=malloc(bytes[c])))return -1;b->downloads+=bytes[c];
+        if(clEnqueueReadBuffer(b->queue,b->buffer[O+c],CL_TRUE,(size_t)first*width*2,bytes[c],dst[c],0,NULL,NULL))return -1;}
+    return 0;
+}
+static int compare_row_window(backend *b,int64_t pts,unsigned w,unsigned chroma_full,unsigned char *windowed[3])
+{
+    unsigned char *full[3]={0};size_t bytes[3]={0},total=0,differences=0;int failed=read_row_window(b,w,chroma_full,full,bytes);
+    for(unsigned c=0;c<3&&!failed;++c){total+=bytes[c];for(size_t i=0;i<bytes[c];++i)differences+=full[c][i]!=windowed[c][i];}
+    fprintf(stderr,"{\"row_window_verified_pts\":%lld,\"first\":%u,\"last\":%u,\"compared_bytes\":%zu,\"byte_differences\":%zu,\"read_error\":%d}\n",
+        (long long)pts,b->row_window[0],b->row_window[1],total,differences,failed);
+    ++b->row_checks;for(unsigned c=0;c<3;++c)free(full[c]);return failed||differences;
+}
 static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsigned w,unsigned h,
     const uint16_t *const bl[3],const uint16_t *const el[3],uint16_t *const out[3],const dv_observer *observer,int resident_only,int enqueue_only)
 {
@@ -511,39 +562,39 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
                 if(b->direct_active)DO(clSetKernelArg(b->kernel[k],1,sizeof(cl_mem),&b->owned_va[2]));
                 else DO(memarg(b,k,1,E));
                 unsigned slots[7]={MT,RT,M,R,S,O,ERR};for(unsigned a=0;a<7;++a)DO(memarg(b,k,a+2,slots[a]));
-                DO(uintarg(b,k,9,w));DO(uintarg(b,k,10,h));DO(uintarg(b,k,11,(unsigned)diag));DO(dispatch_spatial(b,k,w,h));
+                DO(uintarg(b,k,9,w));DO(uintarg(b,k,10,h));DO(uintarg(b,k,11,(unsigned)diag));DO(dispatch_spatial(b,k,w,h,1));
                 continue;
             }
             unsigned k=b->direct_active?17u:0u;
             DO(inputarg(b,k,E+c,3));DO(memarg(b,k,1,ES+c-1));
             DO(uintarg(b,k,2,cw));DO(uintarg(b,k,3,ch));DO(uintarg(b,k,4,s->chroma_phase));
-            DO(inputextra(b,k,5,c-1));DO(dispatch_spatial(b,k,cw,ch));
+            DO(inputextra(b,k,5,c-1));DO(dispatch_spatial(b,k,cw,ch,2));
         }else{
         if(!c||!b->filter_fused||b->verify_filter){
-            if(c){DO(memarg(b,0,0,E+c));DO(memarg(b,0,1,EP));DO(uintarg(b,0,2,cw/2));DO(uintarg(b,0,3,ch/2));DO(uintarg(b,0,4,s->chroma_phase));DO(dispatch_spatial(b,0,cw/2,ch/2));input=EP;}
-            unsigned vk=b->direct_active?24u:1u;DO(inputarg(b,vk,input,2));DO(memarg(b,vk,1,V));DO(uintarg(b,vk,2,cw/2));DO(uintarg(b,vk,3,ch/2));DO(uintarg(b,vk,4,c!=0));DO(inputextra(b,vk,5,0));DO(dispatch_spatial(b,vk,cw/2,b->direct_active?ch/2:ch));
+            if(c){DO(memarg(b,0,0,E+c));DO(memarg(b,0,1,EP));DO(uintarg(b,0,2,cw/2));DO(uintarg(b,0,3,ch/2));DO(uintarg(b,0,4,s->chroma_phase));DO(dispatch_spatial(b,0,cw/2,ch/2,4));input=EP;}
+            unsigned vk=b->direct_active?24u:1u;DO(inputarg(b,vk,input,2));DO(memarg(b,vk,1,V));DO(uintarg(b,vk,2,cw/2));DO(uintarg(b,vk,3,ch/2));DO(uintarg(b,vk,4,c!=0));DO(inputextra(b,vk,5,0));DO(dispatch_spatial(b,vk,cw/2,b->direct_active?ch/2:ch,(c?2u:1u)*(b->direct_active?2u:1u)));
         }
         if(c&&b->filter_fused){size_t bytes=(size_t)cw*ch;
             if(b->verify_filter){host_m=malloc(bytes);host_r=malloc(bytes);if(!host_m||!host_r)goto done;DO(read_buffer_sync(b,V,host_m,bytes));}
-            if(b->direct_active){if(c==1){DO(inputarg(b,23,E+c,3));DO(memarg(b,23,1,V));DO(memarg(b,23,2,VP));DO(uintarg(b,23,3,cw/2));DO(uintarg(b,23,4,ch/2));DO(uintarg(b,23,5,s->chroma_phase));DO(memarg(b,23,6,ERR));DO(dispatch_spatial(b,23,cw/2,ch/2));}}
-            else {unsigned fk=11;DO(inputarg(b,fk,E+c,3));DO(memarg(b,fk,1,V));DO(uintarg(b,fk,2,cw/2));DO(uintarg(b,fk,3,ch/2));DO(uintarg(b,fk,4,s->chroma_phase));DO(inputextra(b,fk,5,c-1));DO(dispatch_spatial(b,fk,cw/2,ch/2));}
+            if(b->direct_active){if(c==1){DO(inputarg(b,23,E+c,3));DO(memarg(b,23,1,V));DO(memarg(b,23,2,VP));DO(uintarg(b,23,3,cw/2));DO(uintarg(b,23,4,ch/2));DO(uintarg(b,23,5,s->chroma_phase));DO(memarg(b,23,6,ERR));DO(dispatch_spatial(b,23,cw/2,ch/2,4));}}
+            else {unsigned fk=11;DO(inputarg(b,fk,E+c,3));DO(memarg(b,fk,1,V));DO(uintarg(b,fk,2,cw/2));DO(uintarg(b,fk,3,ch/2));DO(uintarg(b,fk,4,s->chroma_phase));DO(inputextra(b,fk,5,c-1));DO(dispatch_spatial(b,fk,cw/2,ch/2,4));}
             if(b->verify_filter){DO(read_buffer_sync(b,V,host_r,bytes));size_t different=0;for(size_t j=0;j<bytes;++j)different+=((unsigned char *)host_m)[j]!=((unsigned char *)host_r)[j];
                 fprintf(stderr,"{\"filter_verified_pts\":%lld,\"channel\":%u,\"compared_bytes\":%zu,\"byte_differences\":%zu}\n",(long long)s->identity.pts,c,bytes,different);
                 free(host_m);free(host_r);host_m=host_r=NULL;if(different)goto done;}
         }
         }
         if(!c&&luma_guide){DO(luma_pair_args(b,29,w,h,(unsigned)diag));DO(clSetKernelArg(b->kernel[29],12,sizeof(cl_mem),&b->owned_va[1])!=CL_SUCCESS);
-            DO(memarg(b,29,13,BP));DO(memarg(b,29,14,BP+1));DO(memarg(b,29,15,G));DO(uintarg(b,29,16,s->chroma_phase));DO(dispatch_spatial(b,29,w/2,h/2));
+            DO(memarg(b,29,13,BP));DO(memarg(b,29,14,BP+1));DO(memarg(b,29,15,G));DO(uintarg(b,29,16,s->chroma_phase));DO(dispatch_spatial(b,29,w/2,h/2,2));
             if(b->verify_base&&b->base_checks<3)DO(verify_luma_guide(b,s,w,h,(unsigned)diag));}
         else if(!c){unsigned verify=b->verify_recon&&b->luma_pair;
             for(unsigned route=0;route<(verify?2u:1u);++route){unsigned kernel=b->direct_active?21u:b->luma_pair&&!route?12u:4u;
                 unsigned slots[9]={B,V,MT,RT,M,R,S,O,ERR};DO(inputarg(b,kernel,B,0));for(unsigned a=1;a<9;++a)DO(memarg(b,kernel,a,slots[a]));
-                DO(uintarg(b,kernel,9,w));DO(uintarg(b,kernel,10,h));DO(uintarg(b,kernel,11,(unsigned)diag));DO(dispatch_spatial(b,kernel,kernel==12||kernel==21?w/2:w,h));
+                DO(uintarg(b,kernel,9,w));DO(uintarg(b,kernel,10,h));DO(uintarg(b,kernel,11,(unsigned)diag));DO(dispatch_spatial(b,kernel,kernel==12||kernel==21?w/2:w,h,1));
                 if(verify)DO(verify_recon_output(b,s,c,n,route,&host_m));
             }}
         else {
             if(!equal&&(!horizontal_fused||b->verify_recon||verify_horizontal)){
-                DO(memarg(b,2,0,b->direct_active&&c==2?VP:V));DO(memarg(b,2,1,ES+c-1));DO(memarg(b,2,2,ERR));DO(uintarg(b,2,3,cw));DO(uintarg(b,2,4,ch));DO(dispatch_spatial(b,2,cw,ch));}
+                DO(memarg(b,2,0,b->direct_active&&c==2?VP:V));DO(memarg(b,2,1,ES+c-1));DO(memarg(b,2,2,ERR));DO(uintarg(b,2,3,cw));DO(uintarg(b,2,4,ch));DO(dispatch_spatial(b,2,cw,ch,2));}
             if(!s->composer.component[c].mapping){
                 /* Scaling/phase preparation above is unchanged. This generic
                  * table-add kernel preserves Q16 mapping plus FEL residual,
@@ -551,17 +602,17 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
                 unsigned slots[9]={BP+c-1,ES+c-1,CM+c-1,RT+c,M+c,R+c,S+c,O+c,ERR};
                 for(unsigned a=0;a<9;++a)DO(memarg(b,27,a,slots[a]));
                 DO(uintarg(b,27,9,cw));DO(uintarg(b,27,10,ch));DO(uintarg(b,27,11,(unsigned)diag));
-                DO(dispatch_spatial(b,27,cw,ch));
+                DO(dispatch_spatial(b,27,cw,ch,2));
                 b->event_kind[b->event_count-1]=5; /* Chroma work, despite shared kernel. */
                 continue;
             }
             if(dual){if(c==1)continue;
                 unsigned k=horizontal_fused?26u:16u;
                 unsigned slots[12]={G,BP,BP+1,horizontal_fused?V:ES,horizontal_fused?VP:ES+1,P,P+1,RT+1,RT+2,O+1,O+2,ERR};for(unsigned a=0;a<12;++a)DO(memarg(b,k,a,slots[a]));
-                DO(uintarg(b,k,12,(unsigned)(n/4)));DO(memarg(b,k,13,UL));DO(memarg(b,k,14,UL+1));if(horizontal_fused)DO(uintarg(b,k,15,cw));DO(dispatch(b,k,horizontal_fused?n/8:n/4));
+                DO(uintarg(b,k,12,(unsigned)(n/4)));DO(memarg(b,k,13,UL));DO(memarg(b,k,14,UL+1));if(horizontal_fused)DO(uintarg(b,k,15,cw));DO(dispatch(b,k,horizontal_fused?n/8:n/4,horizontal_fused?cw/2:cw));
                 if(b->verify_recon||verify_horizontal)for(unsigned channel=1;channel<3;++channel){DO(verify_recon_output(b,s,channel,n/4,0,&host_m));
                     unsigned reference[11]={G,BP,BP+1,ES+channel-1,P+channel-1,RT+channel,M+channel,R+channel,S+channel,O+channel,ERR};
-                    for(unsigned a=0;a<11;++a)DO(memarg(b,10,a,reference[a]));DO(uintarg(b,10,11,(unsigned)(n/4)));DO(uintarg(b,10,12,0));DO(memarg(b,10,13,UL+channel-1));DO(dispatch(b,10,n/4));
+                    for(unsigned a=0;a<11;++a)DO(memarg(b,10,a,reference[a]));DO(uintarg(b,10,11,(unsigned)(n/4)));DO(uintarg(b,10,12,0));DO(memarg(b,10,13,UL+channel-1));DO(dispatch(b,10,n/4,cw));
                     DO(verify_recon_output(b,s,channel,n/4,1,&host_m));}
                 if(verify_horizontal)++b->horizontal_checks;
                 continue;
@@ -574,7 +625,7 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
             for(unsigned route=0;route<(verify?2u:1u);++route){kernel=!route?candidate:original;
                 unsigned slots[11]={G,BP,BP+1,ES+c-1,P+c-1,RT+c,M+c,R+c,S+c,O+c,ERR};for(unsigned a=0;a<11;++a)DO(memarg(b,kernel,a,slots[a]));
                 DO(uintarg(b,kernel,11,(unsigned)(n/4)));DO(uintarg(b,kernel,12,(unsigned)diag));
-                if(kernel==10u||kernel>=13u)DO(memarg(b,kernel,13,UL+c-1));DO(dispatch(b,kernel,kernel==13?(n/4+1)/2:n/4));
+                if(kernel==10u||kernel>=13u)DO(memarg(b,kernel,13,UL+c-1));DO(dispatch(b,kernel,kernel==13?(n/4+1)/2:n/4,kernel==13?cw/2:cw));
                 if(verify)DO(verify_recon_output(b,s,c,n/4,route,&host_m));
             }
             if(b->mmr96&&b->frame_trace)fprintf(stderr,"{\"mmr96_channel\":%u,\"mmr96_eligible\":%u}\n",c,kernel==8u);
@@ -967,7 +1018,16 @@ dv_status dv_opencl_reconstruct_p010(void *p,const dv_frame_settings *s,unsigned
   /* In-order queue: acquire precedes all readers. Release only after the last
    * reconstruction reader; references stay owned until dv_opencl_drain. */
   clReleaseEvent(acquired);b->shared_prepared=1;b->direct_active=1;uint16_t *out[3]={NULL,NULL,NULL};
-  dv_status status=reconstruct_impl(b,s,w,h,NULL,NULL,out,NULL,1,1);b->direct_active=0;
+  take_row_window(b,h);int verify_rows=b->row_window[1]&&b->row_checks<(unsigned)b->verify_rows;
+  dv_status status=reconstruct_impl(b,s,w,h,NULL,NULL,out,NULL,1,1);
+  if(status==DV_OK&&verify_rows){unsigned char *windowed[3]={0};size_t bytes[3];
+   /* Rerun on the still-acquired surfaces; the full frame is what remains. */
+   if(read_row_window(b,w,0,windowed,bytes))status=DV_BACKEND;
+   else {unsigned window[2]={b->row_window[0],b->row_window[1]};b->row_window[0]=b->row_window[1]=0;b->shared_prepared=1;
+    status=reconstruct_impl(b,s,w,h,NULL,NULL,out,NULL,1,1);b->row_window[0]=window[0];b->row_window[1]=window[1];
+    if(status==DV_OK&&compare_row_window(b,s->identity.pts,w,0,windowed))status=DV_BACKEND;}
+   for(unsigned c=0;c<3;++c)free(windowed[c]);}
+  b->row_window[0]=b->row_window[1]=0;b->direct_active=0;
   /* Some drivers wait inside release enqueue. The caller retains the VA
    * owners; drain can return them after reconstruction has completed. */
   e=b->defer_va_release?CL_SUCCESS:release(b->queue,4,images,0,NULL,&b->va_release);
@@ -1042,13 +1102,22 @@ dv_status dv_opencl_reconstruct_single_p010(void *p,const dv_frame_settings *s,
  for(unsigned i=0;i<4;++i)SINGLE_DO(clSetKernelArg(b->single,i+2,sizeof(cl_mem),&b->buffer[slots[i]]));
  SINGLE_DO(clSetKernelArg(b->single,6,sizeof(w),&w));SINGLE_DO(clSetKernelArg(b->single,7,sizeof(h),&h));
  SINGLE_DO(clSetKernelArg(b->single,8,sizeof(cl_mem),&b->buffer[ERR]));
- size_t work[2]={w/2,h/2};SINGLE_DO(clEnqueueNDRangeKernel(b->queue,b->single,2,NULL,work,NULL,0,NULL,NULL));
+ size_t work[2]={w/2,h/2},offset[2]={0,0};
+ take_row_window(b,h);int verify_rows=b->row_window[1]&&b->row_checks<(unsigned)b->verify_rows;
+ if(b->row_window[1]){offset[1]=b->row_window[0]/2;work[1]=(b->row_window[1]-b->row_window[0])/2;}
+ SINGLE_DO(clEnqueueNDRangeKernel(b->queue,b->single,2,offset[1]?offset:NULL,work,NULL,0,NULL,NULL));
+ if(verify_rows){unsigned char *windowed[3]={0};size_t bytes[3];size_t full[2]={w/2,h/2};
+  int failed=read_row_window(b,w,0,windowed,bytes)||clEnqueueNDRangeKernel(b->queue,b->single,2,NULL,full,NULL,0,NULL,NULL)||
+   compare_row_window(b,s->identity.pts,w,0,windowed);
+  for(unsigned c=0;c<3;++c)free(windowed[c]);b->row_window[0]=b->row_window[1]=0;SINGLE_DO(failed);}
+ b->row_window[0]=b->row_window[1]=0;
  SINGLE_DO(read_reconstruction_error(b));
  if(!b->defer_va_release)SINGLE_DO(release(b->queue,2,images,0,NULL,&b->va_release));
  SINGLE_DO(clFlush(b->queue));
  b->piecewise_active=0;b->resident_ready=1;b->width=w;b->height=h;b->chroma_phase=s->chroma_phase;b->identity=s->identity;b->config=s->composer;
  status=DV_OK;
 done:
+ b->row_window[0]=b->row_window[1]=0;
  if(status!=DV_OK)b->single_gpu_valid=0;
  if(status!=DV_OK&&dv_opencl_drain(b)!=DV_OK)return DV_BACKEND;
  return status;
@@ -1111,7 +1180,15 @@ static dv_status reconstruct_piecewise_surface(void *p,const dv_single_frame_set
  /* Keep timing separate from P7 event categories; consume only at the normal
   * ownership drain, never add a diagnostic wait to frame submission. */
  int profile=b->profile_async&&b->piecewise_profile_frames<120;
- size_t work[2]={w/2,layout?h:h/2};PIECEWISE_DO(clEnqueueNDRangeKernel(b->queue,kernel,2,NULL,work,NULL,0,NULL,profile?&b->piecewise_profile_event:NULL));
+ size_t work[2]={w/2,layout?h:h/2},offset[2]={0,0};unsigned luma_rows=layout?1u:2u;
+ take_row_window(b,h);int verify_rows=b->row_window[1]&&b->row_checks<(unsigned)b->verify_rows;
+ if(b->row_window[1]){offset[1]=b->row_window[0]/luma_rows;work[1]=(b->row_window[1]-b->row_window[0])/luma_rows;}
+ PIECEWISE_DO(clEnqueueNDRangeKernel(b->queue,kernel,2,offset[1]?offset:NULL,work,NULL,0,NULL,profile?&b->piecewise_profile_event:NULL));
+ if(verify_rows){unsigned char *windowed[3]={0};size_t bytes[3];size_t full[2]={w/2,layout?h:h/2};
+  int failed=read_row_window(b,w,layout,windowed,bytes)||clEnqueueNDRangeKernel(b->queue,kernel,2,NULL,full,NULL,0,NULL,NULL)||
+   compare_row_window(b,s->identity.pts,w,layout,windowed);
+  for(unsigned c=0;c<3;++c)free(windowed[c]);b->row_window[0]=b->row_window[1]=0;PIECEWISE_DO(failed);}
+ b->row_window[0]=b->row_window[1]=0;
  if(profile){b->piecewise_profile_pts=s->identity.pts;b->piecewise_profile_width=w;b->piecewise_profile_height=h;
   b->piecewise_profile_depth=depth;b->piecewise_profile_layout=layout;}
  PIECEWISE_DO(read_reconstruction_error(b));
@@ -1121,6 +1198,7 @@ static dv_status reconstruct_piecewise_surface(void *p,const dv_single_frame_set
  b->piecewise_layout=layout;b->piecewise_sampling=sampling;
  b->resident_ready=1;b->width=w;b->height=h;b->identity=s->identity;status=DV_OK;
 done:
+ b->row_window[0]=b->row_window[1]=0;
  if(status!=DV_OK){b->piecewise_cached=0;if(dv_opencl_drain(b)!=DV_OK)return DV_BACKEND;}
  return status;
 #undef PIECEWISE_DO

@@ -21,7 +21,7 @@ typedef struct {
     clCreateFromVA_APIMediaSurfaceINTEL_fn import;
     void *backend;int acquired,valid,queued;cl_event released;
     dv_frame_settings settings;unsigned char packed[640];unsigned count;
-    dv_piecewise_surface_settings piecewise_settings;int piecewise_enabled,piecewise,space2_enabled,full_enabled,nv12_enabled;
+    dv_piecewise_surface_settings piecewise_settings;int piecewise_enabled,piecewise,space2_enabled,full_enabled,nv12_enabled,active_rows;
     cl_program full_program;cl_kernel full_kernel;
     int submitted;unsigned char dm[512];size_t dm_bytes;int overlay_visible;unsigned wait_profiles;
     dv_source_geometry geometry;
@@ -156,6 +156,7 @@ void *dv_source_renderer_create_storage(uintptr_t va_display,uintptr_t egl_displ
     const char *nv12=getenv("DV_SINGLE_NV12");r->nv12_enabled=r->piecewise_enabled&&nv12&&!strcmp(nv12,"1");
     const char *full=getenv("DV_SINGLE_FULL_HEIGHT");r->full_enabled=r->piecewise_enabled&&full&&!strcmp(full,"1");
     const char *space2=getenv("DV_SOURCE_SPACE2");r->space2_enabled=space2&&!strcmp(space2,"1");
+    const char *active_rows=getenv("DV_RECON_ACTIVE_ROWS");r->active_rows=active_rows&&!strcmp(active_rows,"1");
     r->queue=clCreateCommandQueue(r->context,r->device,(r->profile_async||r->gui_profile)?CL_QUEUE_PROFILING_ENABLE:0,&error);if(!r->queue||error)goto fail;
     r->backend=dv_opencl_create_source_at(r->context,r->device,directory);if(!r->backend)goto fail;
     r->output=clCreateFromGLTexture(r->context,CL_MEM_WRITE_ONLY,0x0de1,0,texture,&error);if(!r->output||error)goto fail;
@@ -289,6 +290,13 @@ int dv_source_renderer_submit_input(void *opaque,unsigned bl_surface,unsigned el
         for(unsigned plane=0;plane<2;++plane){r->inputs[layer*2+plane]=r->import(r->context,CL_MEM_READ_ONLY,&surfaces[layer],plane,&error);if(!r->inputs[layer*2+plane]||error)goto done;}
         if(tracing)import_ms+=(submit_clock()-synced)*1e3;}
     if(tracing)queued=submit_clock();
+    /* The pack blacks out rows outside settings.active and samples at most two
+     * source rows per output row (4:2:0 or bilinear); one destination row past
+     * the mapped edge is height/destination source rows. Reconstruct only
+     * active rows plus that reach. Scope titles skip roughly a quarter. */
+    if(r->active_rows&&!nv12){unsigned dh=dv_source_destination_height(geometry),margin=8+4*((h+dh-1)/dh);
+        unsigned first=settings.active[1]>margin?settings.active[1]-margin:0,last=settings.active[3]+margin;
+        if(settings.active[1]<settings.active[3])(void)dv_opencl_set_row_window(r->backend,first,last<h?last:h);}
     status=nv12?dv_opencl_reconstruct_piecewise_nv12(r->backend,&general,w,h,r->inputs):
         use_piecewise?dv_opencl_reconstruct_piecewise_surface(r->backend,&surface_settings,w,h,r->inputs):
         single?dv_opencl_reconstruct_single_p010(r->backend,&settings,w,h,r->inputs):
