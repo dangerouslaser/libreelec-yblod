@@ -23,6 +23,10 @@ dv_status dv_opencl_reconstruct_enqueue(void *,const dv_frame_settings *,unsigne
  * Caller validates decoded dimensions; imported allocations may include padding. */
 dv_status dv_opencl_reconstruct_p010(void *,const dv_frame_settings *,unsigned,unsigned,
  const cl_mem[2],const cl_mem[2]);
+/* Opt-in letterbox window for the NEXT p010, single-p010 or piecewise reconstruction:
+ * output rows outside [first,last) (expanded to 8-row bounds) are not written.
+ * The caller must never read those rows, including resampling neighbours. */
+dv_status dv_opencl_set_row_window(void *,unsigned first,unsigned last);
 /* Native-grid, residual-disabled polynomial path; no enhancement input/work.
  * Caller supplies producer-complete VA images and retains the surface owner
  * until drain. This does not perform a chroma-siting conversion. */
