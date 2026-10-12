@@ -69,6 +69,20 @@ P010 and GPU timing lines) are off by default because they reach the Kodi
 journal on every frame; set `DV_ENGINE_FRAME_TRACE=1` to enable them for a
 diagnostic run. Startup configuration lines and errors are always logged.
 
+Kodi's Settings > Player > Dolby Vision (Expert level) controls a curated set of these
+switches and applies them as environment overrides at start and whenever a setting
+changes (patch `kodi-9999-yblod-21-dv-engine-settings.patch`, mapping in
+`DVEngineSettings.h`). For those switches the setting wins over `native-dv.env`:
+`dvbridge.engine` (DV_PRIVATE_SOURCE, DV_PRIVATE_OVERLAY, DV_PRIVATE_DRAIN_EOF),
+`dvbridge.letterboxskip` (DV_RECON_ACTIVE_ROWS), `dvbridge.inlineoverlay`
+(DV_OVERLAY_INLINE), `dvbridge.tablecache` (DV_SINGLE/DUAL_TABLE_CACHE),
+`dvbridge.guicache` (DV_PRIVATE_GUI_CACHE), `dvbridge.homecache`
+(DV_PRIVATE_GUI_CACHE_HOME), `dvbridge.packahead` (DV_PRIVATE_ASYNC_PACK),
+`dvbridge.halfgui` (DV_PRIVATE_GUI_HALF), `dvbridge.verify` (the verify switches below and
+DV_PRIVATE_VERIFY), `dvbridge.frametrace` (DV_ENGINE_FRAME_TRACE, DV_PRIVATE_FRAME_TIMING)
+and `dvbridge.gputiming` (DV_SOURCE_PROFILE_ASYNC, DV_OVERLAY_PROFILE). The hidden setting
+`yblod.build` (always true) lets skins detect YBLOD with `System.GetBool(yblod.build)`.
+
 Byte-exact performance switches (all on in `runtime.env`; set to 0 to disable):
 `DV_RECON_ACTIVE_ROWS` reconstructs only the RPU L5 active rows plus a filter
 margin; `DV_OVERLAY_INLINE` lets the overlay pack check the GUI pixel cache
