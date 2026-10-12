@@ -1,0 +1,18 @@
+YBLOD 0.2.5 fixes Blu-ray subtitles on Dolby Vision playback and adds Dolby Vision engine settings.
+
+What changed
+- Blu-ray (PGS) subtitles now show on Dolby Vision playback. Before, with UHD Blu-ray subtitles enabled (for example on 1917), the picture froze for every subtitle line and the subtitle was never shown. These bitmap subtitles are now drawn with the rest of the on-screen display. Text subtitles (SRT, ASS) were not affected.
+- New Dolby Vision engine settings. With the settings level set to Expert, Settings > Player > Dolby Vision has two more groups:
+  - Engine: the native engine itself, processing only the picture area of letterboxed films, fast on-screen controls, reusing reshaping tables, reusing unchanged controls and the home screen over video, preparing frames ahead, and half-resolution menus (faster with the controls open, softer menu text). Everything except half-resolution menus is on by default.
+  - Diagnostics: output verification, a frame timing log and a GPU timing log, for troubleshooting.
+  Changes apply to the next video. These settings take precedence over the same switches in /storage/.config/native-dv.env.
+- LG edition: Estuary LG 4.1.0+lg.10. The process info button on the playback controls opens Kodi's player process info with the Dolby Vision panel (profile, enhancement layer, metadata and GPU use) instead of the Bald Process Info add-on.
+- The kernel and the native engine are unchanged from 0.2.4. Both editions are built from the same source.
+
+If you run 0.2.4
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). Systems with the LG edition also receive Estuary LG 4.1.0+lg.10 through the dangerouslaser repository.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

@@ -1,0 +1,76 @@
+YBLOD 0.2.5 validation
+
+Build source: 8251ff75a178839fdf97ee2bab5e0fc6d95c1dac (PRs #9, #10, #11 on top of 0.2.4
+and the repository restructure, PR #7)
+LibreELEC upstream base, FFmpeg, libplacebo, kernel, native engine, engine defaults and
+shaders are unchanged from 0.2.4. Kodi gains patches 21 and 22; the LG edition updates
+Estuary LG to 4.1.0+lg.10.
+
+Changes since 0.2.4
+- Kodi patch 22 (native PGS subtitles): with native GUI coverage, PGS (PQ bitmap)
+  subtitles are drawn into the GUI layer with their palette converted to sRGB instead of
+  the late PQ back-buffer pass, which the native route refused frame by frame
+  ("rejects late PQ bitmap subtitles"): playback froze for each subtitle line and the
+  subtitle was not shown.
+- Kodi patch 21 (Dolby Vision engine settings): Settings > Player > Dolby Vision gains
+  Engine and Diagnostics groups (Expert level) mapped to the engine's environment
+  switches, applied at window-system start and on change; settings take precedence over
+  native-dv.env. Hidden setting yblod.build lets skins detect YBLOD.
+- LG edition: skin.estuary.lg 4.1.0+lg.10 (on YBLOD the OSD process info button opens
+  Kodi's player process info with the Dolby Vision panel).
+
+Byte-exact check (N150, installed yblod-0.2.5-lg, Verify output setting on; 1917, No
+Country for Old Men, Deadpool, Gemini Man, Sol Levante P8.4, each with playback controls,
+Home over video, navigation, return and stop, then 1917 with English SDH PGS subtitles
+for 40 s)
+- Active-row reconstruction: 500 frames, 0 byte differences.
+- Inline overlay pack: 573 overlay frames, including PGS subtitle frames, 0 byte
+  differences over the full 3840x2160 scanout.
+- Table caches rebuilt on every hit: 0 mismatches.
+- No Kodi log errors, no PGS refusals, native route active throughout.
+
+Subtitles (N150, 1917 English SDH PGS, 60 s): 23.97 fps output, 0 missed vblanks,
+0 drops/skips. Same test on 0.2.4: 21.25 fps, 164 missed vblanks, freezes of 24-71
+vblanks.
+
+Settings (N150, test build with patch 21 before release): settings listed with the
+expected defaults; toggling over JSON-RPC between videos switched the overlay colour pass,
+verification and the native engine on the next video without restarting Kodi. On the
+release image the settings apply at start and yblod.build reads true.
+
+LG skin (N150, yblod-0.2.5-lg): Kodi uses the system Estuary LG 4.1.0+lg.10; the OSD
+process info button opens player process info with the Dolby Vision panel visible
+(Dolby Vision (TV-Led), profile 7, FEL Yes); no skin load errors.
+
+Performance (N150, 30 s per cell, engine GPU ms per source frame): unchanged from 0.2.4
+within run-to-run variation: 1917 19.7 / 22.8 (controls closed / open), Sol Levante P8.4
+19.7 / 23.9, Gemini Man 6.7 ms with controls closed (0 missed vblanks); Gemini Man with
+controls open still drops frames on the N150 (42 fps output).
+
+Petunia VM (Tiger Lake, yblod-0.2.5-lg, no display connected, compatibility route):
+boots, Kodi starts, three titles play with controls, Home, navigation and stop, zero log
+errors.
+
+Ollie Kodi container: switched to kodi-dv:yblod-0.2.5-lg, Kodi starts, no restarts.
+
+SHA256
+Standard update tar: cdb4d51163a4483cb6d12fc8e57341965c9184fa9ae97af0cf9db5356fa8673f
+Standard install img.gz: f6335e3081c28039b25449f96ed84911c642e693588f2142f804141473404c11
+Standard SYSTEM: 217fe2157bcf8f7f15252392e38dde49cfe8c369c99cdc655163a394764d594d
+LG update tar: 6a587e8eb833e4d298542a716f5680d0792761e7746bdffb03ccd30cf8b4ee67
+LG install img.gz: 02282f63b1e9fc3d1efe0465a46c5a5c15ae749c731398c2b14a02b3d80a06e5
+LG SYSTEM: a1e85a4dba644f73f479a2afa6a2a598c4eb239aeb691893016920e89e3a19cd
+KERNEL (both, unchanged): 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi (both): faa6cd5f3c6b21b638203abd7bb43f72312026029635e8b9fc769d195a1fa72f
+Engine (both, unchanged): 130795026741f7d949869feef0a0d0955d27ae5edef36b298804f9814948a033
+Runtime defaults (both, unchanged): b72a73f5106f5edeccf0353636814fcfbcd253fa419a8689bf78eed3ebba0556
+Reconstruction shader (both, unchanged): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Pack shader (both, unchanged): 08c4905976366e810d6c5a83be6a50e7aa20dc6d012ee6f422344506d25cf296
+Source bundle: ebc0494b28ec3ccf40d3ecc6e0eddb711caa872ad796de7841ea446554aebb43
+
+Limitations
+The standard 0.2.5 image was not separately installed; its Kodi, engine, shaders and
+kernel match the tested LG image. No visual TV confirmation is part of this report; the
+subtitle check proves the frames are presented and composited exactly, not how a viewer
+sees them. Each subtitle line still toggles the overlay state sent to the TV (L5 and the
+metadata refresh flag); no frame drops were measured from it on the N150.
