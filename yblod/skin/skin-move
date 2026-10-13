@@ -1,0 +1,15 @@
+#!/bin/sh
+# Estuary LG (skin.estuary.lg) is now Estuary YBLOD (skin.estuary.yblod), and images no longer
+# ship the old id. Before Kodi starts, move a box still set to the old skin: copy its skin
+# settings to the new id (unless the new one has its own) and switch the skin. Other skins are
+# never changed.
+USERDATA=/storage/.kodi/userdata
+SETTINGS=$USERDATA/guisettings.xml
+OLD=skin.estuary.lg
+NEW=skin.estuary.yblod
+grep -q "<setting id=\"lookandfeel.skin\"[^>]*>$OLD<" "$SETTINGS" 2>/dev/null || exit 0
+if [ -f "$USERDATA/addon_data/$OLD/settings.xml" ] && [ ! -e "$USERDATA/addon_data/$NEW/settings.xml" ]; then
+  mkdir -p "$USERDATA/addon_data/$NEW" &&
+    cp -p "$USERDATA/addon_data/$OLD/settings.xml" "$USERDATA/addon_data/$NEW/settings.xml"
+fi
+sed -i "s|\(<setting id=\"lookandfeel.skin\"[^>]*>\)$OLD<|\1$NEW<|" "$SETTINGS"
