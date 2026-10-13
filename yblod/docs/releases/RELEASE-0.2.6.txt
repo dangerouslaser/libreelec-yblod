@@ -1,0 +1,17 @@
+YBLOD 0.2.6 passes Dolby audio through on live TV, makes Estuary YBLOD the default skin of both editions and scrolls settings smoothly with a mouse wheel.
+
+What changed
+- Live TV and IPTV pass audio through. Kodi used to decode the audio of live streams to PCM, so a receiver showed multichannel PCM instead of Dolby Digital or DD+, and Atmos was lost. With passthrough enabled in Settings > System > Audio, live streams now pass through like recordings and files (tested with an IPTV channel in E-AC3: the receiver shows Dolby Atmos - DD+). With "Sync playback to display" on, Kodi still decodes, as before.
+- Estuary YBLOD is the default skin. Estuary LG has been renamed Estuary YBLOD (4.1.0+yblod.17), and both editions now include it. It is Estuary with the Dolby Vision panel in player process info (from the process info button on the playback controls), a collapsing side menu and the DM Sans font option; with the LG webOS TV Control add-on it also has the LG TV pages and controls. A fresh installation starts with it, and so does an update if you were using Kodi's default skin. If you chose another skin, it is kept. Stock Estuary is still included under Settings > Interface > Skin.
+- Systems on Estuary LG move to Estuary YBLOD on the first start after the update, with their skin settings (menu items, widgets, font).
+- Settings pages scroll smoothly with a mouse wheel or the LG Magic Remote wheel. Before, wheel steps that arrived during a scroll were lost, so scrolling felt slow or jumpy.
+- LG edition: LG webOS TV Control 0.8.3.
+- The kernel and the native engine are unchanged from 0.2.5. Both editions are built from the same source.
+
+If you run 0.2.5
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
