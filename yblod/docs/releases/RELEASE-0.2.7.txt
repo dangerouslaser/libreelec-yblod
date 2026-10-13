@@ -1,0 +1,14 @@
+YBLOD 0.2.7 updates the pre-installed Estuary YBLOD skin and LG webOS TV Control add-on.
+
+What changed
+- Estuary YBLOD 4.1.0+yblod.20 (both editions): settings pages and playback-control buttons for Denon receivers and Sonos players (incoming audio format, volume, mute), a Sonos choice in setup, and the Settings screen in three groups of four (tools, home theater, settings). The Denon and Sonos parts only show when their add-ons (service.denonavr, service.sonos, from the dangerouslaser repository) are installed and connected.
+- LG edition: LG webOS TV Control 0.8.8. The TV connection no longer stops for the night when a TV in standby closes it, and it reconnects as soon as the TV wakes; re-pairing keeps the working pairing until the TV accepts the new one. Remote Bridge 0.6.3: one routing table for the LG remote's buttons (Options opens Kodi's context menu), optional app buttons that bring Kodi back, and the volume buttons can drive a Denon receiver or Sonos player.
+- Kodi, the kernel and the native engine are unchanged from 0.2.6. Both editions are built from the same source.
+
+If you run 0.2.6
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). LG edition systems that already received these add-on versions from the dangerouslaser repository keep them.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

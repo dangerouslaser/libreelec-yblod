@@ -1,0 +1,44 @@
+YBLOD 0.2.7 validation
+
+Build source: 947ee7dcff4f513f0cafac949c8cad3d2bbfc10b (PR #16 on top of 0.2.6)
+LibreELEC upstream base, FFmpeg, libplacebo, kernel, Kodi, native engine, engine
+defaults and shaders are unchanged from 0.2.6 (byte-identical, hashes below).
+
+Changes since 0.2.6
+- skin.estuary.yblod 4.1.0+yblod.17 -> 4.1.0+yblod.20 (both editions).
+- service.webostv 0.8.3 -> 0.8.8 (LG edition; carries Remote Bridge 0.6.3).
+Both release zips match the pinned PKG_SHA256. The skin still requires only xbmc.gui;
+its LG, Denon and Sonos controls are shown only when those add-ons are present (LG) or
+report a connection (Denon, Sonos), so the standard edition shows none of them.
+
+Images
+Both: skin.estuary.yblod 4.1.0+yblod.20 in /usr/share/kodi/addons, optional in the
+add-on manifest, appliance.xml default skin.estuary.yblod, /usr/lib/yblod/skin-move with
+kodi.service.d/30-yblod-skin.conf. LG: service.webostv 0.8.8 and
+repository.dangerouslaser 1.0.1, optional.
+
+Testing
+These add-on versions run on Ollie's Kodi container, the Petunia VM and the N150 (from
+the dangerouslaser repository, as reported in PR #16), on 0.2.6 Kodi, which this
+release keeps unchanged. The 0.2.7 images themselves were not installed before
+publishing; the image checks above are from the built SYSTEM files. Playback, skin
+default and skin move were validated on 0.2.6 with the same Kodi, engine and kernel.
+
+SHA256
+Standard update tar: 0d517e42aec2f424c198c6785b3caa34a452edc6e457afa99bd88ba959bf8e8b
+Standard install img.gz: b62386087ca13ceb919c39b0f7e70ed7f3c1a5e8a6f290a6c32ce536d6564478
+Standard SYSTEM: 1e012e2ea11fb1d573adc49dbe1258ec8a377c3f46ab26ecea60dffb8e6d1ad9
+LG update tar: 563757e4032a9a6d1a5ac890543625e4e674070ce50610f74efe796e3f4d96a2
+LG install img.gz: 2c27b26203cff98a6523fa3b1da15f572972a50493f67083931a48eb51576766
+LG SYSTEM: 0eb891b033d87b64f38a92460fe886604c51522bc8120f64825a54481975055e
+KERNEL (both, unchanged): 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi (both, unchanged): 23dae481b35b17ed7d30fa72be88345dcc109c28ec3a13ca2e4dfb21b2684ceb
+Engine (both, unchanged): 130795026741f7d949869feef0a0d0955d27ae5edef36b298804f9814948a033
+Runtime defaults (both, unchanged): b72a73f5106f5edeccf0353636814fcfbcd253fa419a8689bf78eed3ebba0556
+Reconstruction shader (both, unchanged): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Pack shader (both, unchanged): 08c4905976366e810d6c5a83be6a50e7aa20dc6d012ee6f422344506d25cf296
+Source bundle: aab1123f08aa186e0e3cd54af6414365d7ec65439ee752039f2485b245847555
+
+Limitations
+No 0.2.7 image was installed on a device before release. No visual TV confirmation is
+part of this report.
