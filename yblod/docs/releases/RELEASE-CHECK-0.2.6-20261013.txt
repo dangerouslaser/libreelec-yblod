@@ -1,0 +1,66 @@
+YBLOD 0.2.6 validation
+
+Build source: fedef5c4583cab94a2b0487cb34f823fc247e8e9 (main after PRs #12 grouplist
+wheel, #13 realtime passthrough and #14 Estuary YBLOD; built from the identical tree
+9fdd2e15a109 as local merge 81ff7f2a)
+LibreELEC upstream base, FFmpeg, libplacebo, kernel, native engine, engine defaults and
+shaders are unchanged from 0.2.5. LibreELEC master had 31 newer commits (package and
+add-on version updates, Amlogic and u-boot work, a ccache key change); none was pulled in.
+
+Changes since 0.2.5
+- Kodi patch 9995 (realtime passthrough, PR #13): VideoPlayerAudio no longer rules out
+  passthrough for realtime streams; SyncTypeFor() uses SYNC_DISCON for passthrough and
+  SYNC_RESAMPLE for decoded realtime audio; sync to display still resamples everything.
+  Tested by its PR in Ollie's Kodi container (yblod-0.2.5-pt1-lg): an IPTV Simple E-AC3
+  channel opens as pt-eac3 and the receiver reports Dolby Atmos - DD+.
+- Kodi patch 9997 (grouplist wheel destination, PR #12): a grouplist steps each wheel
+  notch from its scroll destination (new CScroller::GetDestination()), as lists do.
+- skin.estuary.yblod 4.1.0+yblod.17 (the renamed skin.estuary.lg) in both editions, an
+  optional system add-on and Kodi's default skin: its post_install adds the
+  lookandfeel.skin default to appliance.xml at image assembly. skin.estuary.lg is no
+  longer in the images.
+- /usr/lib/yblod/skin-move (kodi.service.d/30-yblod-skin.conf, before Kodi starts): a
+  box set to skin.estuary.lg is switched to skin.estuary.yblod and its skin settings are
+  copied to the new id unless that already has its own. Replaces the LG edition's
+  first-run-defaults.
+- LG edition: service.webostv 0.8.3.
+
+Images
+Both: skin.estuary.yblod 4.1.0+yblod.17 in /usr/share/kodi/addons, listed optional in the
+add-on manifest, appliance.xml default skin.estuary.yblod. LG: service.webostv 0.8.3 and
+repository.dangerouslaser 1.0.1 optional as before. Kodi's source has patches 9995 and 9997.
+
+N150, yblod-0.2.6-lg (this build) installed over a 0.2.6-lg test build, itself installed
+over 0.2.5-lg (box already on skin.estuary.yblod)
+- Kodi starts on Estuary YBLOD, now stored as the default value; add-ons enabled.
+- Default skin: lookandfeel.skin reset to the old default (default="true",
+  skin.estuary): Kodi starts with skin.estuary.yblod.
+- Move: lookandfeel.skin set to skin.estuary.lg and Estuary YBLOD's skin settings
+  removed: Kodi starts with skin.estuary.yblod, with no Kodi dialog. skin-move run on
+  its own copies the settings file byte-identical (md5); after Kodi has run, all 105 old
+  skin settings are present with their values, plus 3 setup flags added at start.
+- P7 FEL: play, pause, resume, seeks, paused seek, Home over video, return to
+  fullscreen, playback controls and stop pass with zero errors.
+
+SHA256
+Standard update tar: 9a97c1e16f180cbf8e7e6832b314216655b94e0861f2b80a5fe48fe34b0675ba
+Standard install img.gz: fcb0d035867676ff2d3071ae63482199e127cef5b627c0b2e3607d78b901e4dc
+Standard SYSTEM: 66668f2fd86851175111a9364878a166ca52357205cad837ba7fee3649fb971b
+LG update tar: ebdc497536b915ec161f3e6fccd41b199cb896d84c3e082d3870b694246c2223
+LG install img.gz: 808e46ecd48f46dab03bc26ba777ed39962a1f23534fffe70877430c59efbd3d
+LG SYSTEM: 807b642204cd9bb9e7e2deafdae3713c79dc3342b14bccee792f5518c7ef047c
+KERNEL (both, unchanged): 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi (both): 23dae481b35b17ed7d30fa72be88345dcc109c28ec3a13ca2e4dfb21b2684ceb
+Engine (both, unchanged): 130795026741f7d949869feef0a0d0955d27ae5edef36b298804f9814948a033
+Runtime defaults (both, unchanged): b72a73f5106f5edeccf0353636814fcfbcd253fa419a8689bf78eed3ebba0556
+Reconstruction shader (both, unchanged): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Pack shader (both, unchanged): 08c4905976366e810d6c5a83be6a50e7aa20dc6d012ee6f422344506d25cf296
+Source bundle: 2fd30336fb87fbdf6865d99f97c61e365d4875b8b7036cadb40639418237314b
+
+Limitations
+The standard 0.2.6 image was not separately installed; its Kodi, skin package, engine
+and kernel match the tested LG image. The N150 runs a newer, unpublished service.webostv
+(0.8.5) from /storage, so the shipped 0.8.3 was not exercised there. The mouse wheel
+and live passthrough changes were tested by their PRs (Petunia, Ollie's container), not
+again on this image; lip-sync over long live passthrough sessions is not yet checked.
+No visual TV confirmation is part of this report.
