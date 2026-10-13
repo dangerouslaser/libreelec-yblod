@@ -1,11 +1,31 @@
 #!/bin/sh
-# YBLOD LG edition: on a fresh installation only (no Kodi settings yet), start with the
-# Estuary LG skin. Existing settings, including a skin chosen later, are never changed.
+# YBLOD LG edition, before each Kodi start:
+# - a fresh installation (no Kodi settings yet) starts with the Estuary YBLOD skin;
+# - an installation still set to Estuary LG (skin.estuary.lg, the skin's id before
+#   4.1.0+yblod.17), which this image no longer carries, moves to Estuary YBLOD with
+#   its skin settings (widgets, menus, the setup choices). Kodi would otherwise fall
+#   back to plain Estuary before service.webostv could move it. A copy of Estuary LG
+#   installed from the repository is left alone.
+# Existing settings, including a skin chosen later, are otherwise never changed.
 SETTINGS=/storage/.kodi/userdata/guisettings.xml
-[ -e "$SETTINGS" ] && exit 0
-mkdir -p "${SETTINGS%/*}" || exit 0
-cat > "$SETTINGS.yblod-lg" <<'XML' && mv "$SETTINGS.yblod-lg" "$SETTINGS"
+OLD=skin.estuary.lg NEW=skin.estuary.yblod
+
+if [ ! -e "$SETTINGS" ]; then
+  mkdir -p "${SETTINGS%/*}" || exit 0
+  cat > "$SETTINGS.yblod-lg" <<XML && mv "$SETTINGS.yblod-lg" "$SETTINGS"
 <settings version="4">
-    <setting id="lookandfeel.skin">skin.estuary.lg</setting>
+    <setting id="lookandfeel.skin">$NEW</setting>
 </settings>
 XML
+  exit 0
+fi
+
+if grep -q ">$OLD</setting>" "$SETTINGS" && [ ! -e "/storage/.kodi/addons/$OLD/addon.xml" ]; then
+  DATA=/storage/.kodi/userdata/addon_data
+  if [ -e "$DATA/$OLD/settings.xml" ] && [ ! -e "$DATA/$NEW/settings.xml" ]; then
+    mkdir -p "$DATA/$NEW" && cp -p "$DATA/$OLD/settings.xml" "$DATA/$NEW/settings.xml"
+  fi
+  sed "s|>$OLD</setting>|>$NEW</setting>|" "$SETTINGS" > "$SETTINGS.yblod-lg" &&
+    mv "$SETTINGS.yblod-lg" "$SETTINGS"
+fi
+exit 0
