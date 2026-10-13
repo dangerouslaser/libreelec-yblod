@@ -10,7 +10,7 @@
 #
 # usage: yblod/tools/build.sh <version>        e.g. yblod/tools/build.sh 0.1
 # env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3"),
-#        YBLOD_EDITION=lg for the LG edition (version suffix -lg; LG skin, webOS add-on, repository)
+#        YBLOD_EDITION=lg for the LG edition (version suffix -lg; webOS add-on and repository)
 set -u
 V=${1:?usage: yblod/tools/build.sh <version>}
 EDITION=${YBLOD_EDITION:-}

@@ -13,8 +13,8 @@ Each release has its notes, a validation report and checksums.
 
 | Edition | Contents |
 |---|---|
-| Standard | LibreELEC with YBLOD's Dolby Vision playback. |
-| LG | The same build, plus the Estuary LG skin (set on a fresh installation), the LG webOS TV Control add-on and the repository that keeps both updated. |
+| Standard | LibreELEC with YBLOD's Dolby Vision playback and the Estuary YBLOD skin (the default skin; stock Estuary is still included). |
+| LG | The same build, plus the LG webOS TV Control add-on and the repository that keeps it and Estuary YBLOD updated. |
 
 Both editions are built from the same source and released together, each with its own update
 channel.
