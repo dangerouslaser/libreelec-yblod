@@ -25,9 +25,16 @@ makeinstall_target() {
 
 # Kodi disables add-ons it finds without having installed them. List the skin as an optional
 # system add-on: enabled by default, and updated from a repository that carries a newer version
-# (Kodi patch 20). Runs at image assembly, after kodi has installed its manifest.
+# (Kodi patch 20). Make it Kodi's default skin: it applies to fresh installations and to boxes on
+# the default skin, never to a skin the user chose. Runs at image assembly, after kodi has
+# installed its manifest and appliance settings.
 post_install() {
   local manifest=${INSTALL}/usr/share/kodi/system/addon-manifest.xml
+  local appliance=${INSTALL}/usr/share/kodi/system/settings/appliance.xml
   grep -q ">${PKG_NAME}<" ${manifest} ||
     sed -i "s|</addons>|  <addon optional=\"true\">${PKG_NAME}</addon>\n</addons>|" ${manifest}
+  if ! grep -q ">${PKG_NAME}<" ${appliance}; then
+    grep -q 'section id="interface"' ${appliance} && die "appliance.xml already has an interface section"
+    sed -i "s|</settings>|  <section id=\"interface\">\n    <category id=\"skin\">\n      <group id=\"1\">\n        <setting id=\"lookandfeel.skin\">\n          <default>${PKG_NAME}</default>\n        </setting>\n      </group>\n    </category>\n  </section>\n</settings>|" ${appliance}
+  fi
 }
