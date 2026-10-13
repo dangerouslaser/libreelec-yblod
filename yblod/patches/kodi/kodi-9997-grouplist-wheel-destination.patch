@@ -1,0 +1,51 @@
+From: yblod
+Subject: [PATCH] guilib: grouplist mouse wheel steps from the scroll destination
+
+A grouplist aimed each wheel notch from its current, animated scroll
+position, so notches arriving during a scroll picked the same control
+again and were lost. Step from where the scroll is heading instead, as
+lists do, so a spin of the wheel becomes one continuous scroll.
+---
+diff --git a/xbmc/guilib/GUIControlGroupList.cpp b/xbmc/guilib/GUIControlGroupList.cpp
+index 256cee1..183e093 100644
+--- a/xbmc/guilib/GUIControlGroupList.cpp
++++ b/xbmc/guilib/GUIControlGroupList.cpp
+@@ -606,19 +606,22 @@ EVENT_RESULT CGUIControlGroupList::OnMouseEvent(const CPoint& point,
+ {
+   if (event.m_id == ACTION_MOUSE_WHEEL_UP || event.m_id == ACTION_MOUSE_WHEEL_DOWN)
+   {
+-    // find the current control and move to the next or previous
++    // find the current control and move to the next or previous. Step from where a scroll
++    // in progress is heading, not from where it is now, so that notches arriving during the
++    // scroll add up (as they do in lists) instead of aiming at the same control again.
++    const float position = m_scroller.GetDestination();
+     float offset = 0;
+     for (ciControls it = m_children.begin(); it != m_children.end(); ++it)
+     {
+       CGUIControl *control = *it;
+       if (!control->IsVisible()) continue;
+       float nextOffset = offset + Size(control) + m_itemGap;
+-      if (event.m_id == ACTION_MOUSE_WHEEL_DOWN && nextOffset > m_scroller.GetValue() && m_scroller.GetValue() < m_totalSize - Size()) // past our current offset
++      if (event.m_id == ACTION_MOUSE_WHEEL_DOWN && nextOffset > position && position < m_totalSize - Size()) // past our current offset
+       {
+         ScrollTo(nextOffset);
+         return EVENT_RESULT_HANDLED;
+       }
+-      else if (event.m_id == ACTION_MOUSE_WHEEL_UP && nextOffset >= m_scroller.GetValue() && m_scroller.GetValue() > 0) // at least at our current offset
++      else if (event.m_id == ACTION_MOUSE_WHEEL_UP && nextOffset >= position && position > 0) // at least at our current offset
+       {
+         ScrollTo(offset);
+         return EVENT_RESULT_HANDLED;
+diff --git a/xbmc/guilib/VisibleEffect.h b/xbmc/guilib/VisibleEffect.h
+index a5b19e2..74b3716 100644
+--- a/xbmc/guilib/VisibleEffect.h
++++ b/xbmc/guilib/VisibleEffect.h
+@@ -247,6 +247,8 @@ public:
+    * Value of scroll
+    */
+   float GetValue() const { return m_scrollValue; }
++  /*! \brief Where the scroll in progress ends (the current value when not scrolling) */
++  float GetDestination() const { return m_delta != 0 ? m_startPosition + m_delta : m_scrollValue; }
+   void SetValue(float scrollValue) { m_scrollValue = scrollValue; }
+ 
+   bool IsScrolling() const { return m_delta != 0; }
