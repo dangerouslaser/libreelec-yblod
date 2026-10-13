@@ -1,0 +1,102 @@
+From: yblod
+Subject: [PATCH] VideoPlayer: pass audio through for realtime (live) streams
+
+Live streams (PVR live TV, IPTV) never passed audio through: Kodi
+decoded Dolby Digital and the rest to PCM so it could resample the
+audio to follow its clock speed adjustments. VideoPlayer no longer
+adjusts the clock for passthrough audio, so allow passthrough for them
+and keep it in sync the way any passthrough is kept (SYNC_DISCON: skip
+or repeat packets). Decoded audio from a live stream is resampled as
+before; "sync playback to display" still rules passthrough out.
+---
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerAudio.cpp b/xbmc/cores/VideoPlayer/VideoPlayerAudio.cpp
+index b271caa..5dc1ad8 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerAudio.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerAudio.cpp
+@@ -82,9 +82,9 @@ CVideoPlayerAudio::~CVideoPlayerAudio()
+ bool CVideoPlayerAudio::OpenStream(CDVDStreamInfo hints)
+ {
+   CLog::Log(LOGINFO, "Finding audio codec for: {}", hints.codec);
++  // Realtime (live) streams may pass through too: VideoPlayer leaves the clock's speed
++  // alone for passthrough audio, and SYNC_DISCON keeps it in sync (see SyncTypeFor()).
+   bool allowpassthrough = !CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK);
+-  if (m_processInfo.IsRealtimeStream())
+-    allowpassthrough = false;
+ 
+   CAEStreamInfo::DataType streamType =
+       m_audioSink.GetPassthroughStreamType(hints.codec, hints.samplerate, hints.profile);
+@@ -135,11 +135,7 @@ void CVideoPlayerAudio::OpenStream(CDVDStreamInfo& hints, std::unique_ptr<CDVDAu
+   m_stalled = m_messageQueue.GetPacketCount(CDVDMsg::DEMUXER_PACKET) == 0;
+ 
+   m_prevsynctype = -1;
+-  m_synctype = SYNC_DISCON;
+-  if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK))
+-    m_synctype = SYNC_RESAMPLE;
+-  else if (m_processInfo.IsRealtimeStream())
+-    m_synctype = SYNC_RESAMPLE;
++  m_synctype = SyncTypeFor(*m_pAudioCodec);
+ 
+   if (m_synctype == SYNC_DISCON)
+     CLog::LogF(LOGINFO, "Allowing max Out-Of-Sync Value of {} ms", m_disconAdjustTimeMs);
+@@ -486,11 +482,10 @@ bool CVideoPlayerAudio::ProcessDecoderOutput(DVDAudioFrame &audioframe)
+       }
+     }
+ 
+-    // if stream switches to realtime, disable pass through
+-    // or switch to resample
+-    if (m_processInfo.IsRealtimeStream() && m_synctype != SYNC_RESAMPLE)
++    // if stream switches to realtime, resample decoded audio (passthrough stays as it is)
++    if (m_synctype != SyncTypeFor(*m_pAudioCodec))
+     {
+-      m_synctype = SYNC_RESAMPLE;
++      m_synctype = SyncTypeFor(*m_pAudioCodec);
+       if (SwitchCodecIfNeeded())
+       {
+         audioframe.nb_frames = 0;
+@@ -659,8 +654,6 @@ bool CVideoPlayerAudio::SwitchCodecIfNeeded()
+   m_displayReset = false;
+ 
+   bool allowpassthrough = !CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK);
+-  if (m_processInfo.IsRealtimeStream() || m_synctype == SYNC_RESAMPLE)
+-    allowpassthrough = false;
+ 
+   CAEStreamInfo::DataType streamType = m_audioSink.GetPassthroughStreamType(
+       m_streaminfo.codec, m_streaminfo.samplerate, m_streaminfo.profile);
+@@ -674,10 +667,25 @@ bool CVideoPlayerAudio::SwitchCodecIfNeeded()
+   }
+ 
+   m_pAudioCodec = std::move(codec);
++  m_synctype = SyncTypeFor(*m_pAudioCodec);
+ 
+   return true;
+ }
+ 
++int CVideoPlayerAudio::SyncTypeFor(CDVDAudioCodec& codec) const
++{
++  // Sync to display resamples everything (and never passes through). Decoded audio from a
++  // realtime stream is resampled to follow the clock's speed adjustments; passthrough audio
++  // can't be resampled, and VideoPlayer doesn't adjust the clock for it, so it skips or
++  // duplicates packets instead (SYNC_DISCON), as for any other passthrough.
++  if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetBool(
++          CSettings::SETTING_VIDEOPLAYER_USEDISPLAYASCLOCK))
++    return SYNC_RESAMPLE;
++  if (m_processInfo.IsRealtimeStream() && !codec.NeedPassthrough())
++    return SYNC_RESAMPLE;
++  return SYNC_DISCON;
++}
++
+ std::string CVideoPlayerAudio::GetPlayerInfo()
+ {
+   std::unique_lock lock(m_info_section);
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerAudio.h b/xbmc/cores/VideoPlayer/VideoPlayerAudio.h
+index e0309f2..c7b6677 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerAudio.h
++++ b/xbmc/cores/VideoPlayer/VideoPlayerAudio.h
+@@ -80,6 +80,7 @@ protected:
+   //! Switch codec if needed. Called when the sample rate gotten from the
+   //! codec changes, in which case we may want to switch passthrough on/off.
+   bool SwitchCodecIfNeeded();
++  int SyncTypeFor(CDVDAudioCodec& codec) const;
+   void SetSyncType(bool passthrough);
+ 
+   CDVDMessageQueue m_messageQueue;
