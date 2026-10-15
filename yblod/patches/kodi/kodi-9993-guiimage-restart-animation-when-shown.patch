@@ -1,0 +1,62 @@
+From: yblod
+Subject: [PATCH] guilib: an image's animated texture restarts each time it shows
+
+A hidden image doesn't process its texture, so an animated one stopped
+on whatever frame it was hidden on and carried on from there when shown
+again (the pointer window keeps its images allocated while hidden, so
+they were never reset). Restart it whenever the image is hidden, or not
+processed for longer than any frame (its group or window was hidden),
+so an animation plays from its first frame each time it shows.
+---
+diff --git a/xbmc/guilib/GUITexture.h b/xbmc/guilib/GUITexture.h
+--- a/xbmc/guilib/GUITexture.h
++++ b/xbmc/guilib/GUITexture.h
+@@ -123,6 +123,8 @@
+     return CRect(m_posX, m_posY, m_posX + m_width, m_posY + m_height).PtInRect(point);
+   }
+   bool IsAllocated() const { return m_isAllocated != NO; }
++  /*! \brief An animated texture plays from its first frame when next processed. */
++  void RestartAnimation() { ResetAnimState(); }
+   bool FailedToAlloc() const
+   {
+     return m_isAllocated == NORMAL_FAILED || m_isAllocated == LARGE_FAILED;
+diff --git a/xbmc/guilib/GUIImage.cpp b/xbmc/guilib/GUIImage.cpp
+--- a/xbmc/guilib/GUIImage.cpp
++++ b/xbmc/guilib/GUIImage.cpp
+@@ -20,6 +20,12 @@
+ 
+ using namespace KODI::GUILIB;
+ 
++namespace
++{
++// Longer than any frame: the image was hidden in between (ms).
++constexpr unsigned int ANIMATION_RESTART_GAP = 250;
++} // namespace
++
+ CGUIImage::CGUIImage(int parentID,
+                      int controlID,
+                      float posX,
+@@ -64,6 +70,13 @@
+ {
+   CGUIControl::UpdateVisibility(item);
+ 
++  // A hidden image's animated texture doesn't advance: restart it, so it plays
++  // from its first frame each time the image shows (an image that stays
++  // allocated while hidden, as in the pointer window, would otherwise carry on
++  // from the frame it was hidden on).
++  if (!IsVisible())
++    m_textureCurrent->RestartAnimation();
++
+   // now that we've checked for conditional info, we can
+   // check for allocation
+   AllocateOnDemand();
+@@ -137,6 +150,9 @@
+   unsigned int frameTime = 0;
+   if (m_lastRenderTime)
+     frameTime = currentTime - m_lastRenderTime;
++  // Not processed for a while, as its group or window was hidden: the same.
++  if (frameTime > ANIMATION_RESTART_GAP)
++    m_textureCurrent->RestartAnimation();
+   if (!frameTime)
+     frameTime = (unsigned int)(1000 / CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS());
+   m_lastRenderTime = currentTime;
