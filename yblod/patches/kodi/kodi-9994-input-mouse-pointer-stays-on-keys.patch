@@ -1,0 +1,66 @@
+From: yblod
+Subject: [PATCH] input: a key can leave the mouse pointer up
+
+Every key hid the mouse pointer. Window(Home).Property(MousePointerStays)
+lets whatever drives the pointer (a TV remote's pointer) keep it up:
+"true" for every key, "nomove" for every key but the ones that move the
+focus. Unset, keys hide it as before.
+---
+diff --git a/xbmc/input/InputManager.cpp b/xbmc/input/InputManager.cpp
+--- a/xbmc/input/InputManager.cpp
++++ b/xbmc/input/InputManager.cpp
+@@ -43,6 +43,7 @@
+ #include "utils/Geometry.h"
+ #include "utils/Map.h"
+ #include "utils/StringUtils.h"
++#include "utils/Variant.h"
+ #include "utils/log.h"
+ 
+ #include <algorithm>
+@@ -62,7 +63,24 @@
+     {XBMC_KEYCOMPOSING_CANCELLED, ACTION_KEYBOARD_COMPOSING_KEY_CANCELLED},
+     {XBMC_KEYCOMPOSING_FINISHED, ACTION_KEYBOARD_COMPOSING_KEY_FINISHED},
+ });
++
++// Whether the mouse pointer stays up for this key, as Window(Home).Property(MousePointerStays)
++// asks: "true" for every key, "nomove" for every key but the ones that move the focus. Set by
++// whatever drives the pointer (a TV remote's pointer, say), so a button doesn't hide it.
++bool MousePointerStays(const CAction& action)
++{
++  const CGUIWindow* home = CServiceBroker::GetGUI()->GetWindowManager().GetWindow(WINDOW_HOME);
++  if (!home)
++    return false;
++  const std::string stays = home->GetProperty("MousePointerStays").asString();
++  if (stays == "true")
++    return true;
++  if (stays == "nomove")
++    return action.GetID() != ACTION_MOVE_LEFT && action.GetID() != ACTION_MOVE_RIGHT &&
++           action.GetID() != ACTION_MOVE_UP && action.GetID() != ACTION_MOVE_DOWN;
++  return false;
+ }
++} // namespace
+ 
+ CInputManager::CInputManager()
+   : m_keymapEnvironment(new KEYMAP::CKeymapEnvironment),
+@@ -551,9 +569,6 @@
+ 
+ bool CInputManager::HandleKey(const CKey& key)
+ {
+-  // Turn the mouse off, as we've just got a keypress from controller or remote
+-  m_Mouse.SetActive(false);
+-
+   // get the current active window
+   int iWin = CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindowOrDialog();
+ 
+@@ -561,6 +576,11 @@
+   // special handling if the screensaver is active
+   CAction action = m_buttonTranslator->GetAction(iWin, key);
+ 
++  // Turn the mouse off, as we've just got a keypress from controller or remote
++  // (unless the pointer is asked to stay up)
++  if (!MousePointerStays(action))
++    m_Mouse.SetActive(false);
++
+   // a key has been pressed.
+   // reset Idle Timer
+   auto& components = CServiceBroker::GetAppComponents();
