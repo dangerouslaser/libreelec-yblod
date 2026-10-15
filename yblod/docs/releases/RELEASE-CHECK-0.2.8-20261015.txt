@@ -1,0 +1,55 @@
+YBLOD 0.2.8 validation
+
+Build source: 60370c55d2228e0f94ec2ebf3720e9b92d7e7210 (PRs #17 and #18 on top of 0.2.7)
+LibreELEC upstream base, FFmpeg, libplacebo, kernel, Kodi source, native engine, engine
+defaults and shaders are unchanged from 0.2.7.
+
+Changes since 0.2.7
+- skin.estuary.yblod 4.1.0+yblod.20 -> 4.1.0+yblod.21 (both editions).
+- service.webostv 0.8.8 -> 0.8.9 (LG edition).
+- Kodi patch 9993-guiimage-restart-animation-when-shown: an animated image's texture
+  plays from its first frame each time the image shows.
+- Kodi patch 9994-input-mouse-pointer-stays-on-keys: Window(Home).Property(MousePointerStays)
+  keeps the mouse pointer up on key presses ("true": every key; "nomove": every key but
+  the focus-moving ones). Unset, keys hide the pointer as before.
+Both add-on release zips match the pinned PKG_SHA256. The skin still requires only
+xbmc.gui; its LG, Denon and Sonos panels are shown only when those add-ons are present
+(LG) or report a connection (Denon, Sonos), so the standard edition shows none of them.
+
+Images
+Both: skin.estuary.yblod 4.1.0+yblod.21 in /usr/share/kodi/addons, optional in the
+add-on manifest, appliance.xml default skin.estuary.yblod, /usr/lib/yblod/skin-move with
+kodi.service.d/30-yblod-skin.conf. LG: service.webostv 0.8.9 and
+repository.dangerouslaser 1.0.1, optional.
+Both Kodi patches are applied in the build log. Comparing every file of the 0.2.7-lg
+and 0.2.8-lg SYSTEM images: apart from the two add-ons and the version strings
+(/etc/issue, os-release, release, kodi/defs.pyc), only kodi.bin differs. That kodi.bin
+differs in one byte, its embedded build date, from the 0.2.7-ptr1-lg test build
+(0.2.7 with the same two patches).
+
+Testing
+0.2.7-ptr1-lg, with the same Kodi patches, runs on the Petunia VM. The add-on versions
+run on Ollie's Kodi container, the Petunia VM and the N150 (from the dangerouslaser
+repository, as reported in PR #17). The 0.2.8 images themselves were not installed
+before publishing; the image checks above are from the built SYSTEM files. Playback,
+skin default and skin move were validated on 0.2.6, whose engine and kernel this release
+keeps.
+
+SHA256
+Standard update tar: e3c862adfff002d6ff5c09c99c1f5458b7e2b4e13c9354dbebca49a5997b5cff
+Standard install img.gz: 9c15fe08873a0e561a827fa64ec1122f83b7e6f59ddf2109d1c6409d81339bb8
+Standard SYSTEM: f6dedd9ef3c1c27b900a961cf41e6e669d309b50f12d32fbaf195c464f9d473d
+LG update tar: f73b99c09bc72f0a0e73152716562f08eff2cf2a72eeaf5b8f3be5beee751f73
+LG install img.gz: 686bc54804eee7d46354550b14c5e221866d85e2471145af11c8a7255f754daa
+LG SYSTEM: 8305a34719a76d41b5fe53b74a4ba1f988d749f7fb23100b8f2eaabb490b9d6a
+KERNEL (both, unchanged): 7564ebf0f55190e99add31dc9a724f2d02faf789d4b87443701d3ce6ce4b84bc
+Kodi (both): c86bc806163b92e78e8e5c9900c0a0689e95477ada72bc5a8c180ba34c0c0589
+Engine (both, unchanged): 130795026741f7d949869feef0a0d0955d27ae5edef36b298804f9814948a033
+Runtime defaults (both, unchanged): b72a73f5106f5edeccf0353636814fcfbcd253fa419a8689bf78eed3ebba0556
+Reconstruction shader (both, unchanged): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Pack shader (both, unchanged): 08c4905976366e810d6c5a83be6a50e7aa20dc6d012ee6f422344506d25cf296
+Source bundle: 2d17cd0d95027d0674197f26a9730472c39a4c90f5afc3cd12e22f247ebe7c63
+
+Limitations
+No 0.2.8 image was installed on a device before release. No visual TV confirmation is
+part of this report.
