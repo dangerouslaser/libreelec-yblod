@@ -10,6 +10,7 @@
 #
 # usage: yblod/tools/build.sh <version>        e.g. yblod/tools/build.sh 0.1
 # env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3"),
+#        BUILD_THREADS (4: packages built at once; more helps a full rebuild),
 #        YBLOD_EDITION=lg for the LG edition (version suffix -lg; webOS add-on and repository)
 set -u
 V=${1:?usage: yblod/tools/build.sh <version>}
@@ -25,7 +26,7 @@ for JOBS in ${BUILD_JOBS:-7 5 3}; do
   docker run --rm --name yblod-build --cpu-shares 256 --memory "$MEM" --memory-swap "$MEM" \
     -v "$T":/build -w /build \
     -e PROJECT=Generic -e DEVICE=Generic -e ARCH=x86_64 \
-    -e CONCURRENCY_MAKE_LEVEL="$JOBS" -e CMAKE_BUILD_PARALLEL_LEVEL="$JOBS" -e THREADCOUNT=4 \
+    -e CONCURRENCY_MAKE_LEVEL="$JOBS" -e CMAKE_BUILD_PARALLEL_LEVEL="$JOBS" -e THREADCOUNT="${BUILD_THREADS:-4}" \
     -e CUSTOM_VERSION="yblod-$V" -e BUILDER_NAME=yblod -e YBLOD_EDITION="$EDITION" \
     "$IMAGE" bash -c "make image" >> "$LOG" 2>&1
   rc=$?
