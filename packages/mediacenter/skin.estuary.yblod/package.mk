@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 PKG_NAME="skin.estuary.yblod"
-PKG_VERSION="4.1.0+yblod.21"
-PKG_SHA256="964130a14bbfd6a9ae335e776533ebfaae94c11d855e3883931434b475a230e4"
+PKG_VERSION="4.1.0+yblod.22"
+PKG_SHA256="bbf2689ffd00a0cd570bad8bb4b6b30557f1f7ac2c24646a0b2c018b0ab5728d"
 PKG_LICENSE="GPL-2.0-only AND CC-BY-SA-4.0"
 PKG_SITE="https://github.com/dangerouslaser/skin.estuary.yblod"
 PKG_URL="https://github.com/dangerouslaser/skin.estuary.yblod/releases/download/v${PKG_VERSION}/${PKG_NAME}-${PKG_VERSION}.zip"
