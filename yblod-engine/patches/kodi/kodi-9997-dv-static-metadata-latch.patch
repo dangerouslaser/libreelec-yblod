@@ -1,8 +1,8 @@
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-index 95dfd95..d8a6f25 100644
+index 18d8e3e..5803747 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
-@@ -347,6 +347,8 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+@@ -349,6 +349,8 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
    m_options = options;
  #ifdef HAVE_DVBRIDGE
    m_dvNativeOutput = DVBRIDGE::WantsNativeOutput(hints);
@@ -10,8 +10,8 @@ index 95dfd95..d8a6f25 100644
 +  m_dvHasStreamLightMetadata = false;
  #endif
  
-   const AVCodec* pCodec = nullptr;
-@@ -1257,7 +1259,23 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+   const int doviProfile = hints.dovi.dv_profile;
+@@ -1279,7 +1281,23 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
    {
      pVideoPicture->displayMetadata = *(AVMasteringDisplayMetadata *)sd->data;
      pVideoPicture->hasDisplayMetadata = true;
@@ -35,7 +35,7 @@ index 95dfd95..d8a6f25 100644
    else if (m_hints.masteringMetadata)
    {
      pVideoPicture->displayMetadata = *m_hints.masteringMetadata.get();
-@@ -1268,7 +1286,18 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+@@ -1290,7 +1308,18 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
    {
      pVideoPicture->lightMetadata = *(AVContentLightMetadata *)sd->data;
      pVideoPicture->hasLightMetadata = true;
@@ -55,10 +55,10 @@ index 95dfd95..d8a6f25 100644
    {
      pVideoPicture->lightMetadata = *m_hints.contentLightMetadata.get();
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
-index 3c6375c..271fc2c 100644
+index 59ab88c..4c4f253 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
-@@ -64,6 +64,11 @@ protected:
+@@ -65,6 +65,11 @@ protected:
    std::deque<std::shared_ptr<VideoPicture>> m_dvPending;
    bool m_dvFailed{false};
    bool m_dvNativeOutput{false};
