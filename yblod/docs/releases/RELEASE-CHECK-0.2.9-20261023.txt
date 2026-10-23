@@ -1,0 +1,61 @@
+YBLOD 0.2.9 validation
+
+Build source: 19c8b2acf230c6123dd575ddbe11eec8e7007018 (main after PR #19, upstream LibreELEC of
+2026-10-18 with the pointer add-ons, and PR #20, upstream LibreELEC of 2026-10-23); built from the
+identical tree 962e8d8a4939 as the PR #20 head 9dc4682b.
+LibreELEC upstream base: master 20e5dac7. FFmpeg, libplacebo, the native engine, engine defaults
+and shaders are unchanged from 0.2.8.
+
+Changes since 0.2.8
+- LibreELEC master cd5ed44f -> 20e5dac7. Linux 7.2.9 -> 7.3, Kodi 63063c8e -> e4b62810
+  (268 commits), media-driver 26.4.1, Mesa 26.2.5, LLVM 23.1.4, systemd 262.1, curl 8.23.0,
+  kernel-firmware 20261019, iwlwifi firmware, ath11k WiFi/Bluetooth.
+- service.webostv 0.8.9 -> 0.8.11 (LG edition; bundles Remote Bridge 0.6.5 for the TV).
+- skin.estuary.yblod 4.1.0+yblod.21 -> 4.1.0+yblod.22 (both editions).
+- Patch rebases, with unchanged code changes:
+  linux-9910-yblod-hdmi-qms (Linux 7.3 moved the vsync checks inside the update_lrr condition;
+  the QMS guard wraps only vtotal and vblank_end inside it); kodi-9990-native-dv (regenerated
+  against e4b62810, next to the new Xbox-only doviRpu; LICENSES/GPL-3.0-or-later dropped, Kodi
+  now ships an identical copy); kodi-9997-dv-static-metadata-latch (context).
+All 18 kernel and 55 Kodi patches apply with no fuzz (build logs checked). Both add-on release
+zips and the Kodi, FFmpeg and libplacebo archives match their pinned PKG_SHA256.
+
+Images
+Both: skin.estuary.yblod 4.1.0+yblod.22 in /usr/share/kodi/addons, appliance.xml default
+skin.estuary.yblod. LG: service.webostv 0.8.11 and repository.dangerouslaser 1.0.1, optional.
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version
+strings; KERNEL and kodi.bin are identical. The LG SYSTEM matches the tested 0.2.9-test2-lg
+(same source) apart from the version strings (/etc/issue, os-release, release) and the line
+order of /etc/passwd, /etc/group and addon-manifest.xml; all other files are identical.
+
+Testing (N150, LG B4, on 0.2.9-test2-lg)
+- Boot on Linux 7.3.0: no i915/DRM errors; enable_dv_lab and qms parameters present; no Kodi
+  errors at startup.
+- 1917 (P7 FEL): play, seek 30:00, pause, paused seek +60 s, resume, seek back 10 min, PGS
+  subtitles on/off, playback controls, Home over video, back to fullscreen, stop: all OK,
+  0 Kodi errors. Signal dv=1, 3840x2160 23.976 Hz, RGB tunnel. 3 drops and 2 skips, only right
+  after the back seek with subtitles on, as on 0.2.9-test1-lg (Linux 7.2.9).
+- Engine GPU time, 60 s of 1917 from 30:00, DV_SOURCE_PROFILE=1, GPU clock pinned at RP0
+  (1000 MHz), same box and session: 0.2.9-test1-lg (Linux 7.2.9) mean 12.32 ms, p95 12.45;
+  0.2.9-test2-lg (Linux 7.3.0) mean 12.32 ms, p95 12.46; 1439 frames, 0 drops, 0 skips each.
+- 0.2.9-test1-lg (the 2026-10-18 base) passed the same 1917 run.
+
+SHA256
+Standard update tar: 0f3c7ff78264fcfe850aa2123cc07c949d135873a621315d763fb6c4607a1d74
+Standard install img.gz: 6f2a3aee945e17588fef3067fa7b3a49124ec0b9b03253e6e453c2ecb7b766bd
+Standard SYSTEM: 81dcb4f00d24736ca9ad391b66ce362948e54d0232f4dc37e9e9308a8f446ba9
+LG update tar: 3dc6e9fe9dcb196bafaf45e4f31ffe11983ea267e5c1bc31eaa3c8357d1f1784
+LG install img.gz: d09b468884d3afa36c1dfb18adba02aa3d593847d4bfd21d95d55c0a09572bc0
+LG SYSTEM: 97e16ae56686c463eaf0a0a043f7e6661ec89d4a161126bceabc1b994456b20b
+KERNEL (both): 15dca9d71601d3687eea3b063bae7c27ea7d8f16364436664771d842fb61ea71
+Kodi (both): 3f23118dd7f6e354ef58d624d370a5a302177a986715cc0bd2d530db562fb356
+Engine (both, unchanged): 130795026741f7d949869feef0a0d0955d27ae5edef36b298804f9814948a033
+Runtime defaults (both, unchanged): b72a73f5106f5edeccf0353636814fcfbcd253fa419a8689bf78eed3ebba0556
+Reconstruction shader (both, unchanged): df84e01e770184f7e69f4ea6be015103e8f438180dded08a08e154f918d8b34f
+Pack shader (both, unchanged): 08c4905976366e810d6c5a83be6a50e7aa20dc6d012ee6f422344506d25cf296
+Source bundle: cfd6a4f02350644f424c3cb9dfc0d1c222058f5424ec3f98c3f1f58db811074c
+
+Limitations
+The release images themselves were not installed; testing used 0.2.9-test2-lg, built from the
+same tree. The standard edition was not installed. No visual TV confirmation is part of this
+report. The TV's Remote Bridge app updates to 0.6.5 only through the Remote Bridge set-up.

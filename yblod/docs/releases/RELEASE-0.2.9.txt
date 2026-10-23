@@ -1,0 +1,16 @@
+YBLOD 0.2.9 brings in the latest LibreELEC, Linux 7.3 and Kodi, and the LG TV's own animated pointer.
+
+What changed
+- LibreELEC: the latest LibreELEC 13 development base, as of 23 October. Linux 7.3 (from 7.2.9), Intel media driver 26.4.1 (hardware video decoding), Mesa 26.2.5, LLVM 23.1.4, systemd 262.1, curl 8.23.0, new kernel and Intel WiFi firmware, and WiFi/Bluetooth support for Qualcomm ath11k cards.
+- Kodi: updated with 268 changes since 0.2.8. Among them: Blu-ray folders prefer the Dolby Vision copy of a playlist, a hidden subtitle stream is reopened when shown again, audio sync fixes, artwork and images load more smoothly, a stream that is already selected is no longer reopened, and fixes to library cleaning, slideshows and several rare hangs.
+- LG edition, with a TV running the Remote Bridge app: Kodi's mouse pointer is the TV's own webOS pointer and animates like it (it turns into the scroll wheel while scrolling, grows in, fades out and shrinks when pressed), and a button press no longer hides it. "Pointer stays up for the arrow buttons" (LG TV settings) keeps it up for the arrows too. After updating, run the Remote Bridge set-up once to update the app on the TV to 0.6.5.
+- LG webOS TV Control 0.8.11 and Estuary YBLOD 4.1.0+yblod.22 (both editions). Kodi now restarts an animated image from its first frame each time it appears.
+- The native Dolby Vision engine is unchanged from 0.2.8; its kernel and Kodi patches are carried over to Linux 7.3 and the new Kodi. On the N150 its GPU time is the same as on Linux 7.2.9. Both editions are built from the same source.
+
+If you run 0.2.8
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
