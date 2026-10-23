@@ -27,16 +27,22 @@ diff -ru a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/d
  
  	return 0;
  }
-@@ -5260,7 +5265,8 @@
+@@ -5307,10 +5312,13 @@
  		PIPE_CONF_CHECK_I(name.crtc_vblank_start); \
- 	PIPE_CONF_CHECK_I(name.crtc_vsync_start); \
- 	PIPE_CONF_CHECK_I(name.crtc_vsync_end); \
--	if (!fastset || !pipe_config->update_lrr) { \
-+	if ((!fastset || !pipe_config->update_lrr) && \
-+	    current_config->qms.lines_den <= 1 && pipe_config->qms.lines_den <= 1) { \
- 		PIPE_CONF_CHECK_I(name.crtc_vtotal); \
- 		PIPE_CONF_CHECK_I(name.crtc_vblank_end); \
+ 	if (!fastset || !pipe_config->update_lrr) { \
+ 		PIPE_CONF_CHECK_I(name.crtc_vsync_start); \
+ 		PIPE_CONF_CHECK_I(name.crtc_vsync_end); \
+-		PIPE_CONF_CHECK_I(name.crtc_vtotal); \
+-		PIPE_CONF_CHECK_I(name.crtc_vblank_end); \
++		if (current_config->qms.lines_den <= 1 && \
++		    pipe_config->qms.lines_den <= 1) { \
++			PIPE_CONF_CHECK_I(name.crtc_vtotal); \
++			PIPE_CONF_CHECK_I(name.crtc_vblank_end); \
++		} \
  	} \
+ } while (0)
+ 
+ #define PIPE_CONF_CHECK_RECT(name) do { \
 diff -ru a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h	2026-10-04 16:49:40.170088202 -0400
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h	2026-10-04 16:49:40.207578888 -0400
