@@ -12,6 +12,7 @@ int dv_reference_chroma_batch(const dv_intel_composer_config *,unsigned,size_t,c
 int dv_mmr_luma_guide(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
 int dv_chroma_phase_left(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t);
 int dv_annex_b_scale2x(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t,uint16_t *,size_t);
+int dv_nearest_scale2x(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
 struct dv_engine {int busy;dv_luma_backend luma;void *opaque;dv_chain_backend chain;void *chain_opaque;dv_chroma_backend chroma;void *chroma_opaque;int resident_guide,resident_reconstruction;dv_reconstruct_backend reconstruct;void *reconstruct_opaque;unsigned workers;dv_timings timings;dv_colour_backend colour;void *colour_opaque;};
 int dv_engine_set_colour_backend(dv_engine *e,dv_colour_backend f,void *p)
 {if(!e || e->busy || (f && !e->reconstruct))return -1;e->colour=f;e->colour_opaque=p;e->resident_reconstruction=0;return 0;}
@@ -120,12 +121,14 @@ dv_status dv_engine_process(dv_engine *e,const dv_image *bl,const dv_image *el,
         out->width!=w || out->height!=h || bl->memory || el->memory || out->memory ||
         bl->format!=DV_PLANAR420_10 || el->format!=DV_PLANAR420_10 || out->format!=DV_PLANAR444_12)
         return DV_UNSUPPORTED;
-    if (s->abi_version!=DV_ENGINE_ABI || s->pq_policy>1 || s->chroma_phase>1 || s->el_scaler!=1 ||
+    if (s->abi_version!=DV_ENGINE_ABI || s->pq_policy>1 || s->chroma_phase>1 || s->el_scaler>1 ||
         s->colour_cache>2 || s->composer.el_spatial_resampling_flag>1 || s->composer.base_full_range>1 ||
         s->active[0]>=s->active[2] || s->active[1]>=s->active[3] || s->active[2]>w || s->active[3]>h ||
         s->active[0]%2 || s->active[2]%2) return DV_UNSUPPORTED;
     /* Existing whole-frame/chain backends require half-size enhancement input. */
     if(scale==1 && (e->reconstruct || e->chain))return DV_UNSUPPORTED;
+    /* Chain backends scale the EL themselves, the Annex B way only. */
+    if(scale==2 && !s->el_scaler && e->chain)return DV_UNSUPPORTED;
     for (unsigned c=0;c<3;++c) {
         unsigned cw=c?w/2:w,ch=c?h/2:h;
         if (!plane_valid(&bl->plane[c],cw,ch) || !plane_valid(&el->plane[c],cw/scale,ch/scale) ||
@@ -192,14 +195,17 @@ dv_status dv_engine_process(dv_engine *e,const dv_image *bl,const dv_image *el,
             ALLOC(ph,count,uint16_t);
             CHECK(dv_chroma_phase_left(base[c],count,cw,ch,s->chroma_phase,ph,count),DV_UNSUPPORTED);
             free(base[c]);base[c]=ph;ph=NULL;
+            /* Nearest repeats the EL chroma as decoded: no phase filter. */
+            if(scale==1 || s->el_scaler){
             ALLOC(ph,enhancement_count,uint16_t);
             CHECK(dv_chroma_phase_left(raw,enhancement_count,cw/scale,ch/scale,s->chroma_phase,ph,enhancement_count),DV_UNSUPPORTED);
-            free(raw);raw=ph;ph=NULL;
+            free(raw);raw=ph;ph=NULL;}
         }
         if(scale==1 || (!c && e->chain)){enh[c]=raw;raw=NULL;}
         else {
             ALLOC(enh[c],count,uint16_t);ALLOC(scratch,cw/2,uint16_t);
-            CHECK(dv_annex_b_scale2x(raw,count/4,cw/2,ch/2,c!=0,scratch,cw/2,enh[c],count),DV_UNSUPPORTED);
+            if(!s->el_scaler)CHECK(dv_nearest_scale2x(raw,count/4,cw/2,ch/2,enh[c],count),DV_UNSUPPORTED);
+            else CHECK(dv_annex_b_scale2x(raw,count/4,cw/2,ch/2,c!=0,scratch,cw/2,enh[c],count),DV_UNSUPPORTED);
             free(raw);raw=NULL;free(scratch);scratch=NULL;
             for(size_t i=0;i<count;++i) CHECK(enh[c][i]>1023,DV_SAMPLE_RANGE);
         }

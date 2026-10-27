@@ -9,6 +9,7 @@
 int dv_mmr_luma_guide(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
 int dv_chroma_phase_left(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t);
 int dv_annex_b_scale2x(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t,uint16_t *,size_t);
+int dv_nearest_scale2x(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
 int dv_reference_chroma_batch(const dv_intel_composer_config *,unsigned,size_t,
  const uint16_t *,const uint16_t *,const uint16_t *,const uint16_t *,uint16_t *,int32_t *,int32_t *,uint16_t *);
 
@@ -33,12 +34,15 @@ int main(int argc,char **argv)
     assert(device);cl_int error;
     cl_context context=clCreateContext(NULL,1,&device,NULL,NULL,&error);assert(context&&!error);
     void *backend=dv_opencl_create_source_at(context,device,argv[1]);assert(backend);
-    size_t compared=0,fel_changed=0;dv_frame_settings s;
+    size_t compared=0,fel_changed=0;unsigned cases=0;dv_frame_settings s;
     /* Reuse one backend across polynomial/MMR and geometry changes to exercise
      * cache/dispatch transitions as well as all four chroma method pairings. */
+    /* el_scaler 1 (Annex B) and 0 (big-fella's nearest; only scale 2 differs). */
+    for(unsigned scaler=0;scaler<2;++scaler)
     for(unsigned scale=1;scale<=2;++scale)for(unsigned phase=0;phase<2;++phase)
     for(unsigned methods=0;methods<4;++methods)for(unsigned piecewise=0;piecewise<2;++piecewise){
-        memset(&s,0,sizeof(s));s.abi_version=DV_ENGINE_ABI;s.chroma_phase=phase;
+        if(!scaler&&scale==1)continue;++cases;
+        memset(&s,0,sizeof(s));s.abi_version=DV_ENGINE_ABI;s.chroma_phase=phase;s.el_scaler=scaler;
         dv_intel_composer_config *cfg=&s.composer;cfg->abi_version=1;
         cfg->base_depth=cfg->enhancement_depth=10;cfg->reconstruction_depth=12;
         cfg->coefficient_log2_denominator=23;cfg->residual_enabled=1;cfg->el_spatial_resampling_flag=scale==2;
@@ -63,9 +67,11 @@ int main(int argc,char **argv)
             for(size_t i=0;i<n;++i){base[c][i]=(uint16_t)(128+(i*73+c*101)%768);enh[c][i]=(uint16_t)(128+(i*37+c*91)%768);}
             if(c){
                 assert(!dv_chroma_phase_left(base[c],n,w,h,phase,aligned[c],n));
-                assert(!dv_chroma_phase_left(enh[c],n/(scale*scale),w/scale,h/scale,phase,temporary,n/(scale*scale)));
+                if(scaler||scale==1)assert(!dv_chroma_phase_left(enh[c],n/(scale*scale),w/scale,h/scale,phase,temporary,n/(scale*scale)));
+                else memcpy(temporary,enh[c],n/4*2);
             }else{memcpy(aligned[c],base[c],n*2);memcpy(temporary,enh[c],n/(scale*scale)*2);}
-            if(scale==2)assert(!dv_annex_b_scale2x(temporary,n/4,w/2,h/2,c!=0,scratch,w/2,scaled[c],n));
+            if(scale==2&&!scaler)assert(!dv_nearest_scale2x(temporary,n/4,w/2,h/2,scaled[c],n));
+            else if(scale==2)assert(!dv_annex_b_scale2x(temporary,n/4,w/2,h/2,c!=0,scratch,w/2,scaled[c],n));
             else memcpy(scaled[c],temporary,n*2);
         }
         assert(!dv_mmr_luma_guide(base[0],N,W,H,guide,N/4));
@@ -78,7 +84,7 @@ int main(int argc,char **argv)
                 assert(!dv_reference_polynomial(cfg,0,aligned[0][i],scaled[0][i],&m,&r,&expected[i]));}
             for(size_t i=0;i<n;++i){
                 if(actual[c][i]!=expected[i]){
-                    fprintf(stderr,"mismatch scale=%u phase=%u methods=%u piecewise=%u c=%u i=%zu GPU=%u CPU=%u\n",scale,phase,methods,piecewise,c,i,actual[c][i],expected[i]);
+                    fprintf(stderr,"mismatch scaler=%u scale=%u phase=%u methods=%u piecewise=%u c=%u i=%zu GPU=%u CPU=%u\n",scaler,scale,phase,methods,piecewise,c,i,actual[c][i],expected[i]);
                     assert(0);
                 }
                 ++compared;
@@ -92,7 +98,7 @@ int main(int argc,char **argv)
     assert(fel_changed>0);
     /* Filter ringing may exceed the input-code range. Fail closed, and never
      * index the 1024-entry residual table with an out-of-range scaled sample. */
-    s.chroma_phase=0;s.composer.component[1].mapping=0;s.composer.component[2].mapping=0;
+    s.chroma_phase=0;s.el_scaler=1;s.composer.component[1].mapping=0;s.composer.component[2].mapping=0;
     for(unsigned c=0;c<3;++c)for(unsigned i=0;i<N;++i){
         base[c][i]=512;enh[c][i]=c?(i%(W/4)<W/8?0:1023):512;
     }
@@ -102,6 +108,9 @@ int main(int argc,char **argv)
     const uint16_t *bl[3]={base[0],base[1],base[2]},*el[3]={enh[0],enh[1],enh[2]};
     uint16_t *out[3]={actual[0],actual[1],actual[2]};
     assert(dv_opencl_reconstruct(backend,&s,W,H,bl,el,out,NULL)==DV_SAMPLE_RANGE);
-    printf("GPU polynomial/MMR FEL: 32 cases, %zu samples, zero differences; %zu chroma samples changed by FEL\n",compared,fel_changed);
+    /* Nearest never overshoots: the same frame reconstructs. */
+    s.el_scaler=0;assert(dv_opencl_reconstruct(backend,&s,W,H,bl,el,out,NULL)==DV_OK);
+    s.el_scaler=2;assert(dv_opencl_reconstruct(backend,&s,W,H,bl,el,out,NULL)==DV_UNSUPPORTED);
+    printf("GPU polynomial/MMR FEL: %u cases (Annex B and nearest), %zu samples, zero differences; %zu chroma samples changed by FEL\n",cases,compared,fel_changed);
     dv_opencl_destroy(backend);clReleaseContext(context);return 0;
 }

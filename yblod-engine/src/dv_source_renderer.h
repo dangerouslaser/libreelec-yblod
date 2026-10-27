@@ -94,6 +94,12 @@ int dv_source_renderer_drain(void *);
  * storage. The latter checks scheduling, not independent colour arithmetic. */
 int dv_source_renderer_check(void *,const unsigned char *,size_t);
 int dv_source_renderer_destroy(void *);
+/* big-fella, additive: how the next submissions upscale a half-size
+ * enhancement layer (0 nearest neighbour, 1 the CCM Annex B filters; default
+ * DV_EL_SCALER, else 1), and whether a full enhancement layer is composed
+ * (0: its base layer only, identity mapping; default DV_FEL, else 1). */
+int dv_source_renderer_set_el_scaler(void *,unsigned scaler);
+int dv_source_renderer_set_fel(void *,int enabled);
 #ifdef __cplusplus
 }
 #endif

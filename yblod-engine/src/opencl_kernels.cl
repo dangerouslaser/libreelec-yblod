@@ -37,8 +37,10 @@ kernel void phase(INPUT_PLANE src,global ushort *dst,uint w,uint h,uint method I
     else {int c[4]={-9,111,29,-3};for(int k=0;k<4;k++)v+=c[k]*(int)INPUT_AT(src,w,x,(uint)edge((int)y+k-1,h));}
     dst[i]=min(rounded(v,method?128:4),(ushort)1023);
 }
-kernel void vertical(INPUT_PLANE src,global ushort *dst,uint w,uint h,uint chroma INPUT_EXTRA){
+/* nearest (big-fella): el_scaler 0, each EL row repeated (y/2), no filter. */
+kernel void vertical(INPUT_PLANE src,global ushort *dst,uint w,uint h,uint chroma INPUT_EXTRA,uint nearest){
     uint x=GRID_X(w),y=GRID_Y(w),i=y*w+x;if(i>=w*h*2)return;int row=(int)(y/2),v=0;
+    if(nearest){dst[i]=INPUT_AT(src,w,x,(uint)row);return;}
     if(chroma){int a=(y&1)?192:64,b=256-a,r0=(y&1)?row:row-1,r1=(y&1)?row+1:row;
         v=a*(int)INPUT_AT(src,w,x,(uint)edge(r0,h))+b*(int)INPUT_AT(src,w,x,(uint)edge(r1,h));}
     else {int even[4]={-3,29,111,-9},odd[4]={-9,111,29,-3};int first=(y&1)?row-1:row-2;
@@ -54,18 +56,19 @@ ushort phase_sample(INPUT_PLANE src,uint w,uint h,uint x,int row,uint method INP
  else {int taps[4]={-9,111,29,-3};for(int k=0;k<4;k++)v+=taps[k]*(int)INPUT_AT(src,w,x,(uint)edge((int)y+k-1,h));}
  return min(rounded(v,method?128:4),(ushort)1023);
 }
-kernel void phase_vertical(INPUT_PLANE src,global ushort *dst,uint w,uint h,uint method INPUT_EXTRA){
+kernel void phase_vertical(INPUT_PLANE src,global ushort *dst,uint w,uint h,uint method INPUT_EXTRA,uint nearest){
  uint x=GRID_X(w),y=GRID_Y(w);if(x>=w||y>=h)return;
+ if(nearest){ushort v=INPUT_AT(src,w,x,y);dst[y*2*w+x]=v;dst[(y*2+1)*w+x]=v;return;}
  uint a=phase_sample(src,w,h,x,(int)y-1,method INPUT_PASS),b=phase_sample(src,w,h,x,(int)y,method INPUT_PASS),c=phase_sample(src,w,h,x,(int)y+1,method INPUT_PASS);
  dst[y*2*w+x]=(ushort)((64u*a+192u*b+128u)/256u);
  dst[(y*2+1)*w+x]=(ushort)((192u*b+64u*c+128u)/256u);
 }
-ushort horizontal(global const ushort *src,uint w,uint x,uint y){
-    uint ix=x/2;if(!(x&1))return src[y*w+ix];int taps[8]={22,94,-524,2456,2456,-524,94,22},v=0;
+ushort horizontal(global const ushort *src,uint w,uint x,uint y,uint nearest){
+    uint ix=x/2;if(!(x&1)||nearest)return src[y*w+ix];int taps[8]={22,94,-524,2456,2456,-524,94,22},v=0;
     for(int k=0;k<8;k++)v+=taps[k]*(int)src[y*w+(uint)edge((int)ix+k-3,w)];return rounded(v,4096);
 }
-kernel void scale_horizontal(global const ushort *src,global ushort *dst,global uint *error,uint w,uint h){
-    uint x=GRID_X(w),y=GRID_Y(w),i=y*w+x;if(i>=w*h)return;ushort v=horizontal(src,w/2,x,y);dst[i]=v;
+kernel void scale_horizontal(global const ushort *src,global ushort *dst,global uint *error,uint w,uint h,uint nearest){
+    uint x=GRID_X(w),y=GRID_Y(w),i=y*w+x;if(i>=w*h)return;ushort v=horizontal(src,w/2,x,y,nearest);dst[i]=v;
     if(v>1023)atomic_or(error,1u);
 }
 ushort guide_sample(INPUT_PLANE src,uint w,uint h,uint gx,uint gy INPUT_EXTRA){
@@ -93,8 +96,8 @@ kernel void luma_equal(INPUT_PLANE bl,INPUT_PLANE el,global const ushort *mt,glo
     if(diag){mapped[i]=(ushort)m;residual[i]=r;sum[i]=(int)total;}
 }
 kernel void luma(global const ushort *bl,global const ushort *temp,global const ushort *mt,global const int *rt,
-    global ushort *mapped,global int *residual,global int *sum,global ushort *out,global uint *error,uint w,uint h,uint diag){
-    uint x=GRID_X(w),y=GRID_Y(w),i=y*w+x;if(i>=w*h)return;ushort el=horizontal(temp,w/2,x,y);
+    global ushort *mapped,global int *residual,global int *sum,global ushort *out,global uint *error,uint w,uint h,uint diag,uint nearest){
+    uint x=GRID_X(w),y=GRID_Y(w),i=y*w+x;if(i>=w*h)return;ushort el=horizontal(temp,w/2,x,y,nearest);
     if(el>1023){atomic_or(error,1u);return;}uint m=mt[bl[i]];int r=rt[el];
     long total=(long)m+r;if(total>2147483647L || total<(-2147483647L-1L)){atomic_or(error,2u);return;}
     int t=(int)total;out[i]=(ushort)clamp(total>-8?(total+8)/16:0L,0L,4095L);if(diag){mapped[i]=(ushort)m;residual[i]=r;sum[i]=t;}
@@ -102,10 +105,10 @@ kernel void luma(global const ushort *bl,global const ushort *temp,global const 
 /* Adjacent-pixel reconstruction: makes the even passthrough / odd horizontal
  * filter explicit within each work item instead of diverging across lanes. */
 kernel void luma_pair(INPUT_PLANE bl,global const ushort *temp,global const ushort *mt,global const int *rt,
-    global ushort *mapped,global int *residual,global int *sum,global ushort *out,global uint *error,uint w,uint h,uint diag){
+    global ushort *mapped,global int *residual,global int *sum,global ushort *out,global uint *error,uint w,uint h,uint diag,uint nearest){
     uint sx=GRID_X(w/2),y=GRID_Y(w/2);if(sx>=w/2||y>=h)return;
     #pragma unroll
-    for(uint lane=0;lane<2;++lane){uint x=sx*2+lane,i=y*w+x;ushort el=horizontal(temp,w/2,x,y);
+    for(uint lane=0;lane<2;++lane){uint x=sx*2+lane,i=y*w+x;ushort el=horizontal(temp,w/2,x,y,nearest);
         if(el>1023){atomic_or(error,1u);continue;}
 #ifdef DV_INPUT_P010
         uint m=mt[input_sample(bl,w,x,y,0,error)];
@@ -137,14 +140,16 @@ kernel void phase_guide(read_only image2d_t luma,read_only image2d_t uv,
  uint i=y*(w/2)+x;ushort2 value=phase_uv_sample(uv,x,(int)y,h/2,method,error);
  cb[i]=value.x;cr[i]=value.y;guide_out[i]=guide_sample(luma,w,h,x,y,0,error);
 }
-kernel void phase_vertical_uv(read_only image2d_t src,global ushort *cb,global ushort *cr,uint w,uint h,uint method,global uint *error){
+kernel void phase_vertical_uv(read_only image2d_t src,global ushort *cb,global ushort *cr,uint w,uint h,uint method,global uint *error,uint nearest){
  uint x=GRID_X(w),y=GRID_Y(w);if(x>=w||y>=h)return;
+ if(nearest){ushort2 v=input_uv(src,x,y,error);cb[y*2*w+x]=cb[(y*2+1)*w+x]=v.x;cr[y*2*w+x]=cr[(y*2+1)*w+x]=v.y;return;}
  uint2 a=convert_uint2(phase_uv_sample(src,x,(int)y-1,h,method,error)),b=convert_uint2(phase_uv_sample(src,x,(int)y,h,method,error)),c=convert_uint2(phase_uv_sample(src,x,(int)y+1,h,method,error));
  ushort2 even=convert_ushort2((64u*a+192u*b+128u)/256u),odd=convert_ushort2((192u*b+64u*c+128u)/256u);
  cb[y*2*w+x]=even.x;cr[y*2*w+x]=even.y;cb[(y*2+1)*w+x]=odd.x;cr[(y*2+1)*w+x]=odd.y;
 }
-kernel void vertical_pair(read_only image2d_t src,global ushort *dst,uint w,uint h,uint chroma,uint channel,global uint *error){
+kernel void vertical_pair(read_only image2d_t src,global ushort *dst,uint w,uint h,uint chroma,uint channel,global uint *error,uint nearest){
  uint x=GRID_X(w),y=GRID_Y(w);if(x>=w||y>=h)return;(void)chroma;
+ if(nearest){ushort v=input_sample(src,w,x,y,channel,error);dst[y*2*w+x]=v;dst[(y*2+1)*w+x]=v;return;}
  int s0=input_sample(src,w,x,(uint)edge((int)y-2,h),channel,error),s1=input_sample(src,w,x,(uint)edge((int)y-1,h),channel,error),s2=input_sample(src,w,x,y,channel,error),s3=input_sample(src,w,x,(uint)edge((int)y+1,h),channel,error),s4=input_sample(src,w,x,(uint)edge((int)y+2,h),channel,error);
  dst[y*2*w+x]=rounded(-3*s0+29*s1+111*s2-9*s3,128);dst[(y*2+1)*w+x]=rounded(-9*s1+111*s2+29*s3-3*s4,128);
 }
@@ -152,7 +157,7 @@ kernel void vertical_pair(read_only image2d_t src,global ushort *dst,uint w,uint
  * co-sited BL chroma phase and guide sample, reading each BL luma sample once. */
 kernel void luma_phase_guide(read_only image2d_t bl,global const ushort *temp,global const ushort *mt,global const int *rt,
     global ushort *mapped,global int *residual,global int *sum,global ushort *out,global uint *error,uint w,uint h,uint diag,
-    read_only image2d_t uv,global ushort *cb,global ushort *cr,global ushort *guide_out,uint method){
+    read_only image2d_t uv,global ushort *cb,global ushort *cr,global ushort *guide_out,uint method,uint nearest){
  uint gx=GRID_X(w/2),gy=GRID_Y(w/2);if(gx>=w/2||gy>=h/2)return;
  uint gi=gy*(w/2)+gx;ushort2 value=phase_uv_sample(uv,gx,(int)gy,h/2,method,error);cb[gi]=value.x;cr[gi]=value.y;
  uint x0=gx*2,left=(uint)edge((int)x0-1,w),s[2][3],a[2];
@@ -164,7 +169,7 @@ kernel void luma_phase_guide(read_only image2d_t bl,global const ushort *temp,gl
  #pragma unroll
  for(uint r=0;r<2;++r){uint y=gy*2+r;
   #pragma unroll
-  for(uint lane=0;lane<2;++lane){uint x=x0+lane,i=y*w+x;ushort el=horizontal(temp,w/2,x,y);
+  for(uint lane=0;lane<2;++lane){uint x=x0+lane,i=y*w+x;ushort el=horizontal(temp,w/2,x,y,nearest);
    if(el>1023){atomic_or(error,1u);continue;}
    uint m=mt[s[r][1+lane]];int rv=rt[el];
    long total=(long)m+rv;if(total>2147483647L || total<(-2147483647L-1L)){atomic_or(error,2u);continue;}
@@ -424,14 +429,14 @@ kernel void mmr64_lut_dual(global const ushort *y,global const ushort *cb,global
 kernel void mmr64_lut_dual_horizontal(global const ushort *y,global const ushort *cb,global const ushort *cr,
     global const ushort *el0,global const ushort *el1,global const uint *p0,global const uint *p1,
     global const int *rt0,global const int *rt1,global ushort *out0,global ushort *out1,
-    global uint *error,uint count,global const long *table0,global const long *table1,uint width){
+    global uint *error,uint count,global const long *table0,global const long *table1,uint width,uint nearest){
     /* One even/odd pair per work item (count and width are even): parity no
      * longer diverges within a subgroup. Keep the loop rolled; unrolling two
      * order-3 pixels was slower on N150. Host launches count/2 work items. */
     uint first=get_global_id(0)*2;if(first>=count)return;uint x=first%width,row=first/width;
     #pragma unroll 1
     for(uint lane=0;lane<2;++lane){uint i=first+lane;
-    uint2 enhancement=(uint2)(horizontal(el0,width/2,x+lane,row),horizontal(el1,width/2,x+lane,row));
+    uint2 enhancement=(uint2)(horizontal(el0,width/2,x+lane,row,nearest),horizontal(el1,width/2,x+lane,row,nearest));
     mmr64_dual_pixel(i,enhancement,DUAL_PASS);}
 }
 #undef DUAL_ARGS

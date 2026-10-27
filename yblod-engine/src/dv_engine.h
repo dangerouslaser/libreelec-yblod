@@ -25,7 +25,7 @@ typedef struct {
     uint32_t active[4]; /* left,top,right,bottom; exclusive end */
     uint32_t pq_policy; /* 0 strict; 1 historical negative-zero/positive-extension */
     uint32_t chroma_phase; /* 0 linear-left; 1 cubic-left diagnostic policy */
-    uint32_t el_scaler; /* 1 existing Annex-B reference; not metadata-selected */
+    uint32_t el_scaler; /* 0 nearest (2x2 replication, no EL chroma phase); 1 CCM Annex B. Not metadata-selected */
     uint32_t colour_cache; /* 0 direct; 1 exact; 2 adaptive exact */
     double target_ycc[9],target_lms[9],target_offset[3];
 } dv_frame_settings;

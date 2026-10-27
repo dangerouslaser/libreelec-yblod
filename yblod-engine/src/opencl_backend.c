@@ -62,6 +62,9 @@ typedef struct {
     unsigned row_request[2],row_window[2],row_checks;int verify_rows;
     int base_fused,verify_base,luma_guide;unsigned base_checks;
     int horizontal_fused,verify_horizontal;unsigned horizontal_checks;
+    /* big-fella: this frame's EL upscale is nearest (el_scaler 0). */
+    unsigned nearest;
+    unsigned verify_el,el_checks;
 } backend;
 static const char *names[8]={"phase","vertical","scale_horizontal","guide","luma","mmr","colour","colour_refine"};
 void dv_opencl_destroy(void *opaque)
@@ -122,6 +125,9 @@ static void *create_backend(cl_context supplied,cl_device_id supplied_device,int
     const char *dual_verify=getenv("DV_DUAL_TABLE_CACHE_VERIFY");b->dual_verify=dual_verify&&!strcmp(dual_verify,"1");
     const char *verify_base=getenv("DV_VERIFY_BASE_PREP");b->verify_base=verify_base&&!strcmp(verify_base,"1");
     /* DV_VERIFY_ACTIVE_ROWS=N: check the first N windowed frames (1 means 3). */
+    /* big-fella: DV_VERIFY_EL=N checks the first N scaled-EL frames of the
+     * direct route against the CPU reference (pixel_*.c), byte for byte. */
+    const char *verify_el=getenv("DV_VERIFY_EL");b->verify_el=verify_el?(unsigned)strtoul(verify_el,NULL,10):0;
     const char *verify_rows=getenv("DV_VERIFY_ACTIVE_ROWS");b->verify_rows=verify_rows?atoi(verify_rows):0;if(b->verify_rows==1)b->verify_rows=3;if(b->verify_rows<0)b->verify_rows=0;
     if(supplied){err=clRetainContext(supplied);if(err)goto fail;b->context=supplied;}else b->context=clCreateContext(NULL,1,&device,NULL,NULL,&err);if(!b->context || err)goto fail;
     b->queue=clCreateCommandQueue(b->context,device,CL_QUEUE_PROFILING_ENABLE,&err);if(!b->queue || err)goto fail;
@@ -412,7 +418,7 @@ static int luma_pair_args(backend *b,unsigned k,unsigned w,unsigned h,unsigned d
 {
  const unsigned slots[9]={B,V,MT,RT,M,R,S,O,ERR};if(inputarg(b,k,B,0))return -1;
  for(unsigned a=1;a<9;++a)if(memarg(b,k,a,slots[a]))return -1;
- return uintarg(b,k,9,w)||uintarg(b,k,10,h)||uintarg(b,k,11,diag);
+ return uintarg(b,k,9,w)||uintarg(b,k,10,h)||uintarg(b,k,11,diag)||uintarg(b,k,k==29?17u:12u,b->nearest);
 }
 /* Fused route: BL chroma phase and guide come from the luma kernel. Check
  * them as above, then rerun luma_pair and compare the luma output. */
@@ -504,8 +510,8 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
     const uint16_t *const bl[3],const uint16_t *const el[3],uint16_t *const out[3],const dv_observer *observer,int resident_only,int enqueue_only)
 {
     backend *b=opaque;if(b){b->resident_ready=0;b->output_ready=0;}if(!b || !s || (!b->shared_prepared&&(!bl||!el)) || !out || !w || !h || w>4096 || h>4096 || w%4 || h%4 || s->chroma_phase>1)return DV_INVALID;
-    if(s->composer.el_spatial_resampling_flag>1)return DV_UNSUPPORTED;
-    int equal=!s->composer.el_spatial_resampling_flag;unsigned area_scale=equal?1u:4u;
+    if(s->composer.el_spatial_resampling_flag>1||s->el_scaler>1)return DV_UNSUPPORTED;
+    int equal=!s->composer.el_spatial_resampling_flag;unsigned area_scale=equal?1u:4u;b->nearest=!s->el_scaler;
     const char *trace=getenv("DV_SOURCE_SUBMIT_TRACE");int tracing=trace&&!strcmp(trace,"1")&&b->submit_traces<6;
     double started=tracing?host_seconds():0,prepared=0,uploaded=0;
     for(unsigned c=0;c<3;++c)if((!b->shared_prepared&&(!bl[c]||!el[c])) || ((!resident_only || (observer && observer->stage)) && !out[c]))return DV_INVALID;
@@ -593,13 +599,13 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
             DO(inputextra(b,k,5,c-1));DO(dispatch_spatial(b,k,cw,ch,2));
         }else{
         if(!c||!b->filter_fused||b->verify_filter){
-            if(c){DO(memarg(b,0,0,E+c));DO(memarg(b,0,1,EP));DO(uintarg(b,0,2,cw/2));DO(uintarg(b,0,3,ch/2));DO(uintarg(b,0,4,s->chroma_phase));DO(dispatch_spatial(b,0,cw/2,ch/2,4));input=EP;}
-            unsigned vk=b->direct_active?24u:1u;DO(inputarg(b,vk,input,2));DO(memarg(b,vk,1,V));DO(uintarg(b,vk,2,cw/2));DO(uintarg(b,vk,3,ch/2));DO(uintarg(b,vk,4,c!=0));DO(inputextra(b,vk,5,0));DO(dispatch_spatial(b,vk,cw/2,b->direct_active?ch/2:ch,(c?2u:1u)*(b->direct_active?2u:1u)));
+            if(c&&!b->nearest){DO(memarg(b,0,0,E+c));DO(memarg(b,0,1,EP));DO(uintarg(b,0,2,cw/2));DO(uintarg(b,0,3,ch/2));DO(uintarg(b,0,4,s->chroma_phase));DO(dispatch_spatial(b,0,cw/2,ch/2,4));input=EP;}
+            unsigned vk=b->direct_active?24u:1u;DO(inputarg(b,vk,input,2));DO(memarg(b,vk,1,V));DO(uintarg(b,vk,2,cw/2));DO(uintarg(b,vk,3,ch/2));DO(uintarg(b,vk,4,c!=0));DO(inputextra(b,vk,5,0));DO(uintarg(b,vk,b->direct_active?7u:5u,b->nearest));DO(dispatch_spatial(b,vk,cw/2,b->direct_active?ch/2:ch,(c?2u:1u)*(b->direct_active?2u:1u)));
         }
         if(c&&b->filter_fused){size_t bytes=(size_t)cw*ch;
             if(b->verify_filter){host_m=malloc(bytes);host_r=malloc(bytes);if(!host_m||!host_r)goto done;DO(read_buffer_sync(b,V,host_m,bytes));}
-            if(b->direct_active){if(c==1){DO(inputarg(b,23,E+c,3));DO(memarg(b,23,1,V));DO(memarg(b,23,2,VP));DO(uintarg(b,23,3,cw/2));DO(uintarg(b,23,4,ch/2));DO(uintarg(b,23,5,s->chroma_phase));DO(memarg(b,23,6,ERR));DO(dispatch_spatial(b,23,cw/2,ch/2,4));}}
-            else {unsigned fk=11;DO(inputarg(b,fk,E+c,3));DO(memarg(b,fk,1,V));DO(uintarg(b,fk,2,cw/2));DO(uintarg(b,fk,3,ch/2));DO(uintarg(b,fk,4,s->chroma_phase));DO(inputextra(b,fk,5,c-1));DO(dispatch_spatial(b,fk,cw/2,ch/2,4));}
+            if(b->direct_active){if(c==1){DO(inputarg(b,23,E+c,3));DO(memarg(b,23,1,V));DO(memarg(b,23,2,VP));DO(uintarg(b,23,3,cw/2));DO(uintarg(b,23,4,ch/2));DO(uintarg(b,23,5,s->chroma_phase));DO(memarg(b,23,6,ERR));DO(uintarg(b,23,7,b->nearest));DO(dispatch_spatial(b,23,cw/2,ch/2,4));}}
+            else {unsigned fk=11;DO(inputarg(b,fk,E+c,3));DO(memarg(b,fk,1,V));DO(uintarg(b,fk,2,cw/2));DO(uintarg(b,fk,3,ch/2));DO(uintarg(b,fk,4,s->chroma_phase));DO(inputextra(b,fk,5,c-1));DO(uintarg(b,fk,b->direct_active?7u:5u,b->nearest));DO(dispatch_spatial(b,fk,cw/2,ch/2,4));}
             if(b->verify_filter){DO(read_buffer_sync(b,V,host_r,bytes));size_t different=0;for(size_t j=0;j<bytes;++j)different+=((unsigned char *)host_m)[j]!=((unsigned char *)host_r)[j];
                 fprintf(stderr,"{\"filter_verified_pts\":%lld,\"channel\":%u,\"compared_bytes\":%zu,\"byte_differences\":%zu}\n",(long long)s->identity.pts,c,bytes,different);
                 free(host_m);free(host_r);host_m=host_r=NULL;if(different)goto done;}
@@ -611,12 +617,12 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
         else if(!c){unsigned verify=b->verify_recon&&b->luma_pair;
             for(unsigned route=0;route<(verify?2u:1u);++route){unsigned kernel=b->direct_active?21u:b->luma_pair&&!route?12u:4u;
                 unsigned slots[9]={B,V,MT,RT,M,R,S,O,ERR};DO(inputarg(b,kernel,B,0));for(unsigned a=1;a<9;++a)DO(memarg(b,kernel,a,slots[a]));
-                DO(uintarg(b,kernel,9,w));DO(uintarg(b,kernel,10,h));DO(uintarg(b,kernel,11,(unsigned)diag));DO(dispatch_spatial(b,kernel,kernel==12||kernel==21?w/2:w,h,1));
+                DO(uintarg(b,kernel,9,w));DO(uintarg(b,kernel,10,h));DO(uintarg(b,kernel,11,(unsigned)diag));DO(uintarg(b,kernel,12,b->nearest));DO(dispatch_spatial(b,kernel,kernel==12||kernel==21?w/2:w,h,1));
                 if(verify)DO(verify_recon_output(b,s,c,n,route,&host_m));
             }}
         else {
             if(!equal&&(!horizontal_fused||b->verify_recon||verify_horizontal)){
-                DO(memarg(b,2,0,b->direct_active&&c==2?VP:V));DO(memarg(b,2,1,ES+c-1));DO(memarg(b,2,2,ERR));DO(uintarg(b,2,3,cw));DO(uintarg(b,2,4,ch));DO(dispatch_spatial(b,2,cw,ch,2));}
+                DO(memarg(b,2,0,b->direct_active&&c==2?VP:V));DO(memarg(b,2,1,ES+c-1));DO(memarg(b,2,2,ERR));DO(uintarg(b,2,3,cw));DO(uintarg(b,2,4,ch));DO(uintarg(b,2,5,b->nearest));DO(dispatch_spatial(b,2,cw,ch,2));}
             if(!s->composer.component[c].mapping){
                 /* Scaling/phase preparation above is unchanged. This generic
                  * table-add kernel preserves Q16 mapping plus FEL residual,
@@ -631,7 +637,7 @@ static dv_status reconstruct_impl(void *opaque,const dv_frame_settings *s,unsign
             if(dual){if(c==1)continue;
                 unsigned k=horizontal_fused?26u:16u;
                 unsigned slots[12]={G,BP,BP+1,horizontal_fused?V:ES,horizontal_fused?VP:ES+1,P,P+1,RT+1,RT+2,O+1,O+2,ERR};for(unsigned a=0;a<12;++a)DO(memarg(b,k,a,slots[a]));
-                DO(uintarg(b,k,12,(unsigned)(n/4)));DO(memarg(b,k,13,UL));DO(memarg(b,k,14,UL+1));if(horizontal_fused)DO(uintarg(b,k,15,cw));DO(dispatch(b,k,horizontal_fused?n/8:n/4,horizontal_fused?cw/2:cw));
+                DO(uintarg(b,k,12,(unsigned)(n/4)));DO(memarg(b,k,13,UL));DO(memarg(b,k,14,UL+1));if(horizontal_fused){DO(uintarg(b,k,15,cw));DO(uintarg(b,k,16,b->nearest));}DO(dispatch(b,k,horizontal_fused?n/8:n/4,horizontal_fused?cw/2:cw));
                 if(b->verify_recon||verify_horizontal)for(unsigned channel=1;channel<3;++channel){DO(verify_recon_output(b,s,channel,n/4,0,&host_m));
                     unsigned reference[11]={G,BP,BP+1,ES+channel-1,P+channel-1,RT+channel,M+channel,R+channel,S+channel,O+channel,ERR};
                     for(unsigned a=0;a<11;++a)DO(memarg(b,10,a,reference[a]));DO(uintarg(b,10,11,(unsigned)(n/4)));DO(uintarg(b,10,12,0));DO(memarg(b,10,13,UL+channel-1));DO(dispatch(b,10,n/4,cw));
@@ -1017,6 +1023,71 @@ dv_status dv_opencl_output(void *p,cl_mem out[3],cl_event *event)
  if(count!=3){for(unsigned i=0;i<count;++i)clReleaseMemObject(b->buffer[CO+i]);return DV_BACKEND;}
  if(clRetainEvent(b->output_event)!=CL_SUCCESS){for(unsigned i=0;i<3;++i)clReleaseMemObject(b->buffer[CO+i]);return DV_BACKEND;}
  for(unsigned i=0;i<3;++i)out[i]=b->buffer[CO+i];*event=b->output_event;return DV_OK;}
+int dv_mmr_luma_guide(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
+int dv_chroma_phase_left(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t);
+int dv_annex_b_scale2x(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t,uint16_t *,size_t);
+int dv_nearest_scale2x(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
+int dv_reference_chroma_batch(const dv_intel_composer_config *,unsigned,size_t,const uint16_t *,const uint16_t *,
+    const uint16_t *,const uint16_t *,uint16_t *,int32_t *,int32_t *,uint16_t *);
+/* Reads one plane of an acquired P010 image (R or RG, 16-bit MSB-aligned)
+ * into 10-bit codes; RG planes are split into two outputs. */
+static int read_p010(backend *b,cl_mem image,unsigned w,unsigned h,unsigned channels,uint16_t *out0,uint16_t *out1)
+{
+    size_t n=(size_t)w*h*channels;uint16_t *raw=malloc(n*2);if(!raw)return -1;
+    size_t origin[3]={0,0,0},region[3]={w,h,1};
+    int failed=clEnqueueReadImage(b->queue,image,CL_TRUE,origin,region,0,0,raw,0,NULL,NULL)!=CL_SUCCESS;
+    for(size_t i=0;!failed&&i<(size_t)w*h;++i){
+        if(channels==1)out0[i]=(uint16_t)(raw[i]>>6);
+        else{out0[i]=(uint16_t)(raw[2*i]>>6);out1[i]=(uint16_t)(raw[2*i+1]>>6);}
+    }
+    free(raw);return failed;
+}
+/* big-fella: the direct route's reconstruction of a scaled-EL frame against
+ * the CPU reference: BL chroma phase, EL scaled (s->el_scaler), MMR guide,
+ * luma polynomial and chroma polynomial/MMR with the residual, then every
+ * output code compared (the letterbox window's rows when there is one). */
+static int verify_el(backend *b,const dv_frame_settings *s,unsigned w,unsigned h,const cl_mem images[4])
+{
+    size_t n=(size_t)w*h,nc=n/4,ne=n/4,nec=n/16;int failed=1;
+    uint16_t *bl[3]={0},*al[3]={0},*el[3]={0},*tmp=NULL,*sc[3]={0},*gpu=NULL,*cpu=NULL,*guide=NULL,*mapped=NULL,*scratch=NULL;
+    int32_t *res=NULL,*sum=NULL;size_t differences[3]={0},compared=0;
+    bl[0]=malloc(n*2);bl[1]=malloc(nc*2);bl[2]=malloc(nc*2);al[1]=malloc(nc*2);al[2]=malloc(nc*2);
+    el[0]=malloc(ne*2);el[1]=malloc(nec*2);el[2]=malloc(nec*2);tmp=malloc(nec*2);scratch=malloc(w*2);
+    sc[0]=malloc(n*2);sc[1]=malloc(nc*2);sc[2]=malloc(nc*2);gpu=malloc(n*2);cpu=malloc(n*2);guide=malloc(nc*2);
+    mapped=malloc(nc*2);res=malloc(nc*4);sum=malloc(nc*4);
+    for(unsigned c=0;c<3;++c)if(!bl[c]||!el[c]||!sc[c])goto done;
+    if(!al[1]||!al[2]||!tmp||!scratch||!gpu||!cpu||!guide||!mapped||!res||!sum)goto done;
+    if(clFinish(b->queue)||read_p010(b,images[0],w,h,1,bl[0],NULL)||read_p010(b,images[1],w/2,h/2,2,bl[1],bl[2])||
+       read_p010(b,images[2],w/2,h/2,1,el[0],NULL)||read_p010(b,images[3],w/4,h/4,2,el[1],el[2]))goto done;
+    for(unsigned c=1;c<3;++c)if(dv_chroma_phase_left(bl[c],nc,w/2,h/2,s->chroma_phase,al[c],nc))goto done;
+    if(dv_mmr_luma_guide(bl[0],n,w,h,guide,nc))goto done;
+    if(s->el_scaler){
+        if(dv_annex_b_scale2x(el[0],ne,w/2,h/2,0,scratch,w/2,sc[0],n))goto done;
+        for(unsigned c=1;c<3;++c)if(dv_chroma_phase_left(el[c],nec,w/4,h/4,s->chroma_phase,tmp,nec)||
+            dv_annex_b_scale2x(tmp,nec,w/4,h/4,1,scratch,w/4,sc[c],nc))goto done;
+    }else for(unsigned c=0;c<3;++c)if(dv_nearest_scale2x(el[c],c?nec:ne,c?w/4:w/2,c?h/4:h/2,sc[c],c?nc:n))goto done;
+    unsigned first=b->row_window[1]?b->row_window[0]:0,last=b->row_window[1]?b->row_window[1]:h;
+    for(unsigned c=0;c<3;++c){size_t count=c?nc:n;unsigned width=c?w/2:w,f=c?first/2:first,l=c?last/2:last;
+        if(read_buffer_sync(b,O+c,gpu,count*2))goto done;
+        /* DV_DUMP_EL=PREFIX: the checked frames' reconstruction (12-bit
+         * codes, uint16 little-endian) as PREFIX-PTS-{y,cb,cr}.raw. */
+        const char *dump=getenv("DV_DUMP_EL");
+        if(dump&&dump[0]){char name[4096];snprintf(name,sizeof(name),"%s-%lld-%s.raw",dump,(long long)s->identity.pts,c?(c==1?"cb":"cr"):"y");
+            FILE *f=fopen(name,"wb");if(f){(void)fwrite(gpu,2,count,f);fclose(f);}}
+        if(c){for(size_t i=0;i<count;++i)if(sc[c][i]>1023)sc[c][i]=1023; /* GPU flags these; compare the rest */
+            if(dv_reference_chroma_batch(&s->composer,c,count,guide,al[1],al[2],sc[c],mapped,res,sum,cpu))goto done;}
+        else for(size_t i=0;i<count;++i){int32_t m,r;if(sc[0][i]>1023||dv_reference_polynomial(&s->composer,0,bl[0][i],sc[0][i],&m,&r,&cpu[i]))goto done;}
+        for(size_t y=f;y<l;++y)for(size_t x=0;x<width;++x){size_t i=y*width+x;differences[c]+=gpu[i]!=cpu[i];++compared;}
+    }
+    failed=0;
+done:
+    ++b->el_checks;
+    fprintf(stderr,"{\"el_verified_pts\":%lld,\"el_scaler\":\"%s\",\"compared_codes\":%zu,\"differences\":[%zu,%zu,%zu],\"error\":%d}\n",
+        (long long)s->identity.pts,s->el_scaler?"annexb":"nearest",compared,differences[0],differences[1],differences[2],failed);
+    for(unsigned c=0;c<3;++c){free(bl[c]);free(al[c]);free(el[c]);free(sc[c]);}
+    free(tmp);free(scratch);free(gpu);free(cpu);free(guide);free(mapped);free(res);free(sum);
+    return failed||differences[0]||differences[1]||differences[2];
+}
 dv_status dv_opencl_reconstruct_p010(void *p,const dv_frame_settings *s,unsigned w,unsigned h,const cl_mem bl[2],const cl_mem el[2])
 {backend *b=p;if(b){b->resident_ready=0;b->output_ready=0;b->image_output=0;}if(!b||!s||!bl||!el||!w||!h||w>4096||h>4096||w%4||h%4)return DV_INVALID;
  if(s->composer.el_spatial_resampling_flag>1)return DV_UNSUPPORTED;
@@ -1049,6 +1120,7 @@ dv_status dv_opencl_reconstruct_p010(void *p,const dv_frame_settings *s,unsigned
     status=reconstruct_impl(b,s,w,h,NULL,NULL,out,NULL,1,1);b->row_window[0]=window[0];b->row_window[1]=window[1];
     if(status==DV_OK&&compare_row_window(b,s->identity.pts,w,0,windowed))status=DV_BACKEND;}
    for(unsigned c=0;c<3;++c)free(windowed[c]);}
+  if(status==DV_OK&&scale==2&&b->el_checks<b->verify_el&&verify_el(b,s,w,h,images))status=DV_BACKEND;
   b->row_window[0]=b->row_window[1]=0;b->direct_active=0;
   /* Some drivers wait inside release enqueue. The caller retains the VA
    * owners; drain can return them after reconstruction has completed. */
