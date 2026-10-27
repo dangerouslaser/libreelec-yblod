@@ -92,11 +92,16 @@ index 8063e1a..54a9785 100644
        {"dvbridge.inlineoverlay", {{"DV_OVERLAY_INLINE", "1"}}, {{"DV_OVERLAY_INLINE", "0"}}},
        {"dvbridge.tablecache",
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
-index 673b31b..788a3d4 100644
+index 673b31b..11cd47d 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
-@@ -10,6 +10,11 @@ struct DVPrivateOverlay
-   uint64_t revision{0};
+@@ -7,9 +7,15 @@ struct DVPrivateOverlay
+ {
+   unsigned texture{0};
+   unsigned flipY{0};
+-  uint64_t revision{0};
++  uint64_t revision{0};      // nonzero: trusted to name the contents (DV_PRIVATE_GUI_REVISION=1)
++  uint64_t revisionSeen{0};  // Kodi's GUI revision, always (checked against the contents)
    double rgbToLms[9]{};
    double whiteNits{203.0};
 +  // The texture's storage as a single-plane dmabuf (Kodi's GUI framebuffer
@@ -393,10 +398,10 @@ index d4cd073..4f1f7a7 100644
    uint64_t m_processed{0};
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
 new file mode 100644
-index 0000000..6cc7936
+index 0000000..b0943d0
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
-@@ -0,0 +1,324 @@
+@@ -0,0 +1,365 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +#include "DVPrivateVulkan.h"
 +#include "utils/log.h"
@@ -444,6 +449,7 @@ index 0000000..6cc7936
 +  // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
 +  m_setOverlayEx = reinterpret_cast<decltype(m_setOverlayEx)>(dlsym(m_library, "dvvk_set_overlay_ex"));
 +  m_implicitFailed = reinterpret_cast<decltype(m_implicitFailed)>(dlsym(m_library, "dvvk_implicit_failed"));
++  m_overlayChanges = reinterpret_cast<decltype(m_overlayChanges)>(dlsym(m_library, "dvvk_overlay_changes"));
 +  // The engine logs its reasons on stderr (the journal).
 +  if (m_create(drmFd, vaDisplay, &m_engine) != 0 || !m_engine)
 +  {
@@ -643,6 +649,8 @@ index 0000000..6cc7936
 +  }
 +  m_ticket = ticket;
 +  if (m_guiShown && !m_guiDirect) m_guis[m_guiIndex].ticket = ticket;
++  if (m_guiDirect)
++    m_revisions[ticket % 8] = {ticket, overlay->revisionSeen};
 +  // Without implicit fences (an older kernel) the GUI framebuffer must not
 +  // be drawn into before the engine has read it.
 +  const bool fenced = !m_implicitFailed || !m_implicitFailed(m_engine);
@@ -673,6 +681,7 @@ index 0000000..6cc7936
 +  uint32_t flags = 0;
 +  if (m_poll(m_engine, ticket, &done, &flags) != 0) return DV_VULKAN_FAILED;
 +  if (!done) return wait ? DV_VULKAN_FAILED : 0;
++  CheckRevision(ticket);
 +  range = (flags & 3u) != 0;
 +  if (range && m_rangeReports < 16)
 +  {
@@ -689,6 +698,42 @@ index 0000000..6cc7936
 +  return 1;
 +}
 +
++void CDVPrivateVulkan::CheckRevision(uint64_t ticket)
++{
++  RevisionCheck& entry = m_revisions[ticket % 8];
++  if (!m_overlayChanges || entry.ticket != ticket)
++    return;
++  entry.ticket = 0;
++  const int64_t changed = m_overlayChanges(m_engine, ticket);
++  if (changed < 0)
++  {
++    m_lastRevision = 0;   // no comparison across an invalidated cache
++    return;
++  }
++  if (m_lastRevision && entry.revision == m_lastRevision)
++  {
++    ++m_sameRevision;
++    if (changed > 0 && ++m_sameChanged <= 8)
++      CLog::Log(LOGWARNING, "Vulkan GUI check: revision {} unchanged but {} pixels changed", entry.revision, changed);
++  }
++  else if (m_lastRevision)
++  {
++    ++m_newRevision;
++    m_newUnchanged += changed == 0;
++  }
++  m_lastRevision = entry.revision;
++  if ((m_sameRevision + m_newRevision) % 1200 == 0)
++    LogRevisions("so far");
++}
++
++void CDVPrivateVulkan::LogRevisions(const char* when) const
++{
++  if (m_sameRevision + m_newRevision)
++    CLog::Log(LOGINFO, "Vulkan GUI check ({}): {} frames on the same revision ({} with changed pixels), "
++              "{} on a new revision ({} with no changed pixel)", when, m_sameRevision, m_sameChanged,
++              m_newRevision, m_newUnchanged);
++}
++
 +void CDVPrivateVulkan::Reset()
 +{
 +  if (m_engine) m_reset(m_engine);
@@ -697,6 +742,7 @@ index 0000000..6cc7936
 +
 +bool CDVPrivateVulkan::Close()
 +{
++  LogRevisions("at close");
 +  if (m_engine)
 +  {
 +    if (m_ticket && m_wait(m_engine, m_ticket, 2000000000ull) != 1) return false;
@@ -723,10 +769,10 @@ index 0000000..6cc7936
 +}
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
 new file mode 100644
-index 0000000..547d4e9
+index 0000000..7e503ae
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,88 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +#pragma once
 +#include "source_geometry.h"
@@ -783,6 +829,18 @@ index 0000000..547d4e9
 +  decltype(&dvvk_destroy) m_destroy{nullptr};
 +  decltype(&dvvk_set_overlay_ex) m_setOverlayEx{nullptr};     // optional
 +  decltype(&dvvk_implicit_failed) m_implicitFailed{nullptr};  // optional
++  decltype(&dvvk_overlay_changes) m_overlayChanges{nullptr};  // optional
++  // Kodi's GUI revision against the pixels the engine found changed: a
++  // revision that stays while pixels change would make it unsafe to skip
++  // the GUI on an unchanged revision (the 0.2.1 controls flicker).
++  struct RevisionCheck
++  {
++    uint64_t ticket{0}, revision{0};
++  } m_revisions[8];
++  uint64_t m_lastRevision{0};
++  uint64_t m_sameRevision{0}, m_sameChanged{0}, m_newRevision{0}, m_newUnchanged{0};
++  void CheckRevision(uint64_t ticket);
++  void LogRevisions(const char* when) const;
 +  // Two GUI copies: a new GUI goes into the one no frame in flight reads.
 +  struct Gui
 +  {
@@ -804,7 +862,7 @@ index 0000000..547d4e9
 +  bool m_fel{true};
 +};
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-index 68a5b13..aee7ab7 100644
+index 68a5b13..e4f488f 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 @@ -64,7 +64,9 @@ extern "C"
@@ -967,7 +1025,7 @@ index 68a5b13..aee7ab7 100644
      m_guiFboWidth = width;
      m_guiFboHeight = height;
      m_guiFboClean = false; // fresh FBO is undefined, force a clear
-@@ -1031,7 +1132,17 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+@@ -1031,8 +1132,19 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
          m_guiFboWidth != 3840 || m_guiFboHeight != 2160)
        return false;
      if (!overlayFree)
@@ -983,9 +1041,11 @@ index 68a5b13..aee7ab7 100644
 +      }
 +    }
      gui.flipY = 1;
++    gui.revisionSeen = m_guiRevision;
      const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
      if (revisionCache && std::strcmp(revisionCache, "1") == 0)
-@@ -1137,7 +1248,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+       gui.revision = m_guiRevision;
+@@ -1137,7 +1249,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
      m_dvBridge->Reset();
      // The menu must not reuse the GUI target shared with native movie composition.
      glBindFramebuffer(GL_FRAMEBUFFER, 0);

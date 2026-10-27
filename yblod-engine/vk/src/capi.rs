@@ -203,6 +203,19 @@ pub unsafe extern "C" fn dvvk_poll(e: *mut Engine, ticket: u64, done: *mut i32, 
     }
 }
 
+/// How many of the overlay's pixels frame `ticket` found changed since the
+/// frame before (the shell's layer read by the pack, the cache kept from
+/// the frame before); -1 when not known. Poll once the ticket is done.
+/// # Safety
+/// `e` from dvvk_create.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_overlay_changes(e: *mut Engine, ticket: u64) -> i64 {
+    match (*e).overlay_changes(ticket) {
+        Ok(Some(n)) => n as i64,
+        _ => -1,
+    }
+}
+
 /// Blocks up to `timeout_ns`: 1 done, 0 timed out, < 0 failure.
 /// # Safety
 /// `e` from dvvk_create.

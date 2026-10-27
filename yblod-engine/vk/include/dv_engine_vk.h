@@ -51,6 +51,9 @@ int dvvk_set_overlay_ex(dvvk_engine *, const dvvk_dmabuf *, uint64_t id, uint32_
 /* 1 once a fence could not be attached as an implicit fence (older kernel):
  * wait for each ticket before committing or drawing into the overlay. */
 int dvvk_implicit_failed(dvvk_engine *);
+/* How many overlay pixels frame `ticket` found changed since the frame
+ * before (the shell's layer read by the pack); -1 when not known. */
+int64_t dvvk_overlay_changes(dvvk_engine *, uint64_t ticket);
 uint64_t dvvk_overlay_ticket(dvvk_engine *, uint64_t id);
 int dvvk_create(int drm_fd, void *va_display, dvvk_engine **out);
 int dvvk_set_output(dvvk_engine *, uint32_t slot, int dmabuf_fd, uint32_t stride);

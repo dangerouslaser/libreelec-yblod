@@ -130,6 +130,9 @@ struct Ctx {
     query: Option<vk::QueryPool>,
     plan_ms: f64,
     prepared: bool,
+    // The pack kept the shell's colour cache from the last frame's (not
+    // invalidated): gui_error's second word counts the pixels that changed.
+    counted: bool,
     // DVVK_VERIFY: the compare's result (differing pixels, the first) when this frame was checked.
     verify: Option<HostBuffer>,
     verified: bool,
@@ -391,6 +394,7 @@ impl Engine {
                 },
                 plan_ms: 0.0,
                 prepared: false,
+                counted: false,
                 verify: if verify_every > 0 { Some(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?) } else { None },
                 verified: false,
             });
@@ -617,6 +621,16 @@ impl Engine {
             0
         };
         Ok((done, flags))
+    }
+
+    /// How many of the shell's pixels frame `ticket` found changed since the
+    /// frame before (the fused overlay); None if it doesn't know (not done,
+    /// its context reused, the cache invalidated or kept by overlay_prepare).
+    pub fn overlay_changes(&self, ticket: u64) -> Result<Option<u32>> {
+        let done = unsafe { self.d.device.get_semaphore_counter_value(self.timeline) }? >= ticket;
+        let ctx = &self.ring[((ticket.max(1) - 1) % RING as u64) as usize];
+        Ok((done && ctx.ticket == ticket && ctx.counted)
+            .then(|| u32::from_le_bytes(ctx.gui_error.bytes()[4..8].try_into().unwrap())))
     }
 
     /// The decoder's write fence on a surface, as a semaphore the frame waits
@@ -868,9 +882,11 @@ impl Engine {
             let coeff = bytes_of(&p.gui_coeff);
             self.gui_coeff.bytes_mut()[..coeff.len()].copy_from_slice(coeff);
         }
+        self.ring[ci].counted = fused && !fused_invalidate;
         if fused {
-            // The pack reads this frame's coefficients and reports its own errors.
-            self.gui_error.bytes_mut()[..4].copy_from_slice(&0u32.to_le_bytes());
+            // The pack reads this frame's coefficients and reports its own
+            // errors and changed pixels.
+            self.gui_error.bytes_mut()[..8].copy_from_slice(&[0u8; 8]);
             let coeff = bytes_of(&p.gui_coeff);
             self.gui_coeff.bytes_mut()[..coeff.len()].copy_from_slice(coeff);
             self.overlay_coeff = p.gui_coeff;

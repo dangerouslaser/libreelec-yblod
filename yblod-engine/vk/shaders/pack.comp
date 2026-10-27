@@ -23,7 +23,7 @@ layout(constant_id = 2) const uint OVERLAY = 0;
 layout(constant_id = 3) const uint BLEND_FMA = 1;  // the blends as IGC contracts them (FP_CONTRACT ON)
 layout(binding = 6, std430) buffer GuiColours { vec4 gui_colours[]; };      // w < 0: a colour out of range
 layout(binding = 7, std430) readonly buffer GuiTiles { uint gui_tiles[]; };   // 16x16: bit 0 covered, 1 first column, 2 last
-layout(binding = 8, std430) buffer GuiError { uint gui_error; };
+layout(binding = 8, std430) buffer GuiError { uint gui_error; uint gui_changed; };   // OVERLAY 2: pixels whose RGBA changed
 layout(binding = 15) uniform sampler2D shell;
 layout(binding = 16, std430) buffer Keys { uint keys[]; };
 layout(binding = 17, std430) readonly buffer Coeff { float coeff[]; };
@@ -206,7 +206,12 @@ vec4 gui_colour(uint v)
 
 // OVERLAY 2: pixel (x, y)'s colour (zero where transparent). Its owner keeps
 // the cache: colour and key are written together by the one invocation that
-// owns the pixel, so others never read a half-written entry.
+// owns the pixel, so others never read a half-written entry. Keys follow
+// every pixel, transparent ones too, so a key differs exactly where the
+// shell's pixel changed since the last frame (counted in `changed`).
+shared uint wg_changed;
+uint changed = 0u;
+
 vec4 gui_owned(uint x, uint y)
 {
     uint v = shell_rgba(x, y), i = y * w + x;
@@ -221,11 +226,11 @@ vec4 gui_owned(uint x, uint y)
         }
         return c;
     }
+    changed++;
     if ((v >> 24) == 0u) {
-        // Transparent: nothing to cache, but an invalidated key must not
-        // match a later pixel with its old colour.
-        if (invalidate)
-            keys[i] = v;
+        // Transparent: no colour to cache; its key stops a later pixel
+        // matching a colour made for something else.
+        keys[i] = v;
         return vec4(0.0);
     }
     vec4 c;
@@ -353,12 +358,19 @@ void main()
     uint x0 = gl_GlobalInvocationID.x * 4u, y0 = gl_GlobalInvocationID.y * 2u;
     uint lx = gl_LocalInvocationID.x, ly = gl_LocalInvocationID.y;
     if (OVERLAY == 2u) {
-        // Before any return: the barrier needs the whole workgroup.
+        // Before any return: the barriers need the whole workgroup.
+        if (gl_LocalInvocationIndex == 0u)
+            wg_changed = 0u;
+        barrier();
         for (uint r = 0; r < 2; r++)
             for (uint i = 0; i < 4; i++)
                 gui_shared[ly * 2u + r][lx * 4u + i] =
                     x0 + i < w && y0 + r < h ? gui_owned(x0 + i, y0 + r) : vec4(0.0);
+        if (changed != 0u)
+            atomicAdd(wg_changed, changed);
         barrier();
+        if (gl_LocalInvocationIndex == 0u && wg_changed != 0u && (gui_flags & 1u) == 0u)
+            atomicAdd(gui_changed, wg_changed);
     }
     if (SOURCE == 2u && PACK == 0u && nearest == 0u) {
         // The tile's rows: the workgroup's 4 output rows, where reconstructed.
