@@ -140,14 +140,11 @@ struct Ctx {
 
 /// DVVK_VERIFY=k: every k-th frame is rendered a second time by the
 /// reference route (the staged reconstruction, overlay_prepare's colour cache
-/// made afresh) into `out`, and the shown output compared with it word by
-/// word. For the fused routes (FEL, the shell's overlay): any difference is a bug.
+/// made afresh, in place: fresh entries are what any cache must hold) into
+/// `out`, and the shown output compared with it word by word. For the fused routes (FEL, the shell's overlay): any difference is a bug.
 struct Verify {
     every: u64,
     frames: u64,
-    keys: DeviceBuffer,
-    colours: DeviceBuffer,
-    tiles: DeviceBuffer,
     err: DeviceBuffer,
     out: Option<(DeviceBuffer, u32)>,   // and its stride
     compare: Pipeline,
@@ -206,7 +203,7 @@ pub struct Engine {
     pack: Vec<Pipeline>,      // [(source * 2 + overlay) * 3 + PACK]
     fel_chroma: Pipeline,
     staged: bool,
-    annexb_staged: bool,
+    annexb_fused: bool,
     overlay: HostBuffer,
     gui_coeff: HostBuffer,
     gui_error: HostBuffer,
@@ -276,7 +273,7 @@ impl Engine {
         let fel_chroma = Pipeline::new(&d, "fel_chroma",
             &[sampled, sampled, sampled, storage, storage, storage, storage, storage, storage, storage, storage], 32, &[])?;
         let staged = std::env::var("DVVK_STAGED").map(|v| v == "1").unwrap_or(false);
-        let annexb_staged = std::env::var("DVVK_ANNEXB_STAGED").map(|v| v == "1").unwrap_or(false);
+        let annexb_fused = std::env::var("DVVK_ANNEXB_FUSED").map(|v| v == "1").unwrap_or(false);
         let fel = FelPipelines {
             vertical_pair: Pipeline::new(&d, "fel_vertical_pair", &[sampled, storage, storage], 20, &[])?,
             luma_phase_guide: Pipeline::new(&d, "fel_luma_phase_guide", &[sampled, sampled, storage, storage, storage, storage, storage, storage, storage], 20, &[])?,
@@ -349,9 +346,6 @@ impl Engine {
             Some(Verify {
                 every: verify_every,
                 frames: 0,
-                keys: DeviceBuffer::new(&d, (CANVAS_W * CANVAS_H * 4) as u64)?,
-                colours: DeviceBuffer::new(&d, (CANVAS_W * CANVAS_H * 16) as u64)?,
-                tiles: DeviceBuffer::new(&d, (CANVAS_W.div_ceil(16) * CANVAS_H.div_ceil(16) * 4) as u64)?,
                 err: DeviceBuffer::new(&d, 16)?,
                 out: None,
                 compare: Pipeline::new(&d, "verify_compare", &[storage, storage, storage], 12, &[])?,
@@ -422,7 +416,7 @@ impl Engine {
             pack,
             fel_chroma,
             staged,
-            annexb_staged,
+            annexb_fused,
             overlay,
             gui_coeff,
             gui_error,
@@ -960,11 +954,13 @@ impl Engine {
             // Resized frames read 4 taps per sample: cheaper from the planes.
             1
         } else if route == plan::ROUTE_DUAL && p.equal == 0
-            && (p.nearest != 0 || (p.pack == plan::PACK_SITED && !self.annexb_staged))
+            && (p.nearest != 0 || (p.pack == plan::PACK_SITED && self.annexb_fused))
         {
-            // Annex B shares its vertical taps through a workgroup tile (pass A
-            // and the sited pack); resized or 4:2:2 Annex B stays staged, as
-            // all of it does with DVVK_ANNEXB_STAGED=1.
+            // DVVK_ANNEXB_FUSED=1: Annex B fused too, its vertical taps shared
+            // through a workgroup tile (pass A and the sited pack). Staged by
+            // default: on Tiger Lake at a fixed 1000 MHz, 1917 took 12.8 ms
+            // fused against 11.1 ms staged (the fused pack's luma costs more
+            // than the staged kernels save).
             2
         } else {
             0
@@ -1186,8 +1182,8 @@ impl Engine {
             };
             self.dispatch(cmd, &self.overlay_prepare[from_sources as usize],
                 &[Bind::Buffer(self.overlay.buffer), Bind::Range(atlas, r[0].0, r[0].1), Bind::Range(atlas, r[1].0, r[1].1),
-                  Bind::Range(atlas, r[2].0, r[2].1), Bind::Sampled(shell_view, self.linear), Bind::Buffer(v.keys.buffer),
-                  Bind::Buffer(v.colours.buffer), Bind::Buffer(v.tiles.buffer), Bind::Buffer(self.gui_coeff.buffer),
+                  Bind::Range(atlas, r[2].0, r[2].1), Bind::Sampled(shell_view, self.linear), Bind::Buffer(self.gui_keys.buffer),
+                  Bind::Buffer(self.gui_colours.buffer), Bind::Buffer(self.gui_tiles.buffer), Bind::Buffer(self.gui_coeff.buffer),
                   Bind::Buffer(v.err.buffer)],
                 &prepare, (CANVAS_W.div_ceil(16), CANVAS_H.div_ceil(16)));
             barrier();
@@ -1197,11 +1193,11 @@ impl Engine {
         self.dispatch(cmd, pack,
             &[Bind::Buffer(self.planes[0].buffer), Bind::Buffer(self.planes[1].buffer), Bind::Buffer(self.planes[2].buffer),
               Bind::Buffer(self.packets.buffer), Bind::Buffer(reference.buffer), Bind::Buffer(self.ymap.buffer),
-              Bind::Buffer(v.colours.buffer), Bind::Buffer(v.tiles.buffer), Bind::Buffer(v.err.buffer),
+              Bind::Buffer(self.gui_colours.buffer), Bind::Buffer(self.gui_tiles.buffer), Bind::Buffer(v.err.buffer),
               Bind::Sampled(bl.luma.view, self.sampler), Bind::Sampled(bl.chroma.view, self.sampler),
               Bind::Sampled(el_view, self.sampler), Bind::Range(self.tables.buffer, T_MAPPING, 2048),
               Bind::Range(self.tables.buffer, T_RESIDUAL, 4096), Bind::Buffer(v.err.buffer),
-              Bind::Sampled(bl.luma.view, self.linear), Bind::Buffer(v.keys.buffer), Bind::Buffer(self.gui_coeff.buffer)],
+              Bind::Sampled(bl.luma.view, self.linear), Bind::Buffer(self.gui_keys.buffer), Bind::Buffer(self.gui_coeff.buffer)],
             &reference_push, ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)));
         barrier();
         self.dispatch(cmd, &v.compare,
@@ -1453,9 +1449,7 @@ impl Drop for Engine {
             }
         }
         if let Some(v) = &self.verify {
-            for b in [&v.keys, &v.colours, &v.tiles, &v.err] {
-                b.destroy(d);
-            }
+            v.err.destroy(d);
             if let Some((b, _)) = &v.out {
                 b.destroy(d);
             }

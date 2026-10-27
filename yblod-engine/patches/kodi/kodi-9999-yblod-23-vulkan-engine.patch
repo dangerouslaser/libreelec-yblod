@@ -862,7 +862,7 @@ index 0000000..7e503ae
 +  bool m_fel{true};
 +};
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-index 68a5b13..e4f488f 100644
+index 68a5b13..496c909 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 @@ -64,7 +64,9 @@ extern "C"
@@ -971,14 +971,17 @@ index 68a5b13..e4f488f 100644
  bool CWinSystemGbmGLESContext::CanReuseGuiComposite() const
  {
  #ifdef HAVE_DVBRIDGE
-@@ -478,11 +560,16 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+@@ -478,11 +560,19 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
    }
    m_guiHalf = guiHalf;
  
-+  // Shared with the Vulkan engine when it is selected (a 4K GUI only).
++  // Shared with the Vulkan engine when it is selected (a 4K GUI only);
++  // DV_VULKAN_GUI_COPY=1 keeps the per-frame copy (for comparison).
 +  const char* vulkan = std::getenv("DV_ENGINE_VULKAN");
++  const char* copy = std::getenv("DV_VULKAN_GUI_COPY");
 +  const bool share = nativeCoverage && width == 3840 && height == 2160 && vulkan &&
-+                     std::strcmp(vulkan, "1") == 0 && !m_guiShareFailed;
++                     std::strcmp(vulkan, "1") == 0 && !(copy && std::strcmp(copy, "1") == 0) &&
++                     !m_guiShareFailed;
    // create or recreate FBO if size changed
 -  if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height)
 +  if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height ||
@@ -990,7 +993,7 @@ index 68a5b13..e4f488f 100644
  
      if (!m_guiFbo.Initialize())
      {
-@@ -494,7 +581,7 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+@@ -494,7 +584,7 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
      {
        CLog::Log(LOGERROR, "CWinSystemGbmGLESContext: failed to create GUI FBO texture {}x{}", width,
                  height);
@@ -999,7 +1002,7 @@ index 68a5b13..e4f488f 100644
        return false;
      }
  
-@@ -503,10 +590,24 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+@@ -503,10 +593,24 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
        CLog::Log(LOGERROR,
                  "CWinSystemGbmGLESContext: failed to attach depth buffer to GUI FBO {}x{}", width,
                  height);
@@ -1025,7 +1028,7 @@ index 68a5b13..e4f488f 100644
      m_guiFboWidth = width;
      m_guiFboHeight = height;
      m_guiFboClean = false; // fresh FBO is undefined, force a clear
-@@ -1031,8 +1132,19 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+@@ -1031,8 +1135,19 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
          m_guiFboWidth != 3840 || m_guiFboHeight != 2160)
        return false;
      if (!overlayFree)
@@ -1045,7 +1048,7 @@ index 68a5b13..e4f488f 100644
      const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
      if (revisionCache && std::strcmp(revisionCache, "1") == 0)
        gui.revision = m_guiRevision;
-@@ -1137,7 +1249,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+@@ -1137,7 +1252,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
      m_dvBridge->Reset();
      // The menu must not reuse the GUI target shared with native movie composition.
      glBindFramebuffer(GL_FRAMEBUFFER, 0);
