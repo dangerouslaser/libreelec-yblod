@@ -1,0 +1,593 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 4da8888..697621f 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26219,3 +26219,13 @@ msgstr ""
+ msgctxt "#40894"
+ msgid "YBLOD build"
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40895"
++msgid "Vulkan engine"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40896"
++msgid "Run YBLOD's engine on Vulkan compute instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. Applies to the next video."
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 2c0a31c..5af7bb4 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -441,6 +441,19 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
++        <setting id="dvbridge.vulkan" type="boolean" label="40895" help="40896">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
+         <setting id="dvbridge.letterboxskip" type="boolean" label="40874" help="40875">
+           <level>3</level>
+           <default>true</default>
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt b/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
+index 85dea6a..22a539b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
+@@ -60,8 +60,8 @@ if(ENABLE_DVBRIDGE)
+   file(READ "${DVBRIDGE_SOURCE_DIR}/pack_gles300.vert" DVBRIDGE_VERTEX_SOURCE)
+   file(READ "${DVBRIDGE_SOURCE_DIR}/pack_gles300.frag" DVBRIDGE_FRAGMENT_SOURCE)
+   configure_file(DVBridgeShaders.h.in DVBridgeShaders.h @ONLY)
+-  list(APPEND SOURCES DVBridgeGLES.cpp DVPrivateSource.cpp DVPrivateScanout.cpp)
+-  list(APPEND HEADERS DVBridgeGLES.h DVPrivateSource.h DVPrivateScanout.h dv_scanout_slots.h)
++  list(APPEND SOURCES DVBridgeGLES.cpp DVPrivateSource.cpp DVPrivateScanout.cpp DVPrivateVulkan.cpp)
++  list(APPEND HEADERS DVBridgeGLES.h DVPrivateSource.h DVPrivateScanout.h DVPrivateVulkan.h dv_scanout_slots.h)
+ endif()
+ 
+ core_add_library(videorenderers)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+index 8063e1a..608b3e9 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+@@ -43,6 +43,7 @@ inline const std::vector<Mapping>& Mappings()
+       {"dvbridge.engine",
+        {{"DV_PRIVATE_SOURCE", "1"}, {"DV_PRIVATE_OVERLAY", "1"}, {"DV_PRIVATE_DRAIN_EOF", "1"}},
+        {{"DV_PRIVATE_SOURCE", "0"}, {"DV_PRIVATE_OVERLAY", "0"}, {"DV_PRIVATE_DRAIN_EOF", "0"}}},
++      {"dvbridge.vulkan", {{"DV_ENGINE_VULKAN", "1"}}, {{"DV_ENGINE_VULKAN", "0"}}},
+       {"dvbridge.letterboxskip", {{"DV_RECON_ACTIVE_ROWS", "1"}}, {{"DV_RECON_ACTIVE_ROWS", "0"}}},
+       {"dvbridge.inlineoverlay", {{"DV_OVERLAY_INLINE", "1"}}, {{"DV_OVERLAY_INLINE", "0"}}},
+       {"dvbridge.tablecache",
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+index 40e3f3e..bea0c62 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+@@ -18,6 +18,7 @@ public:
+   bool Close();
+   bool Read(unsigned char* output, size_t bytes);
+   unsigned Texture(unsigned slot) const { return m_texture[slot]; }
++  gbm_bo* Buffer(unsigned slot) const { return m_bo[slot]; }
+   unsigned Slot() const { return m_lease.slot; }
+   unsigned Packet() const { return m_lease.packet_id; }
+   bool Refresh() const { return m_lease.refresh != 0; }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+index 6a3b0ec..71648d9 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+@@ -3,6 +3,7 @@
+ #include "DVPrivateOverlay.h"
+ #include "DVPrivateDrain.h"
+ #include "DVPrivateScanout.h"
++#include "DVPrivateVulkan.h"
+ #include "DVPrivateLayerGeometry.h"
+ #include "ServiceBroker.h"
+ #include "windowing/gbm/WinSystemGbm.h"
+@@ -52,6 +53,19 @@ bool CDVPrivateSource::Initialize(void* display)
+   m_packOverlayCached = reinterpret_cast<decltype(m_packOverlayCached)>(dlsym(m_library, "dv_source_renderer_pack_overlay_cached"));
+   if (!abi || abi() != 4 || !m_create || !m_render || !m_drain || !m_destroy)
+     return false;
++  // The Vulkan engine only writes the private scanout buffers; the slot
++  // bookkeeping above stays the OpenCL library's.
++  if (CDVPrivateVulkan::Requested())
++  {
++    if (InitializeVulkan(display))
++    {
++      m_display = display;
++      CLog::Log(LOGINFO,"Private source direct scanout initialized: two cached buffers, Vulkan engine");
++      return true;
++    }
++    if (!CloseVulkan()) return false;
++    CLog::Log(LOGWARNING,"Vulkan engine unavailable; using yblod's OpenCL engine");
++  }
+   const char* direct = std::getenv("DV_PRIVATE_SCANOUT");
+   if (direct && std::strcmp(direct,"1") == 0)
+   {
+@@ -140,6 +154,39 @@ bool CDVPrivateSource::InitializeScanout(void* display, const char* resources)
+   return true;
+ }
+ 
++bool CDVPrivateSource::InitializeVulkan(void* display)
++{
++  auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
++  const auto drm = window ? window->GetDrm() : nullptr;
++  if (!drm) return false;
++  const int fd = drm->GetRenderNodeFileDescriptor() >= 0 ? drm->GetRenderNodeFileDescriptor()
++                                                          : drm->GetFileDescriptor();
++  m_scanout = new CDVPrivateScanout;
++  if (!m_scanout->Initialize(window->GetGBMDevice().Get(),m_library)) return false;
++  m_vulkan = new CDVPrivateVulkan;
++  return m_vulkan->Initialize(display, fd, window->GetGBMDevice().Get(),
++                              m_scanout->Buffer(0), m_scanout->Buffer(1));
++}
++
++bool CDVPrivateSource::CloseVulkan()
++{
++  // Nothing was presented yet: the engine's imports go before their GBM storage.
++  glFinish();
++  if (m_vulkan)
++  {
++    if (!m_vulkan->Close()) return false;
++    delete m_vulkan;
++    m_vulkan = nullptr;
++  }
++  if (m_scanout)
++  {
++    if (!m_scanout->Close()) return false;
++    delete m_scanout;
++    m_scanout = nullptr;
++  }
++  return true;
++}
++
+ void CDVPrivateSource::ReleaseInputs()
+ {
+   m_enhancement.reset();
+@@ -169,7 +216,7 @@ int CDVPrivateSource::AcquireFrame(void* display, CVideoBuffer* owner,
+     if (frames->sw_format != AV_PIX_FMT_P010 || va->display != display)
+       return 0;
+   }
+-  if (!m_engine && !Initialize(display))
++  if (!m_engine && !m_vulkan && !Initialize(display))
+   {
+     Close();
+     return -1;
+@@ -288,7 +335,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+     ReleaseInputs();
+     return 0;
+   }
+-  if (overlay && (!overlay->texture || !m_submit || !m_presentOverlay))
++  if (overlay && (!overlay->texture || (!m_vulkan && (!m_submit || !m_presentOverlay))))
+   {
+     if (!CancelPending()) return -1;
+     ReleaseInputs();
+@@ -304,7 +351,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+   if (m_scanout && !m_packPending)
+   {
+     if (!m_scanout->Begin(prefetched ? m_pendingId : m_serial+1,pts)) return -1;
+-    if (m_selectOutput(m_engine,m_scanout->Slot()) != 0)
++    if (!m_vulkan && m_selectOutput(m_engine,m_scanout->Slot()) != 0)
+     {
+       m_scanout->Written(DV_SCANOUT_REJECTED);
+       return -1;
+@@ -324,7 +371,10 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+   };
+   int result;
+   const bool prepacked = prefetched && m_packPending;
+-  if (prepacked)
++  if (m_vulkan)
++    result = m_vulkan->Render(m_scanout->Slot(), surface, elSurface, metadata, size, pts,
++                              geometry, input, packet, refresh, overlay);
++  else if (prepacked)
+   {
+     int ready = 0;
+     result = m_packComplete(m_engine, m_pendingId, pts, 1, &ready);
+@@ -348,7 +398,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+   const auto renderDone = trace ? std::chrono::steady_clock::now() : started;
+   if (m_serial <= 12)
+     CLog::Log(LOGINFO, "Private source consume: pts={} prefetch={} status={}", pts, prefetched, result);
+-  if (m_drain(m_engine) != 0)
++  if (m_vulkan ? result == CDVPrivateVulkan::DV_VULKAN_FAILED : m_drain(m_engine) != 0)
+   {
+     if (m_scanout) m_scanout->Written(DV_SCANOUT_UNCERTAIN);
+     m_unsafe = true;
+@@ -402,7 +452,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+   const char* verifyAsync = std::getenv(overlay ? "DV_PRIVATE_ASYNC_OVERLAY" : "DV_PRIVATE_ASYNC_PACK");
+   const char* verifyGui = std::getenv("DV_PRIVATE_VERIFY_OVERLAY");
+   unsigned& verifiedFrames = overlay ? m_verifiedOverlayFrames : m_verifiedFrames;
+-  if ((!overlay || (verifyGui && std::strcmp(verifyGui, "1") == 0)) &&
++  // The CPU check repacks the OpenCL engine's retained planes: not for Vulkan.
++  if (!m_vulkan && (!overlay || (verifyGui && std::strcmp(verifyGui, "1") == 0)) &&
+       verify && std::strcmp(verify, "1") == 0 &&
+       (!verifyAsync || std::strcmp(verifyAsync, "1") != 0 || prepacked) &&
+       (verifiedFrames < 6 || m_resetChecks))
+@@ -541,6 +592,7 @@ void CDVPrivateSource::Reset()
+   m_overlayPrefetchHits = 0;
+   if (!CancelPending()) m_unsafe = true;
+   if (m_scanout && !m_scanout->ResetStream()) m_unsafe = true;
++  if (m_vulkan) m_vulkan->Reset();
+   m_discardedWorkMs = 0;
+   m_ready = false;
+   m_refresh = true;
+@@ -553,6 +605,12 @@ bool CDVPrivateSource::Close()
+ {
+   if (m_scanout && !m_scanout->CanClose()) return false;
+   glFinish();
++  if (m_vulkan)
++  {
++    if (!m_vulkan->Close()) return false;
++    delete m_vulkan;
++    m_vulkan = nullptr;
++  }
+   if (m_engine && m_destroy(m_engine) != 0)
+     return false;
+   m_engine = nullptr;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+index d4cd073..7044c56 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+@@ -9,6 +9,7 @@
+ 
+ class CVideoBuffer;
+ class CDVPrivateScanout;
++class CDVPrivateVulkan;
+ struct gbm_bo;
+ struct AVFrame;
+ class CDVPrivateSource
+@@ -30,6 +31,8 @@ public:
+ private:
+   bool Initialize(void* display);
+   bool InitializeScanout(void* display, const char* resources);
++  bool InitializeVulkan(void* display);
++  bool CloseVulkan();
+   bool InitializeOverlays();
+   void ReleaseInputs();
+   int AcquireFrame(void* display, CVideoBuffer* owner, const AVFrame* enhancement,
+@@ -47,6 +50,7 @@ private:
+   int (*m_attachOutput)(void*, unsigned){nullptr};
+   int (*m_selectOutput)(void*, unsigned){nullptr};
+   CDVPrivateScanout* m_scanout{nullptr};
++  CDVPrivateVulkan* m_vulkan{nullptr};
+   int (*m_render)(void*, unsigned, unsigned, unsigned, unsigned, const void*, size_t,
+                   uint64_t, int64_t, unsigned, int, const dv_source_geometry*){nullptr};
+   int (*m_drain)(void*){nullptr};
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+new file mode 100644
+index 0000000..98f20a4
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -0,0 +1,261 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "DVPrivateVulkan.h"
++#include "utils/log.h"
++#include <GLES3/gl3.h>
++#include <drm_fourcc.h>
++#include <dlfcn.h>
++#include <unistd.h>
++#include <cstdlib>
++#include <cstring>
++
++namespace
++{
++bool EnvIs(const char* name, const char* value)
++{
++  const char* current = std::getenv(name);
++  return current && std::strcmp(current, value) == 0;
++}
++} // namespace
++
++bool CDVPrivateVulkan::Requested()
++{ return EnvIs("DV_ENGINE_VULKAN", "1"); }
++
++bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device,
++                                  gbm_bo* output0, gbm_bo* output1)
++{
++  if (m_library || !vaDisplay || drmFd < 0 || !device || !output0 || !output1) return false;
++  const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++  if (!library || !library[0]) library = "libdv_engine_vk.so.0";
++  m_library = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++  if (!m_library)
++  {
++    CLog::Log(LOGERROR, "Vulkan engine load failed: {}", dlerror());
++    return false;
++  }
++#define LOAD(member, symbol) member = reinterpret_cast<decltype(member)>(dlsym(m_library, #symbol)); if (!member) { CLog::Log(LOGERROR, "Vulkan engine: no {} in {}", #symbol, library); return false; }
++  LOAD(m_create, dvvk_create);
++  LOAD(m_setOutput, dvvk_set_output);
++  LOAD(m_setOverlay, dvvk_set_overlay);
++  LOAD(m_submit, dvvk_submit);
++  LOAD(m_poll, dvvk_poll);
++  LOAD(m_wait, dvvk_wait);
++  LOAD(m_reset, dvvk_reset);
++  LOAD(m_destroy, dvvk_destroy);
++#undef LOAD
++  // The engine logs its reasons on stderr (the journal).
++  if (m_create(drmFd, vaDisplay, &m_engine) != 0 || !m_engine)
++  {
++    m_engine = nullptr;
++    CLog::Log(LOGERROR, "Vulkan engine did not start (no Vulkan device for the DRM node?)");
++    return false;
++  }
++  gbm_bo* outputs[2]{output0, output1};
++  for (unsigned slot = 0; slot < 2; ++slot)
++  {
++    const int fd = gbm_bo_get_fd(outputs[slot]);
++    // The engine imports its own duplicate.
++    const int result = fd < 0 ? -1 : m_setOutput(m_engine, slot, fd, gbm_bo_get_stride(outputs[slot]));
++    if (fd >= 0) close(fd);
++    if (result != 0)
++    {
++      CLog::Log(LOGERROR, "Vulkan engine could not import scanout buffer {}", slot);
++      return false;
++    }
++  }
++  const char* scaler = std::getenv("DV_EL_SCALER");
++  m_elScaler = scaler && (std::strcmp(scaler, "0") == 0 || std::strcmp(scaler, "nearest") == 0) ? 0 : 1;
++  m_fel = !EnvIs("DV_FEL", "0");
++  if (!InitializeGui(device)) return false;
++  CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={}", library, m_elScaler, m_fel);
++  return true;
++}
++
++bool CDVPrivateVulkan::InitializeGui(gbm_device* device)
++{
++  // The engine reads the GUI as a dmabuf, top row first: a linear RGBA8 copy
++  // of Kodi's GUI texture (byte for byte, flipped by the blit when needed).
++  m_display = eglGetCurrentDisplay();
++  auto create = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
++  m_destroyImage = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImageKHR"));
++  using Target = void (*)(GLenum, void*);
++  auto target = reinterpret_cast<Target>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
++  if (!create || !m_destroyImage || !target || m_display == EGL_NO_DISPLAY) return false;
++  m_guiBo = gbm_bo_create(device, 3840, 2160, GBM_FORMAT_ABGR8888,
++                          GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR);
++  if (!m_guiBo) return false;
++  m_guiFd = gbm_bo_get_fd(m_guiBo);
++  if (m_guiFd < 0) return false;
++  const uint32_t stride = gbm_bo_get_stride(m_guiBo);
++  const EGLint attrs[] = {EGL_WIDTH, 3840, EGL_HEIGHT, 2160, EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
++      EGL_DMA_BUF_PLANE0_FD_EXT, m_guiFd, EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
++      EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(stride), EGL_NONE};
++  m_guiImage = create(m_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attrs);
++  if (m_guiImage == EGL_NO_IMAGE_KHR) return false;
++  GLint texture, draw;
++  glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
++  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw);
++  glGenTextures(1, &m_guiTexture);
++  glBindTexture(GL_TEXTURE_2D, m_guiTexture);
++  target(GL_TEXTURE_2D, m_guiImage);
++  glBindTexture(GL_TEXTURE_2D, texture);
++  glGenFramebuffers(1, &m_guiFramebuffer);
++  glGenFramebuffers(1, &m_readFramebuffer);
++  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_guiFramebuffer);
++  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_guiTexture, 0);
++  const bool complete = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
++  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
++  if (!complete || glGetError() != GL_NO_ERROR) return false;
++  m_guiDmabuf.width = 3840;
++  m_guiDmabuf.height = 2160;
++  m_guiDmabuf.format = DRM_FORMAT_ABGR8888;
++  m_guiDmabuf.modifier = DRM_FORMAT_MOD_LINEAR;
++  m_guiDmabuf.num_planes = 1;
++  m_guiDmabuf.fd[0] = m_guiFd;
++  m_guiDmabuf.fd[1] = m_guiDmabuf.fd[2] = m_guiDmabuf.fd[3] = -1;
++  m_guiDmabuf.stride[0] = stride;
++  return true;
++}
++
++bool CDVPrivateVulkan::CopyGui(const DVPrivateOverlay& overlay)
++{
++  GLint read, draw;
++  glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &read);
++  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &draw);
++  const bool scissor = glIsEnabled(GL_SCISSOR_TEST), dither = glIsEnabled(GL_DITHER);
++  glDisable(GL_SCISSOR_TEST);
++  glDisable(GL_DITHER);
++  glBindFramebuffer(GL_READ_FRAMEBUFFER, m_readFramebuffer);
++  glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, overlay.texture, 0);
++  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_guiFramebuffer);
++  if (overlay.flipY)
++    glBlitFramebuffer(0, 0, 3840, 2160, 0, 2160, 3840, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
++  else
++    glBlitFramebuffer(0, 0, 3840, 2160, 0, 0, 3840, 2160, GL_COLOR_BUFFER_BIT, GL_NEAREST);
++  glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
++  glBindFramebuffer(GL_READ_FRAMEBUFFER, read);
++  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
++  if (scissor) glEnable(GL_SCISSOR_TEST);
++  if (dither) glEnable(GL_DITHER);
++  // Flushed, the blit's fence is on the dmabuf; the engine waits for it on the GPU.
++  glFlush();
++  return glGetError() == GL_NO_ERROR;
++}
++
++int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurface,
++                             const void* metadata, size_t size, int64_t pts,
++                             const dv_source_geometry& geometry, const dv_source_input& input,
++                             unsigned packet, bool refresh, const DVPrivateOverlay* overlay)
++{
++  if (!m_engine || !m_guiBo) return DV_VULKAN_FAILED;
++  if (overlay)
++  {
++    // A nonzero revision names unchanged contents; without one, copy every frame.
++    if (!m_guiShown || !overlay->SameContents(m_gui))
++    {
++      if (!CopyGui(*overlay) || m_setOverlay(m_engine, &m_guiDmabuf, ++m_guiId) != 0)
++      {
++        m_guiShown = false;
++        return -1;
++      }
++      m_gui = *overlay;
++      m_guiShown = true;
++    }
++  }
++  else if (m_guiShown)
++  {
++    if (m_setOverlay(m_engine, nullptr, 0) != 0) return -1;
++    m_guiShown = false;
++  }
++  const bool resized = geometry.destination_width &&
++      (geometry.destination_width != geometry.width || geometry.destination_height != geometry.height);
++  dvvk_frame frame{};
++  frame.plan.width = geometry.width;
++  frame.plan.height = geometry.height;
++  frame.plan.x = geometry.x;
++  frame.plan.y = geometry.y;
++  frame.plan.dw = resized ? geometry.destination_width : 0;
++  frame.plan.dh = resized ? geometry.destination_height : 0;
++  frame.plan.chroma_top_left = geometry.chroma_siting == DV_SOURCE_CHROMA_TOP_LEFT;
++  frame.plan.has_el = elSurface != UINT32_MAX;
++  frame.plan.nv12 = input.format == DV_SOURCE_INPUT_NV12;
++  frame.plan.el_scaler = m_elScaler;
++  frame.plan.fel = m_fel;
++  frame.plan.packet_id = packet;
++  frame.plan.refresh = refresh;
++  frame.plan.pts = pts;
++  // The GUI colour stays that of the last GUI, so hiding it changes no coefficients.
++  const DVPrivateOverlay& colour = overlay ? *overlay : m_gui;
++  std::memcpy(frame.plan.rgb_to_lms, colour.rgbToLms, sizeof(frame.plan.rgb_to_lms));
++  frame.plan.white_nits = colour.whiteNits;
++  frame.bl_surface = blSurface;
++  frame.el_surface = elSurface;
++  frame.metadata = metadata;
++  frame.metadata_size = size;
++  frame.output = slot;
++  frame.flags = DVVK_FRAME_AUTO_OVERLAY;
++  uint64_t ticket = 0;
++  const int result = m_submit(m_engine, &frame, &ticket);
++  if (result != 0)
++  {
++    if (m_reports < 16)
++    {
++      ++m_reports;
++      CLog::Log(LOGWARNING, "Vulkan engine {} frame pts={} ({}): {}x{}{} at {},{}",
++                result == -2 ? "does not take this" : "failed on", pts, result,
++                geometry.width, geometry.height, frame.plan.has_el ? " + EL" : "", geometry.x, geometry.y);
++    }
++    return result;
++  }
++  m_ticket = ticket;
++  // Written means GPU complete, and the decoded surfaces return to the decoder after this.
++  if (m_wait(m_engine, ticket, 2000000000ull) != 1)
++  {
++    CLog::Log(LOGERROR, "Vulkan engine frame pts={} did not complete", pts);
++    return DV_VULKAN_FAILED;
++  }
++  int done = 0;
++  uint32_t flags = 0;
++  if (m_poll(m_engine, ticket, &done, &flags) != 0 || !done) return DV_VULKAN_FAILED;
++  if (flags & 3u)
++  {
++    // As the OpenCL engine: an out-of-range sample rejects the picture.
++    CLog::Log(LOGERROR, "Vulkan engine range check failed pts={} flags={:#x}", pts, flags);
++    return -4;
++  }
++  if ((flags & 0x100u) && m_colourReports < 8)
++  {
++    ++m_colourReports;
++    CLog::Log(LOGWARNING, "Vulkan engine: overlay colour out of range, shown clamped (pts={})", pts);
++  }
++  return 0;
++}
++
++void CDVPrivateVulkan::Reset()
++{
++  if (m_engine) m_reset(m_engine);
++  m_reports = 0;
++}
++
++bool CDVPrivateVulkan::Close()
++{
++  if (m_engine)
++  {
++    if (m_ticket && m_wait(m_engine, m_ticket, 2000000000ull) != 1) return false;
++    m_destroy(m_engine);
++    m_engine = nullptr;
++  }
++  if (m_guiFramebuffer) glDeleteFramebuffers(1, &m_guiFramebuffer);
++  if (m_readFramebuffer) glDeleteFramebuffers(1, &m_readFramebuffer);
++  if (m_guiTexture) glDeleteTextures(1, &m_guiTexture);
++  if (m_guiImage != EGL_NO_IMAGE_KHR) m_destroyImage(m_display, m_guiImage);
++  if (m_guiFd >= 0) close(m_guiFd);
++  if (m_guiBo) gbm_bo_destroy(m_guiBo);
++  m_guiFramebuffer = m_readFramebuffer = m_guiTexture = 0;
++  m_guiImage = EGL_NO_IMAGE_KHR;
++  m_guiFd = -1;
++  m_guiBo = nullptr;
++  m_guiShown = false;
++  if (m_library) dlclose(m_library);
++  m_library = nullptr;
++  return true;
++}
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+new file mode 100644
+index 0000000..1f7e01d
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -0,0 +1,59 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++#include "source_geometry.h"
++#include "source_input.h"
++#include "DVPrivateOverlay.h"
++#include <EGL/egl.h>
++#include <EGL/eglext.h>
++#include <gbm.h>
++#include <dv-engine-vk/dv_engine_vk.h>
++#include <cstddef>
++#include <cstdint>
++
++/* yblod's engine on Vulkan compute (libdv_engine_vk.so.0, yblod-engine/vk),
++ * selected with DV_ENGINE_VULKAN=1 (Settings > Player > Dolby Vision > Vulkan
++ * engine). It writes the two private scanout buffers itself and reads the GUI
++ * from a GBM copy of Kodi's GUI texture; no OpenCL and no CL-GL interop. Each
++ * frame is submitted and waited for, so the scanout slot contract (written
++ * means GPU complete) and the decoded surface leases are as with OpenCL. */
++class CDVPrivateVulkan
++{
++public:
++  static constexpr int DV_VULKAN_FAILED = -8; // dv_status DV_BACKEND
++  static bool Requested();
++  bool Initialize(void* vaDisplay, int drmFd, gbm_device* device, gbm_bo* output0, gbm_bo* output1);
++  /* 0 the picture is in the slot; -2 not this engine's frame (ordinary
++   * picture); -8 the engine or the wait failed (outputs uncertain); other
++   * negative: rejected, nothing written. */
++  int Render(unsigned slot, unsigned blSurface, unsigned elSurface, const void* metadata,
++             size_t size, int64_t pts, const dv_source_geometry& geometry,
++             const dv_source_input& input, unsigned packet, bool refresh,
++             const DVPrivateOverlay* overlay);
++  void Reset();
++  bool Close();
++private:
++  bool InitializeGui(gbm_device* device);
++  bool CopyGui(const DVPrivateOverlay& overlay);
++  void* m_library{nullptr};
++  dvvk_engine* m_engine{nullptr};
++  decltype(&dvvk_create) m_create{nullptr};
++  decltype(&dvvk_set_output) m_setOutput{nullptr};
++  decltype(&dvvk_set_overlay) m_setOverlay{nullptr};
++  decltype(&dvvk_submit) m_submit{nullptr};
++  decltype(&dvvk_poll) m_poll{nullptr};
++  decltype(&dvvk_wait) m_wait{nullptr};
++  decltype(&dvvk_reset) m_reset{nullptr};
++  decltype(&dvvk_destroy) m_destroy{nullptr};
++  gbm_bo* m_guiBo{nullptr};
++  EGLImageKHR m_guiImage{EGL_NO_IMAGE_KHR};
++  EGLDisplay m_display{EGL_NO_DISPLAY};
++  PFNEGLDESTROYIMAGEKHRPROC m_destroyImage{nullptr};
++  unsigned m_guiTexture{0}, m_guiFramebuffer{0}, m_readFramebuffer{0};
++  int m_guiFd{-1};
++  dvvk_dmabuf m_guiDmabuf{};
++  DVPrivateOverlay m_gui{};
++  bool m_guiShown{false};
++  uint64_t m_guiId{0}, m_ticket{0};
++  unsigned m_elScaler{1}, m_reports{0}, m_colourReports{0};
++  bool m_fel{true};
++};
