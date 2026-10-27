@@ -68,10 +68,30 @@ uint el_v(uint x, uint row, uint el_h)
                             : rounded(-9 * s[1] + 111 * s[2] + 29 * s[3] - 3 * s[4], 128);
 }
 
+// SOURCE 2, the sited pack, Annex B: the workgroup's EL luma upsampled
+// vertically (el_v), once per EL column it needs (its 64 + the 8-tap halo)
+// and per output row, instead of up to 8 times per sample.
+shared uint el_tile[4][71];
+bool el_tiled = false;
+int el_tile_base;     // the EL column of el_tile[.][0]
+uint el_tile_row0;    // the source luma row of el_tile[0]
+
 uint fel_luma(uint x, uint y, uint sw, uint sh)
 {
     uint ew = sw / 2, ix = x / 2, el;
-    if ((x & 1u) == 0u || nearest != 0u)
+    if (el_tiled) {
+        uint t = y - el_tile_row0;
+        int j = int(ix) - el_tile_base;
+        if ((x & 1u) == 0u)
+            el = el_tile[t][j];
+        else {
+            const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
+            int v = 0;
+            for (int k = 0; k < 8; k++)
+                v += taps[k] * int(el_tile[t][j + k - 3]);
+            el = rounded(v, 4096);
+        }
+    } else if ((x & 1u) == 0u || nearest != 0u)
         el = el_v(ix, y, sh / 2);
     else {
         const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
@@ -338,6 +358,20 @@ void main()
             for (uint i = 0; i < 4; i++)
                 gui_shared[ly * 2u + r][lx * 4u + i] =
                     x0 + i < w && y0 + r < h ? gui_owned(x0 + i, y0 + r) : vec4(0.0);
+        barrier();
+    }
+    if (SOURCE == 2u && PACK == 0u && nearest == 0u) {
+        // The tile's rows: the workgroup's 4 output rows, where reconstructed.
+        uint gx = gl_WorkGroupID.x * 128u, gy = gl_WorkGroupID.y * 4u;
+        el_tiled = true;
+        el_tile_base = (int(gx) - int(placement.x)) / 2 - 3;
+        el_tile_row0 = gy - placement.y;   // wraps above the placement; those rows aren't read
+        uint sw = placement.z, sh = placement.w;
+        for (uint e = ly * 32u + lx; e < 4u * 71u; e += 64u) {
+            uint t = e / 71u, j = e % 71u, y = gy + t;
+            bool used = y >= placement.y && y - placement.y < sh && y >= active_area.y && y < active_area.w;
+            el_tile[t][j] = used ? el_v(uint(edge(el_tile_base + int(j), sw / 2)), y - placement.y, sh / 2) : 0u;
+        }
         barrier();
     }
     if (x0 >= w || y0 >= h)

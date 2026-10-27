@@ -37,6 +37,23 @@ uvec2 el_vertical(uint xe, uint cy)
     return (192u * b + 64u * c + 128u) / 256u;
 }
 
+// Annex B (not nearest): the workgroup's EL chroma, upsampled vertically,
+// once per column it needs (its 32 + the 8-tap halo), as el_vertical computes it.
+shared uvec2 el_tile[39];
+int el_tile_base;   // the EL chroma column of el_tile[0]
+
+uvec2 el_chroma_tiled(uint cx)
+{
+    int j = int(cx / 2) - el_tile_base;
+    if ((cx & 1u) == 0u)
+        return el_tile[j];
+    const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
+    ivec2 v = ivec2(0);
+    for (int k = 0; k < 8; k++)
+        v += taps[k] * ivec2(el_tile[j + k - 3]);
+    return uvec2(rounded(v.x, 4096), rounded(v.y, 4096));
+}
+
 uvec2 el_chroma(uint cx, uint cy)
 {
     uint ix = cx / 2, ew = w / 4;
@@ -146,6 +163,13 @@ void main()
 {
     uint cx = gl_GlobalInvocationID.x, cy = gl_GlobalInvocationID.y + row_offset;
     uint cw = w / 2, chh = h / 2;
+    if (nearest == 0u) {
+        // Before any return: the barrier needs the whole workgroup.
+        el_tile_base = int(gl_WorkGroupID.x * 32u) - 3;
+        for (uint j = gl_LocalInvocationID.x; j < 39u; j += 64u)
+            el_tile[j] = cy < chh ? el_vertical(uint(edge(el_tile_base + int(j), w / 4)), cy) : uvec2(0);
+        barrier();
+    }
     if (cx >= cw || cy >= chh)
         return;
     uint i = cy * cw + cx;
@@ -158,7 +182,7 @@ void main()
                 input_sample(bl_luma, x0 + 1, y, 0u) + 2u) / 4u;
     }
     uint guide = (a[0] + a[1] + 1u) / 2u;
-    uvec2 el = el_chroma(cx, cy);
+    uvec2 el = nearest == 0u ? el_chroma_tiled(cx) : el_chroma(cx, cy);
     uvec3 s = uvec3(guide, phase.x, phase.y);
     uint kinds[2] = uint[2](kind0, kind1);
     for (uint channel = 0; channel < 2; ++channel) {

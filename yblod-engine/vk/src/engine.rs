@@ -203,6 +203,7 @@ pub struct Engine {
     pack: Vec<Pipeline>,      // [(source * 2 + overlay) * 3 + PACK]
     fel_chroma: Pipeline,
     staged: bool,
+    annexb_staged: bool,
     overlay: HostBuffer,
     gui_coeff: HostBuffer,
     gui_error: HostBuffer,
@@ -272,6 +273,7 @@ impl Engine {
         let fel_chroma = Pipeline::new(&d, "fel_chroma",
             &[sampled, sampled, sampled, storage, storage, storage, storage, storage, storage, storage, storage], 32, &[])?;
         let staged = std::env::var("DVVK_STAGED").map(|v| v == "1").unwrap_or(false);
+        let annexb_staged = std::env::var("DVVK_ANNEXB_STAGED").map(|v| v == "1").unwrap_or(false);
         let fel = FelPipelines {
             vertical_pair: Pipeline::new(&d, "fel_vertical_pair", &[sampled, storage, storage], 20, &[])?,
             luma_phase_guide: Pipeline::new(&d, "fel_luma_phase_guide", &[sampled, sampled, storage, storage, storage, storage, storage, storage, storage], 20, &[])?,
@@ -416,6 +418,7 @@ impl Engine {
             pack,
             fel_chroma,
             staged,
+            annexb_staged,
             overlay,
             gui_coeff,
             gui_error,
@@ -940,9 +943,12 @@ impl Engine {
         } else if route == plan::ROUTE_SINGLE && p.pack != plan::PACK_RESIZED {
             // Resized frames read 4 taps per sample: cheaper from the planes.
             1
-        } else if route == plan::ROUTE_DUAL && p.equal == 0 && p.nearest != 0 {
-            // Annex B stays staged until its taps are shared through a tile
-            // (on the fly it recomputes each vertical tap up to 8 times).
+        } else if route == plan::ROUTE_DUAL && p.equal == 0
+            && (p.nearest != 0 || (p.pack == plan::PACK_SITED && !self.annexb_staged))
+        {
+            // Annex B shares its vertical taps through a workgroup tile (pass A
+            // and the sited pack); resized or 4:2:2 Annex B stays staged, as
+            // all of it does with DVVK_ANNEXB_STAGED=1.
             2
         } else {
             0
