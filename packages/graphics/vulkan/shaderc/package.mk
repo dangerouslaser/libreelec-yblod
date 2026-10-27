@@ -17,7 +17,6 @@ PKG_LONGDESC="glslc, a GLSL to SPIR-V compiler (for yblod-engine-vk's shaders)."
 PKG_CMAKE_OPTS_HOST="-DSHADERC_SKIP_TESTS=ON \
                      -DSHADERC_SKIP_EXAMPLES=ON \
                      -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
-                     -DSHADERC_SKIP_INSTALL=ON \
                      -DSHADERC_ENABLE_SHARED_CRT=OFF \
                      -DSPIRV_SKIP_TESTS=ON \
                      -DSPIRV_SKIP_EXECUTABLES=ON \
