@@ -104,7 +104,7 @@ index 40e3f3e..bea0c62 100644
    unsigned Packet() const { return m_lease.packet_id; }
    bool Refresh() const { return m_lease.refresh != 0; }
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
-index 6a3b0ec..28513c0 100644
+index 6a3b0ec..98e5091 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
 @@ -3,6 +3,7 @@
@@ -231,7 +231,16 @@ index 6a3b0ec..28513c0 100644
    {
      if (!CancelPending()) return -1;
      ReleaseInputs();
-@@ -304,7 +375,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -298,13 +369,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+   const char* directNoFinish = m_scanout ? std::getenv("DV_PRIVATE_DIRECT_NO_GL_FINISH") : nullptr;
+   // Private scanout textures have no GL readers after initialization. CL
+   // release and the scanout slot contract still gate every buffer reuse.
+-  if (overlay || !directNoFinish || std::strcmp(directNoFinish, "1") != 0)
++  // The Vulkan engine waits for the decoder's and the GUI copy's implicit
++  // fences on the GPU instead.
++  if (!m_vulkan && (overlay || !directNoFinish || std::strcmp(directNoFinish, "1") != 0))
+     glFinish();
+   const auto glDone = trace ? std::chrono::steady_clock::now() : started;
    if (m_scanout && !m_packPending)
    {
      if (!m_scanout->Begin(prefetched ? m_pendingId : m_serial+1,pts)) return -1;
@@ -240,7 +249,7 @@ index 6a3b0ec..28513c0 100644
      {
        m_scanout->Written(DV_SCANOUT_REJECTED);
        return -1;
-@@ -324,7 +395,10 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -324,7 +397,10 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    };
    int result;
    const bool prepacked = prefetched && m_packPending;
@@ -252,7 +261,7 @@ index 6a3b0ec..28513c0 100644
    {
      int ready = 0;
      result = m_packComplete(m_engine, m_pendingId, pts, 1, &ready);
-@@ -348,7 +422,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -348,7 +424,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const auto renderDone = trace ? std::chrono::steady_clock::now() : started;
    if (m_serial <= 12)
      CLog::Log(LOGINFO, "Private source consume: pts={} prefetch={} status={}", pts, prefetched, result);
@@ -261,7 +270,7 @@ index 6a3b0ec..28513c0 100644
    {
      if (m_scanout) m_scanout->Written(DV_SCANOUT_UNCERTAIN);
      m_unsafe = true;
-@@ -358,7 +432,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -358,7 +434,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const auto drained = trace ? std::chrono::steady_clock::now() : started;
    m_packPending = false;
    m_pending = false;
@@ -278,7 +287,7 @@ index 6a3b0ec..28513c0 100644
    if (m_scanout && !m_scanout->Written(result == 0 ? DV_SCANOUT_ACCEPTED : DV_SCANOUT_REJECTED))
    {
      m_unsafe = true;
-@@ -402,7 +484,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -402,7 +486,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const char* verifyAsync = std::getenv(overlay ? "DV_PRIVATE_ASYNC_OVERLAY" : "DV_PRIVATE_ASYNC_PACK");
    const char* verifyGui = std::getenv("DV_PRIVATE_VERIFY_OVERLAY");
    unsigned& verifiedFrames = overlay ? m_verifiedOverlayFrames : m_verifiedFrames;
@@ -288,7 +297,7 @@ index 6a3b0ec..28513c0 100644
        verify && std::strcmp(verify, "1") == 0 &&
        (!verifyAsync || std::strcmp(verifyAsync, "1") != 0 || prepacked) &&
        (verifiedFrames < 6 || m_resetChecks))
-@@ -541,6 +624,7 @@ void CDVPrivateSource::Reset()
+@@ -541,6 +626,7 @@ void CDVPrivateSource::Reset()
    m_overlayPrefetchHits = 0;
    if (!CancelPending()) m_unsafe = true;
    if (m_scanout && !m_scanout->ResetStream()) m_unsafe = true;
@@ -296,7 +305,7 @@ index 6a3b0ec..28513c0 100644
    m_discardedWorkMs = 0;
    m_ready = false;
    m_refresh = true;
-@@ -553,6 +637,12 @@ bool CDVPrivateSource::Close()
+@@ -553,6 +639,12 @@ bool CDVPrivateSource::Close()
  {
    if (m_scanout && !m_scanout->CanClose()) return false;
    glFinish();
