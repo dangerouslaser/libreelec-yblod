@@ -1,8 +1,8 @@
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
-index 4da8888..697621f 100644
+index 4da8888..d00ce99 100644
 --- a/addons/resource.language.en_gb/resources/strings.po
 +++ b/addons/resource.language.en_gb/resources/strings.po
-@@ -26219,3 +26219,13 @@ msgstr ""
+@@ -26219,3 +26219,23 @@ msgstr ""
  msgctxt "#40894"
  msgid "YBLOD build"
  msgstr ""
@@ -16,15 +16,38 @@ index 4da8888..697621f 100644
 +msgctxt "#40896"
 +msgid "Run YBLOD's engine on Vulkan compute instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. Applies to the next video."
 +msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40897"
++msgid "Nearest-neighbour enhancement layer"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40898"
++msgid "Upscale a profile 7 full enhancement layer by repeating each sample over its 2x2 block, as decoded: sharp and the lightest on the GPU. Off: the smooth filters of Dolby's published reference (ETSI CCM Annex B). Both engines. Applies to the next video."
++msgstr ""
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 2c0a31c..5af7bb4 100755
+index 2c0a31c..410fae0 100755
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
-@@ -441,6 +441,19 @@
+@@ -441,6 +441,32 @@
            </dependencies>
            <control type="toggle" />
          </setting>
 +        <setting id="dvbridge.vulkan" type="boolean" label="40895" help="40896">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.engine">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.elnearest" type="boolean" label="40897" help="40898">
 +          <level>3</level>
 +          <default>false</default>
 +          <dependencies>
@@ -56,14 +79,15 @@ index 85dea6a..22a539b 100644
  
  core_add_library(videorenderers)
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
-index 8063e1a..608b3e9 100644
+index 8063e1a..54a9785 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
-@@ -43,6 +43,7 @@ inline const std::vector<Mapping>& Mappings()
+@@ -43,6 +43,8 @@ inline const std::vector<Mapping>& Mappings()
        {"dvbridge.engine",
         {{"DV_PRIVATE_SOURCE", "1"}, {"DV_PRIVATE_OVERLAY", "1"}, {"DV_PRIVATE_DRAIN_EOF", "1"}},
         {{"DV_PRIVATE_SOURCE", "0"}, {"DV_PRIVATE_OVERLAY", "0"}, {"DV_PRIVATE_DRAIN_EOF", "0"}}},
 +      {"dvbridge.vulkan", {{"DV_ENGINE_VULKAN", "1"}}, {{"DV_ENGINE_VULKAN", "0"}}},
++      {"dvbridge.elnearest", {{"DV_EL_SCALER", "nearest"}}, {{"DV_EL_SCALER", "annexb"}}},
        {"dvbridge.letterboxskip", {{"DV_RECON_ACTIVE_ROWS", "1"}}, {{"DV_RECON_ACTIVE_ROWS", "0"}}},
        {"dvbridge.inlineoverlay", {{"DV_OVERLAY_INLINE", "1"}}, {{"DV_OVERLAY_INLINE", "0"}}},
        {"dvbridge.tablecache",
