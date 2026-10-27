@@ -16,11 +16,17 @@ layout(binding = 5, std430) readonly buffer YMap { uvec4 ymap[]; };
 // Overlay (SOURCE_OVERLAY_INLINE + GRAY_LUT + SHARED: the cache and LUT are
 // exact caches of overlay_source_colour, so computing it directly is the same
 // value): RGBA8 premultiplied sRGB, coverage alpha, rows top first.
+// OVERLAY 1: from overlay_prepare's colour cache and tile map. 2 (fused, the
+// shell's layer alone): the pack reads the shell itself and keeps the colour
+// cache as overlay_prepare does (keys = the RGBA each colour was made from).
 layout(constant_id = 2) const uint OVERLAY = 0;
 layout(constant_id = 3) const uint BLEND_FMA = 1;  // the blends as IGC contracts them (FP_CONTRACT ON)
-layout(binding = 6, std430) readonly buffer GuiColours { vec4 gui_colours[]; };
+layout(binding = 6, std430) buffer GuiColours { vec4 gui_colours[]; };      // w < 0: a colour out of range
 layout(binding = 7, std430) readonly buffer GuiTiles { uint gui_tiles[]; };   // 16x16: bit 0 covered, 1 first column, 2 last
-layout(binding = 8, std430) readonly buffer GuiUnused { uint gui_unused; };
+layout(binding = 8, std430) buffer GuiError { uint gui_error; };
+layout(binding = 15) uniform sampler2D shell;
+layout(binding = 16, std430) buffer Keys { uint keys[]; };
+layout(binding = 17, std430) readonly buffer Coeff { float coeff[]; };
 // Where the reconstructed samples come from. 0: the staged planes (yplane,
 // cb, cr). 1 (fused single layer): the decoded BL through single_polynomial's
 // tables, sample by sample. 2 (fused FEL, pass B): luma from the BL + the EL
@@ -36,7 +42,9 @@ layout(binding = 14, std430) buffer ReconError { uint recon_error; };
 layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
     uint w, h, stride_words, packet_count, top_left, source_w, source_h, nearest;
+    uint gui_flags;   // OVERLAY 2: bit 0 invalidate the cache, bit 1 the shell's rows bottom first
 };
+#include "overlay_colour.glsl"
 
 uint unorm16_code(float v)
 {
@@ -156,6 +164,71 @@ bool gui_tile(uint x, uint y)
     return (x & 15u) == 12u && t + 1u < (w + 15u) / 16u && (gui_tiles[row + t + 1u] & 2u) != 0u;
 }
 
+// OVERLAY 2: the shell's pixel as overlay_prepare's composed() makes it.
+uint shell_rgba(uint x, uint y)
+{
+    vec2 at = vec2(x, (gui_flags & 2u) != 0u ? h - 1u - y : y) + 0.5;
+    vec4 dst = textureLod(shell, at / vec2(w, h), 0.0);
+    uvec4 b = uvec4(round(clamp(dst, 0.0, 1.0) * 255.0));
+    b.rgb = min(b.rgb, uvec3(b.a));
+    return b.r | (b.g << 8) | (b.b << 16) | (b.a << 24);
+}
+
+vec4 gui_colour(uint v)
+{
+    vec4 c;
+    if (!overlay_source_colour(uvec4(v & 255u, (v >> 8) & 255u, (v >> 16) & 255u, v >> 24), c)) {
+        atomicOr(gui_error, 1u);
+        c = vec4(0.0);
+    }
+    return c;
+}
+
+// OVERLAY 2: pixel (x, y)'s colour (zero where transparent). Its owner keeps
+// the cache: colour and key are written together by the one invocation that
+// owns the pixel, so others never read a half-written entry.
+vec4 gui_owned(uint x, uint y)
+{
+    uint v = shell_rgba(x, y), i = y * w + x;
+    bool invalidate = (gui_flags & 1u) != 0u;
+    if (!invalidate && keys[i] == v) {
+        if ((v >> 24) == 0u)
+            return vec4(0.0);
+        vec4 c = gui_colours[i];
+        if (c.w < 0.0) {
+            atomicOr(gui_error, 1u);
+            return vec4(0.0);
+        }
+        return c;
+    }
+    if ((v >> 24) == 0u) {
+        // Transparent: nothing to cache, but an invalidated key must not
+        // match a later pixel with its old colour.
+        if (invalidate)
+            keys[i] = v;
+        return vec4(0.0);
+    }
+    vec4 c;
+    bool ok = overlay_source_colour(uvec4(v & 255u, (v >> 8) & 255u, (v >> 16) & 255u, v >> 24), c);
+    if (!ok) {
+        atomicOr(gui_error, 1u);
+        c = vec4(0.0);
+    }
+    gui_colours[i] = ok ? c : vec4(0.0, 0.0, 0.0, -1.0);
+    keys[i] = v;
+    return c;
+}
+
+// A pixel another workgroup owns: computed, the cache not read.
+vec4 gui_foreign(uint x, uint y)
+{
+    uint v = shell_rgba(x, y);
+    return (v >> 24) == 0u ? vec4(0.0) : gui_colour(v);
+}
+
+// OVERLAY 2: the workgroup's pixels (128 x 4), resolved once by their owners.
+shared vec4 gui_shared[4][128];
+
 uint blend_luma(uint yy, vec4 g)
 {
     precise float v;
@@ -258,6 +331,15 @@ void chroma_rows_at(uint cx, uint k, uint sw, uint sh, out uvec2 rows[3])
 void main()
 {
     uint x0 = gl_GlobalInvocationID.x * 4u, y0 = gl_GlobalInvocationID.y * 2u;
+    uint lx = gl_LocalInvocationID.x, ly = gl_LocalInvocationID.y;
+    if (OVERLAY == 2u) {
+        // Before any return: the barrier needs the whole workgroup.
+        for (uint r = 0; r < 2; r++)
+            for (uint i = 0; i < 4; i++)
+                gui_shared[ly * 2u + r][lx * 4u + i] =
+                    x0 + i < w && y0 + r < h ? gui_owned(x0 + i, y0 + r) : vec4(0.0);
+        barrier();
+    }
     if (x0 >= w || y0 >= h)
         return;
     // Chroma rows for the sited pack, per chroma column of the block (the
@@ -285,16 +367,25 @@ void main()
             break;
         // Blocks are 4 wide and 16-aligned tiles hold 4 of them; the tile map
         // is dilated so a neighbour's coverage (x0-1, x0+4) marks it too.
-        bool tile = OVERLAY != 0u && gui_tile(x0, y);
+        bool tile = OVERLAY == 1u ? gui_tile(x0, y) : OVERLAY == 2u;
         uvec4 out4;
         for (uint pair = 0; pair < 2; pair++) {
             uint sx = x0 / 2u + pair;
             vec4 shared_left = vec4(0.0), shared_middle = vec4(0.0), shared_right = vec4(0.0);
-            if (OVERLAY != 0u && tile) {
+            if (OVERLAY == 1u && tile) {
                 int center = int(sx * 2);
                 shared_left = gui_value(center - 1, y);
                 shared_middle = gui_value(center, y);
                 shared_right = gui_value(center + 1, y);
+            } else if (OVERLAY == 2u) {
+                // pixels center-1, center, center+1 (clamped at the canvas edge as gui_value)
+                uint row = ly * 2u + r, c = lx * 4u + pair * 2u;
+                shared_middle = gui_shared[row][c];
+                shared_right = gui_shared[row][c + 1u];
+                if (c > 0u)
+                    shared_left = gui_shared[row][c - 1u];
+                else
+                    shared_left = x0 == 0u ? shared_middle : gui_foreign(x0 - 1u, y);
             }
             for (uint lane = 0; lane < 2; ++lane) {
                 uint x = sx * 2 + lane;

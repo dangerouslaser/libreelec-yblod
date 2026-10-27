@@ -52,6 +52,21 @@ struct PackPush {
     source_w: u32,
     source_h: u32,
     nearest: u32,
+    gui_flags: u32,   // the fused overlay: 1 invalidate the colour cache, 2 the shell flipped
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct PreparePush {
+    w: u32,
+    h: u32,
+    has_shell: u32,
+    has_subs: u32,
+    tiles_x: u32,
+    tile: u32,
+    origin: [u32; 2],
+    invalidate: u32,
+    flip: u32,
 }
 
 #[repr(C)]
@@ -115,6 +130,26 @@ struct Ctx {
     query: Option<vk::QueryPool>,
     plan_ms: f64,
     prepared: bool,
+    // DVVK_VERIFY: the compare's result (differing pixels, the first) when this frame was checked.
+    verify: Option<HostBuffer>,
+    verified: bool,
+}
+
+/// DVVK_VERIFY=k: every k-th frame is rendered a second time by the
+/// reference route (the staged reconstruction, overlay_prepare's colour cache
+/// made afresh) into `out`, and the shown output compared with it word by
+/// word. For the fused routes (FEL, the shell's overlay): any difference is a bug.
+struct Verify {
+    every: u64,
+    frames: u64,
+    keys: DeviceBuffer,
+    colours: DeviceBuffer,
+    tiles: DeviceBuffer,
+    err: DeviceBuffer,
+    out: Option<(DeviceBuffer, u32)>,   // and its stride
+    compare: Pipeline,
+    checked: u64,
+    differing: u64,
 }
 
 const PROFILE_POINTS: u32 = 4;
@@ -198,9 +233,13 @@ pub struct Engine {
     last_plan_ms: f64,
     overlay_error_flag: u32,
     overlay_prepared_by: Option<usize>,
+    // The overlay's colour cache was last kept by the pack (the shell alone),
+    // not overlay_prepare: switching invalidates it.
+    overlay_fused: bool,
     pub implicit_failed: bool,
     trace: Option<(u32, u32, u32, [u32; 2], u32, u32, u32, u32)>,
     profile: Option<Profile>,
+    verify: Option<Verify>,
 }
 
 impl Engine {
@@ -219,10 +258,11 @@ impl Engine {
         let blend_fma = std::env::var("DVVK_BLEND_FMA").ok().and_then(|v| v.parse().ok()).unwrap_or(1u32);
         let mut pack_bindings = vec![storage; 9];
         pack_bindings.extend([sampled, sampled, sampled, storage, storage, storage]);
+        pack_bindings.extend([sampled, storage, storage]);   // the fused overlay: shell, keys, coefficients
         let pack_push = std::mem::size_of::<PackPush>() as u32;
         let mut pack = Vec::new();
         for source in 0..3u32 {
-            for overlay in 0..2u32 {
+            for overlay in 0..3u32 {
                 for kind in 0..3u32 {
                     pack.push(Pipeline::new(&d, "pack", &pack_bindings, pack_push,
                         &[(0, kind), (1, fma), (2, overlay), (3, blend_fma), (4, source)])?);
@@ -299,6 +339,23 @@ impl Engine {
         let push = PushDescriptor::new(&d);
         let shot = OneShot::new(&d)?;
         let profile = std::env::var("DVVK_PROFILE").map(|v| v == "1").unwrap_or(false) && d.timestamp_period > 0.0;
+        let verify_every: u64 = std::env::var("DVVK_VERIFY").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let verify = if verify_every > 0 {
+            Some(Verify {
+                every: verify_every,
+                frames: 0,
+                keys: DeviceBuffer::new(&d, (CANVAS_W * CANVAS_H * 4) as u64)?,
+                colours: DeviceBuffer::new(&d, (CANVAS_W * CANVAS_H * 16) as u64)?,
+                tiles: DeviceBuffer::new(&d, (CANVAS_W.div_ceil(16) * CANVAS_H.div_ceil(16) * 4) as u64)?,
+                err: DeviceBuffer::new(&d, 16)?,
+                out: None,
+                compare: Pipeline::new(&d, "verify_compare", &[storage, storage, storage], 12, &[])?,
+                checked: 0,
+                differing: 0,
+            })
+        } else {
+            None
+        };
         let mut ring = Vec::new();
         for _ in 0..RING {
             let pool = unsafe {
@@ -332,6 +389,8 @@ impl Engine {
                 },
                 plan_ms: 0.0,
                 prepared: false,
+                verify: if verify_every > 0 { Some(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?) } else { None },
+                verified: false,
             });
         }
         let mut type_info = vk::SemaphoreTypeCreateInfo::default().semaphore_type(vk::SemaphoreType::TIMELINE).initial_value(0);
@@ -386,9 +445,11 @@ impl Engine {
             last_plan_ms: 0.0,
             overlay_error_flag: 0,
             overlay_prepared_by: None,
+            overlay_fused: false,
             implicit_failed: false,
             trace: None,
             profile: profile.then(Profile::default),
+            verify,
             va: va_display,
             d,
         })
@@ -594,6 +655,35 @@ impl Engine {
         Ok(0)
     }
 
+    /// Whether this frame's overlay is the shell's layer alone, read and kept
+    /// by the pack itself (no overlay_prepare pass; DVVK_OVERLAY_PREPARE=1
+    /// keeps the pass). Every such frame reads the shell.
+    fn fused_overlay(&self) -> bool {
+        self.plan.overlay_visible != 0 && self.sources_used && self.sources.shell().is_some()
+            && self.sources.subs_parts == 0
+            && !std::env::var("DVVK_OVERLAY_PREPARE").map(|v| v == "1").unwrap_or(false)
+    }
+
+    /// The finished frame of context `ci`: its check and its timestamps.
+    fn collect_frame(&mut self, ci: usize) {
+        if let (Some(v), true) = (self.verify.as_mut(), self.ring[ci].verified) {
+            let c = &self.ring[ci];
+            let r = c.verify.as_ref().unwrap().bytes();
+            let differing = u32::from_le_bytes(r[0..4].try_into().unwrap());
+            let first = u32::from_le_bytes(r[4..8].try_into().unwrap());
+            v.checked += 1;
+            if differing > 0 {
+                v.differing += 1;
+                eprintln!("dvvk verify: frame {} differs from the reference in {} pixels (first at {},{})",
+                          c.ticket, differing, first % CANVAS_W, first / CANVAS_W);
+            }
+            if v.checked % 120 == 0 {
+                eprintln!("dvvk verify: {} frames checked, {} differed", v.checked, v.differing);
+            }
+        }
+        self.collect_profile(ci);
+    }
+
     /// The finished frame of context `ci`: its timestamps into the profile.
     fn collect_profile(&mut self, ci: usize) {
         let (Some(profile), Some(q)) = (self.profile.as_mut(), self.ring[ci].query) else { return };
@@ -617,7 +707,7 @@ impl Engine {
         let ci = self.next;
         if self.ring[ci].ticket > 0 {
             self.wait(self.ring[ci].ticket, u64::MAX)?;   // back-pressure: RING frames in flight
-            self.collect_profile(ci);
+            self.collect_frame(ci);
         }
         let mut plan_in = f.plan;
         if f.auto_overlay {
@@ -666,7 +756,8 @@ impl Engine {
         }
         // The shell's OSD buffer: Qt's rendering into it may still be running.
         let compose = self.sources_used && self.sources.dirty && self.plan.overlay_visible != 0;
-        if compose {
+        let fused = self.fused_overlay();
+        if compose || fused {
             if let Some(sh) = self.sources.shell() {
                 if let Ok(sync_file) = crate::interop::sync::export_sync_file(sh.fd, crate::interop::sync::DMA_BUF_SYNC_READ) {
                     if crate::interop::sync::signalled(sync_file) {
@@ -682,6 +773,29 @@ impl Engine {
                 }
             }
         }
+        // DVVK_VERIFY: is this frame checked (its reference output allocated
+        // as the output is laid out, its result zeroed)?
+        let stride = self.outputs[f.output as usize].as_ref().map(|o| o.stride).unwrap_or(0);
+        let (check, allocate) = match self.verify.as_mut() {
+            Some(v) => {
+                let due = v.frames % v.every == 0;
+                v.frames += 1;
+                (due, due && v.out.as_ref().map(|o| o.1) != Some(stride))
+            }
+            None => (false, false),
+        };
+        if allocate {
+            self.idle();
+            let out = DeviceBuffer::new(&self.d, stride as u64 * CANVAS_H as u64)?;
+            let v = self.verify.as_mut().unwrap();
+            if let Some((old, _)) = v.out.replace((out, stride)) {
+                old.destroy(&self.d);
+            }
+        }
+        if let Some(r) = self.ring[ci].verify.as_mut() {
+            r.bytes_mut()[..8].copy_from_slice(&[0u8, 0, 0, 0, 255, 255, 255, 255]);
+        }
+        self.ring[ci].verified = check;
         // This frame's context buffers stand in for the engine's while it is
         // recorded (the record functions read self.tables, self.error, ...).
         {
@@ -692,7 +806,7 @@ impl Engine {
             std::mem::swap(&mut self.gui_coeff, &mut c.gui_coeff);
             std::mem::swap(&mut self.gui_error, &mut c.gui_error);
         }
-        let result = self.record_submit(f, ci, &waits);
+        let result = self.record_submit(f, ci, &waits, check);
         {
             let c = &mut self.ring[ci];
             std::mem::swap(&mut self.tables, &mut c.tables);
@@ -705,7 +819,7 @@ impl Engine {
         self.ring[ci].ticket = ticket;
         self.ring[ci].plan_ms = self.last_plan_ms;
         self.next = (ci + 1) % RING;
-        if compose {
+        if compose || fused {
             self.sources.used(ticket);
             self.sources.dirty = false;
             self.sources.dirty_rect = Some([0, 0, 0, 0]);
@@ -714,7 +828,7 @@ impl Engine {
         Ok((0, ticket))
     }
 
-    fn record_submit(&mut self, f: &FrameIn, ci: usize, waits: &[vk::Semaphore]) -> Result<u64> {
+    fn record_submit(&mut self, f: &FrameIn, ci: usize, waits: &[vk::Semaphore], check: bool) -> Result<u64> {
         let p = &*self.plan;
         let out = self.outputs.get(f.output as usize).and_then(|o| o.as_ref()).ok_or(Error::Missing("output"))?;
         let (out_buffer, out_stride, out_fd) = (out.buffer.buffer, out.stride, out.fd);
@@ -737,8 +851,29 @@ impl Engine {
         // frame that uses it reports it.
         self.gui_error.bytes_mut()[..4].copy_from_slice(&self.overlay_error_flag.to_le_bytes());
         let compose = self.sources_used && self.sources.dirty && p.overlay_visible != 0;
+        let fused = self.fused_overlay();
+        if p.overlay_visible != 0 && fused != self.overlay_fused {
+            // The other path's cache: start over.
+            self.keys_valid = false;
+            self.overlay_fused = fused;
+        }
         let coeff_changed = self.overlay_coeff != p.gui_coeff;
-        let prepare_overlay = p.overlay_visible != 0 && (compose || self.overlay_dirty || coeff_changed);
+        let prepare_overlay = !fused && p.overlay_visible != 0 && (compose || self.overlay_dirty || coeff_changed);
+        let fused_invalidate = fused && (coeff_changed || !self.keys_valid);
+        if check {
+            // The reference prepares the overlay afresh from this frame's coefficients.
+            let coeff = bytes_of(&p.gui_coeff);
+            self.gui_coeff.bytes_mut()[..coeff.len()].copy_from_slice(coeff);
+        }
+        if fused {
+            // The pack reads this frame's coefficients and reports its own errors.
+            self.gui_error.bytes_mut()[..4].copy_from_slice(&0u32.to_le_bytes());
+            let coeff = bytes_of(&p.gui_coeff);
+            self.gui_coeff.bytes_mut()[..coeff.len()].copy_from_slice(coeff);
+            self.overlay_coeff = p.gui_coeff;
+            self.overlay_dirty = false;
+            self.keys_valid = true;
+        }
         // The area to prepare again: only the subtitles' old and new area when
         // nothing else changed; the whole canvas otherwise.
         let full = [0u32, 0, CANVAS_W, CANVAS_H];
@@ -829,46 +964,8 @@ impl Engine {
                   Bind::Buffer(self.planes[2].buffer), Bind::Buffer(self.error.buffer), Bind::Buffer(self.error.buffer)],
                 &push, (cw.div_ceil(64), (last - first) / 2));
             let _ = ch;
-        } else if route == plan::ROUTE_SINGLE {
-            // single_polynomial_p010, letterbox window as a row offset.
-            unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.single.pipeline) };
-            self.push.bind(
-                cmd,
-                &self.single,
-                &[
-                    Bind::Sampled(bl.luma.view, self.sampler),
-                    Bind::Sampled(bl.chroma.view, self.sampler),
-                    Bind::Range(self.tables.buffer, T_SINGLE, 6144),
-                    Bind::Buffer(self.planes[0].buffer),
-                    Bind::Buffer(self.planes[1].buffer),
-                    Bind::Buffer(self.planes[2].buffer),
-                    Bind::Buffer(self.error.buffer),
-                ],
-            );
-            gpu::push_constants(d, cmd, &self.single, &[w, h, first / 2]);
-            unsafe { d.device.cmd_dispatch(cmd, (w / 2).div_ceil(16), ((last - first) / 2).div_ceil(8), 1) };
-        } else if route == plan::ROUTE_PIECEWISE {
-            let k = if p.depth == 8 { 2 } else if p.order2 != 0 { 1 } else { 0 };
-            let pipe = &self.fel.piecewise[k];
-            let rows_per = if p.layout == 1 { 1 } else { 2 };
-            #[repr(C)]
-            #[derive(Clone, Copy)]
-            struct PiecewisePush { mask: [u32; 4], w: u32, h: u32, policy: u32, row_offset: u32 }
-            let push = PiecewisePush { mask: p.narrow_mask, w, h, policy: p.sampling, row_offset: first / rows_per };
-            self.dispatch(cmd, pipe,
-                &[Bind::Sampled(bl.luma.view, self.sampler), Bind::Sampled(bl.chroma.view, self.sampler),
-                  Bind::Range(self.tables.buffer, T_RESHAPE, 4544), Bind::Buffer(self.planes[0].buffer),
-                  Bind::Buffer(self.planes[1].buffer), Bind::Buffer(self.planes[2].buffer),
-                  Bind::Range(self.tables.buffer, T_LUMA, 2048), Bind::Buffer(self.error.buffer)],
-                &push, ((w / 2).div_ceil(16), ((last - first) / rows_per).div_ceil(8)));
         } else {
-            let el = &self.surfaces[&f.el_surface];
-            gpu::acquire_foreign_images(d, cmd, &[el.luma.image, el.chroma.image]);
-            if p.equal != 0 {
-                self.record_fel_equal(cmd, p, bl, el, first, last);
-            } else {
-                self.record_fel(cmd, p, bl, el, first, last);
-            }
+            self.record_staged(cmd, f, bl, first, last);
         }
         gpu::compute_barrier(d, cmd);
 
@@ -889,9 +986,6 @@ impl Engine {
                 _ => self.surfaces[&f.bl_surface].luma.view,   // unused: a valid view to bind
             };
             let (ew, eh) = (rect[2] - rect[0], rect[3] - rect[1]);
-            #[repr(C)]
-            #[derive(Clone, Copy)]
-            struct PreparePush { w: u32, h: u32, has_shell: u32, has_subs: u32, tiles_x: u32, tile: u32, origin: [u32; 2], invalidate: u32, flip: u32 }
             let push = PreparePush {
                 w: CANVAS_W,
                 h: CANVAS_H,
@@ -927,7 +1021,16 @@ impl Engine {
         }
 
         // Pack into the output.
-        let pack = &self.pack[((source * 2 + p.overlay_visible) * 3 + p.pack) as usize];
+        let overlay_kind = if p.overlay_visible == 0 { 0 } else if fused { 2 } else { 1 };
+        let shell_view = match self.sources.shell() {
+            Some(sh) if fused => {
+                gpu::acquire_foreign_images(d, cmd, &[sh.image.image]);
+                shell_read = Some(sh.fd);
+                sh.image.view
+            }
+            _ => bl.luma.view,   // unused: a valid view to bind
+        };
+        let pack = &self.pack[((source * 3 + overlay_kind) * 3 + p.pack) as usize];
         let fused_tables = if source == 1 { Bind::Range(self.tables.buffer, T_SINGLE, 6144) } else { Bind::Range(self.tables.buffer, T_MAPPING, 2048) };
         unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pack.pipeline) };
         self.push.bind(
@@ -949,6 +1052,9 @@ impl Engine {
                 fused_tables,
                 Bind::Range(self.tables.buffer, T_RESIDUAL, 4096),
                 Bind::Buffer(self.error.buffer),
+                Bind::Sampled(shell_view, self.linear),
+                Bind::Buffer(self.gui_keys.buffer),
+                Bind::Buffer(self.gui_coeff.buffer),
             ],
         );
         let push = PackPush {
@@ -963,10 +1069,16 @@ impl Engine {
             source_w: p.source_w,
             source_h: p.source_h,
             nearest: p.nearest,
+            gui_flags: fused_invalidate as u32 | (self.sources.shell_flip as u32) << 1,
         };
         gpu::push_constants(d, cmd, pack, &push);
         unsafe { d.device.cmd_dispatch(cmd, (CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2), 1) };
         stamp(3);
+        if check {
+            gpu::compute_barrier(d, cmd);
+            let read = self.record_reference(cmd, f, ci, bl, el_view, (first, last), (out_buffer, out_stride), &push, shell_read.is_some());
+            shell_read = shell_read.or(read);
+        }
         gpu::foreign_buffer(d, cmd, out_buffer, false);
         gpu::compute_to_host(d, cmd);
         unsafe { d.device.end_command_buffer(cmd)? };
@@ -1010,6 +1122,122 @@ impl Engine {
 }
 
 impl Engine {
+    /// DVVK_VERIFY: this frame again by the reference route into the verify
+    /// output, then the shown output compared with it. The overlay's shell
+    /// fd if this acquired it (the caller fences it).
+    #[allow(clippy::too_many_arguments)]
+    fn record_reference(&self, cmd: vk::CommandBuffer, f: &FrameIn, ci: usize, bl: &va::SurfaceImport, el_view: vk::ImageView,
+                        rows: (u32, u32), out: (vk::Buffer, u32), push: &PackPush, shell_acquired: bool) -> Option<i32> {
+        let (Some(v), Some(result)) = (self.verify.as_ref(), self.ring[ci].verify.as_ref()) else { return None };
+        let Some((reference, _)) = v.out.as_ref() else { return None };
+        let d = &self.d;
+        let p = &*self.plan;
+        let barrier = || gpu::compute_barrier(d, cmd);
+        self.record_staged(cmd, f, bl, rows.0, rows.1);
+        barrier();
+        let mut read = None;
+        if p.overlay_visible != 0 {
+            let s = &self.sources;
+            let r = Sources::ranges();
+            let from_sources = self.sources_used;
+            let atlas = s.atlas[s.subs_slot].buffer;
+            let shell_view = match s.shell() {
+                Some(sh) if from_sources => {
+                    if !shell_acquired {
+                        gpu::acquire_foreign_images(d, cmd, &[sh.image.image]);
+                        read = Some(sh.fd);
+                    }
+                    sh.image.view
+                }
+                _ => bl.luma.view,
+            };
+            let prepare = PreparePush {
+                w: CANVAS_W,
+                h: CANVAS_H,
+                has_shell: (from_sources && s.shell.is_some()) as u32,
+                has_subs: (from_sources && s.subs_parts > 0) as u32,
+                tiles_x: s.tiles_x.max(1),
+                tile: overlay::TILE,
+                origin: [0, 0],
+                invalidate: 1,
+                flip: s.shell_flip as u32,
+            };
+            self.dispatch(cmd, &self.overlay_prepare[from_sources as usize],
+                &[Bind::Buffer(self.overlay.buffer), Bind::Range(atlas, r[0].0, r[0].1), Bind::Range(atlas, r[1].0, r[1].1),
+                  Bind::Range(atlas, r[2].0, r[2].1), Bind::Sampled(shell_view, self.linear), Bind::Buffer(v.keys.buffer),
+                  Bind::Buffer(v.colours.buffer), Bind::Buffer(v.tiles.buffer), Bind::Buffer(self.gui_coeff.buffer),
+                  Bind::Buffer(v.err.buffer)],
+                &prepare, (CANVAS_W.div_ceil(16), CANVAS_H.div_ceil(16)));
+            barrier();
+        }
+        let pack = &self.pack[(p.overlay_visible.min(1) * 3 + p.pack) as usize];
+        let reference_push = PackPush { gui_flags: 0, ..*push };
+        self.dispatch(cmd, pack,
+            &[Bind::Buffer(self.planes[0].buffer), Bind::Buffer(self.planes[1].buffer), Bind::Buffer(self.planes[2].buffer),
+              Bind::Buffer(self.packets.buffer), Bind::Buffer(reference.buffer), Bind::Buffer(self.ymap.buffer),
+              Bind::Buffer(v.colours.buffer), Bind::Buffer(v.tiles.buffer), Bind::Buffer(v.err.buffer),
+              Bind::Sampled(bl.luma.view, self.sampler), Bind::Sampled(bl.chroma.view, self.sampler),
+              Bind::Sampled(el_view, self.sampler), Bind::Range(self.tables.buffer, T_MAPPING, 2048),
+              Bind::Range(self.tables.buffer, T_RESIDUAL, 4096), Bind::Buffer(v.err.buffer),
+              Bind::Sampled(bl.luma.view, self.linear), Bind::Buffer(v.keys.buffer), Bind::Buffer(self.gui_coeff.buffer)],
+            &reference_push, ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)));
+        barrier();
+        self.dispatch(cmd, &v.compare,
+            &[Bind::Buffer(out.0), Bind::Buffer(reference.buffer), Bind::Buffer(result.buffer)],
+            &[out.1 / 4, CANVAS_W, CANVAS_H], (CANVAS_W.div_ceil(64), CANVAS_H));
+        read
+    }
+
+    /// The staged reconstruction into the planes (the route's kernels 1:1
+    /// with yblod's): every route but the fused ones, and DVVK_VERIFY's reference.
+    fn record_staged(&self, cmd: vk::CommandBuffer, f: &FrameIn, bl: &va::SurfaceImport, first: u32, last: u32) {
+        let p = &*self.plan;
+        let d = &self.d;
+        let route = p.route;
+        let (w, h) = (p.width, p.height);
+        if route == plan::ROUTE_SINGLE {
+            // single_polynomial_p010, letterbox window as a row offset.
+            unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.single.pipeline) };
+            self.push.bind(
+                cmd,
+                &self.single,
+                &[
+                    Bind::Sampled(bl.luma.view, self.sampler),
+                    Bind::Sampled(bl.chroma.view, self.sampler),
+                    Bind::Range(self.tables.buffer, T_SINGLE, 6144),
+                    Bind::Buffer(self.planes[0].buffer),
+                    Bind::Buffer(self.planes[1].buffer),
+                    Bind::Buffer(self.planes[2].buffer),
+                    Bind::Buffer(self.error.buffer),
+                ],
+            );
+            gpu::push_constants(d, cmd, &self.single, &[w, h, first / 2]);
+            unsafe { d.device.cmd_dispatch(cmd, (w / 2).div_ceil(16), ((last - first) / 2).div_ceil(8), 1) };
+        } else if route == plan::ROUTE_PIECEWISE {
+            let k = if p.depth == 8 { 2 } else if p.order2 != 0 { 1 } else { 0 };
+            let pipe = &self.fel.piecewise[k];
+            let rows_per = if p.layout == 1 { 1 } else { 2 };
+            #[repr(C)]
+            #[derive(Clone, Copy)]
+            struct PiecewisePush { mask: [u32; 4], w: u32, h: u32, policy: u32, row_offset: u32 }
+            let push = PiecewisePush { mask: p.narrow_mask, w, h, policy: p.sampling, row_offset: first / rows_per };
+            self.dispatch(cmd, pipe,
+                &[Bind::Sampled(bl.luma.view, self.sampler), Bind::Sampled(bl.chroma.view, self.sampler),
+                  Bind::Range(self.tables.buffer, T_RESHAPE, 4544), Bind::Buffer(self.planes[0].buffer),
+                  Bind::Buffer(self.planes[1].buffer), Bind::Buffer(self.planes[2].buffer),
+                  Bind::Range(self.tables.buffer, T_LUMA, 2048), Bind::Buffer(self.error.buffer)],
+                &push, ((w / 2).div_ceil(16), ((last - first) / rows_per).div_ceil(8)));
+        } else {
+            let el = &self.surfaces[&f.el_surface];
+            gpu::acquire_foreign_images(d, cmd, &[el.luma.image, el.chroma.image]);
+            if p.equal != 0 {
+                self.record_fel_equal(cmd, p, bl, el, first, last);
+            } else {
+                self.record_fel(cmd, p, bl, el, first, last);
+            }
+        }
+    }
+
     fn dispatch<T: Copy>(&self, cmd: vk::CommandBuffer, pipe: &Pipeline, binds: &[Bind], push: &T, groups: (u32, u32)) {
         let d = &self.d;
         unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipe.pipeline) };
@@ -1198,6 +1426,18 @@ impl Drop for Engine {
             if let Some(q) = c.query {
                 unsafe { d.device.destroy_query_pool(q, None) };
             }
+            if let Some(b) = &c.verify {
+                b.destroy(d);
+            }
+        }
+        if let Some(v) = &self.verify {
+            for b in [&v.keys, &v.colours, &v.tiles, &v.err] {
+                b.destroy(d);
+            }
+            if let Some((b, _)) = &v.out {
+                b.destroy(d);
+            }
+            v.compare.destroy(d);
         }
         for p in [&self.fel.vertical_pair, &self.fel.luma_phase_guide, &self.fel.phase_vertical_uv,
                   &self.fel.mmr_dual_horizontal, &self.fel.scale_horizontal, &self.fel.table_add, &self.fel.mmr_dual] {
