@@ -42,7 +42,7 @@ layout(binding = 14, std430) buffer ReconError { uint recon_error; };
 layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
     uint w, h, stride_words, packet_count, top_left, source_w, source_h, nearest;
-    uint gui_flags;   // OVERLAY 2: bit 0 invalidate the cache, bit 1 the shell's rows bottom first
+    uint gui_flags;   // OVERLAY 2: bit 0 invalidate the cache, 1 the shell's rows bottom first, 2 count changed pixels
 };
 #include "overlay_colour.glsl"
 
@@ -206,9 +206,11 @@ vec4 gui_colour(uint v)
 
 // OVERLAY 2: pixel (x, y)'s colour (zero where transparent). Its owner keeps
 // the cache: colour and key are written together by the one invocation that
-// owns the pixel, so others never read a half-written entry. Keys follow
-// every pixel, transparent ones too, so a key differs exactly where the
-// shell's pixel changed since the last frame (counted in `changed`).
+// owns the pixel, so others never read a half-written entry. A transparent
+// pixel reads no key (most of the canvas): its colour is zero whatever the
+// cache holds, and a stale key there still names its own colour. With
+// gui_flags bit 2 (DVVK_OVERLAY_CHANGES) keys follow every pixel instead, so
+// a key differs exactly where the pixel changed (counted in `changed`).
 shared uint wg_changed;
 uint changed = 0u;
 
@@ -216,6 +218,12 @@ vec4 gui_owned(uint x, uint y)
 {
     uint v = shell_rgba(x, y), i = y * w + x;
     bool invalidate = (gui_flags & 1u) != 0u;
+    if ((v >> 24) == 0u && (gui_flags & 4u) == 0u) {
+        // An invalidated key must not match a later pixel with an old colour.
+        if (invalidate)
+            keys[i] = v;
+        return vec4(0.0);
+    }
     if (!invalidate && keys[i] == v) {
         if ((v >> 24) == 0u)
             return vec4(0.0);

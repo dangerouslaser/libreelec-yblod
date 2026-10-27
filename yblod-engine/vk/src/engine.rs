@@ -204,6 +204,9 @@ pub struct Engine {
     fel_chroma: Pipeline,
     staged: bool,
     annexb_fused: bool,
+    // DVVK_OVERLAY_CHANGES=1: the fused overlay counts changed pixels
+    // (dvvk_overlay_changes); it then reads every pixel's key, transparent too.
+    count_changes: bool,
     overlay: HostBuffer,
     gui_coeff: HostBuffer,
     gui_error: HostBuffer,
@@ -274,6 +277,7 @@ impl Engine {
             &[sampled, sampled, sampled, storage, storage, storage, storage, storage, storage, storage, storage], 32, &[])?;
         let staged = std::env::var("DVVK_STAGED").map(|v| v == "1").unwrap_or(false);
         let annexb_fused = std::env::var("DVVK_ANNEXB_FUSED").map(|v| v == "1").unwrap_or(false);
+        let count_changes = std::env::var("DVVK_OVERLAY_CHANGES").map(|v| v == "1").unwrap_or(false);
         let fel = FelPipelines {
             vertical_pair: Pipeline::new(&d, "fel_vertical_pair", &[sampled, storage, storage], 20, &[])?,
             luma_phase_guide: Pipeline::new(&d, "fel_luma_phase_guide", &[sampled, sampled, storage, storage, storage, storage, storage, storage, storage], 20, &[])?,
@@ -417,6 +421,7 @@ impl Engine {
             fel_chroma,
             staged,
             annexb_fused,
+            count_changes,
             overlay,
             gui_coeff,
             gui_error,
@@ -876,7 +881,7 @@ impl Engine {
             let coeff = bytes_of(&p.gui_coeff);
             self.gui_coeff.bytes_mut()[..coeff.len()].copy_from_slice(coeff);
         }
-        self.ring[ci].counted = fused && !fused_invalidate;
+        self.ring[ci].counted = fused && !fused_invalidate && self.count_changes;
         if fused {
             // The pack reads this frame's coefficients and reports its own
             // errors and changed pixels.
@@ -1087,7 +1092,7 @@ impl Engine {
             source_w: p.source_w,
             source_h: p.source_h,
             nearest: p.nearest,
-            gui_flags: fused_invalidate as u32 | (self.sources.shell_flip as u32) << 1,
+            gui_flags: fused_invalidate as u32 | (self.sources.shell_flip as u32) << 1 | (self.count_changes as u32) << 2,
         };
         gpu::push_constants(d, cmd, pack, &push);
         unsafe { d.device.cmd_dispatch(cmd, (CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2), 1) };
