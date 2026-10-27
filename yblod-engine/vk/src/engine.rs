@@ -110,6 +110,41 @@ struct Ctx {
     decode: [vk::Semaphore; 3],   // the decoder's write fences (BL, EL), the shell overlay's
     done: vk::Semaphore,          // exported as the output's implicit fence
     ticket: u64,                  // the timeline value its submit signals; 0 = never used
+    // DVVK_PROFILE=1: GPU timestamps (start, reconstruction, overlay prepare,
+    // pack), read back when the context is reused.
+    query: Option<vk::QueryPool>,
+    plan_ms: f64,
+    prepared: bool,
+}
+
+const PROFILE_POINTS: u32 = 4;
+const PROFILE_WINDOW: usize = 120;
+
+/// Per-stage GPU time over a window of frames (DVVK_PROFILE=1).
+#[derive(Default)]
+struct Profile {
+    stages: Vec<[f64; 4]>,   // reconstruction, prepare, pack (GPU ms), plan (CPU ms)
+    prepared: u32,
+}
+
+impl Profile {
+    fn add(&mut self, stages: [f64; 4], prepared: bool) {
+        self.stages.push(stages);
+        self.prepared += prepared as u32;
+        if self.stages.len() < PROFILE_WINDOW {
+            return;
+        }
+        let n = self.stages.len() as f64;
+        let mean = |i: usize| self.stages.iter().map(|s| s[i]).sum::<f64>() / n;
+        let mut total: Vec<f64> = self.stages.iter().map(|s| s[0] + s[1] + s[2]).collect();
+        total.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        eprintln!(
+            "dvvk profile: gpu {:.2} ms (p95 {:.2}, max {:.2}) = reconstruction {:.2} + overlay prepare {:.2} ({} of {} frames) + pack {:.2}; plan {:.2} ms CPU",
+            mean(0) + mean(1) + mean(2), total[(total.len() * 95) / 100], total[total.len() - 1],
+            mean(0), mean(1), self.prepared, self.stages.len(), mean(2), mean(3));
+        self.stages.clear();
+        self.prepared = 0;
+    }
 }
 
 pub const RING: usize = 4;
@@ -165,11 +200,7 @@ pub struct Engine {
     overlay_prepared_by: Option<usize>,
     pub implicit_failed: bool,
     trace: Option<(u32, u32, u32, [u32; 2], u32, u32, u32, u32)>,
-    // DVVK_PROFILE=1: GPU timestamps around the reconstruction and the pack,
-    // and the CPU planning time, averaged and printed every 48 frames.
-    profile: Option<vk::QueryPool>,
-    profile_sum: [f64; 3],
-    profile_n: u32,
+    profile: Option<Profile>,
 }
 
 impl Engine {
@@ -267,6 +298,7 @@ impl Engine {
         let sampler = gpu::nearest_sampler(&d)?;
         let push = PushDescriptor::new(&d);
         let shot = OneShot::new(&d)?;
+        let profile = std::env::var("DVVK_PROFILE").map(|v| v == "1").unwrap_or(false) && d.timestamp_period > 0.0;
         let mut ring = Vec::new();
         for _ in 0..RING {
             let pool = unsafe {
@@ -292,6 +324,14 @@ impl Engine {
                 decode: [sem(&d)?, sem(&d)?, sem(&d)?],
                 done: sem(&d)?,
                 ticket: 0,
+                query: if profile {
+                    let info = vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(PROFILE_POINTS);
+                    Some(unsafe { d.device.create_query_pool(&info, None) }?)
+                } else {
+                    None
+                },
+                plan_ms: 0.0,
+                prepared: false,
             });
         }
         let mut type_info = vk::SemaphoreTypeCreateInfo::default().semaphore_type(vk::SemaphoreType::TIMELINE).initial_value(0);
@@ -348,9 +388,7 @@ impl Engine {
             overlay_prepared_by: None,
             implicit_failed: false,
             trace: None,
-            profile: None,
-            profile_sum: [0.0; 3],
-            profile_n: 0,
+            profile: profile.then(Profile::default),
             va: va_display,
             d,
         })
@@ -550,25 +588,21 @@ impl Engine {
         }
         self.wait(ticket, u64::MAX)?;
         self.last_error_flags = self.poll(ticket)?.1;
-        if let Some(q) = self.profile {
-            let mut ts = [0u64; 3];
-            unsafe {
-                self.d.device.get_query_pool_results(q, 0, &mut ts, vk::QueryResultFlags::TYPE_64 | vk::QueryResultFlags::WAIT)?;
-            }
-            let period = self.d.timestamp_period as f64 / 1e6;
-            self.profile_sum[0] += (ts[1].wrapping_sub(ts[0])) as f64 * period;
-            self.profile_sum[1] += (ts[2].wrapping_sub(ts[1])) as f64 * period;
-            self.profile_sum[2] += self.last_plan_ms;
-            self.profile_n += 1;
-            if self.profile_n == 48 {
-                let n = self.profile_n as f64;
-                eprintln!("dvvk profile: reconstruction {:.2} ms, pack {:.2} ms (GPU), plan {:.2} ms (CPU), mean of 48",
-                    self.profile_sum[0] / n, self.profile_sum[1] / n, self.profile_sum[2] / n);
-                self.profile_sum = [0.0; 3];
-                self.profile_n = 0;
-            }
-        }
         Ok(0)
+    }
+
+    /// The finished frame of context `ci`: its timestamps into the profile.
+    fn collect_profile(&mut self, ci: usize) {
+        let (Some(profile), Some(q)) = (self.profile.as_mut(), self.ring[ci].query) else { return };
+        let mut ts = [0u64; PROFILE_POINTS as usize];
+        let ok = unsafe { self.d.device.get_query_pool_results(q, 0, &mut ts, vk::QueryResultFlags::TYPE_64) }.is_ok();
+        if !ok {
+            return;
+        }
+        let period = self.d.timestamp_period as f64 / 1e6;
+        let ms = |a: usize, b: usize| ts[b].wrapping_sub(ts[a]) as f64 * period;
+        let c = &self.ring[ci];
+        profile.add([ms(0, 1), ms(1, 2), ms(2, 3), c.plan_ms], c.prepared);
     }
 
     /// Plans and submits one frame into output `f.output`; returns at once.
@@ -580,10 +614,7 @@ impl Engine {
         let ci = self.next;
         if self.ring[ci].ticket > 0 {
             self.wait(self.ring[ci].ticket, u64::MAX)?;   // back-pressure: RING frames in flight
-        }
-        if self.profile.is_none() && std::env::var("DVVK_PROFILE").map(|v| v == "1").unwrap_or(false) {
-            let info = vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(3);
-            self.profile = Some(unsafe { self.d.device.create_query_pool(&info, None) }?);
+            self.collect_profile(ci);
         }
         let mut plan_in = f.plan;
         if f.auto_overlay {
@@ -669,6 +700,7 @@ impl Engine {
         }
         let ticket = result?;
         self.ring[ci].ticket = ticket;
+        self.ring[ci].plan_ms = self.last_plan_ms;
         self.next = (ci + 1) % RING;
         if compose {
             self.sources.used(ticket);
@@ -743,9 +775,16 @@ impl Engine {
         }
         // After everything submitted before (shared intermediates, caches).
         gpu::compute_barrier(d, cmd);
-        if let Some(q) = self.profile {
+        let query = self.ring[ci].query;
+        self.ring[ci].prepared = prepare_overlay && rect[2] > rect[0] && rect[3] > rect[1];
+        let stamp = |point: u32| {
+            if let Some(q) = query {
+                unsafe { d.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::COMPUTE_SHADER, q, point) };
+            }
+        };
+        if let Some(q) = query {
             unsafe {
-                d.device.cmd_reset_query_pool(cmd, q, 0, 3);
+                d.device.cmd_reset_query_pool(cmd, q, 0, PROFILE_POINTS);
                 d.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::TOP_OF_PIPE, q, 0);
             }
         }
@@ -829,9 +868,7 @@ impl Engine {
         }
         gpu::compute_barrier(d, cmd);
 
-        if let Some(q) = self.profile {
-            unsafe { d.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::COMPUTE_SHADER, q, 1) };
-        }
+        stamp(1);
         // The overlay's tile map and colour cache, when the overlay or the
         // movie's colour metadata changed.
         if prepare_overlay && rect[2] > rect[0] && rect[3] > rect[1] {
@@ -868,6 +905,7 @@ impl Engine {
                 &push, (ew.div_ceil(16), eh.div_ceil(16)));
             gpu::compute_barrier(d, cmd);
         }
+        stamp(2);
         // Resize maps, when the geometry changes (source_resize_prepare).
         let (dw, dh) = (p.placement[2], p.placement[3]);
         if p.pack == plan::PACK_RESIZED {
@@ -922,9 +960,7 @@ impl Engine {
         };
         gpu::push_constants(d, cmd, pack, &push);
         unsafe { d.device.cmd_dispatch(cmd, (CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2), 1) };
-        if let Some(q) = self.profile {
-            unsafe { d.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::COMPUTE_SHADER, q, 2) };
-        }
+        stamp(3);
         gpu::foreign_buffer(d, cmd, out_buffer, false);
         gpu::compute_to_host(d, cmd);
         unsafe { d.device.end_command_buffer(cmd)? };
@@ -1146,8 +1182,10 @@ impl Drop for Engine {
         }
         self.single.destroy(d);
         self.fel_chroma.destroy(d);
-        if let Some(q) = self.profile {
-            unsafe { d.device.destroy_query_pool(q, None) };
+        for c in &self.ring {
+            if let Some(q) = c.query {
+                unsafe { d.device.destroy_query_pool(q, None) };
+            }
         }
         for p in [&self.fel.vertical_pair, &self.fel.luma_phase_guide, &self.fel.phase_vertical_uv,
                   &self.fel.mmr_dual_horizontal, &self.fel.scale_horizontal, &self.fel.table_add, &self.fel.mmr_dual] {
