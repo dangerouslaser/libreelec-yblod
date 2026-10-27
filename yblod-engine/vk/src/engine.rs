@@ -1098,10 +1098,9 @@ impl Drop for Engine {
         for (_, s) in self.surfaces.drain() {
             s.destroy(d);
         }
+        // The fd dups pin the output dmabufs: close them with the imports.
         for o in self.outputs.drain(..).flatten() {
             o.buffer.destroy(d);
-        }
-        for o in self.outputs.iter().flatten() {
             unsafe { libc::close(o.fd) };
         }
         for c in &self.ring {
