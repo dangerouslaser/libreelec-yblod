@@ -19,7 +19,7 @@ layout(binding = 6, std430) writeonly buffer Colours { vec4 colours[]; };
 layout(binding = 7, std430) writeonly buffer Tiles { uint tiles[]; };
 layout(binding = 8, std430) readonly buffer Coeff { float coeff[]; };
 layout(binding = 9, std430) buffer GuiError { uint gui_error; };
-layout(push_constant) uniform Push { uint w, h, has_shell, has_subs, tiles_x, tile_size; uvec2 origin; uint invalidate; };
+layout(push_constant) uniform Push { uint w, h, has_shell, has_subs, tiles_x, tile_size; uvec2 origin; uint invalidate, flip; };
 #include "overlay_colour.glsl"
 
 uint atlas_byte(uint i) { return (atlas[i >> 2] >> (8u * (i & 3u))) & 255u; }
@@ -67,7 +67,9 @@ uint composed(uvec2 q)
         }
     }
     if (has_shell != 0u) {
-        vec4 src = textureLod(shell, (vec2(q) + 0.5) / vec2(w, h), 0.0);
+        // flip: a GL framebuffer's texture, rows bottom first
+        vec2 at = vec2(q.x, flip != 0u ? h - 1u - q.y : q.y) + 0.5;
+        vec4 src = textureLod(shell, at / vec2(w, h), 0.0);
         dst = src + dst * (1.0 - src.a);
     }
     uvec4 b = uvec4(round(clamp(dst, 0.0, 1.0) * 255.0));

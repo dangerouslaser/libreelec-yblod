@@ -91,6 +91,22 @@ index 8063e1a..54a9785 100644
        {"dvbridge.letterboxskip", {{"DV_RECON_ACTIVE_ROWS", "1"}}, {{"DV_RECON_ACTIVE_ROWS", "0"}}},
        {"dvbridge.inlineoverlay", {{"DV_OVERLAY_INLINE", "1"}}, {{"DV_OVERLAY_INLINE", "0"}}},
        {"dvbridge.tablecache",
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+index 673b31b..788a3d4 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+@@ -10,6 +10,11 @@ struct DVPrivateOverlay
+   uint64_t revision{0};
+   double rgbToLms[9]{};
+   double whiteNits{203.0};
++  // The texture's storage as a single-plane dmabuf (Kodi's GUI framebuffer
++  // shared with the Vulkan engine), or -1: the engine reads it in place.
++  int dmabufFd{-1};
++  uint32_t dmabufFormat{0}, dmabufStride{0}, dmabufOffset{0};
++  uint64_t dmabufModifier{0};
+   bool SameContents(const DVPrivateOverlay& other) const
+   {
+     return revision && revision == other.revision && texture == other.texture &&
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
 index 40e3f3e..bea0c62 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
@@ -377,10 +393,10 @@ index d4cd073..4f1f7a7 100644
    uint64_t m_processed{0};
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
 new file mode 100644
-index 0000000..e23e168
+index 0000000..6cc7936
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
-@@ -0,0 +1,292 @@
+@@ -0,0 +1,324 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +#include "DVPrivateVulkan.h"
 +#include "utils/log.h"
@@ -425,6 +441,9 @@ index 0000000..e23e168
 +  LOAD(m_reset, dvvk_reset);
 +  LOAD(m_destroy, dvvk_destroy);
 +#undef LOAD
++  // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
++  m_setOverlayEx = reinterpret_cast<decltype(m_setOverlayEx)>(dlsym(m_library, "dvvk_set_overlay_ex"));
++  m_implicitFailed = reinterpret_cast<decltype(m_implicitFailed)>(dlsym(m_library, "dvvk_implicit_failed"));
 +  // The engine logs its reasons on stderr (the journal).
 +  if (m_create(drmFd, vaDisplay, &m_engine) != 0 || !m_engine)
 +  {
@@ -533,7 +552,33 @@ index 0000000..e23e168
 +                             unsigned packet, bool refresh, const DVPrivateOverlay* overlay)
 +{
 +  if (!m_engine || !m_guis[0].bo || !m_guis[1].bo) return DV_VULKAN_FAILED;
-+  if (overlay)
++  m_guiDirect = overlay && overlay->dmabufFd >= 0 && m_setOverlayEx && m_implicitFailed;
++  if (m_guiDirect)
++  {
++    // Kodi's GUI framebuffer, read in place. Every frame: the engine compares
++    // its pixels with the last ones it prepared. Flushed, the GUI's writes
++    // are fenced on the buffer, and the engine's read fence on it makes the
++    // next GUI drawing wait on the GPU.
++    glFlush();
++    dvvk_dmabuf gui{};
++    gui.width = 3840;
++    gui.height = 2160;
++    gui.format = overlay->dmabufFormat;
++    gui.modifier = overlay->dmabufModifier;
++    gui.num_planes = 1;
++    gui.fd[0] = overlay->dmabufFd;
++    gui.fd[1] = gui.fd[2] = gui.fd[3] = -1;
++    gui.offset[0] = overlay->dmabufOffset;
++    gui.stride[0] = overlay->dmabufStride;
++    if (m_setOverlayEx(m_engine, &gui, ++m_guiId, DVVK_OVERLAY_FLIP_Y) != 0)
++    {
++      m_guiShown = false;
++      return -1;
++    }
++    m_gui = *overlay;
++    m_guiShown = true;
++  }
++  else if (overlay)
 +  {
 +    // A nonzero revision names unchanged contents; without one, copy every frame.
 +    if (!m_guiShown || !overlay->SameContents(m_gui))
@@ -597,8 +642,11 @@ index 0000000..e23e168
 +    return result;
 +  }
 +  m_ticket = ticket;
-+  if (m_guiShown) m_guis[m_guiIndex].ticket = ticket;
-+  if (m_async) return 0;
++  if (m_guiShown && !m_guiDirect) m_guis[m_guiIndex].ticket = ticket;
++  // Without implicit fences (an older kernel) the GUI framebuffer must not
++  // be drawn into before the engine has read it.
++  const bool fenced = !m_implicitFailed || !m_implicitFailed(m_engine);
++  if (m_async && (fenced || !m_guiDirect)) return 0;
 +  // Synchronous: written means GPU complete, and an out-of-range sample
 +  // rejects the picture, as with the OpenCL engine.
 +  bool range = false;
@@ -675,10 +723,10 @@ index 0000000..e23e168
 +}
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
 new file mode 100644
-index 0000000..3dd7bd5
+index 0000000..547d4e9
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,76 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +#pragma once
 +#include "source_geometry.h"
@@ -733,6 +781,8 @@ index 0000000..3dd7bd5
 +  decltype(&dvvk_wait) m_wait{nullptr};
 +  decltype(&dvvk_reset) m_reset{nullptr};
 +  decltype(&dvvk_destroy) m_destroy{nullptr};
++  decltype(&dvvk_set_overlay_ex) m_setOverlayEx{nullptr};     // optional
++  decltype(&dvvk_implicit_failed) m_implicitFailed{nullptr};  // optional
 +  // Two GUI copies: a new GUI goes into the one no frame in flight reads.
 +  struct Gui
 +  {
@@ -748,7 +798,229 @@ index 0000000..3dd7bd5
 +  unsigned m_readFramebuffer{0}, m_guiIndex{0};
 +  DVPrivateOverlay m_gui{};
 +  bool m_guiShown{false}, m_async{true};
++  bool m_guiDirect{false}; // the engine reads Kodi's GUI framebuffer in place
 +  uint64_t m_guiId{0}, m_ticket{0};
 +  unsigned m_elScaler{1}, m_reports{0}, m_colourReports{0}, m_rangeReports{0};
 +  bool m_fel{true};
 +};
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 68a5b13..af61038 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -64,7 +64,9 @@ extern "C"
+ #include <chrono>
+ #endif
+ 
++#include <drm_fourcc.h>
+ #include <gbm.h>
++#include <unistd.h>
+ 
+ using namespace KODI::WINDOWING::GBM;
+ 
+@@ -386,7 +388,7 @@ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+   }
+   else
+   {
+-    m_guiFbo.Cleanup();
++    CleanupGuiFbo();
+     m_guiHalfFbo.Cleanup();
+     m_guiHalf = false;
+     m_guiHalfBound = false;
+@@ -431,6 +433,85 @@ void CWinSystemGbmGLESContext::SetScissors(const CRect& rect)
+     ScaleGuiRaster(false);
+ }
+ 
++bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height)
++{
++  auto create = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
++  using Target = void (*)(GLenum, void*);
++  auto target = reinterpret_cast<Target>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
++  gbm_device* device = GetGBMDevice().Get();
++  if (!create || !target || !device || !m_guiFbo.IsValid())
++    return false;
++  // The driver's layout if it names it in one plane, else linear.
++  for (const uint32_t flags : {GBM_BO_USE_RENDERING, GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR})
++  {
++    m_guiBo = gbm_bo_create(device, width, height, GBM_FORMAT_ABGR8888, flags);
++    if (m_guiBo && gbm_bo_get_plane_count(m_guiBo) == 1 &&
++        ((flags & GBM_BO_USE_LINEAR) || gbm_bo_get_modifier(m_guiBo) != DRM_FORMAT_MOD_INVALID))
++      break;
++    if (m_guiBo)
++      gbm_bo_destroy(m_guiBo);
++    m_guiBo = nullptr;
++  }
++  if (!m_guiBo)
++    return false;
++  m_guiBoFd = gbm_bo_get_fd(m_guiBo);
++  m_guiBoStride = gbm_bo_get_stride(m_guiBo);
++  m_guiBoOffset = gbm_bo_get_offset(m_guiBo, 0);
++  m_guiBoModifier = gbm_bo_get_modifier(m_guiBo);
++  if (m_guiBoModifier == DRM_FORMAT_MOD_INVALID)
++    m_guiBoModifier = DRM_FORMAT_MOD_LINEAR;
++  if (m_guiBoFd < 0)
++    return false;
++  const EGLint attrs[] = {EGL_WIDTH, width, EGL_HEIGHT, height,
++      EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
++      EGL_DMA_BUF_PLANE0_FD_EXT, m_guiBoFd,
++      EGL_DMA_BUF_PLANE0_OFFSET_EXT, static_cast<EGLint>(m_guiBoOffset),
++      EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(m_guiBoStride),
++      EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, static_cast<EGLint>(m_guiBoModifier & 0xffffffff),
++      EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, static_cast<EGLint>(m_guiBoModifier >> 32), EGL_NONE};
++  m_guiImage = create(m_eglContext.GetEGLDisplay(), EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attrs);
++  if (m_guiImage == EGL_NO_IMAGE_KHR)
++    return false;
++  // The FBO's texture takes the buffer as its storage (its sampling state stays).
++  GLint texture, framebuffer;
++  glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
++  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
++  glBindTexture(GL_TEXTURE_2D, m_guiFbo.Texture());
++  target(GL_TEXTURE_2D, m_guiImage);
++  glBindTexture(GL_TEXTURE_2D, texture);
++  bool complete = m_guiFbo.BeginRender();
++  if (complete)
++  {
++    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_guiFbo.Texture(), 0);
++    complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
++  }
++  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
++  if (!complete || glGetError() != GL_NO_ERROR)
++    return false;
++  CLog::Log(LOGINFO, "Private native GUI raster shared with the Vulkan engine: {}x{} modifier={:#x}",
++            width, height, m_guiBoModifier);
++  return true;
++}
++
++void CWinSystemGbmGLESContext::CleanupGuiFbo()
++{
++  // The texture goes first, then its storage.
++  m_guiFbo.Cleanup();
++  if (m_guiImage != EGL_NO_IMAGE_KHR)
++  {
++    auto destroy = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImageKHR"));
++    if (destroy)
++      destroy(m_eglContext.GetEGLDisplay(), m_guiImage);
++  }
++  if (m_guiBoFd >= 0)
++    close(m_guiBoFd);
++  if (m_guiBo)
++    gbm_bo_destroy(m_guiBo);
++  m_guiImage = EGL_NO_IMAGE_KHR;
++  m_guiBoFd = -1;
++  m_guiBo = nullptr;
++}
++
+ bool CWinSystemGbmGLESContext::CanReuseGuiComposite() const
+ {
+ #ifdef HAVE_DVBRIDGE
+@@ -478,11 +559,16 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+   }
+   m_guiHalf = guiHalf;
+ 
++  // Shared with the Vulkan engine when it is selected (a 4K GUI only).
++  const char* vulkan = std::getenv("DV_ENGINE_VULKAN");
++  const bool share = nativeCoverage && width == 3840 && height == 2160 && vulkan &&
++                     std::strcmp(vulkan, "1") == 0 && !m_guiShareFailed;
+   // create or recreate FBO if size changed
+-  if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height)
++  if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height ||
++      share != (m_guiBo != nullptr))
+   {
+     ++m_guiRevision;
+-    m_guiFbo.Cleanup();
++    CleanupGuiFbo();
+ 
+     if (!m_guiFbo.Initialize())
+     {
+@@ -494,7 +580,7 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+     {
+       CLog::Log(LOGERROR, "CWinSystemGbmGLESContext: failed to create GUI FBO texture {}x{}", width,
+                 height);
+-      m_guiFbo.Cleanup();
++      CleanupGuiFbo();
+       return false;
+     }
+ 
+@@ -503,10 +589,24 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+       CLog::Log(LOGERROR,
+                 "CWinSystemGbmGLESContext: failed to attach depth buffer to GUI FBO {}x{}", width,
+                 height);
+-      m_guiFbo.Cleanup();
++      CleanupGuiFbo();
+       return false;
+     }
+ 
++    if (share && !ShareGuiFbo(width, height))
++    {
++      // The engine copies the texture instead.
++      CLog::Log(LOGWARNING, "Private native GUI raster: no shared buffer; the Vulkan engine copies it");
++      m_guiShareFailed = true;
++      CleanupGuiFbo();
++      if (!m_guiFbo.Initialize() || !m_guiFbo.CreateAndBindToTexture(GL_TEXTURE_2D, width, height, GL_RGBA) ||
++          (GetEnabledFrontToBackRendering() && !m_guiFbo.AttachDepthBuffer(width, height)))
++      {
++        CleanupGuiFbo();
++        return false;
++      }
++    }
++
+     m_guiFboWidth = width;
+     m_guiFboHeight = height;
+     m_guiFboClean = false; // fresh FBO is undefined, force a clear
+@@ -1031,7 +1131,17 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+         m_guiFboWidth != 3840 || m_guiFboHeight != 2160)
+       return false;
+     if (!overlayFree)
++    {
+       gui.texture = m_guiFbo.Texture();
++      if (m_guiBo)
++      {
++        gui.dmabufFd = m_guiBoFd;
++        gui.dmabufFormat = DRM_FORMAT_ABGR8888;
++        gui.dmabufStride = m_guiBoStride;
++        gui.dmabufOffset = m_guiBoOffset;
++        gui.dmabufModifier = m_guiBoModifier;
++      }
++    }
+     gui.flipY = 1;
+     const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
+     if (revisionCache && std::strcmp(revisionCache, "1") == 0)
+@@ -1137,7 +1247,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+     m_dvBridge->Reset();
+     // The menu must not reuse the GUI target shared with native movie composition.
+     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+-    m_guiFbo.Cleanup();
++    CleanupGuiFbo();
+     m_guiFboWidth = m_guiFboHeight = 0;
+     m_guiFboClean = false;
+     m_guiRasterReady = false;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 2165cad..9e20ca8 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -13,6 +13,8 @@
+ #include "rendering/gles/RenderSystemGLES.h"
+ #include "utils/EGLUtils.h"
+ 
++#include <EGL/egl.h>
++#include <EGL/eglext.h>
+ #include <memory>
+ #include <optional>
+ #ifdef HAVE_DVBRIDGE
+@@ -92,6 +94,17 @@ protected:
+ 
+ private:
+   void ScaleGuiRaster(bool viewport);
++  // The GUI framebuffer's texture on a GBM buffer, for the Vulkan engine to
++  // read in place (DV_ENGINE_VULKAN=1): no per-frame copy.
++  bool ShareGuiFbo(int width, int height);
++  void CleanupGuiFbo();
++  struct gbm_bo* m_guiBo{nullptr};
++  EGLImageKHR m_guiImage{EGL_NO_IMAGE_KHR};
++  int m_guiBoFd{-1};
++  uint32_t m_guiBoStride{0};
++  uint32_t m_guiBoOffset{0};
++  uint64_t m_guiBoModifier{0};
++  bool m_guiShareFailed{false}; // not again: the engine copies the texture
+   bool m_guiCompositing{false};
+   CFrameBufferObject m_guiFbo;
+   CFrameBufferObject m_guiHalfFbo;

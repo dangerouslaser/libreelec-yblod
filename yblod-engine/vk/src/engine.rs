@@ -271,8 +271,8 @@ impl Engine {
         let gui_tiles = DeviceBuffer::new(&d, (CANVAS_W.div_ceil(16) * CANVAS_H.div_ceil(16) * 4) as u64)?;
         let prepare_bindings = [storage, storage, storage, storage, sampled, storage, storage, storage, storage, storage];
         let overlay_prepare = [
-            Pipeline::new(&d, "overlay_prepare", &prepare_bindings, 36, &[(0, 0)])?,
-            Pipeline::new(&d, "overlay_prepare", &prepare_bindings, 36, &[(0, 1)])?,
+            Pipeline::new(&d, "overlay_prepare", &prepare_bindings, 40, &[(0, 0)])?,
+            Pipeline::new(&d, "overlay_prepare", &prepare_bindings, 40, &[(0, 1)])?,
         ];
         let gui_keys = DeviceBuffer::new(&d, (CANVAS_W * CANVAS_H * 4) as u64)?;
         let linear = {
@@ -440,9 +440,12 @@ impl Engine {
         self.sources.set_subtitles(parts, (CANVAS_W, CANVAS_H), wait)
     }
 
-    /// The shell's OSD buffer (KWin's forwarded dmabuf) for the following
-    /// frames, or none. `id` names it for overlay_ticket.
-    pub fn set_shell(&mut self, buf: Option<&overlay::Dmabuf>, id: u64) -> Result<()> {
+    /// The shell's OSD buffer (KWin's forwarded dmabuf, or Kodi's GUI
+    /// framebuffer, rows bottom first with `flip`) for the following frames,
+    /// or none. `id` names it for overlay_ticket. Each frame that reads it
+    /// leaves its fence on the buffer as a read fence, so a writer that
+    /// honours implicit sync can draw the next contents into the same buffer.
+    pub fn set_shell(&mut self, buf: Option<&overlay::Dmabuf>, id: u64, flip: bool) -> Result<()> {
         self.sources_used = true;
         let ticket = self.ticket;
         let timeline = self.timeline;
@@ -454,7 +457,7 @@ impl Engine {
                 let _ = unsafe { d.device.wait_semaphores(&vk::SemaphoreWaitInfo::default().semaphores(&sems).values(&values), u64::MAX) };
             }
         };
-        self.sources.set_shell(d, buf, id, idle)
+        self.sources.set_shell(d, buf, id, flip, idle)
     }
 
     /// The ticket of the frame that read overlay `id` (0: not read yet; the
@@ -715,6 +718,7 @@ impl Engine {
         let p = &*self.plan;
         let out = self.outputs.get(f.output as usize).and_then(|o| o.as_ref()).ok_or(Error::Missing("output"))?;
         let (out_buffer, out_stride, out_fd) = (out.buffer.buffer, out.stride, out.fd);
+        let mut shell_read = None;
         let route = p.route;
         let (w, h) = (p.width, p.height);
         let tables = self.tables.bytes_mut();
@@ -879,6 +883,7 @@ impl Engine {
             let shell_view = match s.shell() {
                 Some(sh) if from_sources => {
                     gpu::acquire_foreign_images(d, cmd, &[sh.image.image]);
+                    shell_read = Some(sh.fd);
                     sh.image.view
                 }
                 _ => self.surfaces[&f.bl_surface].luma.view,   // unused: a valid view to bind
@@ -886,7 +891,7 @@ impl Engine {
             let (ew, eh) = (rect[2] - rect[0], rect[3] - rect[1]);
             #[repr(C)]
             #[derive(Clone, Copy)]
-            struct PreparePush { w: u32, h: u32, has_shell: u32, has_subs: u32, tiles_x: u32, tile: u32, origin: [u32; 2], invalidate: u32 }
+            struct PreparePush { w: u32, h: u32, has_shell: u32, has_subs: u32, tiles_x: u32, tile: u32, origin: [u32; 2], invalidate: u32, flip: u32 }
             let push = PreparePush {
                 w: CANVAS_W,
                 h: CANVAS_H,
@@ -896,6 +901,7 @@ impl Engine {
                 tile: overlay::TILE,
                 origin: [rect[0], rect[1]],
                 invalidate: invalidate as u32,
+                flip: s.shell_flip as u32,
             };
             self.dispatch(cmd, &self.overlay_prepare[from_sources as usize],
                 &[Bind::Buffer(self.overlay.buffer), Bind::Range(atlas, r[0].0, r[0].1), Bind::Range(atlas, r[1].0, r[1].1),
@@ -988,7 +994,13 @@ impl Engine {
         // only when it is.
         let fence = crate::interop::sync::sync_file_from_semaphore(d, self.ring[ci].done)?;
         let r = crate::interop::sync::import_sync_file(out_fd, fence, crate::interop::sync::DMA_BUF_SYNC_WRITE);
+        // And on the overlay buffer it read: its next contents wait for this frame.
+        let shell_fenced = shell_read.map(|fd| crate::interop::sync::import_sync_file(fd, fence, crate::interop::sync::DMA_BUF_SYNC_READ).is_ok());
         unsafe { libc::close(fence) };
+        if shell_fenced == Some(false) {
+            // The overlay's writer can't wait on the GPU: the caller waits for the ticket.
+            self.implicit_failed = true;
+        }
         if r.is_err() {
             // An older kernel: the caller has to wait for the ticket before committing.
             self.implicit_failed = true;

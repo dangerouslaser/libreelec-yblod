@@ -18,6 +18,7 @@ pub struct DvvkFrame {
 }
 
 const DVVK_BACKEND: i32 = -8;
+const DVVK_OVERLAY_FLIP_Y: u32 = 1;
 
 fn log_error(what: &str, e: impl std::fmt::Display) {
     eprintln!("dv-engine-vk: {what}: {e}");
@@ -125,13 +126,34 @@ pub unsafe extern "C" fn dvvk_set_subtitles(e: *mut Engine, parts: *const crate:
 /// `e` from dvvk_create; `buf` NULL or valid for the call.
 #[no_mangle]
 pub unsafe extern "C" fn dvvk_set_overlay(e: *mut Engine, buf: *const crate::overlay::Dmabuf, id: u64) -> i32 {
-    match (*e).set_shell(buf.as_ref(), id) {
+    dvvk_set_overlay_ex(e, buf, id, 0)
+}
+
+/// dvvk_set_overlay with flags: DVVK_OVERLAY_FLIP_Y (1), the buffer's rows
+/// bottom first (a GL framebuffer's texture). Each frame that reads the
+/// buffer leaves its fence on it as an implicit read fence, so the caller
+/// may draw into it again at once if its renderer honours implicit sync.
+/// # Safety
+/// As dvvk_set_overlay.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_set_overlay_ex(e: *mut Engine, buf: *const crate::overlay::Dmabuf, id: u64, flags: u32) -> i32 {
+    match (*e).set_shell(buf.as_ref(), id, flags & DVVK_OVERLAY_FLIP_Y != 0) {
         Ok(()) => 0,
         Err(err) => {
             log_error("overlay", err);
             -2
         }
     }
+}
+
+/// 1 if a fence could not be attached as an implicit fence (an older
+/// kernel): wait for each ticket before committing the output or drawing
+/// into the overlay again. 0 otherwise.
+/// # Safety
+/// `e` from dvvk_create.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_implicit_failed(e: *mut Engine) -> i32 {
+    (*e).implicit_failed as i32
 }
 
 /// The ticket of the frame that read overlay `id`, once (0: not read).

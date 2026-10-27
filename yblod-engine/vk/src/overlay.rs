@@ -64,6 +64,7 @@ pub struct Sources {
     shells: HashMap<u64, Shell>,   // by dmabuf inode
     pub shell: Option<u64>,        // the current one's inode
     pub shell_id: u64,             // the caller's id for it
+    pub shell_flip: bool,          // its rows bottom first (a GL framebuffer's texture)
     pub consumed: HashMap<u64, u64>, // caller id -> ticket of the frame that read it
     pub dirty: bool,
     subs_bbox: Option<[u32; 4]>,   // x0, y0, x1, y1 of the current parts
@@ -93,6 +94,7 @@ impl Sources {
             shells: HashMap::new(),
             shell: None,
             shell_id: 0,
+            shell_flip: false,
             consumed: HashMap::new(),
             dirty: false,
             subs_bbox: None,
@@ -213,6 +215,12 @@ impl Sources {
         self.atlas_ticket[self.subs_slot] = ticket;
         if self.shell.is_some() {
             self.consumed.insert(self.shell_id, ticket);
+            // A caller that never asks (Kodi: a new id every frame) must not
+            // grow it without bound; ids this old are long done.
+            if self.consumed.len() > 1024 {
+                let recent = self.shell_id.saturating_sub(1024);
+                self.consumed.retain(|&id, _| id > recent);
+            }
         }
     }
 
@@ -222,7 +230,7 @@ impl Sources {
 
     /// The shell's OSD layer: a new buffer (imported once per allocation),
     /// or none.
-    pub fn set_shell(&mut self, d: &Device, buf: Option<&Dmabuf>, id: u64, idle: impl Fn()) -> Result<()> {
+    pub fn set_shell(&mut self, d: &Device, buf: Option<&Dmabuf>, id: u64, flip: bool, idle: impl Fn()) -> Result<()> {
         self.mark(None, true);
         let Some(b) = buf else {
             self.shell = None;
@@ -255,6 +263,7 @@ impl Sources {
         }
         self.shell = Some(inode);
         self.shell_id = id;
+        self.shell_flip = flip;
         Ok(())
     }
 

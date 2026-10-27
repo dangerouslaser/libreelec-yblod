@@ -42,6 +42,15 @@ typedef struct {
 /* Overlay sources for frames with DVVK_FRAME_AUTO_OVERLAY. */
 int dvvk_set_subtitles(dvvk_engine *, const dvvk_sub_part *, uint32_t num);
 int dvvk_set_overlay(dvvk_engine *, const dvvk_dmabuf *, uint64_t id);   /* NULL: none */
+/* With flags: DVVK_OVERLAY_FLIP_Y, rows bottom first (a GL framebuffer's
+ * texture). Every frame that reads the buffer leaves its fence on it as an
+ * implicit read fence: a renderer that honours implicit sync may draw the
+ * next contents into it at once (no copy, no CPU wait). */
+#define DVVK_OVERLAY_FLIP_Y 1u
+int dvvk_set_overlay_ex(dvvk_engine *, const dvvk_dmabuf *, uint64_t id, uint32_t flags);
+/* 1 once a fence could not be attached as an implicit fence (older kernel):
+ * wait for each ticket before committing or drawing into the overlay. */
+int dvvk_implicit_failed(dvvk_engine *);
 uint64_t dvvk_overlay_ticket(dvvk_engine *, uint64_t id);
 int dvvk_create(int drm_fd, void *va_display, dvvk_engine **out);
 int dvvk_set_output(dvvk_engine *, uint32_t slot, int dmabuf_fd, uint32_t stride);
