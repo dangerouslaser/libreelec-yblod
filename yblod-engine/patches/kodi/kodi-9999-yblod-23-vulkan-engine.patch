@@ -804,7 +804,7 @@ index 0000000..547d4e9
 +  bool m_fel{true};
 +};
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-index 68a5b13..af61038 100644
+index 68a5b13..aee7ab7 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 @@ -64,7 +64,9 @@ extern "C"
@@ -826,7 +826,7 @@ index 68a5b13..af61038 100644
      m_guiHalfFbo.Cleanup();
      m_guiHalf = false;
      m_guiHalfBound = false;
-@@ -431,6 +433,85 @@ void CWinSystemGbmGLESContext::SetScissors(const CRect& rect)
+@@ -431,6 +433,86 @@ void CWinSystemGbmGLESContext::SetScissors(const CRect& rect)
      ScaleGuiRaster(false);
  }
  
@@ -839,7 +839,8 @@ index 68a5b13..af61038 100644
 +  if (!create || !target || !device || !m_guiFbo.IsValid())
 +    return false;
 +  // The driver's layout if it names it in one plane, else linear.
-+  for (const uint32_t flags : {GBM_BO_USE_RENDERING, GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR})
++  const uint32_t layouts[] = {GBM_BO_USE_RENDERING, GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR};
++  for (const uint32_t flags : layouts)
 +  {
 +    m_guiBo = gbm_bo_create(device, width, height, GBM_FORMAT_ABGR8888, flags);
 +    if (m_guiBo && gbm_bo_get_plane_count(m_guiBo) == 1 &&
@@ -912,7 +913,7 @@ index 68a5b13..af61038 100644
  bool CWinSystemGbmGLESContext::CanReuseGuiComposite() const
  {
  #ifdef HAVE_DVBRIDGE
-@@ -478,11 +559,16 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+@@ -478,11 +560,16 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
    }
    m_guiHalf = guiHalf;
  
@@ -931,7 +932,7 @@ index 68a5b13..af61038 100644
  
      if (!m_guiFbo.Initialize())
      {
-@@ -494,7 +580,7 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+@@ -494,7 +581,7 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
      {
        CLog::Log(LOGERROR, "CWinSystemGbmGLESContext: failed to create GUI FBO texture {}x{}", width,
                  height);
@@ -940,7 +941,7 @@ index 68a5b13..af61038 100644
        return false;
      }
  
-@@ -503,10 +589,24 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+@@ -503,10 +590,24 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
        CLog::Log(LOGERROR,
                  "CWinSystemGbmGLESContext: failed to attach depth buffer to GUI FBO {}x{}", width,
                  height);
@@ -966,7 +967,7 @@ index 68a5b13..af61038 100644
      m_guiFboWidth = width;
      m_guiFboHeight = height;
      m_guiFboClean = false; // fresh FBO is undefined, force a clear
-@@ -1031,7 +1131,17 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+@@ -1031,7 +1132,17 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
          m_guiFboWidth != 3840 || m_guiFboHeight != 2160)
        return false;
      if (!overlayFree)
@@ -984,7 +985,7 @@ index 68a5b13..af61038 100644
      gui.flipY = 1;
      const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
      if (revisionCache && std::strcmp(revisionCache, "1") == 0)
-@@ -1137,7 +1247,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+@@ -1137,7 +1248,7 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
      m_dvBridge->Reset();
      // The menu must not reuse the GUI target shared with native movie composition.
      glBindFramebuffer(GL_FRAMEBUFFER, 0);
