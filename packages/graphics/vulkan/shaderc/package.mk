@@ -10,8 +10,8 @@ PKG_SHA256="f06ce5bcca94e5df7f34e115743597d0ad2e13c5fe9213c67dc8c76031241947"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="https://github.com/google/shaderc"
 PKG_URL="https://github.com/google/shaderc/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_HOST="toolchain:host Python3:host"
-PKG_DEPENDS_UNPACK="glslang spirv-tools spirv-headers"
+# glslang's unpacked tree carries the matching SPIRV-Tools and SPIRV-Headers.
+PKG_DEPENDS_HOST="toolchain:host Python3:host glslang:host"
 PKG_LONGDESC="glslc, a GLSL to SPIR-V compiler (for yblod-engine-vk's shaders)."
 
 PKG_CMAKE_OPTS_HOST="-DSHADERC_SKIP_TESTS=ON \
@@ -23,17 +23,16 @@ PKG_CMAKE_OPTS_HOST="-DSHADERC_SKIP_TESTS=ON \
                      -DSPIRV_SKIP_EXECUTABLES=ON \
                      -DSPIRV_WERROR=OFF \
                      -DENABLE_GLSLANG_BINARIES=OFF \
+                     -DBUILD_EXTERNAL=OFF \
                      -DBUILD_SHARED_LIBS=OFF \
                      -Wno-dev"
 PKG_MAKE_OPTS_HOST="glslc_exe"
 
-post_unpack() {
-  for dep in glslang spirv-tools spirv-headers; do
-    mkdir -p ${PKG_BUILD}/third_party/${dep}
-    tar --strip-components=1 \
-      -xf "${SOURCES}/${dep}/${dep}-$(get_pkg_version ${dep}).tar.gz" \
-      -C "${PKG_BUILD}/third_party/${dep}"
-  done
+pre_configure_host() {
+  local glslang="$(get_build_dir glslang)"
+  PKG_CMAKE_OPTS_HOST+=" -DSHADERC_GLSLANG_DIR=${glslang} \
+                        -DSHADERC_SPIRV_TOOLS_DIR=${glslang}/External/spirv-tools \
+                        -DSHADERC_SPIRV_HEADERS_DIR=${glslang}/External/spirv-tools/external/spirv-headers"
 }
 
 makeinstall_host() {
