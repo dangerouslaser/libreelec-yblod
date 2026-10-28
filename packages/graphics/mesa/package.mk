@@ -133,9 +133,9 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-tools ply:host"
-  # yblod: ANV only, for the Vulkan Dolby Vision engine (RADV fails to link here: addrlib
-  # needs libgcc's __cpu_model).
-  [ "${PROJECT}" = "Generic" ] && VULKAN_DRIVERS_MESA="$(listcontains "${VULKAN_DRIVERS_MESA}" "intel" && echo intel)"
+  # yblod: ANV and RADV only, for the Vulkan Dolby Vision engine (RADV links with
+  # mesa-002's -lgcc: addrlib needs libgcc's __cpu_model).
+  [ "${PROJECT}" = "Generic" ] && VULKAN_DRIVERS_MESA="$(for d in intel amd; do listcontains "${VULKAN_DRIVERS_MESA}" "${d}" && echo ${d}; done | xargs)"
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers=${VULKAN_DRIVERS_MESA// /,}"
 else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
