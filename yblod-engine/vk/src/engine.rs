@@ -79,6 +79,8 @@ struct ResizePush {
 
 struct FelPipelines {
     vertical_pair: Pipeline,
+    // 32-bit stores, two columns per invocation (DVVK_VERIFY's reference keeps vertical_pair)
+    vertical_pair_w32: Pipeline,
     luma_phase_guide: Pipeline,
     phase_vertical_uv: Pipeline,
     mmr_dual_horizontal: Pipeline,
@@ -261,6 +263,10 @@ pub struct Engine {
     verify: Option<Verify>,
     // The query pool record_fel stamps into (this frame's, not the reference's).
     fel_query: std::cell::Cell<Option<vk::QueryPool>>,
+    // DVVK_VERIFY's reference pass is recording: the original staged kernels.
+    reference_pass: std::cell::Cell<bool>,
+    // DVVK_W32=0: the staged chain's original 16-bit-store kernels.
+    w32: bool,
 }
 
 impl Engine {
@@ -297,6 +303,7 @@ impl Engine {
         let count_changes = std::env::var("DVVK_OVERLAY_CHANGES").map(|v| v == "1").unwrap_or(false);
         let fel = FelPipelines {
             vertical_pair: Pipeline::new(&d, "fel_vertical_pair", &[sampled, storage, storage], 20, &[])?,
+            vertical_pair_w32: Pipeline::new(&d, "fel_vertical_pair_w32", &[sampled, storage, storage], 20, &[])?,
             luma_phase_guide: Pipeline::new(&d, "fel_luma_phase_guide", &[sampled, sampled, storage, storage, storage, storage, storage, storage, storage], 20, &[])?,
             phase_vertical_uv: Pipeline::new(&d, "fel_phase_vertical_uv", &[sampled, storage, storage, storage], 20, &[])?,
             mmr_dual_horizontal: Pipeline::new(&d, "fel_mmr_dual_horizontal", &[storage; 12], 16, &[])?,
@@ -475,6 +482,8 @@ impl Engine {
             profile: profile.then(Profile::default),
             verify,
             fel_query: std::cell::Cell::new(None),
+            reference_pass: std::cell::Cell::new(false),
+            w32: !std::env::var("DVVK_W32").map(|v| v == "0").unwrap_or(false),
             va: va_display,
             d,
         })
@@ -1180,7 +1189,9 @@ impl Engine {
         let d = &self.d;
         let p = &*self.plan;
         let barrier = || gpu::compute_barrier(d, cmd);
+        self.reference_pass.set(true);
         self.record_staged(cmd, f, bl, rows.0, rows.1);
+        self.reference_pass.set(false);
         barrier();
         let mut read = None;
         if p.overlay_visible != 0 {
@@ -1312,8 +1323,10 @@ impl Engine {
             }
         };
         // c = 0: the EL luma upsampled vertically (EL rows [first/2, last/2)).
-        self.dispatch(cmd, &f.vertical_pair, &[Bind::Sampled(el.luma.view, self.sampler), fb(F_V), err()],
-            &[cw, ch, 0u32, p.nearest, first / 2], (cw.div_ceil(16), ((last - first) / 2).div_ceil(8)));
+        let w32 = self.w32 && !self.reference_pass.get();
+        let (vertical, columns) = if w32 { (&f.vertical_pair_w32, cw / 2) } else { (&f.vertical_pair, cw) };
+        self.dispatch(cmd, vertical, &[Bind::Sampled(el.luma.view, self.sampler), fb(F_V), err()],
+            &[cw, ch, 0u32, p.nearest, first / 2], (columns.div_ceil(16), ((last - first) / 2).div_ceil(8)));
         barrier();
         stamp(4);
         // luma, BL chroma phase and guide per 2x2 block.
@@ -1492,7 +1505,7 @@ impl Drop for Engine {
             }
             v.compare.destroy(d);
         }
-        for p in [&self.fel.vertical_pair, &self.fel.luma_phase_guide, &self.fel.phase_vertical_uv,
+        for p in [&self.fel.vertical_pair, &self.fel.vertical_pair_w32, &self.fel.luma_phase_guide, &self.fel.phase_vertical_uv,
                   &self.fel.mmr_dual_horizontal, &self.fel.scale_horizontal, &self.fel.table_add, &self.fel.mmr_dual] {
             p.destroy(d);
         }
