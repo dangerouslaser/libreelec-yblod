@@ -1,5 +1,5 @@
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
-index 4da8888..02029d3 100644
+index 4da8888..2435c49 100644
 --- a/addons/resource.language.en_gb/resources/strings.po
 +++ b/addons/resource.language.en_gb/resources/strings.po
 @@ -26219,3 +26219,23 @@ msgstr ""
@@ -14,7 +14,7 @@ index 4da8888..02029d3 100644
 +
 +#: system/settings/settings.xml
 +msgctxt "#40896"
-+msgid "Run YBLOD's engine on Vulkan compute instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. On AMD graphics the Vulkan engine is always used. Applies to the next video."
++msgid "Run YBLOD's engine on Vulkan compute (the default) instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. Turning this off selects the OpenCL engine on Intel graphics; on AMD graphics the Vulkan engine is always used. Applies to the next video."
 +msgstr ""
 +
 +#: system/settings/settings.xml
@@ -27,7 +27,7 @@ index 4da8888..02029d3 100644
 +msgid "Upscale a profile 7 full enhancement layer by repeating each sample over its 2x2 block, as decoded: sharp and the lightest on the GPU. Off: the smooth filters of Dolby's published reference (ETSI CCM Annex B). Both engines. Applies to the next video."
 +msgstr ""
 diff --git a/system/settings/settings.xml b/system/settings/settings.xml
-index 2c0a31c..410fae0 100755
+index 2c0a31c..8e3cb37 100755
 --- a/system/settings/settings.xml
 +++ b/system/settings/settings.xml
 @@ -441,6 +441,32 @@
@@ -36,7 +36,7 @@ index 2c0a31c..410fae0 100755
          </setting>
 +        <setting id="dvbridge.vulkan" type="boolean" label="40895" help="40896">
 +          <level>3</level>
-+          <default>false</default>
++          <default>true</default>
 +          <dependencies>
 +            <dependency type="enable">
 +              <and>
