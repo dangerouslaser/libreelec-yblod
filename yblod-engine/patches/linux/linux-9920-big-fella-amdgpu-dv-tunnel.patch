@@ -1,0 +1,658 @@
+big-fella: the Standard Dolby Vision RGB8 tunnel on amdgpu DC
+
+The DVBRIDGE_DV_STANDARD_LAB connector property of yblod's i915 patches
+(linux-9900 to 9903), with the same semantics, on native HDMI connectors of
+DCN 1.0 to 3.6 (amdgpu.enable_dv_lab, default on), so kwin-big-fella and
+dv-engine-vk work unchanged on AMD integrated graphics:
+
+- the property: atomic bool per HDMI-A connector; 1 needs HDMI-A and the
+  option; back to 0 when the connector loses its CRTC; a change is a full
+  modeset (mode_changed, and DC sees a changed stream: dc_is_timing_changed);
+- the link policy: i915's own intel_dv_lab_validate() and dvbridge_parse_edid()
+  (included from i915/display, MIT, inline), with DC's stream as input: native
+  TMDS HDMI, a Standard DV sink, RGB 8 bpc, full range, no HDR metadata,
+  Colorspace Default, max bpc 8, progressive 1080p/2160p at 24/25/30/50/60 with
+  a CTA VIC, 2160p above 30 Hz only if the sink says so. Run in
+  dm_update_crtc_state() only (not mode_valid, which uses the connector's
+  current state and would prune the mode list while the tunnel is engaged);
+- the stream: DC's own AVI InfoFrame as RGB, no colorimetry, full range
+  (COLOR_SPACE_SRGB, qs_bit), CTA VIC; the Dolby VSIF (or, for v0/v1 sinks,
+  the HDMI-1.4b VSIF with its Dolby Vision bit and HDMI VIC, as i915) in the
+  vendor slot; no HF-VSIF/VTEM; dither and truncation off (FMT); FreeSync's
+  packet off;
+- the scanout policy, at the end of amdgpu_dm_atomic_check() for every CRTC
+  driving a tunnel stream: no CRTC or plane colour processing (CTM, degamma,
+  gamma, AMD plane LUTs/TFs, COLOR_PIPELINE), no VRR or async flips, no DSC,
+  no scaling or borders, the primary plane alone on the CRTC with an
+  unscaled, unrotated, opaque XRGB8888 buffer of the mode's size;
+- diagnostics: i915's rate-limited "DVBridge: link rejected" and "DVBridge:
+  scanout rejected ... reasons=0x..." messages; the engaged stream's packets
+  with drm.debug=0x4.
+
+Not ported: QMS (linux-9910/9911; a refresh change is a modeset on amdgpu),
+the SPD source type (linux-9912; amdgpu sends no SPD InfoFrame of its own),
+DVBRIDGE_HDR10_DEEP_COLOR (linux-9904).
+
+DC hook points adapted from CroqueMr's CB1 (github.com/CroqueMr/libreelec-x86-DV,
+projects/Generic/patches/linux/linux-9920-amd-dcn-native-dv.patch and
+linux-9921-amd-dv-diagnostic-and-vrr-guards.patch, MIT). Applies after
+linux-9900 to linux-9912. See big-fella's docs/dv-amd.md.
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/Makefile b/drivers/gpu/drm/amd/display/amdgpu_dm/Makefile
+index d1faf2d..fdd77d5 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/Makefile
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/Makefile
+@@ -46,6 +46,7 @@ AMDGPUDM = \
+ 	amdgpu_dm_audio.o \
+ 	amdgpu_dm_dmub.o \
+ 	amdgpu_dm_connector.o \
++	amdgpu_dm_dv.o \
+ 	amdgpu_dm_freesync.o \
+ 	amdgpu_dm_cursor.o
+ 
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 47a0ff2..4396874 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -50,6 +50,7 @@
+ #include "amdgpu_ucode.h"
+ #include "atom.h"
+ #include "amdgpu_dm.h"
++#include "amdgpu_dm_dv.h"
+ #include "amdgpu_dm_plane.h"
+ #include "amdgpu_dm_crtc.h"
+ #include "amdgpu_dm_hdcp.h"
+@@ -5471,6 +5472,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+ 		if (ret)
+ 			goto fail;
+ 
++		/* big-fella: the Dolby Vision tunnel's link policy and stream
++		 * setup (amdgpu_dm_dv.c), only here, never for mode_valid.
++		 */
++		if (dm_new_conn_state->dv_lab_standard) {
++			ret = amdgpu_dm_dv_configure_stream(connector, dm_new_conn_state,
++							    &new_crtc_state->mode, new_stream);
++			if (ret)
++				goto fail;
++		}
++
+ 		/*
+ 		 * If we already removed the old stream from the context
+ 		 * (and set the new stream to NULL) then we can't reuse
+@@ -5482,6 +5493,7 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+ 		 */
+ 		if (amdgpu_freesync_vid_mode &&
+ 		    dm_new_crtc_state->stream &&
++		    dm_new_conn_state->dv_lab_standard == dm_old_conn_state->dv_lab_standard &&
+ 		    amdgpu_dm_is_timing_unchanged_for_freesync(new_crtc_state, old_crtc_state))
+ 			goto skip_modeset;
+ 
+@@ -6615,6 +6627,13 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+ 			UPDATE_TYPE_FULL : UPDATE_TYPE_FAST;
+ 	}
+ 
++	/* big-fella: the Dolby Vision tunnel's scanout policy, on the final
++	 * state, for modesets and plane-only updates alike (amdgpu_dm_dv.c).
++	 */
++	ret = amdgpu_dm_dv_atomic_check(state);
++	if (ret)
++		goto fail;
++
+ 	/* Must be success */
+ 	WARN_ON(ret);
+ 
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+index 881c8d1..7c4a0bc 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -34,6 +34,7 @@
+ #include <drm/drm_plane.h>
+ #include "link_service_types.h"
+ #include <drm/drm_writeback.h>
++#include <linux/ratelimit.h>
+ 
+ /*
+  * This file contains the definition for amdgpu_display_manager
+@@ -809,6 +810,10 @@ struct amdgpu_hdmi_vsdb_info {
+ struct amdgpu_dm_connector {
+ 
+ 	struct drm_connector base;
++	/* big-fella: DVBRIDGE_DV_STANDARD_LAB (amdgpu_dm_dv.c), NULL when absent */
++	struct drm_property *dv_lab_property;
++	/* Diagnostics only: no influence on DV admission or recovery. */
++	struct ratelimit_state dv_log_limit;
+ 	uint32_t connector_id;
+ 	int bl_idx;
+ 
+@@ -1069,6 +1074,8 @@ struct dm_atomic_state {
+ 
+ struct dm_connector_state {
+ 	struct drm_connector_state base;
++	/* big-fella: the Dolby Vision tunnel is asked for (amdgpu_dm_dv.c) */
++	bool dv_lab_standard;
+ 
+ 	enum amdgpu_rmx_type scaling;
+ 	uint8_t underscan_vborder;
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
+index 45a69bf..2be2afa 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
+@@ -42,6 +42,7 @@
+ #include "amdgpu_display.h"
+ #include "amdgpu_dm.h"
+ #include "amdgpu_dm_connector.h"
++#include "amdgpu_dm_dv.h"
+ #include "amdgpu_dm_plane.h"
+ #include "amdgpu_dm_crtc.h"
+ #include "amdgpu_dm_wb.h"
+@@ -1800,6 +1801,9 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+ 
+ 	int ret = -EINVAL;
+ 
++	if (amdgpu_dm_dv_is_property(connector, property))
++		return amdgpu_dm_dv_set_property(connector, dm_new_state, val);
++
+ 	if (property == dev->mode_config.scaling_mode_property) {
+ 		enum amdgpu_rmx_type rmx_type;
+ 
+@@ -1864,6 +1868,11 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
+ 		to_dm_connector_state(state);
+ 	int ret = -EINVAL;
+ 
++	if (amdgpu_dm_dv_is_property(connector, property)) {
++		*val = dm_state->dv_lab_standard;
++		return 0;
++	}
++
+ 	if (property == dev->mode_config.scaling_mode_property) {
+ 		switch (dm_state->scaling) {
+ 		case RMX_CENTER:
+@@ -2623,8 +2632,23 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+ 	}
+ 
+ 	crtc = new_con_state->crtc;
+-	if (!crtc)
++	if (!crtc) {
++		/* big-fella: as i915, the tunnel ends with the connector's CRTC */
++		to_dm_connector_state(new_con_state)->dv_lab_standard = false;
+ 		return 0;
++	}
++
++	/* big-fella: entering and leaving the Dolby Vision tunnel are full
++	 * modesets, never a late InfoFrame update.
++	 */
++	if (to_dm_connector_state(new_con_state)->dv_lab_standard !=
++	    to_dm_connector_state(old_con_state)->dv_lab_standard) {
++		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
++		if (IS_ERR(new_crtc_state))
++			return PTR_ERR(new_crtc_state);
++
++		new_crtc_state->mode_changed = true;
++	}
+ 
+ 	if (new_con_state->privacy_screen_sw_state != old_con_state->privacy_screen_sw_state) {
+ 		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
+@@ -3279,6 +3303,9 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+ 		|| (connector_type == DRM_MODE_CONNECTOR_DisplayPort && !aconnector->mst_root))
+ 		drm_connector_attach_broadcast_rgb_property(&aconnector->base);
+ 
++	/* big-fella: DVBRIDGE_DV_STANDARD_LAB on native HDMI (amdgpu_dm_dv.c) */
++	amdgpu_dm_dv_attach_property(aconnector);
++
+ 	drm_object_attach_property(&aconnector->base.base,
+ 				adev->mode_info.underscan_property,
+ 				UNDERSCAN_OFF);
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
+new file mode 100644
+index 0000000..894434b
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
+@@ -0,0 +1,364 @@
++// SPDX-License-Identifier: MIT
++/*
++ * big-fella: the Standard Dolby Vision RGB8 tunnel on amdgpu DC.
++ *
++ * The player packs each picture and its metadata into an 8-bit RGB buffer;
++ * the compositor scans it out with the connector property
++ * DVBRIDGE_DV_STANDARD_LAB set, and the display engine has to send it to the
++ * TV byte for byte, with the Dolby vendor InfoFrame. Same property, link
++ * policy, scanout policy and diagnostics as yblod's i915 patches
++ * (linux-9900 to 9903): the policy and EDID parser are theirs, shared below.
++ *
++ * The DC hook points (the vendor slot, dc_info_packet's checksum layout, the
++ * dither option, qs_bit, a stream flag that DC compares, FreeSync off, the CRC
++ * guard, the stream's own sink EDID) follow CroqueMr's CB1
++ * (github.com/CroqueMr/libreelec-x86-DV, linux-9920-amd-dcn-native-dv.patch
++ * and linux-9921-amd-dv-diagnostic-and-vrr-guards.patch, MIT).
++ *
++ * See big-fella's docs/dv-amd.md.
++ */
++#include <linux/bitops.h>
++#include <linux/hdmi.h>
++#include <linux/moduleparam.h>
++#include <linux/ratelimit.h>
++
++#include <drm/drm_atomic.h>
++#include <drm/drm_blend.h>
++#include <drm/drm_edid.h>
++#include <drm/drm_fourcc.h>
++#include <drm/drm_framebuffer.h>
++#include <drm/drm_modes.h>
++#include <drm/drm_print.h>
++
++#include "dc.h"
++#include "amdgpu.h"
++#include "amdgpu_dm.h"
++#include "amdgpu_dm_dv.h"
++/*
++ * yblod's i915 policy and EDID parser (MIT, inline, no i915 dependencies),
++ * included rather than copied, so both drivers apply the very same rules.
++ */
++#include "../../../i915/display/intel_dv_lab_policy.h"
++
++static bool enable_dv_lab = true;
++module_param(enable_dv_lab, bool, 0400);
++MODULE_PARM_DESC(enable_dv_lab,
++	"Standard Dolby Vision RGB8 tunnel on native HDMI: the DVBRIDGE_DV_STANDARD_LAB "
++	"connector property, DCN 1.0 to 3.6 (default: on)");
++
++static bool dv_dcn(const struct dc *dc)
++{
++	/* Only the DCN generations whose DC paths this was written against. */
++	return dc && dc->ctx->dce_version >= DCN_VERSION_1_0 &&
++		dc->ctx->dce_version <= DCN_VERSION_3_6;
++}
++
++void amdgpu_dm_dv_attach_property(struct amdgpu_dm_connector *aconnector)
++{
++	struct drm_device *dev = aconnector->base.dev;
++	struct amdgpu_device *adev = drm_to_adev(dev);
++
++	if (!enable_dv_lab || !dv_dcn(adev->dm.dc) ||
++	    aconnector->base.connector_type != DRM_MODE_CONNECTOR_HDMIA ||
++	    !aconnector->dc_link ||
++	    aconnector->dc_link->connector_signal != SIGNAL_TYPE_HDMI_TYPE_A)
++		return;
++
++	ratelimit_state_init(&aconnector->dv_log_limit, 30 * HZ, 1);
++	aconnector->dv_lab_property = drm_property_create_bool(dev,
++		DRM_MODE_PROP_ATOMIC, "DVBRIDGE_DV_STANDARD_LAB");
++	if (aconnector->dv_lab_property)
++		drm_object_attach_property(&aconnector->base.base,
++					   aconnector->dv_lab_property, 0);
++}
++
++bool amdgpu_dm_dv_is_property(const struct drm_connector *connector,
++			      const struct drm_property *property)
++{
++	const struct amdgpu_dm_connector *aconnector;
++
++	if (connector->connector_type == DRM_MODE_CONNECTOR_WRITEBACK)
++		return false;
++	aconnector = to_amdgpu_dm_connector(connector);
++	return aconnector->dv_lab_property && property == aconnector->dv_lab_property;
++}
++
++int amdgpu_dm_dv_set_property(struct drm_connector *connector,
++			      struct dm_connector_state *state, u64 val)
++{
++	if (val > 1 || connector->connector_type != DRM_MODE_CONNECTOR_HDMIA)
++		return -EINVAL;
++	if (val && !enable_dv_lab)
++		return -EOPNOTSUPP;
++	state->dv_lab_standard = val;
++	return 0;
++}
++
++/* The EDID the stream was made for: the stream holds its sink, while the
++ * connector's EDID blob can be replaced by a hotplug at any time.
++ */
++static const struct dc_edid *dv_stream_edid(const struct dc_stream_state *stream)
++{
++	const struct dc_edid *edid;
++
++	if (!stream->sink)
++		return NULL;
++	edid = &stream->sink->dc_edid;
++	return edid->length && edid->length <= sizeof(edid->raw_edid) ? edid : NULL;
++}
++
++static unsigned int dv_pipe_bpp(enum dc_color_depth depth)
++{
++	switch (depth) {
++	case COLOR_DEPTH_666: return 18;
++	case COLOR_DEPTH_888: return 24;
++	case COLOR_DEPTH_101010: return 30;
++	case COLOR_DEPTH_121212: return 36;
++	case COLOR_DEPTH_141414: return 42;
++	case COLOR_DEPTH_161616: return 48;
++	default: return 0;
++	}
++}
++
++/* dc_info_packet keeps the three header bytes apart; its body starts with
++ * the checksum, as the packed InfoFrame's fourth byte.
++ */
++static int dv_copy_packet(struct dc_info_packet *packet, const u8 *wire, size_t size)
++{
++	memset(packet, 0, sizeof(*packet));
++	if (size < HDMI_INFOFRAME_HEADER_SIZE || size - 3 > sizeof(packet->sb))
++		return -EINVAL;
++	packet->hb0 = wire[0];
++	packet->hb1 = wire[1];
++	packet->hb2 = wire[2];
++	memcpy(packet->sb, wire + 3, size - 3);
++	packet->valid = true;
++	return 0;
++}
++
++/*
++ * Called from dm_update_crtc_state() for a stream DC has just validated,
++ * when the connector asks for the tunnel. Checks the link as i915 does and
++ * turns the stream into a tunnel stream: RGB 8 bpc full range with DC's own
++ * AVI InfoFrame (no colorimetry, CTA VIC), the Dolby VSIF in the vendor
++ * slot, no dither. Never called from mode_valid.
++ */
++int amdgpu_dm_dv_configure_stream(struct drm_connector *connector,
++				  const struct dm_connector_state *state,
++				  const struct drm_display_mode *mode,
++				  struct dc_stream_state *stream)
++{
++	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
++	const struct drm_display_info *info = &connector->display_info;
++	const struct dc_edid *edid = dv_stream_edid(stream);
++	struct dvbridge_sink_caps caps = dvbridge_parse_edid(edid ? edid->raw_edid : NULL,
++							     edid ? edid->length : 0);
++	const struct dc_link *link = stream->link;
++	unsigned int vic = drm_match_cea_mode(mode);
++	u8 wire[HDMI_INFOFRAME_HEADER_SIZE + HDMI_DOLBY_VENDOR_INFOFRAME_SIZE];
++	struct dc_info_packet vsp;
++	unsigned int hdmi_vic = 0;
++	struct intel_dv_lab_link l = {
++		.requested = true,
++		.lab_enabled = enable_dv_lab && aconnector->dv_lab_property &&
++			dv_dcn(stream->ctx->dc),
++		.sink_standard = caps.status == DV_EDID_STANDARD,
++		.hdmi = stream->signal == SIGNAL_TYPE_HDMI_TYPE_A && info->is_hdmi &&
++			info->has_hdmi_infoframe,
++		/* No LSPCON on AMD; a DP->HDMI converter or an FRL link isn't native. */
++		.native_hdmi = connector->connector_type == DRM_MODE_CONNECTOR_HDMIA && link &&
++			link->connector_signal == SIGNAL_TYPE_HDMI_TYPE_A &&
++			link->dpcd_caps.dongle_type == DISPLAY_DONGLE_NONE,
++		.rgb = stream->timing.pixel_encoding == PIXEL_ENCODING_RGB,
++		/* amdgpu's own Broadcast RGB rule, as resolved for this stream */
++		.limited_range = stream->output_color_space == COLOR_SPACE_SRGB_LIMITED ||
++			stream->output_color_space == COLOR_SPACE_2020_RGB_LIMITEDRANGE,
++		.hdr_blob = !!state->base.hdr_output_metadata,
++		.cloned = false, /* one connector per stream; the scanout check counts */
++		.progressive = !(mode->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN |
++			DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK)),
++		.requested_bpc = state->base.max_requested_bpc,
++		.pipe_bpp = dv_pipe_bpp(stream->timing.display_color_depth),
++		.colorspace = state->base.colorspace,
++		.width = mode->hdisplay,
++		.height = mode->vdisplay,
++		.rounded_refresh = drm_mode_vrefresh(mode),
++	};
++	ssize_t len;
++	int ret;
++
++	ret = intel_dv_lab_validate(&l);
++	if (!ret && l.width == 3840 && l.rounded_refresh > 30 && !caps.supports_2160p60)
++		ret = -EOPNOTSUPP;
++	/* i915 refuses these while building the AVI InfoFrame. */
++	if (!ret && (!intel_dv_lab_avi_vic(vic) || stream->timing.flags.DSC ||
++		     stream->timing.timing_3d_format != TIMING_3D_FORMAT_NONE ||
++		     stream->timing.h_addressable != mode->hdisplay ||
++		     stream->timing.v_addressable != mode->vdisplay))
++		ret = -EINVAL;
++	if (ret) {
++		/* First cause, then at most once per 30 seconds per connector.
++		 * Atomic TEST_ONLY requests also pass here. No per-frame dump.
++		 */
++		if (__ratelimit(&aconnector->dv_log_limit))
++			drm_err(connector->dev,
++				"DVBridge: link rejected errno=%d connector=%u dce_version=%d enabled=%d edid=%s version=%u legacy_vsif=%d sink60=%d native_hdmi=%d signal=%d dongle=%d hdmi=%d rgb=%d limited=%d hdr_blob=%d progressive=%d bpc=%u pipe_bpp=%u colorspace=%u mode=%ux%u@%u vic=%u dsc=%d\n",
++				ret, connector->base.id, stream->ctx->dce_version,
++				l.lab_enabled, dvbridge_edid_reason(caps.status),
++				caps.version, caps.legacy_vsif, caps.supports_2160p60,
++				l.native_hdmi, stream->signal,
++				link ? (int)link->dpcd_caps.dongle_type : -1,
++				l.hdmi, l.rgb, l.limited_range, l.hdr_blob, l.progressive,
++				l.requested_bpc, l.pipe_bpp, l.colorspace, l.width, l.height,
++				l.rounded_refresh, vic, stream->timing.flags.DSC);
++		return ret;
++	}
++
++	if (caps.legacy_vsif) {
++		/* HDMI-1.4b form with its Dolby Vision bit; HDMI VIC 1/2/3 =
++		 * CTA 95/94/93, whose AVI VIC then goes to 0 (DC does that).
++		 */
++		struct hdmi_vendor_infoframe hv;
++
++		hdmi_vendor_infoframe_init(&hv);
++		hv.dolby_vision = true;
++		hv.vic = vic >= 93 && vic <= 95 ? 96 - vic : 0;
++		hdmi_vic = hv.vic;
++		len = hdmi_vendor_infoframe_pack(&hv, wire, sizeof(wire));
++	} else {
++		struct hdmi_dolby_vendor_infoframe dv;
++
++		hdmi_dolby_vendor_infoframe_init(&dv);
++		dv.signal = true;
++		len = hdmi_dolby_vendor_infoframe_pack(&dv, wire, sizeof(wire));
++	}
++	if (len < 0)
++		return len;
++	ret = dv_copy_packet(&vsp, wire, len);
++	if (ret)
++		return ret;
++
++	/* The vendor slot carries Dolby's packet only: no competing HDMI-1.4
++	 * VIC packet (AVI has the CTA VIC), no HF-VSIF, no VTEM.
++	 */
++	stream->vsp_infopacket = vsp;
++	stream->hfvsif_infopacket.valid = false;
++	stream->vtem_infopacket.valid = false;
++	stream->avi_infopacket.valid = false;
++	stream->timing.vic = vic;
++	stream->timing.hdmi_vic = hdmi_vic;
++	/* DC's AVI InfoFrame: RGB, no colorimetry, full range (Q set even if
++	 * the sink doesn't list QS, as i915 forces full range).
++	 */
++	stream->output_color_space = COLOR_SPACE_SRGB;
++	stream->qs_bit = 1;
++	/* FMT: no spatial/temporal dither, no truncation step. */
++	stream->dither_option = DITHER_OPTION_DISABLE;
++	stream->dv_lab = true;
++
++	drm_dbg_kms(connector->dev,
++		    "DVBridge: [CONNECTOR:%d:%s] tunnel stream %ux%u@%u vic %u hdmi_vic %u, %s VSIF %*ph\n",
++		    connector->base.id, connector->name, mode->hdisplay, mode->vdisplay,
++		    drm_mode_vrefresh(mode), vic, hdmi_vic,
++		    caps.legacy_vsif ? "HDMI-1.4b DV" : "Dolby", (int)len, wire);
++	return 0;
++}
++
++static int dv_scanout_reject(struct drm_crtc *crtc, const char *stage,
++			     unsigned int reasons)
++{
++	/* Shared budget also bounds TEST_ONLY retries and alternating CRTCs. */
++	static DEFINE_RATELIMIT_STATE(limit, 30 * HZ, 4);
++
++	if (__ratelimit(&limit))
++		drm_err(crtc->dev,
++			"DVBridge: scanout rejected errno=%d crtc=%u stage=%s reasons=0x%x\n",
++			-EINVAL, crtc->base.id, stage, reasons);
++	return -EINVAL;
++}
++
++/*
++ * i915's intel_dv_lab_scanout_check() in DC terms, run at the end of
++ * amdgpu_dm_atomic_check() for every CRTC that drives a tunnel stream, also
++ * for plane-only updates. Refuse colour processing and compositing; never
++ * silently bypass a user's LUT.
++ */
++int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state)
++{
++	struct drm_crtc *crtc;
++	struct drm_crtc_state *cs;
++	int i;
++
++	for_each_new_crtc_in_state(state, crtc, cs, i) {
++		const struct dm_crtc_state *dm = to_dm_crtc_state(cs);
++		const struct dc_stream_state *stream = dm->stream;
++		struct drm_plane *primary = crtc->primary;
++		const struct drm_plane_state *p;
++		const struct dm_plane_state *dp;
++		unsigned int w = cs->mode.hdisplay;
++		unsigned int h = cs->mode.vdisplay;
++		unsigned int reasons;
++
++		if (!cs->active || !stream || !stream->dv_lab)
++			continue;
++
++		/* Reason bits: color, dither, VRR, DSC, scaler, plane mask (or
++		 * more than one connector). Color includes the link format DC
++		 * ended up with: RGB, 8 bpc, sRGB full range.
++		 */
++		reasons = (!!(cs->ctm || cs->degamma_lut || cs->gamma_lut ||
++			      dm->regamma_tf != AMDGPU_TRANSFER_FUNCTION_DEFAULT ||
++			      stream->output_color_space != COLOR_SPACE_SRGB ||
++			      stream->timing.pixel_encoding != PIXEL_ENCODING_RGB ||
++			      stream->timing.display_color_depth != COLOR_DEPTH_888 ||
++			      stream->gamut_remap_matrix.enable_remap ||
++			      stream->csc_color_matrix.enable_adjustment)) |
++			 ((stream->dither_option != DITHER_OPTION_DISABLE) << 1) |
++			 (!!(cs->vrr_enabled || cs->async_flip || dm->vrr_supported ||
++			     dm->freesync_config.state == VRR_STATE_ACTIVE_VARIABLE ||
++			     dm->freesync_config.state == VRR_STATE_ACTIVE_FIXED) << 2) |
++			 (!!stream->timing.flags.DSC << 3) |
++			 (!!(stream->src.x || stream->src.y || stream->src.width != w ||
++			     stream->src.height != h || stream->dst.x || stream->dst.y ||
++			     stream->dst.width != w || stream->dst.height != h ||
++			     stream->timing.h_border_left || stream->timing.h_border_right ||
++			     stream->timing.v_border_top || stream->timing.v_border_bottom) << 4) |
++			 ((cs->plane_mask != drm_plane_mask(primary) ||
++			   hweight32(cs->connector_mask) != 1) << 5);
++		if (reasons)
++			return dv_scanout_reject(crtc, "crtc", reasons);
++
++		p = drm_atomic_get_new_plane_state(state, primary);
++		if (!p)
++			p = primary->state; /* unchanged plane, serialized by this CRTC's lock */
++		if (!p || !p->fb)
++			return dv_scanout_reject(crtc, "primary-missing", 1);
++		/* Reason bits: route/visible, format, allocation, source,
++		 * destination, rotation, alpha.
++		 */
++		reasons = (p->crtc != crtc || !p->visible) |
++			 ((p->fb->format->format != DRM_FORMAT_XRGB8888) << 1) |
++			 ((p->fb->width != w || p->fb->height != h) << 2) |
++			 ((p->src_x || p->src_y || p->src_w != (w << 16) ||
++			   p->src_h != (h << 16)) << 3) |
++			 ((p->crtc_x || p->crtc_y || p->crtc_w != w || p->crtc_h != h) << 4) |
++			 ((p->rotation != DRM_MODE_ROTATE_0) << 5) |
++			 ((p->alpha != DRM_BLEND_ALPHA_OPAQUE) << 6);
++		if (reasons)
++			return dv_scanout_reject(crtc, "primary-layout", reasons);
++
++		/* Reason bits: color processing (the color pipeline and AMD's
++		 * plane degamma, CTM, shaper, 3D LUT, blend LUT, HDR multiplier).
++		 */
++		dp = to_dm_plane_state(p);
++		reasons = !!(p->color_pipeline || dp->degamma_lut || dp->ctm ||
++			     dp->shaper_lut || dp->lut3d || dp->blend_lut ||
++			     dp->degamma_tf != AMDGPU_TRANSFER_FUNCTION_DEFAULT ||
++			     dp->shaper_tf != AMDGPU_TRANSFER_FUNCTION_DEFAULT ||
++			     dp->blend_tf != AMDGPU_TRANSFER_FUNCTION_DEFAULT ||
++			     dp->hdr_mult != AMDGPU_HDR_MULT_DEFAULT);
++		if (reasons)
++			return dv_scanout_reject(crtc, "plane-processing", reasons);
++	}
++	return 0;
++}
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
+new file mode 100644
+index 0000000..6b8578f
+--- /dev/null
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
+@@ -0,0 +1,31 @@
++/* SPDX-License-Identifier: MIT */
++/*
++ * big-fella: the Standard Dolby Vision RGB8 tunnel on amdgpu DC, with the
++ * connector property and semantics of yblod's i915 patches
++ * (DVBRIDGE_DV_STANDARD_LAB). See big-fella's docs/dv-amd.md.
++ */
++#ifndef __AMDGPU_DM_DV_H__
++#define __AMDGPU_DM_DV_H__
++
++#include <linux/types.h>
++
++struct amdgpu_dm_connector;
++struct dm_connector_state;
++struct dc_stream_state;
++struct drm_atomic_commit;
++struct drm_connector;
++struct drm_display_mode;
++struct drm_property;
++
++void amdgpu_dm_dv_attach_property(struct amdgpu_dm_connector *aconnector);
++bool amdgpu_dm_dv_is_property(const struct drm_connector *connector,
++			      const struct drm_property *property);
++int amdgpu_dm_dv_set_property(struct drm_connector *connector,
++			      struct dm_connector_state *state, u64 val);
++int amdgpu_dm_dv_configure_stream(struct drm_connector *connector,
++				  const struct dm_connector_state *state,
++				  const struct drm_display_mode *mode,
++				  struct dc_stream_state *stream);
++int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state);
++
++#endif
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
+index 7e484ad..f9cbdc8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
+@@ -124,7 +124,9 @@ void amdgpu_dm_get_freesync_config_for_crtc(
+ 
+ 	aconnector = to_amdgpu_dm_connector(new_con_state->base.connector);
+ 
+-	new_crtc_state->vrr_supported = new_con_state->freesync_capable &&
++	/* big-fella: no FreeSync packet next to the Dolby Vision tunnel's (from CB1) */
++	new_crtc_state->vrr_supported = !new_con_state->dv_lab_standard &&
++					new_con_state->freesync_capable &&
+ 					vrefresh >= aconnector->min_vfreq &&
+ 					vrefresh <= aconnector->max_vfreq;
+ 
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index fc9080f..8e6584d 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -3769,6 +3769,12 @@ bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
+ 	if (cur_stream->output_color_space != new_stream->output_color_space)
+ 		return true;
+ 
++	/* big-fella: entering or leaving the DV tunnel reprograms the InfoFrames
++	 * and the formatter (from CB1).
++	 */
++	if (cur_stream->dv_lab != new_stream->dv_lab)
++		return true;
++
+ 	return memcmp(
+ 		&cur_stream->timing,
+ 		&new_stream->timing,
+diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+index 934ae38..63ebc1e 100644
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -205,6 +205,10 @@ struct dc_stream_state {
+ 	 */
+ 	struct link_encoder *link_enc;
+ 	struct dc_stream_debug_options debug;
++	/* big-fella: RGB8 carrying the Dolby Vision tunnel, not a colour-managed
++	 * picture (amdgpu_dm_dv.c): its InfoFrames and FMT setup are its own.
++	 */
++	bool dv_lab;
+ 	struct dc_panel_patch sink_patches;
+ 	struct dc_crtc_timing timing;
+ 	struct dc_crtc_timing_adjust adjust;

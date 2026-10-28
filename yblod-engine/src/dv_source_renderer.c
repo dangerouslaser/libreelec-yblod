@@ -50,6 +50,9 @@ typedef struct {
     int gui_profile;unsigned gui_profiles;cl_event gui_events[3];double gui_host_ms;
     int gui_inline;unsigned gui_inline_verify,gui_inline_checks;
     cl_program overlay_ref_program[3];cl_kernel overlay_ref_kernel[3];cl_mem gui_ref_output;
+    /* big-fella: the EL upscale (0 nearest, 1 Annex B) and whether a full
+     * enhancement layer is used (0: base layer only, as dovi_tool's mode 2). */
+    unsigned el_scaler;int fel;
 } source_renderer;
 static double submit_clock(void)
 {struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return (double)t.tv_sec+(double)t.tv_nsec/1e9;}
@@ -146,6 +149,11 @@ void *dv_source_renderer_create_storage(uintptr_t va_display,uintptr_t egl_displ
         CL_CONTEXT_INTEROP_USER_SYNC,CL_TRUE,CL_GL_CONTEXT_KHR,(cl_context_properties)egl_context,CL_EGL_DISPLAY_KHR,(cl_context_properties)egl_display,0};
     r->context=clCreateContext(props,1,&r->device,NULL,NULL,&error);if(!r->context||error)goto fail;
     const char *profile=getenv("DV_SOURCE_PROFILE_ASYNC");r->profile_async=profile&&!strcmp(profile,"1");
+    /* DV_EL_SCALER=nearest|annexb (or 0|1); Annex B unless set. DV_FEL=0
+     * plays a full enhancement layer's base layer only. Both can be changed
+     * per renderer later (dv_source_renderer_set_el_scaler/_set_fel). */
+    const char *scaler=getenv("DV_EL_SCALER");r->el_scaler=!(scaler&&(!strcmp(scaler,"0")||!strcmp(scaler,"nearest")));
+    const char *fel=getenv("DV_FEL");r->fel=!(fel&&!strcmp(fel,"0"));
     const char *gui_prepass=getenv("DV_OVERLAY_PREPASS");r->gui_prepass=gui_prepass&&!strcmp(gui_prepass,"1");
     const char *pixel_cache=getenv("DV_OVERLAY_PIXEL_CACHE");r->gui_pixel_cache=pixel_cache&&!strcmp(pixel_cache,"1");
     if(r->gui_pixel_cache)r->gui_prepass=1;
@@ -266,6 +274,18 @@ int dv_source_renderer_submit_input(void *opaque,unsigned bl_surface,unsigned el
         dv_transport_settings_from_ffmpeg(metadata,metadata_size,w,h,(dv_identity){frame_id,pts},&settings,dm,&bytes):
         dv_settings_from_ffmpeg(metadata,metadata_size,w,h,(dv_identity){frame_id,pts},&settings,dm,&bytes);
     int single=el_surface==VA_INVALID_SURFACE,use_piecewise=0;
+    if(status==DV_OK){
+        settings.el_scaler=r->el_scaler;
+        /* FEL off: the base layer as it is (identity mapping, no residual),
+         * as dovi_tool converts Profile 7 FEL to 8.1; the DM metadata stays.
+         * MEL (no residual) keeps its mapping. */
+        if(!single&&!r->fel&&settings.composer.residual_enabled){
+            dv_intel_composer_config *cfg=&settings.composer;cfg->residual_enabled=0;
+            for(unsigned c=0;c<3;++c){dv_component_config *v=&cfg->component[c];memset(v,0,sizeof(*v));
+                v->pivot_count=2;v->pivots[1]=1023;v->polynomial_order[0]=1;v->polynomial[0][1].integer=1;}
+            single=1;
+        }
+    }
     int polynomial=status==DV_OK;
     if(polynomial)for(unsigned c=0;c<3;++c)if(settings.composer.component[c].mapping)polynomial=0;
     /* A decoder may still supply MEL surfaces. Validated zero residual and
@@ -814,3 +834,7 @@ int dv_source_renderer_check(void *opaque,const unsigned char *rgba,size_t bytes
 done:
     for(unsigned c=0;c<3;++c){free(planes[c]);if(buffers[c])clReleaseMemObject(buffers[c]);}return result;
 }
+int dv_source_renderer_set_el_scaler(void *opaque,unsigned scaler)
+{source_renderer *r=opaque;if(!r||scaler>1)return DV_INVALID;r->el_scaler=scaler;return DV_OK;}
+int dv_source_renderer_set_fel(void *opaque,int enabled)
+{source_renderer *r=opaque;if(!r)return DV_INVALID;r->fel=enabled!=0;return DV_OK;}

@@ -1,0 +1,29 @@
+big-fella: amdgpu CRC capture leaves a Dolby Vision tunnel stream's formatter alone
+
+A CRTC CRC capture (debugfs crtc-N/crc, source "crtc") switches the stream to
+TRUN8 truncation without dynamic expansion, so it would measure another FMT
+setup than the tunnel's (dither and truncation off). Leave a tunnel stream as
+it is, so the CRC measures exactly what goes to the TV. From CB1's
+linux-9921-amd-dv-diagnostic-and-vrr-guards.patch (CroqueMr/libreelec-x86-DV,
+MIT). Applies after linux-9920-big-fella-amdgpu-dv-tunnel.patch.
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+index db546dd..a8948ab 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c
+@@ -616,8 +616,13 @@ int amdgpu_dm_crtc_configure_crc_source(struct drm_crtc *crtc,
+ 		}
+ 	}
+ 
+-	/* Configure dithering */
+-	if (!dm_need_crc_dither(source)) {
++	/* Configure dithering. big-fella: but never for a Dolby Vision tunnel
++	 * stream: its formatter setup (no dither, no truncation) is part of the
++	 * tunnel, and the CRC must measure that one (from CB1's linux-9921).
++	 */
++	if (stream_state->dv_lab) {
++		/* keep the tunnel's dither option and dynamic expansion */
++	} else if (!dm_need_crc_dither(source)) {
+ 		dc_stream_set_dither_option(stream_state, DITHER_OPTION_TRUN8);
+ 		dc_stream_set_dyn_expansion(stream_state->ctx->dc, stream_state,
+ 					    DYN_EXPANSION_DISABLE);

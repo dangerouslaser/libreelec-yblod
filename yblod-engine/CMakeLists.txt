@@ -69,9 +69,14 @@ if(BUILD_TESTING)
     target_compile_options(polynomial_fel_gpu_tests PRIVATE -UNDEBUG)
     target_link_libraries(polynomial_fel_gpu_tests PRIVATE dv_source_private OpenCL::OpenCL)
     add_test(NAME polynomial_fel_gpu COMMAND polynomial_fel_gpu_tests "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    # big-fella: the same with the playback routes Kodi and mpv enable
+    # (fused EL chroma filter, paired luma, dual MMR), both EL scalers.
+    add_test(NAME polynomial_fel_gpu_fused COMMAND polynomial_fel_gpu_tests "${CMAKE_CURRENT_SOURCE_DIR}/src")
+    set_tests_properties(polynomial_fel_gpu_fused PROPERTIES ENVIRONMENT
+      "DV_FILTER_FUSED=1;DV_VERIFY_FILTER=1;DV_LUMA_PAIR=1;DV_VERIFY_RECON=1;DV_MMR_64=1;DV_MMR_UNIVARIATE_LUT=1;DV_MMR_DUAL=1;DV_RECON_2D=1;DV_MMR_NATIVE_MUL=1")
   endif()
   add_executable(polynomial_fel_tests tests/polynomial_fel_tests.c
-    src/pixel_luma.c src/pixel_chroma_final.c src/mmr_prepare.c)
+    src/pixel_luma.c src/pixel_chroma_final.c src/mmr_prepare.c src/pixel_spatial.c)
   target_include_directories(polynomial_fel_tests PRIVATE src)
   target_compile_options(polynomial_fel_tests PRIVATE -UNDEBUG)
   add_test(NAME polynomial_fel COMMAND polynomial_fel_tests)

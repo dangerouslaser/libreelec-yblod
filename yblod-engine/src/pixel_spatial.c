@@ -1,5 +1,6 @@
 /* Private spatial test reference; backend/filter choices remain explicit.
- * Enhancement path implements the informative CCM Annex B example ONLY.
+ * Enhancement path: the informative CCM Annex B example, or (big-fella)
+ * nearest neighbour: every EL sample repeated over its 2x2 block.
  * MMR luma guide follows CCM 5.4.2.3.3 for left-sited 4:2:0 inputs.
  */
 #include <stdint.h>
@@ -88,5 +89,17 @@ int dv_annex_b_scale2x(const uint16_t *in,size_t count,unsigned w,unsigned h,
             out[(size_t)y*2*w+x]=value;
         }
     }
+    return 0;
+}
+/* big-fella: nearest-neighbour EL upscale. The EL luma grid is co-sited
+ * horizontally and centred vertically on the BL's, so output (x,y) takes EL
+ * sample (x/2,y/2) exactly; chroma (left-sited after nothing is moved) the
+ * same. No rounding, no ringing: the output stays within the input codes. */
+int dv_nearest_scale2x(const uint16_t *in,size_t count,unsigned w,unsigned h,
+                       uint16_t *out,size_t out_count)
+{
+    if (!shape(in,count,w,h) || !out || out_count!=4*(size_t)w*h) return -1;
+    for (unsigned y=0;y<2*h;++y) for (unsigned x=0;x<2*w;++x)
+        out[(size_t)y*2*w+x]=in[(size_t)(y/2)*w+x/2];
     return 0;
 }
