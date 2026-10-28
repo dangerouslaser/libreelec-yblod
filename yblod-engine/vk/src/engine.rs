@@ -130,6 +130,7 @@ struct Ctx {
     query: Option<vk::QueryPool>,
     plan_ms: f64,
     prepared: bool,
+    fel_stamped: bool,   // the staged FEL chain wrote points 4-6
     // The pack kept the shell's colour cache from the last frame's (not
     // invalidated): gui_error's second word counts the pixels that changed.
     counted: bool,
@@ -153,6 +154,9 @@ struct Verify {
 }
 
 const PROFILE_POINTS: u32 = 4;
+// More points for the staged FEL chain: after vertical_pair, luma_phase_guide
+// and phase_vertical_uv (the chroma pass ends at point 1).
+const PROFILE_FEL_POINTS: u32 = 7;
 const PROFILE_WINDOW: usize = 120;
 
 /// Per-stage GPU time over a window of frames (DVVK_PROFILE=1).
@@ -160,14 +164,25 @@ const PROFILE_WINDOW: usize = 120;
 struct Profile {
     stages: Vec<[f64; 4]>,   // reconstruction, prepare, pack (GPU ms), plan (CPU ms)
     prepared: u32,
+    fel: Vec<[f64; 4]>,      // staged FEL: vertical_pair, luma_phase_guide, phase_vertical_uv, chroma
 }
 
 impl Profile {
-    fn add(&mut self, stages: [f64; 4], prepared: bool) {
+    fn add(&mut self, stages: [f64; 4], prepared: bool, fel: Option<[f64; 4]>) {
         self.stages.push(stages);
         self.prepared += prepared as u32;
+        if let Some(f) = fel {
+            self.fel.push(f);
+        }
         if self.stages.len() < PROFILE_WINDOW {
             return;
+        }
+        if !self.fel.is_empty() {
+            let n = self.fel.len() as f64;
+            let mean = |i: usize| self.fel.iter().map(|s| s[i]).sum::<f64>() / n;
+            eprintln!("dvvk profile: staged FEL ({} frames): vertical_pair {:.2} + luma_phase_guide {:.2} + phase_vertical_uv {:.2} + chroma {:.2} ms",
+                      self.fel.len(), mean(0), mean(1), mean(2), mean(3));
+            self.fel.clear();
         }
         let n = self.stages.len() as f64;
         let mean = |i: usize| self.stages.iter().map(|s| s[i]).sum::<f64>() / n;
@@ -244,6 +259,8 @@ pub struct Engine {
     trace: Option<(u32, u32, u32, [u32; 2], u32, u32, u32, u32)>,
     profile: Option<Profile>,
     verify: Option<Verify>,
+    // The query pool record_fel stamps into (this frame's, not the reference's).
+    fel_query: std::cell::Cell<Option<vk::QueryPool>>,
 }
 
 impl Engine {
@@ -385,13 +402,14 @@ impl Engine {
                 done: sem(&d)?,
                 ticket: 0,
                 query: if profile {
-                    let info = vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(PROFILE_POINTS);
+                    let info = vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(PROFILE_FEL_POINTS);
                     Some(unsafe { d.device.create_query_pool(&info, None) }?)
                 } else {
                     None
                 },
                 plan_ms: 0.0,
                 prepared: false,
+                fel_stamped: false,
                 counted: false,
                 verify: if verify_every > 0 { Some(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?) } else { None },
                 verified: false,
@@ -456,6 +474,7 @@ impl Engine {
             trace: None,
             profile: profile.then(Profile::default),
             verify,
+            fel_query: std::cell::Cell::new(None),
             va: va_display,
             d,
         })
@@ -703,15 +722,17 @@ impl Engine {
     /// The finished frame of context `ci`: its timestamps into the profile.
     fn collect_profile(&mut self, ci: usize) {
         let (Some(profile), Some(q)) = (self.profile.as_mut(), self.ring[ci].query) else { return };
-        let mut ts = [0u64; PROFILE_POINTS as usize];
-        let ok = unsafe { self.d.device.get_query_pool_results(q, 0, &mut ts, vk::QueryResultFlags::TYPE_64) }.is_ok();
+        let c = &self.ring[ci];
+        let mut ts = [0u64; PROFILE_FEL_POINTS as usize];
+        let n = if c.fel_stamped { PROFILE_FEL_POINTS } else { PROFILE_POINTS } as usize;
+        let ok = unsafe { self.d.device.get_query_pool_results(q, 0, &mut ts[..n], vk::QueryResultFlags::TYPE_64) }.is_ok();
         if !ok {
             return;
         }
         let period = self.d.timestamp_period as f64 / 1e6;
         let ms = |a: usize, b: usize| ts[b].wrapping_sub(ts[a]) as f64 * period;
-        let c = &self.ring[ci];
-        profile.add([ms(0, 1), ms(1, 2), ms(2, 3), c.plan_ms], c.prepared);
+        let fel = c.fel_stamped.then(|| [ms(0, 4), ms(4, 5), ms(5, 6), ms(6, 1)]);
+        profile.add([ms(0, 1), ms(1, 2), ms(2, 3), c.plan_ms], c.prepared, fel);
     }
 
     /// Plans and submits one frame into output `f.output`; returns at once.
@@ -941,7 +962,7 @@ impl Engine {
         };
         if let Some(q) = query {
             unsafe {
-                d.device.cmd_reset_query_pool(cmd, q, 0, PROFILE_POINTS);
+                d.device.cmd_reset_query_pool(cmd, q, 0, PROFILE_FEL_POINTS);
                 d.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::TOP_OF_PIPE, q, 0);
             }
         }
@@ -970,6 +991,7 @@ impl Engine {
         } else {
             0
         };
+        self.ring[ci].fel_stamped = query.is_some() && source == 0 && route == plan::ROUTE_DUAL && p.equal == 0;
         let el_view = if route == plan::ROUTE_DUAL { self.surfaces[&f.el_surface].luma.view } else { bl.luma.view };
         if source == 1 {
             // nothing before the pack
@@ -988,7 +1010,9 @@ impl Engine {
                 &push, (cw.div_ceil(64), (last - first) / 2));
             let _ = ch;
         } else {
+            self.fel_query.set(query);
             self.record_staged(cmd, f, bl, first, last);
+            self.fel_query.set(None);
         }
         gpu::compute_barrier(d, cmd);
 
@@ -1282,10 +1306,16 @@ impl Engine {
         let quarter = (cw * ch * 2) as u64;
         let f = &self.fel;
         let barrier = || gpu::compute_barrier(&self.d, cmd);
+        let stamp = |point: u32| {
+            if let Some(q) = self.fel_query.get() {
+                unsafe { self.d.device.cmd_write_timestamp2(cmd, vk::PipelineStageFlags2::COMPUTE_SHADER, q, point) };
+            }
+        };
         // c = 0: the EL luma upsampled vertically (EL rows [first/2, last/2)).
         self.dispatch(cmd, &f.vertical_pair, &[Bind::Sampled(el.luma.view, self.sampler), fb(F_V), err()],
             &[cw, ch, 0u32, p.nearest, first / 2], (cw.div_ceil(16), ((last - first) / 2).div_ceil(8)));
         barrier();
+        stamp(4);
         // luma, BL chroma phase and guide per 2x2 block.
         self.dispatch(cmd, &f.luma_phase_guide,
             &[Bind::Sampled(bl.luma.view, self.sampler), Bind::Sampled(bl.chroma.view, self.sampler), fb(F_V),
@@ -1294,9 +1324,11 @@ impl Engine {
             &[w, h, p.chroma_phase, p.nearest, first / 2], ((w / 2).div_ceil(16), ((last - first) / 2).div_ceil(8)));
         // c = 1: the EL chroma, phase + vertical (overwrites V: the luma pass is done).
         barrier();
+        stamp(5);
         self.dispatch(cmd, &f.phase_vertical_uv, &[Bind::Sampled(el.chroma.view, self.sampler), fb(F_V), fb(F_VP), err()],
             &[cw / 2, ch / 2, p.chroma_phase, p.nearest, first / 4], ((cw / 2).div_ceil(16), ((last - first) / 4).div_ceil(8)));
         barrier();
+        stamp(6);
         let rows = (last - first) / 2;
         if p.dual != 0 {
             self.dispatch(cmd, &f.mmr_dual_horizontal,
