@@ -1,0 +1,17 @@
+YBLOD 0.3.0 runs the Dolby Vision engine on Vulkan by default on every device, and adds AMD graphics.
+
+What changed
+- Vulkan engine by default: YBLOD's Dolby Vision engine now runs on Vulkan compute everywhere. The picture is the same as the OpenCL engine's. On Intel, Settings > Player > Dolby Vision > Vulkan engine (off) brings the OpenCL engine back. If Vulkan cannot start, the OpenCL engine is used.
+- With the menu or OSD up over Dolby Vision video, the engine reads Kodi's interface in place and blends it in the same pass. Gemini Man (4K 60 fps) plays with the OSD open without dropped or skipped frames on an Intel Tiger Lake.
+- New setting, Nearest-neighbour enhancement layer: a faster, simpler upscale of the Profile 7 FEL enhancement layer (off by default).
+- AMD graphics (amdgpu, Ryzen APUs with DCN 1.0 to 3.6 and native HDMI): the Dolby Vision tunnel to the TV, as on Intel, with the Vulkan engine (Mesa's RADV driver is now included). The same kernel changes and engine were tested in the big-fella project (Arch Linux, mpv) on a Ryzen 5 3500U (Vega 8) with an LG B4: the picture reaches the TV bit for bit and the TV reports Dolby Vision. YBLOD itself has not yet been tested on AMD hardware; this is the first release with AMD support, so please report what you find.
+- Profile 7 MEL titles (such as Gemini Man): Kodi no longer decodes the enhancement layer, which adds nothing to a MEL picture. This saves a second video decoder, and on AMD it is what makes 4K 60 fps MEL titles play smoothly. FEL titles are unchanged.
+- The LibreELEC base, Linux 7.3 (plus the AMD display changes), Kodi's version and the add-ons are unchanged from 0.2.9.
+
+If you run 0.2.9
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). The Vulkan engine is on after the update.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

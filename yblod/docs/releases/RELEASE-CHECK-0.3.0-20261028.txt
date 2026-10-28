@@ -1,0 +1,69 @@
+YBLOD 0.3.0 validation
+
+Build source: 60782678ca12c23939018e3d407dbfb77ede1132 (main after PR #21). Built from the
+identical tree fb329d9e as the PR head 30ddfd1142.
+LibreELEC upstream base: master 20e5dac7, unchanged from 0.2.9. The pinned Kodi (e4b62810), FFmpeg
+and libplacebo sources and the pre-installed add-ons are unchanged from 0.2.9.
+
+Changes since 0.2.9
+- yblod-engine/vk: the Vulkan Dolby Vision engine (from big-fella's dv-engine-vk 40ef696, with
+  this branch's changes), packaged as libdv_engine_vk.so.0; shaderc:host builds its shaders.
+- Kodi patch yblod-23: the native route on the Vulkan engine. dvbridge.vulkan defaults to on
+  (DV_ENGINE_VULKAN=1 in the runtime defaults); on display drivers other than i915/xe it is used
+  whatever the setting. Asynchronous submission; no per-frame glFinish; Kodi's GUI framebuffer is
+  read in place from a GBM buffer; the overlay is fused into the pack; Annex B FEL staged.
+  New setting dvbridge.elnearest (off).
+- Kodi patch yblod-24: a Profile 7 MEL's enhancement layer is not decoded (the first RPU decides,
+  with the engine's dv_metadata_no_residual test); DV_MEL_EL=decode keeps decoding it.
+- Kernel: linux-9920/9921/9922 from big-fella (amdgpu DC: DVBRIDGE_DV_STANDARD_LAB on DCN 1.0-3.6
+  native HDMI, Dolby VSIF, CRC guard, AVI No Data as ITC=0). They touch amdgpu files only.
+- Mesa: RADV built for Generic next to ANV (mesa-002 links libvulkan_radeon with -lgcc).
+- Engine fix during development: output fd dups were closed only after drain (about 140 MB per
+  video on the Vulkan route). It was never in a release.
+All kernel, Mesa and Kodi patches apply with no fuzz.
+
+Images
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version strings.
+KERNEL, kodi.bin, both engines, the runtime defaults and libvulkan_radeon.so are identical (hashes
+below). Both images contain the intel and radeon Vulkan ICDs and settings.xml's dvbridge.vulkan
+default true. The kernel has the amdgpu.enable_dv_lab and i915.enable_dv_lab parameters.
+
+Testing (petunia: Intel Tiger Lake i5 in a VM with the iGPU passed through, LG G5)
+- The LG release image 0.3.0-lg was installed (update tar) and booted on Linux 7.3.0.
+- Vulkan by default: with dvbridge.vulkan removed from guisettings.xml (as after an update from
+  0.2.9), Kodi's environment has DV_ENGINE_VULKAN=1 and the Vulkan engine starts.
+- Release image, OSD held open, 75 s, GPU clock auto:
+  1917 (P7 FEL, from 33:56): 0 drops, 0 skips, 0 Kodi errors.
+  Gemini Man (P7 MEL 4K59.94): MEL decision logged, 0 drops, 3 skips, 0 Kodi errors.
+- Gemini Man, MEL (EL skipped) vs DV_MEL_EL=decode, release image, OSD open, 75 s each:
+  GPU auto: 0/0 and 0/0 drops/skips (engine 7.28 vs 7.40 ms per frame; mean GPU clock 748 vs
+  904 MHz). GPU pinned at 1000 MHz: 0/0 and 0/0 (7.03 vs 7.21 ms).
+  On test image vk17 (same Kodi and engine): MEL 0/2, 0/2; decode 0/0. Over five MEL runs the
+  skips were 2, 2, 3, 0, 0, with no drops in any run; the three decoded runs had none.
+- vk17: DVVK_VERIFY=2 on Gemini Man, 1680 frames checked, 0 differed. Gemini Man on the OpenCL
+  engine: MEL decision logged, 0/0. 1917 on Vulkan: FEL enhancement layer paired and used, 0/0.
+- Earlier test images on the same box: DVVK_VERIFY on about 9,600 frames across the routes,
+  0 differed.
+
+SHA256
+Standard update tar: 4e0c704c156fe4546e8199d8e9d08a8ae8fd9aba1881413e3d9a73a9b3e9646b
+Standard install img.gz: 24231b1f090ff6bc3cd3f0074c32b8b32cad6f23016d733f3525cbbd01dac715
+Standard SYSTEM: 37698e7b893f8d0bc9f989347f5acbab81f4976c26f5970a3f97382df6626a91
+LG update tar: 190da2f672746780515fb77caa491f028d29741554b8afa4c8cce9b887a10a70
+LG install img.gz: e093857b15c4791e6ca63e0e0f4ef0b274cbc4211fa191aff02488e6abdfac7c
+LG SYSTEM: d7c78f1b8f01fc0f5ebbcd2755c3e4268d0bc12d6cae908ce6fbc8ee149b7b1f
+KERNEL (both): 6f2e6210815d9eefaa6bfd1aa056d317a29a7a3dd066dde504c9cb95a9d9ac62
+Kodi (both): dd4b75977f3200e996106d71e01546aee48574499ddec2306cc0a2d063e2e0c3
+Vulkan engine (both): b738604cd20602e5dc54852831679458cd905c70d3ecdfcefe36d448f1be37e0
+OpenCL engine (both): 919a941e36cb99587b70ee45575e9992b03a23be21f036814d4f1266beb1e064
+Runtime defaults (both): 2cf5177550c71ba7f7333b0999d9a923a3504e5a3cdbe2e9bd844309fc18fdcb
+RADV (both): adcba045b5b71b11c3c3bc2ef7305d5726adfd8e7c391879bb7fcecff6992f5a
+Source bundle: 0f4454cd8b9aeb987df20a5bdc157dba9fafb3e07bd1c23fdca669d1a75260de
+
+Limitations
+- AMD: no AMD hardware was tested with YBLOD. The kernel patches and the Vulkan engine were tested
+  in the big-fella project (Arch Linux, mpv) on a Ryzen 5 3500U (Vega 8, DCN 1.0) with an LG B4.
+  Kodi's AMD path (amdgpu plane setup, RADV with Kodi's GBM buffers) is untested.
+- The N150 was not used (it is running another project). The standard edition was not installed.
+- Gemini Man showed 2-3 skips in some MEL runs and none in others (see above); not attributed.
+- No visual TV confirmation is part of this report.
