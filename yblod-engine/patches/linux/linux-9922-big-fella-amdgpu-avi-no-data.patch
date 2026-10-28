@@ -1,0 +1,27 @@
+big-fella: amdgpu's AVI InfoFrame says No Data (ITC=0) for content type No Data
+
+DC's set_avi_info_frame() sets ITC=1 for every content type, so the
+connector's "content type" No Data (KWin's default in kwin-big-fella) goes out
+as ITC=1, CN=0: Graphics. LG webOS then classifies the input as a PC
+(aviContentType GRAPHICS, seen on the B4 with ryzen-fella). CTA-861: ITC=0
+means no content type data; i915 sends that. Only the No Data case changes;
+Graphics, Photo, Cinema and Game keep ITC=1 with their CN. Applies after
+linux-9921. See docs/dv-amd.md and docs/tv-pc-mode.md.
+
+diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+index 8e6584d..7421b60 100644
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -5001,8 +5001,11 @@ static void set_avi_info_frame(
+ 
+ 	switch (stream->content_type) {
+ 	case DISPLAY_CONTENT_TYPE_NO_DATA:
++		/* big-fella: No Data is ITC=0, as CTA-861 and i915 have it;
++		 * ITC=1 with CN=0 says Graphics (LG TVs take the input for a PC).
++		 */
+ 		hdmi_info.bits.CN0_CN1 = 0;
+-		hdmi_info.bits.ITC = 1;
++		hdmi_info.bits.ITC = 0;
+ 		break;
+ 	case DISPLAY_CONTENT_TYPE_GRAPHICS:
+ 		hdmi_info.bits.CN0_CN1 = 0;
