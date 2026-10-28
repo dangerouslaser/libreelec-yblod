@@ -1,5 +1,5 @@
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
-index 4da8888..d00ce99 100644
+index 4da8888..02029d3 100644
 --- a/addons/resource.language.en_gb/resources/strings.po
 +++ b/addons/resource.language.en_gb/resources/strings.po
 @@ -26219,3 +26219,23 @@ msgstr ""
@@ -14,7 +14,7 @@ index 4da8888..d00ce99 100644
 +
 +#: system/settings/settings.xml
 +msgctxt "#40896"
-+msgid "Run YBLOD's engine on Vulkan compute instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. Applies to the next video."
++msgid "Run YBLOD's engine on Vulkan compute instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. On AMD graphics the Vulkan engine is always used. Applies to the next video."
 +msgstr ""
 +
 +#: system/settings/settings.xml
@@ -125,7 +125,7 @@ index 40e3f3e..bea0c62 100644
    unsigned Packet() const { return m_lease.packet_id; }
    bool Refresh() const { return m_lease.refresh != 0; }
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
-index 6a3b0ec..98e5091 100644
+index 6a3b0ec..f4cfc9d 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
 @@ -3,6 +3,7 @@
@@ -136,13 +136,15 @@ index 6a3b0ec..98e5091 100644
  #include "DVPrivateLayerGeometry.h"
  #include "ServiceBroker.h"
  #include "windowing/gbm/WinSystemGbm.h"
-@@ -52,6 +53,19 @@ bool CDVPrivateSource::Initialize(void* display)
+@@ -52,6 +53,21 @@ bool CDVPrivateSource::Initialize(void* display)
    m_packOverlayCached = reinterpret_cast<decltype(m_packOverlayCached)>(dlsym(m_library, "dv_source_renderer_pack_overlay_cached"));
    if (!abi || abi() != 4 || !m_create || !m_render || !m_drain || !m_destroy)
      return false;
 +  // The Vulkan engine only writes the private scanout buffers; the slot
 +  // bookkeeping above stays the OpenCL library's.
-+  if (CDVPrivateVulkan::Requested())
++  auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
++  const auto drm = window ? window->GetDrm() : nullptr;
++  if (CDVPrivateVulkan::Requested(drm ? drm->GetFileDescriptor() : -1))
 +  {
 +    if (InitializeVulkan(display))
 +    {
@@ -156,7 +158,7 @@ index 6a3b0ec..98e5091 100644
    const char* direct = std::getenv("DV_PRIVATE_SCANOUT");
    if (direct && std::strcmp(direct,"1") == 0)
    {
-@@ -140,6 +154,39 @@ bool CDVPrivateSource::InitializeScanout(void* display, const char* resources)
+@@ -140,6 +156,39 @@ bool CDVPrivateSource::InitializeScanout(void* display, const char* resources)
    return true;
  }
  
@@ -196,7 +198,7 @@ index 6a3b0ec..98e5091 100644
  void CDVPrivateSource::ReleaseInputs()
  {
    m_enhancement.reset();
-@@ -148,6 +195,28 @@ void CDVPrivateSource::ReleaseInputs()
+@@ -148,6 +197,28 @@ void CDVPrivateSource::ReleaseInputs()
    m_owner = nullptr;
  }
  
@@ -225,7 +227,7 @@ index 6a3b0ec..98e5091 100644
  int CDVPrivateSource::AcquireFrame(void* display, CVideoBuffer* owner,
                                    const AVFrame* enhancement, int64_t pts,
                                    const dv_source_geometry& geometry,
-@@ -169,7 +238,7 @@ int CDVPrivateSource::AcquireFrame(void* display, CVideoBuffer* owner,
+@@ -169,7 +240,7 @@ int CDVPrivateSource::AcquireFrame(void* display, CVideoBuffer* owner,
      if (frames->sw_format != AV_PIX_FMT_P010 || va->display != display)
        return 0;
    }
@@ -234,7 +236,7 @@ index 6a3b0ec..98e5091 100644
    {
      Close();
      return -1;
-@@ -263,6 +332,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -263,6 +334,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
  {
    m_ready = false;
    if (m_unsafe) return -1;
@@ -243,7 +245,7 @@ index 6a3b0ec..98e5091 100644
    const char* timing = m_transitionFrames ? std::getenv("DV_PRIVATE_TRANSITION_TIMING") : nullptr;
    const char* frameTiming = m_processed < 480 ? std::getenv("DV_PRIVATE_FRAME_TIMING") : nullptr;
    const bool trace = (timing && std::strcmp(timing, "1") == 0) ||
-@@ -288,7 +359,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -288,7 +361,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
      ReleaseInputs();
      return 0;
    }
@@ -252,7 +254,7 @@ index 6a3b0ec..98e5091 100644
    {
      if (!CancelPending()) return -1;
      ReleaseInputs();
-@@ -298,13 +369,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -298,13 +371,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const char* directNoFinish = m_scanout ? std::getenv("DV_PRIVATE_DIRECT_NO_GL_FINISH") : nullptr;
    // Private scanout textures have no GL readers after initialization. CL
    // release and the scanout slot contract still gate every buffer reuse.
@@ -270,7 +272,7 @@ index 6a3b0ec..98e5091 100644
      {
        m_scanout->Written(DV_SCANOUT_REJECTED);
        return -1;
-@@ -324,7 +397,10 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -324,7 +399,10 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    };
    int result;
    const bool prepacked = prefetched && m_packPending;
@@ -282,7 +284,7 @@ index 6a3b0ec..98e5091 100644
    {
      int ready = 0;
      result = m_packComplete(m_engine, m_pendingId, pts, 1, &ready);
-@@ -348,7 +424,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -348,7 +426,7 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const auto renderDone = trace ? std::chrono::steady_clock::now() : started;
    if (m_serial <= 12)
      CLog::Log(LOGINFO, "Private source consume: pts={} prefetch={} status={}", pts, prefetched, result);
@@ -291,7 +293,7 @@ index 6a3b0ec..98e5091 100644
    {
      if (m_scanout) m_scanout->Written(DV_SCANOUT_UNCERTAIN);
      m_unsafe = true;
-@@ -358,7 +434,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -358,7 +436,15 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const auto drained = trace ? std::chrono::steady_clock::now() : started;
    m_packPending = false;
    m_pending = false;
@@ -308,7 +310,7 @@ index 6a3b0ec..98e5091 100644
    if (m_scanout && !m_scanout->Written(result == 0 ? DV_SCANOUT_ACCEPTED : DV_SCANOUT_REJECTED))
    {
      m_unsafe = true;
-@@ -402,7 +486,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+@@ -402,7 +488,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
    const char* verifyAsync = std::getenv(overlay ? "DV_PRIVATE_ASYNC_OVERLAY" : "DV_PRIVATE_ASYNC_PACK");
    const char* verifyGui = std::getenv("DV_PRIVATE_VERIFY_OVERLAY");
    unsigned& verifiedFrames = overlay ? m_verifiedOverlayFrames : m_verifiedFrames;
@@ -318,7 +320,7 @@ index 6a3b0ec..98e5091 100644
        verify && std::strcmp(verify, "1") == 0 &&
        (!verifyAsync || std::strcmp(verifyAsync, "1") != 0 || prepacked) &&
        (verifiedFrames < 6 || m_resetChecks))
-@@ -541,6 +626,7 @@ void CDVPrivateSource::Reset()
+@@ -541,6 +628,7 @@ void CDVPrivateSource::Reset()
    m_overlayPrefetchHits = 0;
    if (!CancelPending()) m_unsafe = true;
    if (m_scanout && !m_scanout->ResetStream()) m_unsafe = true;
@@ -326,7 +328,7 @@ index 6a3b0ec..98e5091 100644
    m_discardedWorkMs = 0;
    m_ready = false;
    m_refresh = true;
-@@ -553,6 +639,12 @@ bool CDVPrivateSource::Close()
+@@ -553,6 +641,12 @@ bool CDVPrivateSource::Close()
  {
    if (m_scanout && !m_scanout->CanClose()) return false;
    glFinish();
@@ -398,10 +400,10 @@ index d4cd073..4f1f7a7 100644
    uint64_t m_processed{0};
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
 new file mode 100644
-index 0000000..b0943d0
+index 0000000..b5450d5
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
-@@ -0,0 +1,365 @@
+@@ -0,0 +1,379 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +#include "DVPrivateVulkan.h"
 +#include "utils/log.h"
@@ -409,6 +411,7 @@ index 0000000..b0943d0
 +#include <drm_fourcc.h>
 +#include <dlfcn.h>
 +#include <unistd.h>
++#include <xf86drm.h>
 +#include <cstdlib>
 +#include <cstring>
 +
@@ -421,8 +424,21 @@ index 0000000..b0943d0
 +}
 +} // namespace
 +
-+bool CDVPrivateVulkan::Requested()
-+{ return EnvIs("DV_ENGINE_VULKAN", "1"); }
++bool CDVPrivateVulkan::Requested(int drmFd)
++{
++  if (EnvIs("DV_ENGINE_VULKAN", "1"))
++    return true;
++  // yblod's OpenCL engine runs on Intel only: on other display drivers
++  // (amdgpu) the Vulkan engine is the only one.
++  drmVersionPtr version = drmFd >= 0 ? drmGetVersion(drmFd) : nullptr;
++  if (!version)
++    return false;
++  const bool intel = std::strcmp(version->name, "i915") == 0 || std::strcmp(version->name, "xe") == 0;
++  if (!intel)
++    CLog::Log(LOGINFO, "Vulkan engine: display driver {} has no OpenCL engine", version->name);
++  drmFreeVersion(version);
++  return !intel;
++}
 +
 +bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device,
 +                                  gbm_bo* output0, gbm_bo* output1)
@@ -769,10 +785,10 @@ index 0000000..b0943d0
 +}
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
 new file mode 100644
-index 0000000..7e503ae
+index 0000000..11c94a4
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,89 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +#pragma once
 +#include "source_geometry.h"
@@ -797,7 +813,8 @@ index 0000000..7e503ae
 +{
 +public:
 +  static constexpr int DV_VULKAN_FAILED = -8; // dv_status DV_BACKEND
-+  static bool Requested();
++  /* The setting, or a display driver other than i915/xe. */
++  static bool Requested(int drmFd);
 +  bool Initialize(void* vaDisplay, int drmFd, gbm_device* device, gbm_bo* output0, gbm_bo* output1);
 +  /* 0 the picture is in the slot (submitted; Ticket() names it); -2 not this
 +   * engine's frame (ordinary picture); -8 the engine or a wait failed
