@@ -71,11 +71,16 @@ impl Pipeline {
             .collect();
         let data: Vec<u8> = spec.iter().flat_map(|(_, v)| v.to_le_bytes()).collect();
         let spec_info = vk::SpecializationInfo::default().map_entries(&entries).data(&data);
-        let stage = vk::PipelineShaderStageCreateInfo::default()
+        let mut required = vk::PipelineShaderStageRequiredSubgroupSizeCreateInfo::default()
+            .required_subgroup_size(d.subgroup_size);
+        let mut stage = vk::PipelineShaderStageCreateInfo::default()
             .stage(vk::ShaderStageFlags::COMPUTE)
             .module(module)
             .name(c"main")
             .specialization_info(&spec_info);
+        if d.subgroup_size != 0 {
+            stage = stage.push_next(&mut required);
+        }
         let info = [vk::ComputePipelineCreateInfo::default().stage(stage).layout(layout)];
         let pipeline = unsafe { d.device.create_compute_pipelines(vk::PipelineCache::null(), &info, None) };
         unsafe { d.device.destroy_shader_module(module, None) };

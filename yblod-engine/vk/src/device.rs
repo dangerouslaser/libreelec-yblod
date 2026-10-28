@@ -56,6 +56,9 @@ pub struct Device {
     pub name: String,
     pub driver: String,
     pub timestamp_period: f32,
+    /// DVVK_SUBGROUP=N: the subgroup (SIMD) width every compute pipeline is
+    /// created with, when the device can require it (0: the driver's choice).
+    pub subgroup_size: u32,
 }
 
 /// (major, minor) of a DRM device node's fd.
@@ -150,7 +153,27 @@ impl Device {
             .shader_int8(f12.shader_int8 != 0)
             .timeline_semaphore(true)
             .host_query_reset(f12.host_query_reset != 0);
-        let mut e13 = vk::PhysicalDeviceVulkan13Features::default().synchronization2(true);
+        // DVVK_SUBGROUP=N (e.g. 32 on Intel, 32/64 on AMD): a required compute
+        // subgroup size, if the device supports subgroup size control for it.
+        let mut p13 = vk::PhysicalDeviceVulkan13Properties::default();
+        let mut props2 = vk::PhysicalDeviceProperties2::default().push_next(&mut p13);
+        unsafe { instance.get_physical_device_properties2(physical, &mut props2) };
+        let wanted: u32 = std::env::var("DVVK_SUBGROUP").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
+        let subgroup_size = if wanted.is_power_of_two() && f13.subgroup_size_control != 0
+            && p13.required_subgroup_size_stages.contains(vk::ShaderStageFlags::COMPUTE)
+            && (p13.min_subgroup_size..=p13.max_subgroup_size).contains(&wanted)
+        {
+            wanted
+        } else {
+            if wanted != 0 {
+                eprintln!("dv-engine-vk: DVVK_SUBGROUP={wanted} not supported (subgroup sizes {}-{}), the driver's choice",
+                          p13.min_subgroup_size, p13.max_subgroup_size);
+            }
+            0
+        };
+        let mut e13 = vk::PhysicalDeviceVulkan13Features::default()
+            .synchronization2(true)
+            .subgroup_size_control(subgroup_size != 0);
         let priorities = [1.0f32];
         let queues = [vk::DeviceQueueCreateInfo::default()
             .queue_family_index(queue_family)
@@ -180,6 +203,7 @@ impl Device {
             name,
             driver,
             timestamp_period,
+            subgroup_size,
         })
     }
 
