@@ -233,7 +233,7 @@ int dvvk_plan_frame(const dvvk_plan_in *in, const void *metadata, size_t metadat
         return DV_UNSUPPORTED;
     if (!single && !contract && g.chroma_siting != DV_SOURCE_CHROMA_CENTER_LEFT)
         return DV_UNSUPPORTED;
-    if (dv_source_place_metadata(&g, dm, &bytes))
+    if ((contract ? dv_source_place_metadata_cb1 : dv_source_place_metadata)(&g, dm, &bytes))
         return DV_UNSUPPORTED;
     for (unsigned c = 0; c < 3; ++c)
         if ((settings.source.offset[c] & 65535u) || (settings.source.offset[c] >> 16) > 4095)

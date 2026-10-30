@@ -16,6 +16,9 @@ int dv_source_geometry_valid(const dv_source_geometry *);
 unsigned dv_source_destination_width(const dv_source_geometry *);
 unsigned dv_source_destination_height(const dv_source_geometry *);
 int dv_source_place_metadata(const dv_source_geometry *,unsigned char [512],size_t *);
+/* CB1 Master Reference's wire (the contract): the extension blocks in CB1's
+ * order, then placed as dv_source_place_metadata, with an L5 always. */
+int dv_source_place_metadata_cb1(const dv_source_geometry *,unsigned char [512],size_t *);
 /* Presentation copy only: keep controls visible without changing movie masking.
  * Refresh on both edges, including redraws of a paused frame. */
 int dv_source_overlay_metadata(unsigned char [512],size_t,int,int);

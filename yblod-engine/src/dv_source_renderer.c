@@ -323,7 +323,7 @@ int dv_source_renderer_submit_input(void *opaque,unsigned bl_surface,unsigned el
     if(!single&&!r->contract&&geometry->chroma_siting!=DV_SOURCE_CHROMA_CENTER_LEFT)return DV_UNSUPPORTED;
     /* CB1 reshapes the decoded chroma as it is: no phase pre-filter (2). */
     if(r->contract&&!single)settings.chroma_phase=2;
-    if(dv_source_place_metadata(geometry,dm,&bytes))return DV_UNSUPPORTED;
+    if((r->contract?dv_source_place_metadata_cb1:dv_source_place_metadata)(geometry,dm,&bytes))return DV_UNSUPPORTED;
     for(unsigned c=0;c<3;++c)if((settings.source.offset[c]&65535u)||(settings.source.offset[c]>>16)>4095)return DV_UNSUPPORTED;
     if(tracing)parsed=submit_clock();
     if(dv_source_renderer_drain(r)!=DV_OK)return DV_BACKEND;
