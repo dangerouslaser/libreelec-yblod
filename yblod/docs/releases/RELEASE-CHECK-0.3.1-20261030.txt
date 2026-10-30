@@ -1,0 +1,75 @@
+YBLOD 0.3.1 validation
+
+Build source: 6231bfbf502d9f5d4e7e8d43340589e291c64e1b (main after PR #22). Built from the
+identical tree b5cbd446 as the PR head 2f0ebc28.
+LibreELEC upstream base: master 20e5dac7, unchanged from 0.3.0. The pinned Kodi (e4b62810), FFmpeg
+and libplacebo sources and the pre-installed add-ons are unchanged from 0.3.0.
+
+Changes since 0.3.0
+- yblod-engine (Vulkan and OpenCL): CB1 Master Reference's processing, from the port of YBLOD's
+  engines into CroqueMr's libreelec-x86-DV (dangerouslaser/intel-dv-libreelec
+  feature/yblod-vulkan-engine; its engine source started identical to 0.3.0's). In it
+  (dvvk_plan_in.cb1_contract; DV_CB1_CONTRACT=1 for OpenCL):
+  - the stream's chroma siting, also with an EL;
+  - 4:2:0 reshaping;
+  - chroma phase method 2 (none);
+  - the Annex B 4:2:2 output filters (six-tap for left siting; for top-left, copy and eight-tap)
+    and the Annex B EL scaler;
+  - CB1's metadata serializer, used in that mode only (dv_source_place_metadata_cb1): extension
+    blocks by level with L3, L8-L11 and L254 after the others, an L5 always, and the packet id
+    advancing only on a payload change;
+  - the CB1 pack from a shared chroma tile (32x8 workgroups).
+- yblod-engine-vk: AMD's COMPUTE power profile while frames are composed (src/power.rs, from
+  big-fella's dv-engine-vk 0.1.0-9): manual + COMPUTE on the first frame, only from "auto"; auto
+  again 3 s after the last frame and when the engine goes. DVVK_GPU_BOOST=0 never.
+  dvvk_last_gpu_ms.
+- Kodi patch yblod-25 (DV_VULKAN_CB1=1 in the runtime defaults): for an unscaled picture on the
+  Vulkan engine, the adapter asks for CB1's processing, sites the picture as CB1 does (top-left as
+  signalled, also with an EL, or unspecified in Profile 7; else left), forces the Annex B EL
+  scaler and uses CB1's refresh rule (first picture, step back, gap over 0.1 s). Scaled pictures
+  and the OpenCL engine stay YBLOD's own; the overlay is YBLOD's own.
+- Kodi patch yblod-26: the opaque framebuffer view of a bo made without modifiers
+  (DRM_FORMAT_MOD_INVALID) goes without a modifier: amdgpu refused it with EINVAL.
+All Kodi patches apply with no fuzz.
+
+Images
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version strings.
+KERNEL, kodi.bin, both engines, the runtime defaults and libvulkan_radeon.so are identical (hashes
+below). KERNEL and RADV are unchanged from 0.3.0.
+
+Testing
+- Byte for byte against CB1's own code: dvvk-mr-compare (intel-dv-libreelec's tool, which links
+  CB1's renderer and calls dvbridge_render_master_reference with Kodi's options) with this
+  release's libdv_engine_vk.so.0 (the same file as in test image 0.3.1-test1, hash below), Intel
+  UHD 770, the same decoded frames, every output byte including the embedded metadata packets.
+  48 of 48 frames identical, none refused, on 1917 (P7 FEL), Gemini Man (P7 MEL), 28 Years Later
+  (P8.1), 12 Angry Men (P8.1, letterboxed, from 10 min) and the DV NASA demo (P5).
+- The same engine changes: identical on AMD Vega 8 (RADV) in the CB1 tree; in CroqueMr's build
+  on TVs, an Intel N150 and a Ryzen 5 3500U played 1917, Gemini Man and 28 Years Later with no
+  dropped frames.
+
+SHA256
+Standard update tar: 6e15c5773e194dc06e2b5a27cf4b2fc670633211517cab329673e887bf89fb64
+Standard install img.gz: 904cadd0b69d40b01479f489dd043b26ce60b8beb03d6d2f440d4300df00df77
+Standard SYSTEM: df24530424e3a0ddaac1c51af96465d9d7fa3a9069ca4411ca8f990c16b8bb26
+LG update tar: d0750fe2685a71dc7748e13f673ba74d5adf288189e68ff768f415c51b0e61e3
+LG install img.gz: de0394301142f65548ed07024a70fc415769d62ffebc0ed35370733d146ac397
+LG SYSTEM: 41b4453855e8f7031bcddf4a7e046b5ec39490c16bfac1740100b8207b8d9c4d
+KERNEL (both): 6f2e6210815d9eefaa6bfd1aa056d317a29a7a3dd066dde504c9cb95a9d9ac62
+Kodi (both): 1e515337a2905cf1a8b02c31c69f47d66f20e863627996a9d0d68211bf338de5
+Vulkan engine (both): 067737bbd5483fac27925cd8791b94c9ebb4f83bd19a8bdb414121a3f4bb9b1f
+OpenCL engine (both): 0ed3003f8074bb1b2a30a7a5eeb9027965e3b5d83e2d27f0c855d88742405ee9
+Runtime defaults (both): fb30e2fa05f75741a189971098c164e5257e561de2ca8f87f75fb88eb375de2b
+RADV (both): adcba045b5b71b11c3c3bc2ef7305d5726adfd8e7c391879bb7fcecff6992f5a
+Source bundle: (see SHA256SUMS)
+
+Limitations
+- No test box was free: the release images were not installed or played on a TV. Untested in
+  YBLOD: Kodi patch yblod-25 (siting, refresh, the switch between CB1's and YBLOD's processing for
+  scaled pictures) and yblod-26.
+- The AMD power profile has not run during playback in any LibreELEC image. Forcing amdgpu's
+  "high" level during Kodi 4K60 playback once hung a Ryzen's GPU; COMPUTE is a different setting.
+  DVVK_GPU_BOOST=0 turns it off.
+- YBLOD's own processing (scaled pictures, DV_VULKAN_CB1=0, the OpenCL engine) was not compared
+  with 0.3.0 byte for byte; its code path returns to 0.3.0's.
+- CB1's processing covers left and top-left siting; other signalled sitings render as left.

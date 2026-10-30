@@ -1,0 +1,23 @@
+YBLOD 0.3.1 shows Dolby Vision with the picture of CroqueMr's CB1 Master Reference, byte for byte, on the Vulkan engine, and fixes and speeds up AMD graphics.
+
+What changed
+- CB1 Master Reference's picture: a researcher's comparison of several Dolby Vision engines found the Master Reference of CroqueMr's CB1 (https://github.com/CroqueMr/libreelec-x86-DV) the most accurate. YBLOD's Vulkan engine now renders every unscaled Dolby Vision picture with CB1's processing:
+  - chroma siting;
+  - 4:2:0 reshaping;
+  - the ETSI GS CCM 001 Annex B filters for the enhancement layer and the 4:2:2 output;
+  - CB1's metadata order and refresh.
+  The result is checked byte for byte against CB1's own code. Scaled pictures (for example a 1080p title on a 4K screen) keep YBLOD's own processing, as does the OpenCL engine on Intel. Menus and subtitles are drawn as before; pixels they don't cover keep CB1's picture.
+- AMD graphics: AMD's automatic power management kept the GPU at its lowest clocks during playback, because the engine's work comes in short bursts. While Dolby Vision frames are being rendered, the engine now selects the COMPUTE power profile, and returns to automatic 3 seconds after the last frame. On a Ryzen 5 3500U (Vega 8) this took 1917 (Profile 7 FEL, 24p) from 23.7 to 15.7 ms a frame, and Gemini Man (MEL, 60p) from 8.7 to 6.3 ms.
+- AMD graphics: the Dolby Vision picture's framebuffer could be refused by the amdgpu kernel driver (EINVAL), which would stop Dolby Vision output on AMD. Fixed.
+- The LibreELEC base, Linux 7.3, Mesa, the kernel, Kodi's version and the add-ons are unchanged from 0.3.0.
+
+If you run 0.3.0
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Turning the new behaviour off
+To go back to YBLOD's own processing, set DV_VULKAN_CB1=0; to turn off the AMD power profile, set DVVK_GPU_BOOST=0. Both go in a Kodi service drop-in (/storage/.config/system.d/kodi.service.d/*.conf, [Service] Environment=...).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
