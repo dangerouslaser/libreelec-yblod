@@ -1,0 +1,25 @@
+diff --git a/xbmc/windowing/gbm/drm/DRMUtils.cpp b/xbmc/windowing/gbm/drm/DRMUtils.cpp
+index 28da428..c893b19 100644
+--- a/xbmc/windowing/gbm/drm/DRMUtils.cpp
++++ b/xbmc/windowing/gbm/drm/DRMUtils.cpp
+@@ -8,6 +8,8 @@
+ 
+ #include "DRMUtils.h"
+ 
++#include <algorithm>
++
+ #include "ServiceBroker.h"
+ #include "settings/Settings.h"
+ #include "settings/SettingsComponent.h"
+@@ -158,6 +160,11 @@ uint32_t CDRMUtils::DrmOpaqueFbGetFromBo(struct gbm_bo* bo)
+   handles[0] = gbm_bo_get_handle(bo).u32;
+   strides[0] = gbm_bo_get_stride(bo);
+ #endif
++  // A bo made without modifiers reports DRM_FORMAT_MOD_INVALID; the kernel
++  // refuses any modifier without DRM_MODE_FB_MODIFIERS (amdgpu: EINVAL), so
++  // such a bo's view goes without one, as DrmFbGetFromBo's fallback does.
++  if (modifiers[0] == DRM_FORMAT_MOD_INVALID)
++    std::fill(std::begin(modifiers), std::end(modifiers), 0);
+   const uint32_t flags = modifiers[0] != DRM_FORMAT_MOD_LINEAR &&
+                                  modifiers[0] != DRM_FORMAT_MOD_INVALID
+                              ? DRM_MODE_FB_MODIFIERS : 0;
