@@ -53,6 +53,7 @@ struct PackPush {
     source_h: u32,
     nearest: u32,
     gui_flags: u32,   // the fused overlay: 1 invalidate the colour cache, 2 the shell flipped
+    chroma_filter: u32,   // sited pack: 1 CB1's Annex B 4:2:2 filters
 }
 
 #[repr(C)]
@@ -89,7 +90,7 @@ struct FelPipelines {
     mmr_dual: Pipeline,            // mmr64_lut_dual (EL planes already full chroma size)
     mmr_single: [Pipeline; 3],     // mmr64_lut, mmr96, mmr (128)
     equal: [Pipeline; 3],          // luma_equal, phase, phase_guide (full-size EL)
-    piecewise: [Pipeline; 3],      // 4:2:2 P010, 4:2:2 P010 order-2 chroma, 4:2:0 NV12
+    piecewise: [Pipeline; 4],      // 4:2:2 P010, 4:2:2 P010 order-2 chroma, 4:2:0 NV12, 4:2:0 P010 (CB1)
 }
 
 // Offsets in the tables buffer (256-aligned).
@@ -202,6 +203,8 @@ impl Profile {
 pub const RING: usize = 4;
 
 pub struct Engine {
+    /// AMD: the COMPUTE power profile while frames come (power.rs).
+    boost: Option<crate::power::Boost>,
     pub d: Device,
     ring: Vec<Ctx>,
     next: usize,
@@ -218,6 +221,7 @@ pub struct Engine {
     fel: FelPipelines,
     fel_buffers: [DeviceBuffer; 5],
     pack: Vec<Pipeline>,      // [(source * 2 + overlay) * 3 + PACK]
+    pack_annexb: Vec<Pipeline>,   // [source]: workgroups of 32x8 with the chroma tile
     fel_chroma: Pipeline,
     staged: bool,
     annexb_fused: bool,
@@ -260,6 +264,8 @@ pub struct Engine {
     pub implicit_failed: bool,
     trace: Option<(u32, u32, u32, [u32; 2], u32, u32, u32, u32)>,
     profile: Option<Profile>,
+    /// GPU time of the last frame read back (reconstruction to pack), ms; < 0 unknown.
+    pub last_gpu_ms: f64,
     verify: Option<Verify>,
     // The query pool record_fel stamps into (this frame's, not the reference's).
     fel_query: std::cell::Cell<Option<vk::QueryPool>>,
@@ -292,9 +298,15 @@ impl Engine {
             for overlay in 0..3u32 {
                 for kind in 0..3u32 {
                     pack.push(Pipeline::new(&d, "pack", &pack_bindings, pack_push,
-                        &[(0, kind), (1, fma), (2, overlay), (3, blend_fma), (4, source)])?);
+                        &[(0, kind), (1, fma), (2, overlay), (3, blend_fma), (4, source), (6, 2)])?);
                 }
             }
+        }
+        // CB1 contract: the sited pack, no overlay, staged (0) or fused single-layer (1) sources.
+        let mut pack_annexb = Vec::new();
+        for source in 0..2u32 {
+            pack_annexb.push(Pipeline::new(&d, "pack", &pack_bindings, pack_push,
+                &[(0, 0), (1, fma), (2, 0), (3, blend_fma), (4, source), (5, 1), (6, 8)])?);
         }
         let fel_chroma = Pipeline::new(&d, "fel_chroma",
             &[sampled, sampled, sampled, storage, storage, storage, storage, storage, storage, storage, storage], 32, &[])?;
@@ -324,6 +336,7 @@ impl Engine {
                 Pipeline::new(&d, "piecewise", &[sampled, sampled, storage, storage, storage, storage, storage, storage], 32, &[(0, 1), (1, 10), (2, 0), (3, 1)])?,
                 Pipeline::new(&d, "piecewise", &[sampled, sampled, storage, storage, storage, storage, storage, storage], 32, &[(0, 1), (1, 10), (2, 1), (3, 1)])?,
                 Pipeline::new(&d, "piecewise", &[sampled, sampled, storage, storage, storage, storage, storage, storage], 32, &[(0, 0), (1, 8), (2, 0), (3, 1)])?,
+                Pipeline::new(&d, "piecewise", &[sampled, sampled, storage, storage, storage, storage, storage, storage], 32, &[(0, 0), (1, 10), (2, 0), (3, 1)])?,
             ],
         };
         let quarter = (MAX_W / 2 * MAX_H / 2 * 2) as u64;
@@ -368,7 +381,9 @@ impl Engine {
         let sampler = gpu::nearest_sampler(&d)?;
         let push = PushDescriptor::new(&d);
         let shot = OneShot::new(&d)?;
-        let profile = std::env::var("DVVK_PROFILE").map(|v| v == "1").unwrap_or(false) && d.timestamp_period > 0.0;
+        // Timestamps are always taken (dvvk_last_gpu_ms); DVVK_PROFILE=1 also logs windows of them.
+        let timing = d.timestamp_period > 0.0;
+        let profile = std::env::var("DVVK_PROFILE").map(|v| v == "1").unwrap_or(false) && timing;
         let verify_every: u64 = std::env::var("DVVK_VERIFY").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
         let verify = if verify_every > 0 {
             Some(Verify {
@@ -408,7 +423,7 @@ impl Engine {
                 decode: [sem(&d)?, sem(&d)?, sem(&d)?],
                 done: sem(&d)?,
                 ticket: 0,
-                query: if profile {
+                query: if timing {
                     let info = vk::QueryPoolCreateInfo::default().query_type(vk::QueryType::TIMESTAMP).query_count(PROFILE_FEL_POINTS);
                     Some(unsafe { d.device.create_query_pool(&info, None) }?)
                 } else {
@@ -443,6 +458,7 @@ impl Engine {
             fel,
             fel_buffers,
             pack,
+            pack_annexb,
             fel_chroma,
             staged,
             annexb_fused,
@@ -480,11 +496,13 @@ impl Engine {
             implicit_failed: false,
             trace: None,
             profile: profile.then(Profile::default),
+            last_gpu_ms: -1.0,
             verify,
             fel_query: std::cell::Cell::new(None),
             reference_pass: std::cell::Cell::new(false),
             w32: !std::env::var("DVVK_W32").map(|v| v == "0").unwrap_or(false),
             va: va_display,
+            boost: crate::power::Boost::new(drm_fd),
             d,
         })
     }
@@ -730,7 +748,7 @@ impl Engine {
 
     /// The finished frame of context `ci`: its timestamps into the profile.
     fn collect_profile(&mut self, ci: usize) {
-        let (Some(profile), Some(q)) = (self.profile.as_mut(), self.ring[ci].query) else { return };
+        let Some(q) = self.ring[ci].query else { return };
         let c = &self.ring[ci];
         let mut ts = [0u64; PROFILE_FEL_POINTS as usize];
         let n = if c.fel_stamped { PROFILE_FEL_POINTS } else { PROFILE_POINTS } as usize;
@@ -741,7 +759,11 @@ impl Engine {
         let period = self.d.timestamp_period as f64 / 1e6;
         let ms = |a: usize, b: usize| ts[b].wrapping_sub(ts[a]) as f64 * period;
         let fel = c.fel_stamped.then(|| [ms(0, 4), ms(4, 5), ms(5, 6), ms(6, 1)]);
-        profile.add([ms(0, 1), ms(1, 2), ms(2, 3), c.plan_ms], c.prepared, fel);
+        let (stages, prepared, plan) = ([ms(0, 1), ms(1, 2), ms(2, 3)], c.prepared, c.plan_ms);
+        self.last_gpu_ms = stages[0] + stages[1] + stages[2];
+        if let Some(profile) = self.profile.as_mut() {
+            profile.add([stages[0], stages[1], stages[2], plan], prepared, fel);
+        }
     }
 
     /// Plans and submits one frame into output `f.output`; returns at once.
@@ -765,6 +787,9 @@ impl Engine {
         self.last_plan_ms = plan_start.elapsed().as_secs_f64() * 1e3;
         if status != 0 {
             return Ok((status, 0));
+        }
+        if let Some(b) = &self.boost {
+            b.frame();
         }
         let p = &*self.plan;
         if std::env::var_os("DVVK_TRACE").is_some() {
@@ -1086,7 +1111,8 @@ impl Engine {
             }
             _ => bl.luma.view,   // unused: a valid view to bind
         };
-        let pack = &self.pack[((source * 3 + overlay_kind) * 3 + p.pack) as usize];
+        let annexb = p.chroma_filter != 0 && overlay_kind == 0 && p.pack == plan::PACK_SITED && source < 2;
+        let pack = if annexb { &self.pack_annexb[source as usize] } else { &self.pack[((source * 3 + overlay_kind) * 3 + p.pack) as usize] };
         let fused_tables = if source == 1 { Bind::Range(self.tables.buffer, T_SINGLE, 6144) } else { Bind::Range(self.tables.buffer, T_MAPPING, 2048) };
         unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pack.pipeline) };
         self.push.bind(
@@ -1126,9 +1152,11 @@ impl Engine {
             source_h: p.source_h,
             nearest: p.nearest,
             gui_flags: fused_invalidate as u32 | (self.sources.shell_flip as u32) << 1 | (self.count_changes as u32) << 2,
+            chroma_filter: p.chroma_filter,
         };
         gpu::push_constants(d, cmd, pack, &push);
-        unsafe { d.device.cmd_dispatch(cmd, (CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2), 1) };
+        let rows_per_group = if annexb { 8 } else { 2 };
+        unsafe { d.device.cmd_dispatch(cmd, (CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(rows_per_group), 1) };
         stamp(3);
         if check {
             gpu::compute_barrier(d, cmd);
@@ -1272,7 +1300,7 @@ impl Engine {
             gpu::push_constants(d, cmd, &self.single, &[w, h, first / 2]);
             unsafe { d.device.cmd_dispatch(cmd, (w / 2).div_ceil(16), ((last - first) / 2).div_ceil(8), 1) };
         } else if route == plan::ROUTE_PIECEWISE {
-            let k = if p.depth == 8 { 2 } else if p.order2 != 0 { 1 } else { 0 };
+            let k = if p.depth == 8 { 2 } else if p.layout == 0 { 3 } else if p.order2 != 0 { 1 } else { 0 };
             let pipe = &self.fel.piecewise[k];
             let rows_per = if p.layout == 1 { 1 } else { 2 };
             #[repr(C)]
@@ -1485,7 +1513,7 @@ impl Drop for Engine {
             p.destroy(d);
         }
         self.resize_prepare.destroy(d);
-        for p in &self.pack {
+        for p in self.pack.iter().chain(self.pack_annexb.iter()) {
             p.destroy(d);
         }
         self.single.destroy(d);

@@ -1,0 +1,120 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 963a5b7..c8055b5 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -46,6 +46,26 @@ unsigned SourcePlaneSiting(bool enhancement, int location)
+       ? DV_SOURCE_CHROMA_TOP_LEFT : DV_SOURCE_CHROMA_CENTER_LEFT;
+ }
+ 
++// The Vulkan engine with CB1 Master Reference's processing (DV_VULKAN_CB1=1,
++// DVPrivateVulkan) sites an unscaled picture as CB1 does: top-left when the
++// stream says so (also with an EL), or unspecified in Profile 7 (an EL, or a
++// MEL's undecoded one); left otherwise.
++bool VulkanCB1(int baseWidth, int baseHeight, const dvbridge_geometry& geometry)
++{
++  const char* cb1 = std::getenv("DV_VULKAN_CB1");
++  const char* vulkan = std::getenv("DV_ENGINE_VULKAN");
++  return cb1 && std::strcmp(cb1, "1") == 0 && vulkan && std::strcmp(vulkan, "1") == 0 &&
++      geometry.width == baseWidth && geometry.height == baseHeight;
++}
++
++unsigned PlaneSiting(bool cb1, bool profile7, int location)
++{
++  if (!cb1)
++    return SourcePlaneSiting(profile7, location);
++  return location == AVCHROMA_LOC_TOPLEFT || (location == AVCHROMA_LOC_UNSPECIFIED && profile7)
++      ? DV_SOURCE_CHROMA_TOP_LEFT : DV_SOURCE_CHROMA_CENTER_LEFT;
++}
++
+ void BackendLog(void*, pl_log_level level, const char* message)
+ {
+   // Error-only callback: no debug shader dumps or GPU timing/readback queries.
+@@ -323,7 +343,8 @@ void CDVBridgeGLES::PrefetchHardware(const Layer& base, const AVFrame* enhanceme
+     return;
+   const dv_source_geometry placement{static_cast<unsigned>(base.width), static_cast<unsigned>(base.height),
+                                      3840, 2160, static_cast<unsigned>(geometry.x), static_cast<unsigned>(geometry.y),
+-                                     SourcePlaneSiting(enhancement || base.pairedSiting, base.chromaPosition),
++                                     PlaneSiting(VulkanCB1(base.width, base.height, geometry),
++                                                   enhancement || base.pairedSiting, base.chromaPosition),
+                                      static_cast<unsigned>(geometry.width), static_cast<unsigned>(geometry.height)};
+   const dv_source_input input{sizeof(dv_source_input),
+       base.layout == DVBRIDGE_NV12 ? DV_SOURCE_INPUT_NV12 : DV_SOURCE_INPUT_P010,
+@@ -345,7 +366,8 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+     if (!m_wasSource) m_source->Reset();
+     const dv_source_geometry placement{static_cast<unsigned>(base.width), static_cast<unsigned>(base.height),
+                                        3840, 2160, static_cast<unsigned>(geometry.x), static_cast<unsigned>(geometry.y),
+-                                       SourcePlaneSiting(enhancement || base.pairedSiting, base.chromaPosition),
++                                       PlaneSiting(VulkanCB1(base.width, base.height, geometry),
++                                                   enhancement || base.pairedSiting, base.chromaPosition),
+                                        static_cast<unsigned>(geometry.width), static_cast<unsigned>(geometry.height)};
+     const dv_source_input input{sizeof(dv_source_input),
+         base.layout == DVBRIDGE_NV12 ? DV_SOURCE_INPUT_NV12 : DV_SOURCE_INPUT_P010,
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index b5450d5..1a85746 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -83,11 +83,12 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   const char* scaler = std::getenv("DV_EL_SCALER");
+   m_elScaler = scaler && (std::strcmp(scaler, "0") == 0 || std::strcmp(scaler, "nearest") == 0) ? 0 : 1;
+   m_fel = !EnvIs("DV_FEL", "0");
++  m_cb1 = EnvIs("DV_VULKAN_CB1", "1");
+   m_async = !EnvIs("DV_VULKAN_ASYNC", "0");
+   if (!InitializeGui(device, 0) || !InitializeGui(device, 1)) return false;
+   glGenFramebuffers(1, &m_readFramebuffer);
+-  CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={} async={}", library, m_elScaler,
+-            m_fel, m_async);
++  CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={} async={} cb1_reference={}", library,
++            m_elScaler, m_fel, m_async, m_cb1);
+   return true;
+ }
+ 
+@@ -233,6 +234,23 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   frame.plan.fel = m_fel;
+   frame.plan.packet_id = packet;
+   frame.plan.refresh = refresh;
++  // CB1 Master Reference's processing (CroqueMr's CB1, byte for byte): its
++  // siting (DVBridgeGLES chose it for this picture), 4:2:0 reshaping, no
++  // chroma pre-filter, the Annex B EL and 4:2:2 filters, its metadata block
++  // order, L5 and packet ids (the engine's own then). Unscaled pictures only,
++  // as CB1's; scaled ones stay yblod's. Its refresh: the first picture, a
++  // step back or a gap over 0.1 s; a repeated picture keeps its value.
++  const bool cb1 = m_cb1 && !resized;
++  if (cb1)
++  {
++    frame.plan.cb1_contract = 1;
++    frame.plan.el_scaler = 1;
++    if (!m_cb1Frames)
++      m_cb1Refresh = true;
++    else if (pts != m_cb1LastPts)
++      m_cb1Refresh = pts < m_cb1LastPts || pts - m_cb1LastPts > 100000;
++    frame.plan.refresh = m_cb1Refresh;
++  }
+   frame.plan.pts = pts;
+   // The GUI colour stays that of the last GUI, so hiding it changes no coefficients.
+   const DVPrivateOverlay& colour = overlay ? *overlay : m_gui;
+@@ -258,6 +276,11 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+     return result;
+   }
+   m_ticket = ticket;
++  if (cb1)
++  {
++    m_cb1LastPts = pts;
++    ++m_cb1Frames;
++  }
+   if (m_guiShown && !m_guiDirect) m_guis[m_guiIndex].ticket = ticket;
+   if (m_guiDirect)
+     m_revisions[ticket % 8] = {ticket, overlay->revisionSeen};
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 11c94a4..8f613ab 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -86,4 +86,9 @@ private:
+   uint64_t m_guiId{0}, m_ticket{0};
+   unsigned m_elScaler{1}, m_reports{0}, m_colourReports{0}, m_rangeReports{0};
+   bool m_fel{true};
++  // CB1 Master Reference's processing for unscaled pictures (DV_VULKAN_CB1=1)
++  // and its metadata refresh rule over the pictures handed to the engine.
++  bool m_cb1{false}, m_cb1Refresh{true};
++  int64_t m_cb1LastPts{0};
++  uint64_t m_cb1Frames{0};
+ };

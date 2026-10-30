@@ -88,7 +88,7 @@ static void row_window(unsigned req_first, unsigned req_last, unsigned h, uint32
 }
 
 /* reconstruct_impl's table preparation and kernel choice, direct route. */
-static int plan_dual(const dv_frame_settings *s, dvvk_plan *o)
+static int plan_dual(const dv_frame_settings *s, int contract, dvvk_plan *o)
 {
     const dv_intel_composer_config *cfg = &s->composer;
     if (cfg->el_spatial_resampling_flag > 1 || s->el_scaler > 1 || s->chroma_phase > 1)
@@ -96,7 +96,8 @@ static int plan_dual(const dv_frame_settings *s, dvvk_plan *o)
     o->equal = !cfg->el_spatial_resampling_flag;
     o->el_scale = o->equal ? 1 : 2;
     o->nearest = !s->el_scaler;
-    o->chroma_phase = s->chroma_phase;
+    /* 2: none. CB1 reshapes the decoded chroma as it is and enlarges the EL's 64/192. */
+    o->chroma_phase = contract ? 2u : s->chroma_phase;
     int32_t mapped, residual;
     uint16_t unused;
     for (unsigned i = 0; i < 1024; ++i) {
@@ -161,11 +162,13 @@ int dvvk_plan_frame(const dvvk_plan_in *in, const void *metadata, size_t metadat
     dv_source_geometry g = {
         .width = in->width, .height = in->height, .canvas_width = 3840, .canvas_height = 2160,
         .x = in->x, .y = in->y,
-        .chroma_siting = !in->has_el && in->chroma_top_left ? DV_SOURCE_CHROMA_TOP_LEFT : DV_SOURCE_CHROMA_CENTER_LEFT,
+        .chroma_siting = (in->cb1_contract || !in->has_el) && in->chroma_top_left ? DV_SOURCE_CHROMA_TOP_LEFT
+                                                                                  : DV_SOURCE_CHROMA_CENTER_LEFT,
         .destination_width = in->dw, .destination_height = in->dh,
     };
     unsigned w = in->width, h = in->height, depth = in->nv12 ? 8 : 10;
-    int nv12 = in->nv12 != 0, full = !nv12; /* DV_SINGLE_FULL_HEIGHT */
+    /* DV_SINGLE_FULL_HEIGHT; CB1 reshapes at 4:2:0 and resamples the result */
+    int contract = in->cb1_contract != 0, nv12 = in->nv12 != 0, full = !nv12 && !contract;
     if (!dv_source_geometry_valid(&g))
         return DV_INVALID;
     unsigned dw = dv_source_destination_width(&g), dh = dv_source_destination_height(&g);
@@ -202,7 +205,7 @@ int dvvk_plan_frame(const dvvk_plan_in *in, const void *metadata, size_t metadat
     if (polynomial && !settings.composer.residual_enabled)
         single = 1;
     if ((single || status == DV_UNSUPPORTED) && !polynomial) {
-        if (!full && g.chroma_siting != DV_SOURCE_CHROMA_CENTER_LEFT)
+        if (!full && !contract && g.chroma_siting != DV_SOURCE_CHROMA_CENTER_LEFT)
             return DV_UNSUPPORTED;
         if (full && resized)
             return DV_UNSUPPORTED;
@@ -228,9 +231,9 @@ int dvvk_plan_frame(const dvvk_plan_in *in, const void *metadata, size_t metadat
         return DV_UNSUPPORTED;
     if (single && settings.composer.residual_enabled)
         return DV_UNSUPPORTED;
-    if (!single && g.chroma_siting != DV_SOURCE_CHROMA_CENTER_LEFT)
+    if (!single && !contract && g.chroma_siting != DV_SOURCE_CHROMA_CENTER_LEFT)
         return DV_UNSUPPORTED;
-    if (dv_source_place_metadata(&g, dm, &bytes))
+    if ((contract ? dv_source_place_metadata_cb1 : dv_source_place_metadata)(&g, dm, &bytes))
         return DV_UNSUPPORTED;
     for (unsigned c = 0; c < 3; ++c)
         if ((settings.source.offset[c] & 65535u) || (settings.source.offset[c] >> 16) > 4095)
@@ -274,7 +277,7 @@ int dvvk_plan_frame(const dvvk_plan_in *in, const void *metadata, size_t metadat
             return DV_UNSUPPORTED;
     } else {
         o->route = DVVK_ROUTE_DUAL;
-        if ((status = plan_dual(&settings, o)) != DV_OK)
+        if ((status = plan_dual(&settings, contract, o)) != DV_OK)
             return status;
     }
     /* source_identity()'s gate for the tunnel output */
@@ -293,11 +296,17 @@ int dvvk_plan_frame(const dvvk_plan_in *in, const void *metadata, size_t metadat
         dm[1] = 1;
     if (dv_source_overlay_metadata(dm, bytes, in->overlay != 0, in->overlay_visible_before))
         return DV_INVALID;
-    o->packet_count = packetize(dm, bytes, in->packet_id, o->packets);
+    /* CB1: the id advances only when the payload changes (one engine per process). */
+    static dv_packet_sequence sequence;
+    unsigned packet = in->cb1_contract ? dv_packet_sequence_next(&sequence, dm, bytes) : in->packet_id;
+    o->packet_count = packetize(dm, bytes, packet, o->packets);
     int full_pack = use_piecewise && o->layout == 1;
     if (full_pack && resized)
         return DV_UNSUPPORTED;
     o->pack = full_pack ? DVVK_PACK_422 : resized ? DVVK_PACK_RESIZED : DVVK_PACK_SITED;
+    if (contract && o->pack != DVVK_PACK_SITED)
+        return DV_UNSUPPORTED;   /* CB1 doesn't call resized Master output exact */
+    o->chroma_filter = contract ? 1u : 0u;
     if (dv_source_map_active(&g, dw, dh, settings.active, o->active))
         return DV_INVALID;
     for (unsigned c = 0; c < 3; ++c)

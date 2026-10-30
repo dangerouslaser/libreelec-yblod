@@ -45,8 +45,8 @@ int dv_source_overlay_metadata(unsigned char payload[512],size_t bytes,int visib
     if(!!visible!=!!previous)payload[1]=1;
     return 0;
 }
-int dv_source_place_scaled_metadata(const dv_source_geometry *g,unsigned width,unsigned height,
-                                    unsigned char payload[512],size_t *bytes)
+static int place_scaled(const dv_source_geometry *g,unsigned width,unsigned height,
+                        unsigned char payload[512],size_t *bytes,int always_l5)
 {
     if(!destination_valid(g,width,height)||!payload||!bytes||*bytes<71||*bytes>512)return -1;
     unsigned char copy[512];memcpy(copy,payload,*bytes);size_t at=71,area=0;
@@ -62,13 +62,47 @@ int dv_source_place_scaled_metadata(const dv_source_geometry *g,unsigned width,u
     if(left+right>=g->width||top+bottom>=g->height)return -1;
     uint32_t active[4]={left,top,g->width-right,g->height-bottom},placed[4];
     if(dv_source_map_active(g,width,height,active,placed))return -1;
-    if(placed[0]==left&&placed[1]==top&&g->canvas_width-placed[2]==right&&
+    if((area||!always_l5)&&placed[0]==left&&placed[1]==top&&g->canvas_width-placed[2]==right&&
        g->canvas_height-placed[3]==bottom)return 0;
     if(!area){if(at>512-13||copy[70]==255)return -1;
         memset(copy+at,0,13);copy[at+3]=8;copy[at+4]=5;area=at+5;at+=13;++copy[70];}
     put16(copy+area,placed[0]);put16(copy+area+2,g->canvas_width-placed[2]);
     put16(copy+area+4,placed[1]);put16(copy+area+6,g->canvas_height-placed[3]);
     memcpy(payload,copy,at);*bytes=at;return 0;
+}
+int dv_source_place_scaled_metadata(const dv_source_geometry *g,unsigned width,unsigned height,
+                                    unsigned char payload[512],size_t *bytes)
+{return place_scaled(g,width,height,payload,bytes,0);}
+/* CB1's serializer: extension blocks by level, the DM v2 blocks (L3, L8-L11,
+ * L254) after the others, ties in stream order (dvbridge_metadata.h
+ * cb1_wire_block); then placed, with an L5 even when the source has none. */
+static int cb1_order(unsigned char payload[512],size_t bytes)
+{
+    if(bytes<71||bytes>512)return -1;
+    size_t start[256],len[256];unsigned rank[256],order[256],count=payload[70],at=71;
+    for(unsigned i=0;i<count;++i){if(at>bytes||bytes-at<5)return -1;
+        uint32_t n=(uint32_t)payload[at]<<24|(uint32_t)payload[at+1]<<16|(uint32_t)payload[at+2]<<8|payload[at+3];
+        if(n>bytes-at-5)return -1;
+        unsigned level=payload[at+4],r=level+((level==3||(level>=8&&level<=11)||level==254)?256u:0u);
+        start[i]=at;len[i]=5+n;at+=5+n;
+        unsigned k=i;while(k>0&&rank[k-1]>r){rank[k]=rank[k-1];order[k]=order[k-1];--k;}
+        rank[k]=r;order[k]=i;}
+    if(at!=bytes)return -1;
+    unsigned char copy[512];memcpy(copy,payload,bytes);at=71;
+    for(unsigned k=0;k<count;++k){memcpy(payload+at,copy+start[order[k]],len[order[k]]);at+=len[order[k]];}
+    return 0;
+}
+int dv_source_place_metadata_cb1(const dv_source_geometry *g,unsigned char payload[512],size_t *bytes)
+{
+    if(!dv_source_geometry_valid(g)||!payload||!bytes||cb1_order(payload,*bytes))return -1;
+    return place_scaled(g,dv_source_destination_width(g),dv_source_destination_height(g),payload,bytes,1);
+}
+unsigned dv_packet_sequence_next(dv_packet_sequence *s,const unsigned char *payload,size_t bytes)
+{
+    if(!s||!payload||bytes>sizeof(s->previous))return 0;
+    if(s->frames&&(s->size!=bytes||memcmp(s->previous,payload,bytes)))s->id=(s->id+1)&15u;
+    memcpy(s->previous,payload,bytes);s->size=bytes;s->frames++;
+    return s->id;
 }
 int dv_source_place_metadata(const dv_source_geometry *g,unsigned char payload[512],size_t *bytes)
 {

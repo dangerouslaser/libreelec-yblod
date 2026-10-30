@@ -18,6 +18,18 @@ Kodi uses it when Settings > Player > Dolby Vision > Engine is Vulkan
 (packages/graphics/yblod-engine-vk; Kodi patch yblod-23). The OpenCL engine
 stays installed as the fallback.
 
+**CB1 Master Reference's processing** (`dvvk_plan_in.cb1_contract`): the
+engine can also render a picture exactly as CroqueMr's CB1 Master Reference
+does (libreelec-x86-DV): the stream's chroma siting also with an EL, 4:2:0
+reshaping, no chroma phase pre-filter, the ETSI GS CCM 001 Annex B EL and
+4:2:2 filters, and CB1's metadata serializer (block order, L5 always, packet
+id on a payload change). Checked byte for byte against CB1's own code with
+`dvvk-mr-compare` in that tree (P7 FEL, P7 MEL, P8.1, letterboxed P8.1, P5;
+Intel and AMD). Kodi's adapter (patch yblod-25) asks for it for unscaled
+pictures when `DV_VULKAN_CB1=1` (on in runtime.env); scaled pictures, and the
+OpenCL engine, stay yblod's own. The code forks on `cb1_contract` in
+`yblod/plan.c` and on `chroma_filter` / `ANNEXB` in `shaders/pack.comp`.
+
 Test tools (`tools/`): `dvvk-compare` (OpenCL vs Vulkan on decoded frames),
 `dvvk-routes`, `dvvk-fence`, `vkprobe`, `regress.sh`, and the `dvvk-interop`
 binary in the crate. They aren't in the image.
