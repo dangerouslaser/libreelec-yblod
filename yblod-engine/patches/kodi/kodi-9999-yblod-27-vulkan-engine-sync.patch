@@ -1,0 +1,222 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 1a85746..176f13f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -16,6 +16,58 @@ bool EnvIs(const char* name, const char* value)
+   const char* current = std::getenv(name);
+   return current && std::strcmp(current, value) == 0;
+ }
++
++unsigned EnvNumber(const char* name, unsigned fallback, unsigned limit)
++{
++  const char* value = std::getenv(name);
++  if (!value || !value[0]) return fallback;
++  char* end = nullptr;
++  const unsigned long number = std::strtoul(value, &end, 10);
++  if (*end || number > limit)
++  {
++    CLog::Log(LOGWARNING, "Vulkan engine: {}={} is not 0-{}; using {}", name, value, limit, fallback);
++    return fallback;
++  }
++  return static_cast<unsigned>(number);
++}
++
++// CroqueMr's optional CM2.9 -> CM4.0 metadata and L2 trim removal
++// (dvvk_plan_in.dm_options): DV_VULKAN_CM4 off, no-l2, always, auto, auto2;
++// DV_VULKAN_CM4_TRIGGER (auto) source, 1000, 2000, 4000, 10000;
++// DV_VULKAN_CM4_HEADROOM (auto2) 0-50 %; DV_VULKAN_TV_PEAK in nits;
++// DV_VULKAN_NO_L2=1. Metadata only: no pixel changes.
++uint32_t DmOptions()
++{
++  static const char* const modes[] = {"off", "no-l2", "always", "auto", "auto2"};
++  static const char* const triggers[] = {"source", "1000", "2000", "4000", "10000"};
++  const char* mode = std::getenv("DV_VULKAN_CM4");
++  const char* trigger = std::getenv("DV_VULKAN_CM4_TRIGGER");
++  unsigned m = 0, t = 0;
++  if (mode && mode[0])
++  {
++    while (m < 5 && std::strcmp(mode, modes[m]) != 0) ++m;
++    if (m == 5)
++    {
++      CLog::Log(LOGWARNING, "Vulkan engine: DV_VULKAN_CM4={} is not off, no-l2, always, auto or auto2; off", mode);
++      m = 0;
++    }
++  }
++  if (trigger && trigger[0])
++  {
++    while (t < 5 && std::strcmp(trigger, triggers[t]) != 0) ++t;
++    if (t == 5)
++    {
++      CLog::Log(LOGWARNING, "Vulkan engine: DV_VULKAN_CM4_TRIGGER={} is not source, 1000, 2000, 4000 or 10000; source",
++                trigger);
++      t = 0;
++    }
++  }
++  const unsigned headroom = EnvNumber("DV_VULKAN_CM4_HEADROOM", 20, 50);
++  const unsigned peak = EnvNumber("DV_VULKAN_TV_PEAK", 0, 10000);
++  const bool noL2 = EnvIs("DV_VULKAN_NO_L2", "1");
++  if (!m && !noL2) return 0;   // the stream's metadata as is
++  return DVVK_DM_OPTIONS(m, t, headroom, noL2, peak);
++}
+ } // namespace
+ 
+ bool CDVPrivateVulkan::Requested(int drmFd)
+@@ -39,7 +91,7 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+ {
+   if (m_library || !vaDisplay || drmFd < 0 || !device || !output0 || !output1) return false;
+   const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
+-  if (!library || !library[0]) library = "libdv_engine_vk.so.0";
++  if (!library || !library[0]) library = DVVK_LIBRARY;
+   m_library = dlopen(library, RTLD_NOW | RTLD_LOCAL);
+   if (!m_library)
+   {
+@@ -56,6 +108,17 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   LOAD(m_reset, dvvk_reset);
+   LOAD(m_destroy, dvvk_destroy);
+ #undef LOAD
++  // The structs Kodi was built with (dv_engine_vk.h) must be the library's.
++  auto abi = reinterpret_cast<uint32_t (*)()>(dlsym(m_library, "dvvk_abi_version"));
++  if (!abi || abi() != DVVK_ABI_VERSION)
++  {
++    CLog::Log(LOGERROR, "Vulkan engine {}: ABI {}, Kodi needs {}", library, abi ? abi() : 0u, DVVK_ABI_VERSION);
++    return false;
++  }
++  // A finite drain before destruction, and a reset that reports failure.
++  m_drain = reinterpret_cast<decltype(m_drain)>(dlsym(m_library, "dvvk_drain"));
++  m_resetChecked = reinterpret_cast<decltype(m_resetChecked)>(dlsym(m_library, "dvvk_reset_checked"));
++  m_dmStatus = reinterpret_cast<decltype(m_dmStatus)>(dlsym(m_library, "dvvk_dm_status"));
+   // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
+   m_setOverlayEx = reinterpret_cast<decltype(m_setOverlayEx)>(dlsym(m_library, "dvvk_set_overlay_ex"));
+   m_implicitFailed = reinterpret_cast<decltype(m_implicitFailed)>(dlsym(m_library, "dvvk_implicit_failed"));
+@@ -85,10 +148,11 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_fel = !EnvIs("DV_FEL", "0");
+   m_cb1 = EnvIs("DV_VULKAN_CB1", "1");
+   m_async = !EnvIs("DV_VULKAN_ASYNC", "0");
++  m_dmOptions = DmOptions();
+   if (!InitializeGui(device, 0) || !InitializeGui(device, 1)) return false;
+   glGenFramebuffers(1, &m_readFramebuffer);
+-  CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={} async={} cb1_reference={}", library,
+-            m_elScaler, m_fel, m_async, m_cb1);
++  CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={} async={} cb1_reference={} dm_options={:#x}",
++            library, m_elScaler, m_fel, m_async, m_cb1, m_dmOptions);
+   return true;
+ }
+ 
+@@ -168,7 +232,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+                              const dv_source_geometry& geometry, const dv_source_input& input,
+                              unsigned packet, bool refresh, const DVPrivateOverlay* overlay)
+ {
+-  if (!m_engine || !m_guis[0].bo || !m_guis[1].bo) return DV_VULKAN_FAILED;
++  if (!m_engine || m_failed || !m_guis[0].bo || !m_guis[1].bo) return DV_VULKAN_FAILED;
+   m_guiDirect = overlay && overlay->dmabufFd >= 0 && m_setOverlayEx && m_implicitFailed;
+   if (m_guiDirect)
+   {
+@@ -252,6 +316,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+     frame.plan.refresh = m_cb1Refresh;
+   }
+   frame.plan.pts = pts;
++  frame.plan.dm_options = m_dmOptions;
+   // The GUI colour stays that of the last GUI, so hiding it changes no coefficients.
+   const DVPrivateOverlay& colour = overlay ? *overlay : m_gui;
+   std::memcpy(frame.plan.rgb_to_lms, colour.rgbToLms, sizeof(frame.plan.rgb_to_lms));
+@@ -276,6 +341,19 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+     return result;
+   }
+   m_ticket = ticket;
++  if (m_dmOptions && m_dmStatus)
++  {
++    // CM4 / L2 per frame: logged when it changes.
++    const uint32_t status = m_dmStatus(m_engine);
++    if (status != m_lastDmStatus && m_dmReports < 16)
++    {
++      ++m_dmReports;
++      CLog::Log(LOGINFO, "Vulkan engine CM4 pts={}: status {} ({}), {} L2 blocks removed", pts, status & 0xffu,
++                (status & 0xffu) == DVVK_CM4_STATUS_APPENDED ? "appended" : "as the stream has it",
++                (status >> 8) & 0xffu);
++    }
++    m_lastDmStatus = status;
++  }
+   if (cb1)
+   {
+     m_cb1LastPts = pts;
+@@ -369,8 +447,21 @@ void CDVPrivateVulkan::LogRevisions(const char* when) const
+ 
+ void CDVPrivateVulkan::Reset()
+ {
+-  if (m_engine) m_reset(m_engine);
++  // Drains, then drops the surface imports; a failure leaves the engine
++  // unusable (its imports kept) until it is closed.
++  if (m_engine && !m_failed)
++  {
++    if (!m_resetChecked)
++      m_reset(m_engine);
++    else if (m_resetChecked(m_engine, 2000000000ull) != 1)
++    {
++      m_failed = true;
++      CLog::Log(LOGERROR, "Vulkan engine reset failed: the engine stops for this playback");
++    }
++  }
+   m_reports = 0;
++  m_lastDmStatus = UINT32_MAX;
++  m_dmReports = 0;
+ }
+ 
+ bool CDVPrivateVulkan::Close()
+@@ -378,7 +469,11 @@ bool CDVPrivateVulkan::Close()
+   LogRevisions("at close");
+   if (m_engine)
+   {
+-    if (m_ticket && m_wait(m_engine, m_ticket, 2000000000ull) != 1) return false;
++    // All submitted work, also a frame that failed without a ticket; until
++    // then the engine and its inputs stay.
++    if (m_drain ? m_drain(m_engine, 2000000000ull) != 1
++                : m_ticket && m_wait(m_engine, m_ticket, 2000000000ull) != 1)
++      return false;
+     m_destroy(m_engine);
+     m_engine = nullptr;
+   }
+@@ -396,6 +491,7 @@ bool CDVPrivateVulkan::Close()
+   m_guiIndex = 0;
+   m_ticket = 0;
+   m_guiShown = false;
++  m_failed = false;
+   if (m_library) dlclose(m_library);
+   m_library = nullptr;
+   return true;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 8f613ab..0c48135 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -10,7 +10,7 @@
+ #include <cstddef>
+ #include <cstdint>
+ 
+-/* yblod's engine on Vulkan compute (libdv_engine_vk.so.0, yblod-engine/vk),
++/* yblod's engine on Vulkan compute (DVVK_LIBRARY, yblod-engine/vk),
+  * selected with DV_ENGINE_VULKAN=1 (Settings > Player > Dolby Vision > Vulkan
+  * engine). It writes the two private scanout buffers itself and reads the GUI
+  * from a GBM copy of Kodi's GUI texture; no OpenCL and no CL-GL interop.
+@@ -55,7 +55,10 @@ private:
+   decltype(&dvvk_destroy) m_destroy{nullptr};
+   decltype(&dvvk_set_overlay_ex) m_setOverlayEx{nullptr};     // optional
+   decltype(&dvvk_implicit_failed) m_implicitFailed{nullptr};  // optional
+-  decltype(&dvvk_overlay_changes) m_overlayChanges{nullptr};  // optional
++  int64_t (*m_overlayChanges)(dvvk_engine*, uint64_t){nullptr};  // optional (not in big-fella's engine)
++  decltype(&dvvk_drain) m_drain{nullptr};                     // optional
++  decltype(&dvvk_reset_checked) m_resetChecked{nullptr};      // optional
++  decltype(&dvvk_dm_status) m_dmStatus{nullptr};              // optional
+   // Kodi's GUI revision against the pixels the engine found changed: a
+   // revision that stays while pixels change would make it unsafe to skip
+   // the GUI on an unchanged revision (the 0.2.1 controls flicker).
+@@ -86,6 +89,11 @@ private:
+   uint64_t m_guiId{0}, m_ticket{0};
+   unsigned m_elScaler{1}, m_reports{0}, m_colourReports{0}, m_rangeReports{0};
+   bool m_fel{true};
++  bool m_failed{false}; // a checked reset failed: no more frames until Close
++  // CM4 / L2 options for every frame (DV_VULKAN_CM4, DV_VULKAN_NO_L2), and
++  // the last result reported.
++  uint32_t m_dmOptions{0}, m_lastDmStatus{UINT32_MAX};
++  unsigned m_dmReports{0};
+   // CB1 Master Reference's processing for unscaled pictures (DV_VULKAN_CB1=1)
+   // and its metadata refresh rule over the pictures handed to the engine.
+   bool m_cb1{false}, m_cb1Refresh{true};
