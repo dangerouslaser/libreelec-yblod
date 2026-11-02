@@ -75,7 +75,7 @@ fi
 
 OUT=$WORK/run.sha256
 : > "$OUT"
-size() { stat -c %s "$1"; }
+size() { wc -c < "$1" | tr -d ' '; }   # busybox (LibreELEC) has no stat -c
 echo "# clip fel $(basename "$FEL") $(size "$FEL")" >> "$OUT"
 [ -z "$MEL" ] || echo "# clip mel $(basename "$MEL") $(size "$MEL")" >> "$OUT"
 [ -z "$P81" ] || echo "# clip p81 $(basename "$P81") $(size "$P81")" >> "$OUT"
@@ -164,7 +164,17 @@ if [ "$MODE" = update ]; then
   echo "golden.sh: wrote $(grep -vc '^#' "$GOLDEN") hashes to $GOLDEN"
   exit 0
 fi
-if diff -u "$GOLDEN" "$OUT" && [ "$twins_bad" = 0 ]; then
+# busybox (LibreELEC) has no diff: the lines only one side has
+differ() {
+  if command -v diff >/dev/null; then
+    diff -u "$1" "$2"
+  else
+    grep -vxFf "$2" "$1" | sed 's/^/-/'
+    grep -vxFf "$1" "$2" | sed 's/^/+/'
+    [ "$(sha256sum < "$1")" = "$(sha256sum < "$2")" ]
+  fi
+}
+if differ "$GOLDEN" "$OUT" && [ "$twins_bad" = 0 ]; then
   echo "golden.sh: identical ($(grep -vc '^#' "$OUT") hashes)"
 elif [ "$twins_bad" != 0 ]; then
   echo "golden.sh: FLIP_Y twins DIFFERENT"
