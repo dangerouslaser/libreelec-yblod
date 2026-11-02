@@ -64,6 +64,9 @@ fn import_memory(
     image: vk::Image,
     buffer: vk::Buffer,
 ) -> Result<vk::DeviceMemory> {
+    if crate::fault::hit("import-memory") {
+        return Err(Error::Vk(vk::Result::ERROR_INVALID_EXTERNAL_HANDLE));
+    }
     let handle = vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT;
     let mut fd_props = vk::MemoryFdPropertiesKHR::default();
     unsafe { d.memory_fd.get_memory_fd_properties(handle, fd, &mut fd_props) }?;
@@ -82,7 +85,12 @@ fn import_memory(
         .memory_type_index(index)
         .push_next(&mut import)
         .push_next(&mut dedicated);
-    match unsafe { d.device.allocate_memory(&info, None) } {
+    let allocation = if crate::fault::hit("allocate-import") {
+        Err(vk::Result::ERROR_UNKNOWN)
+    } else {
+        unsafe { d.device.allocate_memory(&info, None) }
+    };
+    match allocation {
         Ok(m) => Ok(m),
         Err(e) => {
             unsafe { libc::close(owned) };
@@ -155,7 +163,12 @@ pub fn import_plane(
             base_array_layer: 0,
             layer_count: 1,
         });
-    let view = unsafe { d.device.create_image_view(&view_info, None) }.map_err(cleanup)?;
+    let view = if crate::fault::hit("image-view") {
+        Err(vk::Result::ERROR_UNKNOWN)
+    } else {
+        unsafe { d.device.create_image_view(&view_info, None) }
+    }
+    .map_err(cleanup)?;
     Ok(ImportedImage { image, view, memory, format, width, height })
 }
 
@@ -165,7 +178,11 @@ pub fn import_buffer(d: &Device, fd: RawFd, size: u64) -> Result<ImportedBuffer>
         vk::ExternalMemoryBufferCreateInfo::default().handle_types(vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
     let info = vk::BufferCreateInfo::default()
         .size(size)
-        .usage(vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::TRANSFER_SRC)
+        .usage(
+            vk::BufferUsageFlags::STORAGE_BUFFER
+                | vk::BufferUsageFlags::TRANSFER_DST
+                | vk::BufferUsageFlags::TRANSFER_SRC,
+        )
         .sharing_mode(vk::SharingMode::EXCLUSIVE)
         .push_next(&mut external);
     let buffer = unsafe { d.device.create_buffer(&info, None) }?;
@@ -189,6 +206,7 @@ pub fn import_buffer(d: &Device, fd: RawFd, size: u64) -> Result<ImportedBuffer>
 
 /// A whole (possibly multi-plane, e.g. CCS) image from one dmabuf, for
 /// sampling: `planes` are the memory planes' (offset, pitch) on `fd`.
+#[allow(clippy::too_many_arguments)] // the image's whole description, as Vulkan takes it
 pub fn import_image(
     d: &Device,
     fd: RawFd,
@@ -201,7 +219,13 @@ pub fn import_image(
 ) -> Result<ImportedImage> {
     let layouts: Vec<_> = planes
         .iter()
-        .map(|&(offset, pitch)| vk::SubresourceLayout { offset, size: 0, row_pitch: pitch, array_pitch: 0, depth_pitch: 0 })
+        .map(|&(offset, pitch)| vk::SubresourceLayout {
+            offset,
+            size: 0,
+            row_pitch: pitch,
+            array_pitch: 0,
+            depth_pitch: 0,
+        })
         .collect();
     let mut explicit = vk::ImageDrmFormatModifierExplicitCreateInfoEXT::default()
         .drm_format_modifier(modifier)
@@ -243,7 +267,12 @@ pub fn import_image(
         .image(image)
         .view_type(vk::ImageViewType::TYPE_2D)
         .format(format)
-        .components(vk::ComponentMapping { r: vk::ComponentSwizzle::IDENTITY, g: vk::ComponentSwizzle::IDENTITY, b: vk::ComponentSwizzle::IDENTITY, a })
+        .components(vk::ComponentMapping {
+            r: vk::ComponentSwizzle::IDENTITY,
+            g: vk::ComponentSwizzle::IDENTITY,
+            b: vk::ComponentSwizzle::IDENTITY,
+            a,
+        })
         .subresource_range(vk::ImageSubresourceRange {
             aspect_mask: vk::ImageAspectFlags::COLOR,
             base_mip_level: 0,
@@ -251,6 +280,11 @@ pub fn import_image(
             base_array_layer: 0,
             layer_count: 1,
         });
-    let view = unsafe { d.device.create_image_view(&view_info, None) }.map_err(cleanup)?;
+    let view = if crate::fault::hit("image-view") {
+        Err(vk::Result::ERROR_UNKNOWN)
+    } else {
+        unsafe { d.device.create_image_view(&view_info, None) }
+    }
+    .map_err(cleanup)?;
     Ok(ImportedImage { image, view, memory, format, width, height })
 }

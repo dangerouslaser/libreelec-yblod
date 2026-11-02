@@ -13,14 +13,18 @@
 //! (a setting someone made is left alone); back to "auto" (which restores
 //! the default profile) a few seconds after the last frame, and when the
 //! engine goes. The files are root's: big-fella's udev rule lets the video
-//! group write them, and LibreELEC's Kodi runs as root; without write access
-//! (or on another driver) nothing happens.
+//! group write them; without that (or another driver) nothing happens.
 //! DVVK_GPU_BOOST=0: never.
+//!
+//! The manual level outlives the process, so "auto" is put back on every way
+//! out that runs code: the idle thread, Drop, an atexit hook (a process that
+//! exits without destroying the engine) and device.rs's fail-stop _exit
+//! (restore_now). Only a kill or an abort leaves it manual.
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 const IDLE: Duration = Duration::from_secs(3);
@@ -28,6 +32,9 @@ const IDLE: Duration = Duration::from_secs(3);
 struct State {
     active: bool,
     last: Instant,
+    // A level someone else set, when it was last read: read again only
+    // after IDLE (frame() runs for every frame).
+    foreign: Option<Instant>,
 }
 
 pub struct Boost {
@@ -45,7 +52,7 @@ fn amdgpu_dir(drm_fd: i32) -> Option<PathBuf> {
     if unsafe { libc::fstat(drm_fd, &mut st) } != 0 {
         return None;
     }
-    let (major, minor) = unsafe { (libc::major(st.st_rdev), libc::minor(st.st_rdev)) };
+    let (major, minor) = (libc::major(st.st_rdev), libc::minor(st.st_rdev));
     let dir = PathBuf::from(format!("/sys/dev/char/{major}:{minor}/device"));
     let driver = fs::read_link(dir.join("driver")).ok()?;
     if driver.file_name()? != "amdgpu" {
@@ -56,7 +63,7 @@ fn amdgpu_dir(drm_fd: i32) -> Option<PathBuf> {
 }
 
 /// pp_power_profile_mode's number for COMPUTE ("  5        COMPUTE :  ...").
-fn compute_profile(dir: &PathBuf) -> Option<String> {
+fn compute_profile(dir: &Path) -> Option<String> {
     let modes = fs::read_to_string(dir.join("pp_power_profile_mode")).ok()?;
     modes.lines().find_map(|l| {
         let mut words = l.split_whitespace();
@@ -66,19 +73,56 @@ fn compute_profile(dir: &PathBuf) -> Option<String> {
     })
 }
 
-fn level(dir: &PathBuf) -> String {
+fn level(dir: &Path) -> String {
     fs::read_to_string(dir.join("power_dpm_force_performance_level")).map(|s| s.trim().to_owned()).unwrap_or_default()
 }
 
-fn restore(dir: &PathBuf) {
+fn restore(dir: &Path) {
     if let Err(e) = fs::write(dir.join("power_dpm_force_performance_level"), "auto") {
         eprintln!("dvvk: GPU power level back to auto failed: {e}");
     }
 }
 
+/// A panic elsewhere never stops the restore: the data is plain values.
+fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// The devices whose level this process set to manual and hasn't put back.
+static BOOSTED: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+static ATEXIT: std::sync::Once = std::sync::Once::new();
+
+extern "C" fn restore_at_exit() {
+    restore_now();
+}
+
+fn boosted(dir: &PathBuf, on: bool) {
+    let mut b = lock(&BOOSTED);
+    b.retain(|d| d != dir);
+    if on {
+        b.push(dir.clone());
+        ATEXIT.call_once(|| unsafe {
+            libc::atexit(restore_at_exit);
+        });
+    }
+}
+
+/// Every boosted device back to "auto" now (exit paths; idempotent). Never
+/// blocks on a lock another thread holds: a held lock is skipped.
+pub fn restore_now() {
+    let dirs = match BOOSTED.try_lock() {
+        Ok(mut b) => std::mem::take(&mut *b),
+        Err(std::sync::TryLockError::Poisoned(p)) => std::mem::take(&mut *p.into_inner()),
+        Err(std::sync::TryLockError::WouldBlock) => return,
+    };
+    for dir in &dirs {
+        restore(dir);
+    }
+}
+
 impl Boost {
-    pub fn new(drm_fd: i32) -> Option<Boost> {
-        if std::env::var("DVVK_GPU_BOOST").map(|v| v == "0").unwrap_or(false) {
+    pub fn new(drm_fd: i32, enabled: bool) -> Option<Boost> {
+        if !enabled {
             return None;
         }
         let dir = amdgpu_dir(drm_fd)?;
@@ -87,7 +131,7 @@ impl Boost {
         if !writable("power_dpm_force_performance_level") || !writable("pp_power_profile_mode") {
             return None;
         }
-        let state = Arc::new(Mutex::new(State { active: false, last: Instant::now() }));
+        let state = Arc::new(Mutex::new(State { active: false, last: Instant::now(), foreign: None }));
         let stop = Arc::new(AtomicBool::new(false));
         let thread = {
             let (state, stop, dir) = (state.clone(), stop.clone(), dir.clone());
@@ -96,9 +140,10 @@ impl Boost {
                 .spawn(move || {
                     while !stop.load(Ordering::Relaxed) {
                         std::thread::sleep(Duration::from_millis(500));
-                        let mut s = state.lock().unwrap();
+                        let mut s = lock(&state);
                         if s.active && s.last.elapsed() >= IDLE {
                             restore(&dir);
+                            boosted(&dir, false);
                             s.active = false;
                         }
                     }
@@ -110,19 +155,27 @@ impl Boost {
 
     /// A frame is being composed.
     pub fn frame(&self) {
-        let mut s = self.state.lock().unwrap();
+        let mut s = lock(&self.state);
         s.last = Instant::now();
         if s.active {
             return;
         }
         // Only from "auto": a level someone set stays theirs.
-        if level(&self.dir) != "auto" {
+        if s.foreign.is_some_and(|t| t.elapsed() < IDLE) {
             return;
         }
+        if level(&self.dir) != "auto" {
+            s.foreign = Some(Instant::now());
+            return;
+        }
+        s.foreign = None;
         let set = fs::write(self.dir.join("power_dpm_force_performance_level"), "manual")
             .and_then(|_| fs::write(self.dir.join("pp_power_profile_mode"), &self.profile));
         match set {
-            Ok(()) => s.active = true,
+            Ok(()) => {
+                s.active = true;
+                boosted(&self.dir, true);
+            }
             Err(e) => {
                 eprintln!("dvvk: GPU COMPUTE power profile failed: {e}");
                 restore(&self.dir);
@@ -137,8 +190,9 @@ impl Drop for Boost {
         if let Some(t) = self.thread.take() {
             let _ = t.join();
         }
-        if self.state.lock().unwrap().active {
+        if lock(&self.state).active {
             restore(&self.dir);
+            boosted(&self.dir, false);
         }
     }
 }

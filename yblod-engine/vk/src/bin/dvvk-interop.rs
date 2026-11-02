@@ -45,11 +45,19 @@ const H: u32 = 2160;
 
 fn luma_value(x: u32, y: u32, ten: bool) -> u16 {
     let v = x.wrapping_mul(7).wrapping_add(y.wrapping_mul(13)) ^ (x >> 3).wrapping_mul(y >> 2);
-    if ten { (v & 0xffff) as u16 } else { (v & 0xff) as u16 }
+    if ten {
+        (v & 0xffff) as u16
+    } else {
+        (v & 0xff) as u16
+    }
 }
 fn chroma_value(x: u32, y: u32, c: u32, ten: bool) -> u16 {
     let v = (x.wrapping_mul(31) ^ y.wrapping_mul(17)).wrapping_add(c * 0x9e37);
-    if ten { (v & 0xffff) as u16 } else { (v & 0xff) as u16 }
+    if ten {
+        (v & 0xffff) as u16
+    } else {
+        (v & 0xff) as u16
+    }
 }
 
 fn fill_surface(display: va::VADisplay, surface: va::VASurfaceID, ten: bool) -> Result<(), String> {
@@ -106,7 +114,9 @@ fn check_surface(d: &Device, display: va::VADisplay, ten: bool) -> Result<(), St
             flags: va::VA_SURFACE_ATTRIB_SETTABLE,
             value: va::VAGenericValue {
                 type_: va::VAGenericValueTypeInteger,
-                value: va::VAGenericValueUnion { i: (if ten { va::VA_FOURCC_P010 } else { va::VA_FOURCC_NV12 }) as i32 },
+                value: va::VAGenericValueUnion {
+                    i: (if ten { va::VA_FOURCC_P010 } else { va::VA_FOURCC_NV12 }) as i32,
+                },
             },
         },
         va::VASurfaceAttrib {
@@ -135,7 +145,11 @@ fn check_surface(d: &Device, display: va::VADisplay, ten: bool) -> Result<(), St
             Ok(fd) => {
                 let s = sync::signalled(fd);
                 unsafe { libc::close(fd) };
-                if s { "signalled" } else { "pending" }
+                if s {
+                    "signalled"
+                } else {
+                    "pending"
+                }
             }
             Err(_) => "export failed",
         };
@@ -214,7 +228,11 @@ fn check_surface(d: &Device, display: va::VADisplay, ten: bool) -> Result<(), St
         unsafe { d.device.destroy_sampler(sampler, None) };
         pipe.destroy(d);
         imp.destroy(d);
-        if bad != 0 { Err(format!("{name}: {bad} codes differ")) } else { Ok(()) }
+        if bad != 0 {
+            Err(format!("{name}: {bad} codes differ"))
+        } else {
+            Ok(())
+        }
     })();
     unsafe { va::vaDestroySurfaces(display, &mut surface, 1) };
     result
@@ -301,7 +319,11 @@ fn check_output(d: &Device, drm_fd: c_int) -> Result<(), String> {
         pipe.destroy(d);
         buf.destroy(d);
         unsafe { libc::close(fd) };
-        if bad != 0 { Err(format!("output: {bad} pixels differ")) } else { attached.map_err(|e| e.to_string()) }
+        if bad != 0 {
+            Err(format!("output: {bad} pixels differ"))
+        } else {
+            attached.map_err(|e| e.to_string())
+        }
     })();
     unsafe {
         gbm_bo_destroy(bo);
@@ -315,7 +337,7 @@ fn main() {
     let path = std::ffi::CString::new(node.clone()).unwrap();
     let fd = unsafe { libc::open(path.as_ptr(), libc::O_RDWR | libc::O_CLOEXEC) };
     assert!(fd >= 0, "open {node}");
-    let d = Device::new(fd).unwrap_or_else(|e| panic!("device: {e}"));
+    let d = Device::new(fd, dv_engine_vk::options::EngineOptions::from_env()).unwrap_or_else(|e| panic!("device: {e}"));
     println!("device: {} ({})", d.name, d.driver);
     let display = unsafe { va::vaGetDisplayDRM(fd) };
     let (mut major, mut minor) = (0, 0);

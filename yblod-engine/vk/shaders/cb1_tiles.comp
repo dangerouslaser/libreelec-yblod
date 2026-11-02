@@ -1,0 +1,48 @@
+// CB1's overlay occupancy: per 32x32 tile of the shell's layer, whether any
+// pixel has alpha (the pack skips the overlay in empty tiles; a pixel pair
+// never straddles a tile). Only the tiles the shell's damage touched are
+// scanned again; a workgroup writes its tile's flag whole (no read of the
+// old one), so tiles scanned twice in one pass are harmless.
+//   MODE 0: scan, one workgroup per tile from (origin_x, origin_y) in tiles.
+//   MODE 1: count, one workgroup: occupied = the number of non-empty tiles
+//           (the engine reads it back: 0 is a transparent overlay).
+#version 460
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(binding = 0) uniform sampler2D shell;
+layout(binding = 1, std430) buffer Tiles { uint occupied; uint pad[3]; uint tiles[]; };
+layout(push_constant) uniform Push { uint w, h, tiles_x, tiles_y, origin_x, origin_y, mode; };
+shared uint any_alpha;
+
+void main()
+{
+    if (gl_LocalInvocationIndex == 0u)
+        any_alpha = 0u;
+    barrier();
+    if (mode == 1u) {
+        uint n = 0u;
+        for (uint i = gl_LocalInvocationIndex; i < tiles_x * tiles_y; i += 256u)
+            n += tiles[i] != 0u ? 1u : 0u;
+        if (n != 0u)
+            atomicAdd(any_alpha, n);
+        barrier();
+        if (gl_LocalInvocationIndex == 0u)
+            occupied = any_alpha;
+        return;
+    }
+    uvec2 tile = gl_WorkGroupID.xy + uvec2(origin_x, origin_y);
+    if (tile.x >= tiles_x || tile.y >= tiles_y)
+        return;   // uniform per workgroup
+    uvec2 base = tile * 32u + gl_LocalInvocationID.xy * 2u;
+    bool covered = false;
+    for (uint j = 0u; j < 2u; j++)
+        for (uint i = 0u; i < 2u; i++) {
+            uvec2 p = base + uvec2(i, j);
+            if (p.x < w && p.y < h && texelFetch(shell, ivec2(p), 0).a > 0.0)
+                covered = true;
+        }
+    if (covered)
+        atomicOr(any_alpha, 1u);
+    barrier();
+    if (gl_LocalInvocationIndex == 0u)
+        tiles[tile.y * tiles_x + tile.x] = any_alpha;
+}

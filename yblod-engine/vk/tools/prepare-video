@@ -1,0 +1,160 @@
+#!/usr/bin/python3
+"""Bounded user-session preparation. No persistent readiness marker or cache deletion."""
+import fcntl
+import json
+import os
+from pathlib import Path
+import pwd
+import selectors
+import signal
+import socket
+import subprocess
+import sys
+import time
+
+BUDGET = 85
+WARM_BUDGET = 2.0
+
+def emit(state, completed=0, total=0):
+    print(json.dumps(dict(state=state, completed=completed, total=total)), flush=True)
+
+def idle():
+    with socket.socket(socket.AF_UNIX) as s:
+        s.settimeout(.5)
+        s.connect(str(Path(os.environ['XDG_RUNTIME_DIR']) / 'big-fella-player.sock'))
+        # serve/mod.rs sends a state envelope immediately on connection.
+        # No command is required ("status" is not a player command).
+        data = s.makefile('rb').readline(65536)
+        state = json.loads(data)['state']
+        # Media loading can precede watching=true; do not race that work.
+        return (state['watching'] is False and state['status'] == 'idle'
+                and state['media'] is None)
+
+def healthy():
+    if not idle():
+        raise RuntimeError('player active')
+    memory = dict(line.split(':', 1) for line in Path('/proc/meminfo').read_text().splitlines())
+    if int(memory['MemAvailable'].split()[0]) < 512 * 1024:
+        raise RuntimeError('memory headroom')
+    for p in Path('/sys/class/hwmon').glob('hwmon*/temp*_input'):
+        if int(p.read_text()) >= 90000:
+            raise RuntimeError('temperature')
+    pressure = Path('/proc/pressure/memory').read_text().splitlines()
+    if any(line.startswith('full ') and float(line.split('avg10=')[1].split()[0]) >= 5 for line in pressure):
+        raise RuntimeError('memory pressure')
+
+def parse_progress(line, previous, total):
+    parts = line.split()
+    if len(parts) != 3 or parts[0] != 'DVVK_PREPARE':
+        raise ValueError('invalid progress')
+    done, count = map(int, parts[1:])
+    if done != previous + 1 or count <= 0 or done > count or (total and total != count):
+        raise ValueError('inconsistent progress')
+    return done, count
+
+def run_engine(command, deadline, report=True):
+    healthy()
+    started = time.monotonic()
+    p = subprocess.Popen(command, stdout=subprocess.PIPE, start_new_session=True)
+    done = total = 0
+    ready = False
+    buffer = b''
+    try:
+        with selectors.DefaultSelector() as sel:
+            sel.register(p.stdout, selectors.EVENT_READ)
+            eof = False
+            while not eof:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError('preparation deadline')
+                healthy()
+                for key, _ in sel.select(.2):
+                    chunk = os.read(key.fd, 4096)
+                    if not chunk:
+                        eof = True
+                        break
+                    buffer += chunk
+                    if len(buffer) > 65536:
+                        raise ValueError('oversized progress')
+                    while b'\n' in buffer:
+                        raw, buffer = buffer.split(b'\n', 1)
+                        line = raw.decode()
+                        if line == 'DVVK_PREPARE_READY':
+                            ready = done == total and total > 0
+                        else:
+                            if ready: raise ValueError('progress after ready')
+                            done, total = parse_progress(line, done, total)
+                            if report: emit('preparing', done, total)
+            p.wait(timeout=max(.01, deadline-time.monotonic()))
+            if p.returncode or not ready or buffer:
+                raise RuntimeError('engine incomplete')
+    finally:
+        if p.poll() is None:
+            os.killpg(p.pid, signal.SIGTERM)
+            try: p.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                os.killpg(p.pid, signal.SIGKILL)
+                p.wait(timeout=1)
+        p.stdout.close()
+    return time.monotonic() - started
+
+def wait_for_player(deadline):
+    # The shell belongs to plasma-core, which precedes graphical-session.
+    # Do not add After=player: the player starts after graphical-session and
+    # that would create an ordering cycle. Wait asynchronously for its socket.
+    while True:
+        try:
+            if not idle(): raise RuntimeError('player active')
+            return
+        except (FileNotFoundError, ConnectionRefusedError):
+            if time.monotonic() >= deadline: raise
+            time.sleep(.1)
+
+def worker():
+    # Never unlink a flock file: waiters and new starts must share one inode.
+    runtime = Path(os.environ['XDG_RUNTIME_DIR'])
+    fd = os.open(runtime / 'big-fella-video-prepare.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        deadline = time.monotonic() + BUDGET
+        command = ['/usr/lib/big-fella/dvvk-prepare']
+        emit('preparing')
+        wait_for_player(min(deadline, time.monotonic() + 10))
+        run_engine(command, deadline)
+        emit('checking')
+        # Separate process: successful compilation alone does not prove persistence.
+        elapsed = run_engine(command, min(deadline, time.monotonic() + WARM_BUDGET), False)
+        emit('ready')
+        print(f'warm reopen {elapsed:.3f}s', file=sys.stderr)
+
+def launcher_command():
+    # systemd-run sends EnvironmentFiles through the transient-unit D-Bus API:
+    # unlike unit files, that property requires an absolute path, not %h.
+    return ['systemd-run', '--user', '--quiet', '--pipe', '--wait', '--collect',
+               '--unit=big-fella-video-prepare', '--service-type=exec',
+               '-p', 'RuntimeMaxSec=90', '-p', 'TimeoutStopSec=2',
+               '-p', 'KillMode=control-group', '-p', 'MemoryMax=2G',
+               '-p', 'TasksMax=64', '-p', 'LimitCORE=0',
+               '-p', 'PartOf=graphical-session.target',
+               '-p', 'EnvironmentFile=-' + str(Path(pwd.getpwuid(os.getuid()).pw_dir) / '.config/big-fella/video.env'),
+               '/usr/lib/big-fella/prepare-video', '--worker']
+
+def main():
+    if '--worker' not in sys.argv:
+        try:
+            result = subprocess.call(launcher_command())
+        except OSError as e:
+            print(f'video preparation launcher failed: {e}', file=sys.stderr)
+            return 1
+        print(f'video preparation launcher exit={result}', file=sys.stderr)
+        return result
+    try:
+        signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(InterruptedError()))
+        worker()
+        return 0
+    except (Exception, KeyboardInterrupt) as e:
+        print(f'video preparation incomplete: {type(e).__name__}: {e}', file=sys.stderr)
+        emit('incomplete')
+        return 1
+
+if __name__ == '__main__':
+    sys.exit(main())

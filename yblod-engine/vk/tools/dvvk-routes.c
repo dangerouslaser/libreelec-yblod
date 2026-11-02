@@ -1,7 +1,7 @@
 /* Which route and kernels the engine takes for each frame of a file (yblod's
  * host code via yblod/plan.c), headless:  dvvk-routes FILE [FRAMES] [scaler] */
 #include "decode.h"
-#include "../yblod/plan.h"
+#include "../include/dvvk_plan.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

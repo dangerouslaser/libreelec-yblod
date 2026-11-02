@@ -151,7 +151,7 @@ pub struct SurfaceImport {
     pub fd: c_int,
     pub modifier: u64,
     pub ten_bit: bool,
-    pub inode: u64,
+    pub key: SurfaceKey,
 }
 
 impl SurfaceImport {
@@ -170,8 +170,135 @@ pub fn dmabuf_inode(fd: c_int) -> u64 {
     st.st_ino
 }
 
-/// Exports `surface` (separate layers) and imports its two planes, `width` x
-/// `height` the logical (decoded) size.
+// Cache identity includes the complete exported interpretation, not just object 0.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SurfaceKey {
+    dimensions: (u32, u32, u32, u32),
+    fourcc: u32,
+    objects: Vec<(u64, u32, u64)>,
+    layers: Vec<(u32, u32, u32, u32)>,
+}
+
+pub struct ExportedSurface {
+    desc: VADRMPRIMESurfaceDescriptor,
+    pub key: SurfaceKey,
+}
+
+impl Drop for ExportedSurface {
+    fn drop(&mut self) {
+        for o in self.desc.objects.iter().take(self.desc.num_objects as usize) {
+            unsafe {
+                libc::close(o.fd);
+            }
+        }
+    }
+}
+
+fn surface_key(desc: &VADRMPRIMESurfaceDescriptor, width: u32, height: u32) -> Result<SurfaceKey> {
+    // Both planes must share the retained implicit-sync object. Supporting
+    // separate objects requires waiting on each, not silently retaining only 0.
+    if desc.num_objects != 1
+        || desc.num_layers != 2
+        || width == 0
+        || height == 0
+        || !width.is_multiple_of(2)
+        || !height.is_multiple_of(2)
+        || width > desc.width
+        || height > desc.height
+        || !matches!(desc.fourcc, VA_FOURCC_P010 | VA_FOURCC_NV12)
+        || desc.layers[..2].iter().any(|l| l.num_planes != 1 || l.object_index[0] != 0 || l.pitch[0] == 0)
+    {
+        return Err(Error::Unsupported("surface export layout".into()));
+    }
+    let inode = dmabuf_inode(desc.objects[0].fd);
+    if inode == 0 {
+        return Err(Error::Unsupported("surface export fd".into()));
+    }
+    Ok(SurfaceKey {
+        dimensions: (width, height, desc.width, desc.height),
+        fourcc: desc.fourcc,
+        objects: vec![(inode, desc.objects[0].size, desc.objects[0].drm_format_modifier)],
+        layers: desc.layers[..2].iter().map(|l| (l.drm_format, l.object_index[0], l.offset[0], l.pitch[0])).collect(),
+    })
+}
+
+impl SurfaceKey {
+    /// The size the surface was imported for.
+    pub fn size(&self) -> (u32, u32) {
+        (self.dimensions.0, self.dimensions.1)
+    }
+}
+
+impl ExportedSurface {
+    // (`display` is libva's opaque handle: passed on to libva, never dereferenced here)
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn new(display: VADisplay, surface: VASurfaceID, width: u32, height: u32) -> Result<Self> {
+        let mut desc = VADRMPRIMESurfaceDescriptor::default();
+        let status = unsafe {
+            vaExportSurfaceHandle(
+                display,
+                surface,
+                VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
+                VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
+                &mut desc as *mut _ as *mut c_void,
+            )
+        };
+        if status != 0 {
+            return Err(Error::Unsupported(format!("vaExportSurfaceHandle: {status}")));
+        }
+        let key = match surface_key(&desc, width, height) {
+            Ok(key) => key,
+            Err(e) => {
+                for o in desc.objects.iter().take(desc.num_objects as usize) {
+                    unsafe {
+                        libc::close(o.fd);
+                    }
+                }
+                return Err(e);
+            }
+        };
+        Ok(Self { desc, key })
+    }
+
+    pub fn import(&self, d: &Device, width: u32, height: u32) -> Result<SurfaceImport> {
+        let desc = &self.desc;
+        let ten_bit = desc.fourcc == VA_FOURCC_P010;
+        let (lf, cf) = if ten_bit {
+            (vk::Format::R16_UNORM, vk::Format::R16G16_UNORM)
+        } else {
+            (vk::Format::R8_UNORM, vk::Format::R8G8_UNORM)
+        };
+        let fd = unsafe { libc::fcntl(desc.objects[0].fd, libc::F_DUPFD_CLOEXEC, 0) };
+        if fd < 0 {
+            return Err(Error::Unsupported("dup of decoded dmabuf failed".into()));
+        }
+        let plane =
+            |i: usize| Plane { fd, offset: desc.layers[i].offset[0] as u64, pitch: desc.layers[i].pitch[0] as u64 };
+        let modifier = desc.objects[0].drm_format_modifier;
+        let usage = vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED;
+        let luma = match dmabuf::import_plane(d, plane(0), modifier, lf, width, height, usage) {
+            Ok(i) => i,
+            Err(e) => {
+                unsafe {
+                    libc::close(fd);
+                }
+                return Err(e);
+            }
+        };
+        let chroma = match dmabuf::import_plane(d, plane(1), modifier, cf, width / 2, height / 2, usage) {
+            Ok(i) => i,
+            Err(e) => {
+                luma.destroy(d);
+                unsafe {
+                    libc::close(fd);
+                }
+                return Err(e);
+            }
+        };
+        Ok(SurfaceImport { luma, chroma, fd, modifier, ten_bit, key: self.key.clone() })
+    }
+}
+
 pub fn import_surface(
     d: &Device,
     display: VADisplay,
@@ -179,89 +306,51 @@ pub fn import_surface(
     width: u32,
     height: u32,
 ) -> Result<SurfaceImport> {
-    let mut desc = VADRMPRIMESurfaceDescriptor::default();
-    let status = unsafe {
-        vaExportSurfaceHandle(
-            display,
-            surface,
-            VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
-            VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
-            &mut desc as *mut _ as *mut c_void,
-        )
-    };
-    if status != 0 {
-        return Err(Error::Unsupported(format!("vaExportSurfaceHandle: {status}")));
-    }
-    let close_all = |desc: &VADRMPRIMESurfaceDescriptor| {
-        for o in &desc.objects[..desc.num_objects as usize] {
-            unsafe { libc::close(o.fd) };
-        }
-    };
-    let ten_bit = match desc.fourcc {
-        VA_FOURCC_P010 => true,
-        VA_FOURCC_NV12 => false,
-        f => {
-            close_all(&desc);
-            return Err(Error::Unsupported(format!("surface fourcc {f:#x}")));
-        }
-    };
-    if desc.num_layers != 2 || desc.layers[0].num_planes != 1 || desc.layers[1].num_planes != 1 {
-        close_all(&desc);
-        return Err(Error::Unsupported("surface export layout".into()));
-    }
-    let (lf, cf) = if ten_bit {
-        (vk::Format::R16_UNORM, vk::Format::R16G16_UNORM)
-    } else {
-        (vk::Format::R8_UNORM, vk::Format::R8G8_UNORM)
-    };
-    let plane = |l: &VADRMPRIMELayer| {
-        let o = &desc.objects[l.object_index[0] as usize];
-        (Plane { fd: o.fd, offset: l.offset[0] as u64, pitch: l.pitch[0] as u64 }, o.drm_format_modifier)
-    };
-    let usage = vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED;
-    let (lp, lm) = plane(&desc.layers[0]);
-    let (cp, cm) = plane(&desc.layers[1]);
-    let luma = match dmabuf::import_plane(d, lp, lm, lf, width, height, usage) {
-        Ok(i) => i,
-        Err(e) => {
-            close_all(&desc);
-            return Err(e);
-        }
-    };
-    let chroma = match dmabuf::import_plane(d, cp, cm, cf, width / 2, height / 2, usage) {
-        Ok(i) => i,
-        Err(e) => {
-            luma.destroy(d);
-            close_all(&desc);
-            return Err(e);
-        }
-    };
-    // Keep object 0's fd (implicit sync); the others aren't needed.
-    for o in &desc.objects[1..desc.num_objects as usize] {
-        unsafe { libc::close(o.fd) };
-    }
-    let fd = desc.objects[0].fd;
-    Ok(SurfaceImport { luma, chroma, fd, modifier: lm, ten_bit, inode: dmabuf_inode(fd) })
+    ExportedSurface::new(display, surface, width, height)?.import(d, width, height)
 }
 
-/// The inode of the dmabuf behind `surface` now (None if it can't be exported).
-pub fn surface_inode(display: VADisplay, surface: VASurfaceID) -> Option<u64> {
-    let mut desc = VADRMPRIMESurfaceDescriptor::default();
-    let status = unsafe {
-        vaExportSurfaceHandle(
-            display,
-            surface,
-            VA_SURFACE_ATTRIB_MEM_TYPE_DRM_PRIME_2,
-            VA_EXPORT_SURFACE_READ_ONLY | VA_EXPORT_SURFACE_SEPARATE_LAYERS,
-            &mut desc as *mut _ as *mut c_void,
-        )
-    };
-    if status != 0 {
-        return None;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn same_object_decode_layout_changes_invalidate_identity() {
+        let fd = unsafe { libc::eventfd(0, libc::EFD_CLOEXEC) };
+        assert!(fd >= 0);
+        let mut d = VADRMPRIMESurfaceDescriptor {
+            fourcc: VA_FOURCC_P010,
+            width: 3840,
+            height: 2160,
+            num_objects: 1,
+            ..Default::default()
+        };
+        d.objects[0].fd = fd;
+        d.objects[0].size = 24883200;
+        d.num_layers = 2;
+        for l in &mut d.layers[..2] {
+            l.num_planes = 1;
+            l.pitch[0] = 7680;
+        }
+        d.layers[1].offset[0] = 16588800;
+        let original = surface_key(&d, 3840, 2160).unwrap();
+        for field in 0..6 {
+            let mut changed = d;
+            match field {
+                0 => changed.fourcc = VA_FOURCC_NV12,
+                1 => changed.layers[1].offset[0] += 64,
+                2 => changed.layers[0].pitch[0] += 256,
+                3 => changed.layers[1].drm_format = 1,
+                4 => changed.objects[0].drm_format_modifier = 1,
+                _ => changed.width += 64,
+            }
+            assert_ne!(original, surface_key(&changed, 3840, 2160).unwrap());
+        }
+        assert_ne!(original, surface_key(&d, 1920, 1080).unwrap());
+        d.layers[1].object_index[0] = 4;
+        assert!(surface_key(&d, 3840, 2160).is_err());
+        d.num_objects = u32::MAX;
+        assert!(surface_key(&d, 3840, 2160).is_err());
+        unsafe {
+            libc::close(fd);
+        }
     }
-    let inode = dmabuf_inode(desc.objects[0].fd);
-    for o in &desc.objects[..desc.num_objects as usize] {
-        unsafe { libc::close(o.fd) };
-    }
-    Some(inode)
 }
