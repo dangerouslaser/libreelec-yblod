@@ -16,6 +16,10 @@
 //! Behaviour:
 //! - `DVVK_GPU_BOOST=0`: never switch AMD to the COMPUTE power profile (power.rs).
 //! - `DVVK_DAMAGE=0`: rewrite every output pixel every frame (damage.rs).
+//! - `DVVK_SURFACE_CHECK=1`: export each decoded surface from VA every frame
+//!   and keep its import only while the dmabuf is the same one, as before
+//!   0.1.0-16 (for a caller that can't reset the engine when the decoder's
+//!   surface pool changes: Kodi's adapter, LibreELEC's runtime.env).
 //! - `DVVK_OVERLAY_PREPARE=1`: the shell's overlay through overlay_prepare's
 //!   colour cache instead of fused into the pack (and no native CB1 overlay).
 //! - `DVVK_CB1_PAIR_REUSE=0`: CB1's overlay converts each layer per sample
@@ -56,6 +60,7 @@ pub struct EngineOptions {
     pub prepare_progress: bool,
     pub gpu_boost: bool,
     pub damage: bool,
+    pub surface_check: bool,
     pub overlay_prepare: bool,
     pub cb1_pair_reuse: bool,
     pub resize_fma: u32,
@@ -78,6 +83,7 @@ impl Default for EngineOptions {
             prepare_progress: false,
             gpu_boost: true,
             damage: true,
+            surface_check: false,
             overlay_prepare: false,
             cb1_pair_reuse: true,
             resize_fma: 1,
@@ -105,6 +111,7 @@ impl EngineOptions {
             prepare_progress: flag("DVVK_PREPARE_PROGRESS"),
             gpu_boost: not_zero("DVVK_GPU_BOOST"),
             damage: not_zero("DVVK_DAMAGE"),
+            surface_check: flag("DVVK_SURFACE_CHECK"),
             overlay_prepare: flag("DVVK_OVERLAY_PREPARE"),
             cb1_pair_reuse: not_zero("DVVK_CB1_PAIR_REUSE"),
             resize_fma: number("DVVK_RESIZE_FMA", 1),

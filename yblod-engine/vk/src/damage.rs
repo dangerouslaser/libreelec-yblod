@@ -60,6 +60,11 @@ impl Damage {
         }
     }
 
+    /// Forget the rectangles set_pending gave: the next change is everywhere.
+    pub fn clear_pending(&mut self) {
+        self.pending = None;
+    }
+
     /// The overlay's next change covers just these rectangles (x, y, w, h).
     pub fn set_pending(&mut self, rects: &[[u32; 4]]) {
         let (cw, ch) = self.canvas;

@@ -190,7 +190,29 @@ pub unsafe extern "C" fn dvvk_set_subtitles(e: *mut Engine, parts: *const crate:
 /// `e` from dvvk_create; `buf` NULL or valid for the call.
 #[no_mangle]
 pub unsafe extern "C" fn dvvk_set_overlay(e: *mut Engine, buf: *const crate::overlay::Dmabuf, id: u64) -> i32 {
-    with_engine(e, "overlay", DVVK_INVALID, DVVK_UNSUPPORTED, |e| match e.set_shell(buf.as_ref(), id) {
+    dvvk_set_overlay_ex(e, buf, id, 0)
+}
+
+const DVVK_OVERLAY_FLIP_Y: u32 = 1;
+
+/// dvvk_set_overlay with flags: DVVK_OVERLAY_FLIP_Y (1), the buffer's rows
+/// bottom first (Kodi's GUI framebuffer, a GL texture, read in place). Its
+/// damage counts as everywhere (dvvk_set_overlay_damage's rectangles are
+/// top first).
+/// # Safety
+/// `e` from dvvk_create; `buf` NULL or valid for the call.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_set_overlay_ex(
+    e: *mut Engine,
+    buf: *const crate::overlay::Dmabuf,
+    id: u64,
+    flags: u32,
+) -> i32 {
+    if flags & !DVVK_OVERLAY_FLIP_Y != 0 {
+        return DVVK_INVALID;
+    }
+    let flip = flags & DVVK_OVERLAY_FLIP_Y != 0;
+    with_engine(e, "overlay", DVVK_INVALID, DVVK_UNSUPPORTED, |e| match e.set_shell(buf.as_ref(), id, flip) {
         Ok(()) => 0,
         Err(err) => {
             log_error("overlay", err);

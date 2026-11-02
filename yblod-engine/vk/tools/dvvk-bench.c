@@ -22,6 +22,9 @@
  *                        buffers alternating); rect: only a 256x256 square
  *                        changes every frame (focus, cursor)
  *     --white NITS       overlay white (default 203)
+ *     --flip             the overlay's rows stored bottom first and set with
+ *                        DVVK_OVERLAY_FLIP_Y (Kodi's GUI framebuffer, read in
+ *                        place): the output must equal the run without it
  *     --fp16             the overlay as linear half float (AB4H, 1.0 = the
  *                        overlay's white), as a compositor's HDR-capable
  *                        desktop: the same picture, sRGB decoded
@@ -196,7 +199,7 @@ static void sleep_until(double t_ms)
 
 int main(int argc, char **argv)
 {
-    int frames = 240, fel = 1, scaler = 0, have_dest = 0, desktop = 0, fp16 = 0, cb1 = 0;
+    int frames = 240, fel = 1, scaler = 0, have_dest = 0, desktop = 0, fp16 = 0, cb1 = 0, flip = 0;
     unsigned cm4 = 0, cm4_trigger = 0, cm4_headroom = 20, tv_peak = 0, no_l2 = 0;
     uint32_t last_dm_status = UINT32_MAX;
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
@@ -258,6 +261,8 @@ int main(int argc, char **argv)
             cb1 = 1;
         else if (!strcmp(argv[i], "--desktop"))
             desktop = 1;
+        else if (!strcmp(argv[i], "--flip"))
+            flip = 1;
         else if (!strcmp(argv[i], "--fp16"))
             fp16 = 1;
         else if (argv[i][0] != '-')
@@ -314,6 +319,17 @@ int main(int argc, char **argv)
                 continue;
             for (int c = 0; c < 3; c++)  /* a one-code change, kept premultiplied */
                 p[c] = p[c] > 0 ? p[c] - 1 : (p[c] < p[3] ? 1 : 0);
+        }
+        if (flip) {
+            /* rows bottom first, as a GL framebuffer's texture */
+            uint8_t *row = malloc((size_t)W * 4);
+            for (uint8_t *p = a; p; p = p == a ? b : NULL)
+                for (unsigned y = 0; y < H / 2; y++) {
+                    memcpy(row, p + (size_t)y * W * 4, (size_t)W * 4);
+                    memcpy(p + (size_t)y * W * 4, p + (size_t)(H - 1 - y) * W * 4, (size_t)W * 4);
+                    memcpy(p + (size_t)(H - 1 - y) * W * 4, row, (size_t)W * 4);
+                }
+            free(row);
         }
         if (fp16)
             bo_format = GBM_FORMAT_ABGR16161616F;
@@ -409,7 +425,7 @@ int main(int argc, char **argv)
             }
             dvvk_dmabuf db = {.width = W, .height = H, .format = fp16 ? DRM_FORMAT_ABGR16161616F : DRM_FORMAT_ARGB8888, .modifier = DRM_FORMAT_MOD_LINEAR,
                               .num_planes = 1, .fd = {ov[which].fd, -1, -1, -1}, .stride = {ov[which].stride}};
-            if (dvvk_set_overlay(e, &db, (uint64_t)n + 1))
+            if (dvvk_set_overlay_ex(e, &db, (uint64_t)n + 1, flip ? DVVK_OVERLAY_FLIP_Y : 0))
                 return fprintf(stderr, "overlay refused\n"), 1;
         }
         dvvk_frame f = {.plan = {.width = w, .height = h, .x = x, .y = y, .dw = dw == w && dh == h ? 0 : dw,

@@ -97,6 +97,7 @@ pub struct Sources {
     shells: HashMap<ShellKey, Shell>,
     shell: Option<ShellKey>,
     pub shell_id: u64,               // the caller's id for it
+    pub shell_flip: bool,            // its rows bottom first (a GL framebuffer's texture)
     pub consumed: HashMap<u64, u64>, // caller id -> ticket of the frame that read it
     pub dirty: bool,
     pub subs_bbox: Option<[u32; 4]>,  // x0, y0, x1, y1 of the current parts
@@ -130,6 +131,7 @@ impl Sources {
             shells: HashMap::new(),
             shell: None,
             shell_id: 0,
+            shell_flip: false,
             consumed: HashMap::new(),
             dirty: false,
             subs_bbox: None,
@@ -289,17 +291,19 @@ impl Sources {
     }
 
     /// The shell's OSD layer: a new buffer (imported once per allocation),
-    /// or none.
+    /// or none. `flip`: its rows bottom first (Kodi's GUI framebuffer).
     pub fn set_shell(
         &mut self,
         d: &Device,
         buf: Option<&Dmabuf>,
         id: u64,
+        flip: bool,
         idle: impl Fn() -> Result<()>,
     ) -> Result<()> {
         let Some(b) = buf else {
             self.mark(None, true);
             self.shell = None;
+            self.shell_flip = false;
             return Ok(());
         };
         let key = ShellKey::new(b)?;
@@ -353,6 +357,7 @@ impl Sources {
         self.mark(None, true);
         self.shell = Some(key);
         self.shell_id = id;
+        self.shell_flip = flip;
         Ok(())
     }
 

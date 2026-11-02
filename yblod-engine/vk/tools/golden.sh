@@ -134,13 +134,41 @@ if [ -n "$P81" ]; then
   run p81-cb1-cm4     "$P81" --cb1 --cm4 always
 fi
 
+# DVVK_OVERLAY_FLIP_Y (Kodi's GUI framebuffer, rows bottom first): the same
+# overlay stored upside down must give its twin's bytes. Checked against the
+# twin in this run, not recorded in golden.sha256.
+MAIN=$OUT
+OUT=$WORK/twins.sha256
+: > "$OUT"
+run fel-s0-static~flip    "$FEL" --el-scaler 0 --mode static --flip $S
+run fel-s1-change~flip    "$FEL" --el-scaler 1 --mode change --flip $S
+run fel-cb1-static~flip   "$FEL" --cb1 --mode static --flip $S
+run fel-cb1-change~flip   "$FEL" --cb1 --mode change --flip $S
+run fel-box-fel~flip      "$FEL" --dest 480,270,2880,1620 --mode static --flip $S
+[ -z "$MEL" ] || run mel-cb1-static~flip "$MEL" --cb1 --mode static --flip $S
+TWINS=$OUT
+OUT=$MAIN
+twins_bad=0
+while read -r hash name; do
+  twin=$(echo "$name" | sed 's/~flip//')
+  if ! grep -q "^$hash $twin\$" "$OUT"; then
+    echo "golden.sh: FLIP_Y $name differs from $twin" >&2
+    twins_bad=1
+  fi
+done < "$TWINS"
+[ "$twins_bad" = 0 ] && echo "golden.sh: FLIP_Y twins identical ($(wc -l < "$TWINS") hashes)"
+
 if [ "$MODE" = update ]; then
+  [ "$twins_bad" = 0 ] || { echo "golden.sh: not updating (FLIP_Y twins differ)"; exit 1; }
   cp "$OUT" "$GOLDEN"
   echo "golden.sh: wrote $(grep -vc '^#' "$GOLDEN") hashes to $GOLDEN"
   exit 0
 fi
-if diff -u "$GOLDEN" "$OUT"; then
+if diff -u "$GOLDEN" "$OUT" && [ "$twins_bad" = 0 ]; then
   echo "golden.sh: identical ($(grep -vc '^#' "$OUT") hashes)"
+elif [ "$twins_bad" != 0 ]; then
+  echo "golden.sh: FLIP_Y twins DIFFERENT"
+  exit 1
 else
   echo "golden.sh: DIFFERENT (above: - golden, + this run)"
   exit 1

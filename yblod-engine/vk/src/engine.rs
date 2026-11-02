@@ -59,7 +59,7 @@ struct PackPush {
     source_w: u32,
     source_h: u32,
     nearest: u32,
-    gui_flags: u32,     // the fused overlay: 1 invalidate the colour cache (2: rows bottom first, unused)
+    gui_flags: u32,     // the fused overlay: 1 invalidate the cache, 2 the shell rows bottom first
     origin: [u32; 2],   // the dispatch's first workgroup (a part of the canvas, damage.rs)
     chroma_filter: u32, // sited pack: 1 CB1's Annex B 4:2:2 filters
 }
@@ -1056,7 +1056,7 @@ impl Engine {
             return Err(Error::Vk(vk::Result::ERROR_UNKNOWN));
         }
         let cb1_tiles = construction.keep(DeviceBuffer::new(&d, 16 + 4 * (CB1_TILES.0 * CB1_TILES.1) as u64)?);
-        let cb1_tiles_pipe = construction.keep(Pipeline::new(&d, "cb1_tiles", &[sampled, storage], 28, &[])?);
+        let cb1_tiles_pipe = construction.keep(Pipeline::new(&d, "cb1_tiles", &[sampled, storage], 32, &[])?);
         let deadline_trace = o.deadline_trace && d.timestamp_period > 0.0;
         let profile = o.profile && d.timestamp_period > 0.0;
         let verify_every = o.verify_every;
@@ -1316,11 +1316,12 @@ impl Engine {
             Some(rects.iter().map(|r| [r[0], r[1], r[0].saturating_add(r[2]), r[1].saturating_add(r[3])]).collect());
     }
 
-    /// The shell's OSD buffer (KWin's forwarded dmabuf) for the following frames,
+    /// The shell's OSD buffer (KWin's forwarded dmabuf, or Kodi's GUI
+    /// framebuffer, rows bottom first with `flip`) for the following frames,
     /// or none. `id` names it for overlay_ticket. Each frame that reads it
     /// leaves its fence on the buffer as a read fence, so a writer that
     /// honours implicit sync can draw the next contents into the same buffer.
-    pub fn set_shell(&mut self, buf: Option<&overlay::Dmabuf>, id: u64) -> Result<()> {
+    pub fn set_shell(&mut self, buf: Option<&overlay::Dmabuf>, id: u64, flip: bool) -> Result<()> {
         let ticket = self.ticket;
         let timeline = self.timeline;
         let d = &self.d;
@@ -1345,7 +1346,13 @@ impl Engine {
             }
             Ok(())
         };
-        self.sources.set_shell(d, buf, id, idle)?;
+        self.sources.set_shell(d, buf, id, flip, idle)?;
+        // A flipped buffer's damage would be in its own rows (bottom first):
+        // it counts as changed everywhere.
+        if flip {
+            self.shell_damage = None;
+            self.damage.clear_pending();
+        }
         // CB1's tiles to scan again: the damage given for this buffer, or all
         // (also once the tiles are stale anyway, or the list grows long).
         match (buf.is_some() && self.cb1_tiles_valid, self.shell_damage.take(), self.cb1_dirty.as_mut()) {
@@ -1358,7 +1365,7 @@ impl Engine {
         self.sources_used = true;
 
         let new = buf.map(|_| id);
-        if new != self.last_shell {
+        if new != self.last_shell || flip {
             self.damage.changed(None);
         }
         self.last_shell = new;
@@ -1426,7 +1433,9 @@ impl Engine {
     /// export differs (the cached import stands only for the same dmabuf).
     fn surface(&mut self, id: u32, w: u32, h: u32) -> Result<()> {
         let replace = crate::fault::hit("decode-replace");
-        if !replace && self.surfaces.get(&id).is_some_and(|s| s.key.size() == (w, h)) {
+        // DVVK_SURFACE_CHECK=1: export it every frame and keep the import only
+        // for the same dmabuf (for callers that don't reset on a new pool).
+        if !replace && !self.d.options.surface_check && self.surfaces.get(&id).is_some_and(|s| s.key.size() == (w, h)) {
             return Ok(());
         }
         let exported = va::ExportedSurface::new(self.va, id, w, h)?;
@@ -2188,10 +2197,11 @@ impl Engine {
                 _ => full.to_vec(),
             };
             let tiles = crate::damage::tile_rects(&dirty, CB1_TILE, CB1_TILES);
+            let flip = self.sources.shell_flip as u32;
             let binds = [Bind::Sampled(sh.image.view, self.linear), Bind::Buffer(self.cb1_tiles.buffer)];
             gpu::compute_barrier(d, cmd);
             for (i, t) in tiles.iter().enumerate() {
-                let push = [CANVAS_W, CANVAS_H, CB1_TILES.0, CB1_TILES.1, t[0], t[1], 0u32];
+                let push = [CANVAS_W, CANVAS_H, CB1_TILES.0, CB1_TILES.1, t[0], t[1], 0u32, flip];
                 if i == 0 {
                     self.dispatch(cmd, &self.cb1_tiles_pipe, &binds, &push, (t[2] - t[0], t[3] - t[1]));
                 } else {
@@ -2204,7 +2214,7 @@ impl Engine {
                 cmd,
                 &self.cb1_tiles_pipe,
                 &binds,
-                &[CANVAS_W, CANVAS_H, CB1_TILES.0, CB1_TILES.1, 0, 0, 1u32],
+                &[CANVAS_W, CANVAS_H, CB1_TILES.0, CB1_TILES.1, 0, 0, 1u32, flip],
                 (1, 1),
             );
             gpu::compute_barrier(d, cmd);
@@ -2246,7 +2256,7 @@ impl Engine {
                 tile: overlay::TILE,
                 origin: [rect[0], rect[1]],
                 invalidate: invalidate as u32,
-                flip: 0,
+                flip: s.shell_flip as u32,
             };
             self.dispatch(
                 cmd,
@@ -2357,6 +2367,8 @@ impl Engine {
             source_h: p.source_h,
             nearest: p.nearest,
             gui_flags: fused_invalidate as u32
+                // the shell's rows bottom first (Kodi's GUI framebuffer)
+                | (self.sources.shell_flip as u32) << 1
                 // the shell's colours computed for every pixel instead of kept in the
                 // per-pixel cache (the same values): on Vega 8 the cache's traffic
                 // cost more than the arithmetic (a changed 4K desktop 25 -> 14.5 ms)
@@ -2536,7 +2548,7 @@ impl Engine {
                 tile: overlay::TILE,
                 origin: [0, 0],
                 invalidate: 1,
-                flip: 0,
+                flip: s.shell_flip as u32,
             };
             self.dispatch(
                 cmd,
