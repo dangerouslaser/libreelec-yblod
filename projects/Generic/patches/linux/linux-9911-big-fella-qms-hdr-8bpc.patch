@@ -1,0 +1,62 @@
+big-fella: QMS on HDR outputs when the 60 Hz base keeps the colour depth
+
+yblod's QMS steps aside whenever HDR_OUTPUT_METADATA is set, because the
+2160p 60 Hz base (594 MHz) can't carry deep colour on HDMI 2.0. But KWin's
+HDR desktop at 3840x2160@60 already runs the pipe at 8 bpc, and so do
+2160p50/59.94 (594 MHz too): QMS loses nothing there, and every live TV
+rate change on an HDR desktop was a full modeset (a blank).
+
+Check the actual constraint instead: with HDR metadata, QMS only when the
+base timing gets the same bpc as the requested timing (intel_hdmi_compute_bpc
+on both clocks: RGB, the baseline pipe_bpp, source/sink TMDS limits). 1080p
+HDR at 10 bpc fits the base (185.625 MHz) and keeps QMS; 2160p24/25/30 HDR
+at 10 bpc keeps its own timing. Reconstructed HDR10 (dv_hdr10_deep_color)
+stays excluded. Applies after linux-9910-yblod-hdmi-qms.patch.
+
+diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+index 624233f..052da55 100644
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -2569,8 +2569,11 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+ 			DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK))
+ 		return;
+ 
+-	/* the 60 Hz base can't carry deep color at 2160p; HDR10 keeps its own timing */
+-	if (conn_state->hdr_output_metadata || intel_conn_state->dv_hdr10_deep_color)
++	/*
++	 * Reconstructed HDR10 (10/12 bpc required) keeps its own timing. Other
++	 * HDR is checked below, once the base timing is known.
++	 */
++	if (intel_conn_state->dv_hdr10_deep_color)
+ 		return;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(qms_bases); i++)
+@@ -2599,6 +2602,28 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+ 	if (!intel_hdmi_sink_has_qms(conn_state->connector))
+ 		return;
+ 
++	/*
++	 * HDR: QMS only if the 60 Hz base carries the same colour depth as
++	 * the requested timing. Both run intel_hdmi_compute_bpc() (RGB, the
++	 * baseline pipe_bpp from max bpc, the source/sink TMDS limits), as
++	 * compute_formats will. So 2160p50/59.94/60 (594 MHz either way, 8 bpc
++	 * on HDMI 2.0) and 1080p at 10 bpc (185.6 MHz) keep QMS, while 2160p24
++	 * HDR at 10 bpc (371.25 MHz; 742.5 on the base) gets its own timing.
++	 */
++	if (conn_state->hdr_output_metadata) {
++		int bpc = intel_hdmi_compute_bpc(encoder, crtc_state,
++						 m->crtc_clock, true);
++		int base_bpc = intel_hdmi_compute_bpc(encoder, crtc_state,
++						      b->clock, true);
++
++		if (base_bpc < bpc) {
++			drm_dbg_kms(encoder->base.dev,
++				    "QMS: off for HDR, %d bpc at %d kHz but %d on the %d kHz base\n",
++				    bpc, m->crtc_clock, base_bpc, b->clock);
++			return;
++		}
++	}
++
+ 	if (intel_conn_state->dv_lab_standard && b->vdisplay == 2160) {
+ 		const struct drm_property_blob *edid = conn_state->connector->edid_blob_ptr;
+ 		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
