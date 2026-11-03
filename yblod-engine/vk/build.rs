@@ -27,17 +27,16 @@ fn main() {
     names.sort();
     let mut table = String::from("pub static SHADERS: &[(&str, &[u8])] = &[\n");
     for n in &names {
-        table.push_str(&format!(
-            "    (\"{n}\", include_bytes!(concat!(env!(\"OUT_DIR\"), \"/{n}.spv\"))),\n"
-        ));
+        table.push_str(&format!("    (\"{n}\", include_bytes!(concat!(env!(\"OUT_DIR\"), \"/{n}.spv\"))),\n"));
     }
     table.push_str("];\n");
     fs::write(out.join("shaders.rs"), table).unwrap();
     // yblod's host code (tables, metadata, packets) and yblod/plan.c, from
-    // yblod-engine/src next to this crate (the LibreELEC package passes it).
+    // the same patched yblod-engine tree yblod-engine's PKGBUILD builds.
     let yblod = PathBuf::from(env::var("YBLOD_ENGINE_SRC").expect("YBLOD_ENGINE_SRC: yblod-engine/src, patched"));
     println!("cargo:rerun-if-env-changed=YBLOD_ENGINE_SRC");
     println!("cargo:rerun-if-changed=yblod");
+    println!("cargo:rerun-if-changed=include");
     let mut c = cc::Build::new();
     c.std("gnu11")
         .flag("-ffp-contract=off")
@@ -46,19 +45,41 @@ fn main() {
         .define("DV_ENCODE_STEPS", "256")
         .define("DV_COLOUR_LUT", None)
         .include(&yblod)
+        .include("include")
         .file("yblod/plan.c")
+        .file("yblod/cb1_overlay.c")
+        .file("yblod/dm_cm4.c")
         .warnings(false);
-    for f in ["dv_ffmpeg_metadata.c", "dv_cm4.c", "single_reshape.c", "single_reshape_ffmpeg.c", "mmr_prepare.c",
-              "pixel_luma.c", "pixel_chroma_final.c", "pixel_spatial.c", "source_geometry.c",
-              "source_overlay.c", "pixel_colour.c", "colour_lut.c"] {
+    for f in [
+        "dv_ffmpeg_metadata.c",
+        "dv_cm4.c",
+        "single_reshape.c",
+        "single_reshape_ffmpeg.c",
+        "mmr_prepare.c",
+        "pixel_luma.c",
+        "pixel_chroma_final.c",
+        "pixel_spatial.c",
+        "source_geometry.c",
+        "source_overlay.c",
+        "pixel_colour.c",
+        "colour_lut.c",
+    ] {
         c.file(yblod.join(f));
     }
     if let Ok(inc) = env::var("FFMPEG_INCLUDE") {
         c.include(inc);
     }
     c.compile("yblod_host");
-    // The C ABI's soname (Kodi and mpv-yblod dlopen libdv_engine_vk.so.0).
-    println!("cargo:rustc-cdylib-link-arg=-Wl,-soname,libdv_engine_vk.so.0");
+    // The C ABI's soname: DVVK_LIBRARY in include/dv_engine_vk.h, the one
+    // place it is written (mpv-yblod dlopens it by that macro).
+    let header = fs::read_to_string("include/dv_engine_vk.h").unwrap();
+    let soname = header
+        .lines()
+        .find_map(|l| l.strip_prefix("#define DVVK_LIBRARY "))
+        .map(|v| v.trim().trim_matches('"').to_owned())
+        .expect("DVVK_LIBRARY in include/dv_engine_vk.h");
+    println!("cargo:rustc-env=DVVK_LIBRARY={soname}");
+    println!("cargo:rustc-cdylib-link-arg=-Wl,-soname,{soname}");
     // libva for surface export (interop/va.rs); libgbm only for the test tools.
     println!("cargo:rustc-link-lib=va");
     println!("cargo:rustc-link-lib=va-drm");

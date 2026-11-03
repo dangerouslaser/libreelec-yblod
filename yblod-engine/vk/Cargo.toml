@@ -3,12 +3,16 @@ name = "dv-engine-vk"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
-description = "yblod's Dolby Vision source-tunnel engine on Vulkan compute"
+description = "big-fella's Dolby Vision source-tunnel engine on Vulkan compute (yblod's maths)"
 publish = false
 
 [lib]
 name = "dv_engine_vk"
 crate-type = ["cdylib", "rlib"]
+
+[features]
+# Isolated regression binaries only. No hooks in the default library.
+test-faults = []
 
 [dependencies]
 ash = { version = "0.38", default-features = false, features = ["loaded", "std"] }
@@ -20,4 +24,7 @@ cc = "1"
 [profile.release]
 opt-level = 2
 debug = 1
-panic = "abort"
+# unwind (the default): the C API catches panics (capi.rs) and returns an
+# error instead of aborting the player, which would also skip the GPU power
+# profile's restore (power.rs)
+panic = "unwind"

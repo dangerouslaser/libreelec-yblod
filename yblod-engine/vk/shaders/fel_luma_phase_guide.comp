@@ -1,6 +1,6 @@
-// luma_phase_guide (DV_INPUT_P010): per 2x2 BL luma block, the BL chroma phase
-// (Cb, Cr), the MMR guide and four reconstructed 12-bit luma samples (BL
-// mapping + residual of the EL luma upsampled horizontally from `temp`).
+// luma_phase_guide (DV_INPUT_P010), perf experiment: two 2x2 blocks per
+// invocation (gx0 = 2 * invocation, gx0 + 1), the EL taps as 5 dword loads,
+// 32-bit / 64-bit stores, the Q16 add in 32 bits. Same values as the original.
 #version 460
 #define ERROR_OR(v) atomicOr(error, v)
 layout(binding = 8, std430) buffer Error { uint error; };
@@ -8,51 +8,92 @@ layout(binding = 8, std430) buffer Error { uint error; };
 layout(local_size_x = 16, local_size_y = 8) in;
 layout(binding = 0) uniform sampler2D bl;
 layout(binding = 1) uniform sampler2D uv;
-layout(binding = 2, std430) readonly buffer Temp { uint16_t temp[]; };
+layout(binding = 2, std430) readonly buffer TempW { uint tempw[]; };
 layout(binding = 3, std430) readonly buffer Mapping { uint16_t mt[]; };
 layout(binding = 4, std430) readonly buffer Residual { int rt[]; };
 layout(binding = 5, std430) writeonly buffer Out { uint16_t outp[]; };
-layout(binding = 6, std430) writeonly buffer Phase { uint16_t cb[]; };   // cb then cr (w/2 x h/2 each)
-layout(binding = 7, std430) writeonly buffer Guide { uint16_t guide_out[]; };
+layout(binding = 5, std430) writeonly buffer Out4 { uvec2 out4[]; };
+layout(binding = 6, std430) writeonly buffer Phase { uint cbw[]; };   // cb then cr (w/2 x h/2 each), pairs
+layout(binding = 7, std430) writeonly buffer Guide { uint guidew[]; };
 layout(push_constant) uniform Push { uint w, h, method, nearest, row_offset; };
-HORIZONTAL(horizontal, temp)
+
+uint tv(uint i) { return (tempw[i >> 1] >> ((i & 1u) * 16u)) & 0xffffu; }
+
+bool recon32(uint m, int rv, out uint value)
+{
+    if (rv > 2147483647 - int(m)) { value = 0u; return false; }
+    int total = int(m) + rv;
+    value = total > -8 ? uint(min((min(total, 65536) + 8) >> 4, 4095)) : 0u;
+    return true;
+}
 
 void main()
 {
-    uint gx = gl_GlobalInvocationID.x, gy = gl_GlobalInvocationID.y + row_offset;
-    if (gx >= w / 2 || gy >= h / 2)
+    uint cw = w / 2, gx0 = gl_GlobalInvocationID.x * 2u, gy = gl_GlobalInvocationID.y + row_offset;
+    if (gx0 >= cw || gy >= h / 2)
         return;
-    uint gi = gy * (w / 2) + gx, plane = (w / 2) * (h / 2);
-    uvec2 value = phase_uv_sample(uv, gx, int(gy), h / 2, method);
-    cb[gi] = uint16_t(value.x);
-    cb[plane + gi] = uint16_t(value.y);
-    uint x0 = gx * 2, left = uint(edge(int(x0) - 1, w));
-    uint s[2][3], a[2];
+    uint gi = gy * cw + gx0, plane = cw * (h / 2);
+    uvec2 v0 = phase_uv_sample(uv, gx0, int(gy), h / 2, method), v1 = phase_uv_sample(uv, gx0 + 1u, int(gy), h / 2, method);
+    cbw[gi >> 1] = v0.x | (v1.x << 16);
+    cbw[(plane + gi) >> 1] = v0.y | (v1.y << 16);
+    uint x0 = gx0 * 2u;
+    uint b[2][5], g[2];
     for (uint r = 0; r < 2; ++r) {
         uint y = gy * 2 + r;
-        s[r][0] = input_sample(bl, left, y, 0u);
-        s[r][1] = input_sample(bl, x0, y, 0u);
-        s[r][2] = input_sample(bl, x0 + 1, y, 0u);
-        a[r] = (s[r][0] + 2u * s[r][1] + s[r][2] + 2u) / 4u;
+        b[r][0] = input_sample(bl, uint(edge(int(x0) - 1, w)), y, 0u);
+        for (uint k = 1; k < 5; ++k)
+            b[r][k] = input_sample(bl, x0 + k - 1u, y, 0u);
     }
-    guide_out[gi] = uint16_t((a[0] + a[1] + 1u) / 2u);
+    uint a00 = (b[0][0] + 2u * b[0][1] + b[0][2] + 2u) / 4u, a01 = (b[1][0] + 2u * b[1][1] + b[1][2] + 2u) / 4u;
+    uint a10 = (b[0][2] + 2u * b[0][3] + b[0][4] + 2u) / 4u, a11 = (b[1][2] + 2u * b[1][3] + b[1][4] + 2u) / 4u;
+    guidew[gi >> 1] = ((a00 + a01 + 1u) / 2u) | (((a10 + a11 + 1u) / 2u) << 16);
+    const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
+    bool interior = gx0 >= 4u && gx0 + 5u < cw;
     for (uint r = 0; r < 2; ++r) {
-        uint y = gy * 2 + r;
-        for (uint lane = 0; lane < 2; ++lane) {
-            uint x = x0 + lane, i = y * w + x;
-            uint el = horizontal(w / 2, x, y, nearest);
-            if (el > 1023u) {           // the frame is reported, clamped
-                atomicOr(error, 1u);
-                el = 1023u;
+        uint y = gy * 2 + r, rowbase = y * cw;
+        uint t[10];
+        if (interior) {
+            uint base = (rowbase + gx0 - 4u) >> 1;
+            for (uint k = 0; k < 5; ++k) {
+                uint d = tempw[base + k];
+                t[2 * k] = d & 0xffffu;
+                t[2 * k + 1] = d >> 16;
             }
-            uint m = uint(mt[s[r][1 + lane]]);
-            int rv = rt[el];
-            int64_t total = int64_t(m) + int64_t(rv);
-            if (overflows32(total)) {
-                atomicOr(error, 2u);
-                continue;
+        } else
+            for (uint k = 0; k < 10; ++k)
+                t[k] = tv(rowbase + uint(edge(int(gx0) - 4 + int(k), cw)));
+        uint el[4];
+        el[0] = t[4];
+        el[2] = t[5];
+        if (nearest != 0u) {
+            el[1] = t[4];
+            el[3] = t[5];
+        } else {
+            int s1 = 0, s3 = 0;
+            for (int k = 0; k < 8; k++) {
+                s1 += taps[k] * int(t[1 + k]);
+                s3 += taps[k] * int(t[2 + k]);
             }
-            outp[i] = uint16_t(recon12(total));
+            el[1] = rounded(s1, 4096);
+            el[3] = rounded(s3, 4096);
         }
+        uint o[4]; bool ok[4];
+        for (uint lane = 0; lane < 4; ++lane) {
+            uint e = el[lane];
+            if (e > 1023u) {
+                atomicOr(error, 1u);
+                e = 1023u;
+            }
+            ok[lane] = recon32(uint(mt[b[r][1 + lane]]), rt[e], o[lane]);
+            if (!ok[lane])
+                atomicOr(error, 2u);
+        }
+        uint i = y * w + x0;
+        if (ok[0] && ok[1] && ok[2] && ok[3])
+            out4[i >> 2] = uvec2(o[0] | (o[1] << 16), o[2] | (o[3] << 16));
+        else
+            for (uint lane = 0; lane < 4; ++lane)
+                if (ok[lane])
+                    outp[i + lane] = uint16_t(o[lane]);
     }
 }

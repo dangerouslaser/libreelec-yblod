@@ -8,6 +8,11 @@ layout(local_size_x = 32, local_size_y_id = 6) in;   // y: 2, or 8 with ANNEXB
 layout(constant_id = 0) const uint PACK = 0;     // 0 sited, 1 422, 2 resized
 layout(constant_id = 1) const uint FMA = 1;      // resize lerps: 1 fused as IGC contracts them (OpenCL FP_CONTRACT ON), 0 separate
 layout(binding = 0, std430) readonly buffer InY { uint16_t yplane[]; };
+layout(binding = 0, std430) readonly buffer InY64 { uvec2 yplane4[]; };   // perf: 4 samples per load
+layout(binding = 1, std430) readonly buffer InU32 { uint cb2[]; };
+layout(binding = 2, std430) readonly buffer InV32 { uint cr2[]; };
+bool pre_ok = false;
+uint pre_y[4];
 layout(binding = 1, std430) readonly buffer InU { uint16_t cb[]; };
 layout(binding = 2, std430) readonly buffer InV { uint16_t cr[]; };
 layout(binding = 3, std430) readonly buffer Packets { uint packet_words[]; };  // 640 bytes
@@ -27,6 +32,10 @@ layout(binding = 8, std430) buffer GuiError { uint gui_error; uint gui_changed; 
 layout(binding = 15) uniform sampler2D shell;
 layout(binding = 16, std430) buffer Keys { uint keys[]; };
 layout(binding = 17, std430) readonly buffer Coeff { float coeff[]; };
+layout(binding = 18) uniform sampler2D subtitle_degamma;
+layout(binding = 19) uniform sampler2D subtitle_pq;
+// CB1: the shell's occupancy per 32x32 tile (cb1_tiles.comp); 0: no alpha
+layout(binding = 20, std430) readonly buffer Cb1Tiles { uint cb1_occupied; uint cb1_pad[3]; uint cb1_tiles[]; };
 // Where the reconstructed samples come from. 0: the staged planes (yplane,
 // cb, cr). 1 (fused single layer): the decoded BL through single_polynomial's
 // tables, sample by sample. 2 (fused FEL, pass B): luma from the BL + the EL
@@ -37,7 +46,10 @@ layout(constant_id = 4) const uint SOURCE = 0;
 // 4:2:2 filter from a shared tile of the workgroup's chroma rows k0-3 .. k0+11,
 // each fetched (and, fused, reshaped) once instead of eight times per row.
 layout(constant_id = 5) const uint ANNEXB = 0;
-shared uvec2 ctile[15][64];
+const bool VEC = PACK == 0u && SOURCE == 0u;
+layout(constant_id = 7) const uint CB1_PAIR_REUSE = 0;
+const uint CTILE_ROWS = ANNEXB != 0u ? 15u : 1u;
+shared uvec2 ctile[CTILE_ROWS][64];
 layout(binding = 9) uniform sampler2D bl_luma;
 layout(binding = 10) uniform sampler2D bl_uv;
 layout(binding = 11) uniform sampler2D el_luma;
@@ -48,6 +60,9 @@ layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
     uint w, h, stride_words, packet_count, top_left, source_w, source_h, nearest;
     uint gui_flags;   // OVERLAY 2: bit 0 invalidate the cache, 1 the shell's rows bottom first, 2 count changed pixels
+    // the dispatch covers the workgroups from here (a part of the canvas: only
+    // what changed since the output buffer was last written, see the engine)
+    uint origin_x, origin_y;
     uint chroma_filter;   // PACK 0: 1 CB1 Master Reference's Annex B 4:2:2 filters
 };
 #include "overlay_colour.glsl"
@@ -77,7 +92,8 @@ uint el_v(uint x, uint row, uint el_h)
 // SOURCE 2, the sited pack, Annex B: the workgroup's EL luma upsampled
 // vertically (el_v), once per EL column it needs (its 64 + the 8-tap halo)
 // and per output row, instead of up to 8 times per sample.
-shared uint el_tile[4][71];
+const uint ELTILE_ROWS = (SOURCE == 2u && PACK == 0u) ? 4u : 1u;
+shared uint el_tile[ELTILE_ROWS][71];
 bool el_tiled = false;
 int el_tile_base;     // the EL column of el_tile[.][0]
 uint el_tile_row0;    // the source luma row of el_tile[0]
@@ -200,6 +216,23 @@ uint shell_rgba(uint x, uint y)
     return b.r | (b.g << 8) | (b.b << 16) | (b.a << 24);
 }
 
+// gui_flags bit 5: the shell is linear half float (premultiplied, 1.0 = the
+// overlay's white): its colour straight from the sample, no cache.
+vec4 gui_linear(uint x, uint y)
+{
+    vec2 at = vec2(x, (gui_flags & 2u) != 0u ? h - 1u - y : y) + 0.5;
+    vec4 f = textureLod(shell, at / vec2(w, h), 0.0);
+    float a = clamp(f.a, 0.0, 1.0);
+    if (a <= 0.0)
+        return vec4(0.0);
+    vec4 c;
+    if (!overlay_source_colour_from_linear(max(f.rgb / a, vec3(0.0)) * (coeff[30] / 10000.0), a, c)) {
+        atomicOr(gui_error, 1u);
+        return vec4(0.0);
+    }
+    return c;
+}
+
 vec4 gui_colour(uint v)
 {
     vec4 c;
@@ -222,7 +255,13 @@ uint changed = 0u;
 
 vec4 gui_owned(uint x, uint y)
 {
+    if ((gui_flags & 32u) != 0u)
+        return gui_linear(x, y);
     uint v = shell_rgba(x, y), i = y * w + x;
+    if ((gui_flags & 8u) != 0u)
+        // direct: no cache (every pixel's colour computed; no key or colour
+        // traffic)
+        return (v >> 24) == 0u ? vec4(0.0) : gui_colour(v);
     bool invalidate = (gui_flags & 1u) != 0u;
     if ((v >> 24) == 0u && (gui_flags & 4u) == 0u) {
         // An invalidated key must not match a later pixel with an old colour.
@@ -261,12 +300,15 @@ vec4 gui_owned(uint x, uint y)
 // A pixel another workgroup owns: computed, the cache not read.
 vec4 gui_foreign(uint x, uint y)
 {
+    if ((gui_flags & 32u) != 0u)
+        return gui_linear(x, y);
     uint v = shell_rgba(x, y);
     return (v >> 24) == 0u ? vec4(0.0) : gui_colour(v);
 }
 
 // OVERLAY 2: the workgroup's pixels (128 x 4), resolved once by their owners.
-shared vec4 gui_shared[4][128];
+const uint GUI_ROWS = OVERLAY == 2u ? 4u : 1u;
+shared vec4 gui_shared[GUI_ROWS][128];
 
 uint blend_luma(uint yy, vec4 g)
 {
@@ -295,6 +337,82 @@ uint blend_chroma(uint c, bool odd, vec4 l, vec4 m, vec4 r)
     return uint(floor(v));
 }
 
+// OVERLAY 3. coeff: 0-8 overlay_decode, 9-11 overlay_offset, 12-20
+// overlay_linear (column order, as libplacebo's mat3 variables), 21-24
+// overlay_area (x0, y0, x1, y1), 25 nonzero: a PQ layer (CB1_OVERLAY_PQ), 26
+// CB1_SOURCE_BLACK. Each expression keeps CB1's operation order; a mat3 * vec3
+// is written out as GL's GLSL compiler lowers it (column 0, then each next
+// column added), so the driver fuses the same operations as in CB1's shader.
+#include "common/cb1_colour.glsl"
+
+vec3 cb1_gui_source(vec4 layer, vec3 base)
+{
+    vec3 v = clamp(layer.rgb / layer.a, 0.0, 1.0);
+    vec3 q = coeff[25] != 0.0 ? v : cb1_gui_pq(v);
+    q = cb1_matrix_pq(q);
+    return clamp(cb1_mul(0u, q - vec3(coeff[9], coeff[10], coeff[11])) * layer.a + base * (1.0 - layer.a), 0.0, 1.0);
+}
+
+// Pixel (x, y)'s code pair with the GUI over it: CB1 mixes the layer at the
+// pixel into its own sample (luma, and the chroma it carries) and the layer at
+// its pair neighbour into the copy that adds the second chroma half. The
+// picture is the codes / 4095, as sh_dovi_reference_output() hands it on, and
+// CB1_SOURCE_NEUTRAL outside the active area.
+// Whether the 32x32 tile of (x, y) has no alpha: the pair's layers are
+// transparent and the picture is v as it is.
+bool cb1_tile_empty(uint x, uint y)
+{
+    return cb1_tiles[(y >> 5) * ((w + 31u) >> 5) + (x >> 5)] == 0u;
+}
+
+uvec2 cb1_overlay(uint x, uint y, bool odd, uvec2 v)
+{
+    if (cb1_tile_empty(x, y))
+        return v;
+    float row = float((gui_flags & 2u) != 0u ? h - 1u - y : y) + .5;
+    vec4 gui = textureLod(shell, vec2((float(x) + .5) / float(w), row / float(h)), 0.0);
+    vec4 adjacent = textureLod(shell, vec2((float(x ^ 1u) + .5) / float(w), row / float(h)), 0.0);
+    if (!(gui.a > 0.0 || adjacent.a > 0.0))
+        return v;
+    bool inactive = x < active_area.x || x >= active_area.z || y < active_area.y || y >= active_area.w;
+    vec3 own = inactive ? vec3(coeff[26], .5, .5) : clamp(vec3(v.x, v.y, v.y) / 4095.0, 0.0, 1.0), peer = own;
+    if (gui.a > 0.0)
+        own = cb1_gui_source(gui, own);
+    if (adjacent.a > 0.0)
+        peer = cb1_gui_source(adjacent, peer);
+    float c = odd ? own.z + peer.z : own.y + peer.y;
+    return uvec2(uint(floor(4095.0 * own.x + .5)), uint(floor(2047.5 * c + .5)));
+}
+
+// Convert the two layers once, then reuse each for both output samples.
+// Keep conversion separate from the alpha/base blend to retain operation order.
+vec4 cb1_pair_colour(vec4 layer)
+{
+    if (!(layer.a > 0.0)) return vec4(0.0);
+    vec3 v = clamp(layer.rgb / layer.a, 0.0, 1.0);
+    vec3 q = coeff[25] != 0.0 ? v : cb1_gui_pq(v);
+    q = cb1_matrix_pq(q);
+    return vec4(cb1_mul(0u, q - vec3(coeff[9], coeff[10], coeff[11])), layer.a);
+}
+void cb1_pair_layers(uint x, uint y, out vec4 a, out vec4 b)
+{
+    a = b = vec4(0.0);
+    if (cb1_tile_empty(x, y)) return;
+    float row = float((gui_flags & 2u) != 0u ? h - 1u - y : y) + .5;
+    a = cb1_pair_colour(textureLod(shell, vec2((float(x) + .5) / float(w), row / float(h)), 0.0));
+    b = cb1_pair_colour(textureLod(shell, vec2((float(x + 1u) + .5) / float(w), row / float(h)), 0.0));
+}
+uvec2 cb1_pair_blend(uint x, uint y, bool odd, uvec2 v, vec4 a, vec4 b)
+{
+    if (!(a.a > 0.0 || b.a > 0.0)) return v;
+    bool inactive = x < active_area.x || x >= active_area.z || y < active_area.y || y >= active_area.w;
+    vec3 own = inactive ? vec3(coeff[26], .5, .5) : clamp(vec3(v.x, v.y, v.y) / 4095.0, 0.0, 1.0), peer = own;
+    if (a.a > 0.0) own = clamp(a.rgb * a.a + own * (1.0 - a.a), 0.0, 1.0);
+    if (b.a > 0.0) peer = clamp(b.rgb * b.a + peer * (1.0 - b.a), 0.0, 1.0);
+    float c = odd ? own.z + peer.z : own.y + peer.y;
+    return uvec2(uint(floor(4095.0 * own.x + .5)), uint(floor(2047.5 * c + .5)));
+}
+
 // One output pixel (x, y): the 12-bit sample pair before overlay/packets.
 // chroma_rows: for the sited 4:2:0 pack, this block's chroma rows k-3 .. k+4
 // (k = ly / 2) for the pixel's chroma column (cb, cr), fetched once per block.
@@ -310,7 +428,7 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8])
     uint yy = black.x, c = odd ? black.z : black.y;
     bool shown = !(x < active_area.x || y < active_area.y || x >= active_area.z || y >= active_area.w);
     // Fused: pixels the letterbox blacks out aren't reconstructed at all.
-    if (inside && (SOURCE == 0u || shown)) {
+    if (inside && shown) {
         if (PACK == 2 && (sw != dw || sh != dh)) {
             if (sw == dw) {
                 yy = vertical_mapped(false, false, sw, sh, lx, ymap[2 * ly]);
@@ -352,7 +470,7 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8])
                 if (top_left != 0u) { lo = 3u; hi = 4u; a = (ly & 1u) != 0u ? 2u : 4u; }
                 c = (a * uint(r[lo]) + (4 - a) * uint(r[hi]) + 2) / 4;
             }
-            yy = src_y(lx, ly, sw, sh);
+            yy = (VEC && pre_ok) ? pre_y[lx & 3u] : src_y(lx, ly, sw, sh);
         }
     }
     if (!shown) {
@@ -394,7 +512,7 @@ void chroma_rows_at(uint cx, uint k, uint sw, uint sh, out uvec2 rows[8])
 // One invocation: 4 pixels x 2 rows (x0 % 4 == 0, y0 even), stored 16 bytes a row.
 void main()
 {
-    uint x0 = gl_GlobalInvocationID.x * 4u, y0 = gl_GlobalInvocationID.y * 2u;
+    uint x0 = (gl_GlobalInvocationID.x + origin_x * 32u) * 4u, y0 = (gl_GlobalInvocationID.y + origin_y * gl_WorkGroupSize.y) * 2u;
     uint lx = gl_LocalInvocationID.x, ly = gl_LocalInvocationID.y;
     if (OVERLAY == 2u) {
         // Before any return: the barriers need the whole workgroup.
@@ -413,7 +531,7 @@ void main()
     }
     if (SOURCE == 2u && PACK == 0u && nearest == 0u) {
         // The tile's rows: the workgroup's 4 output rows, where reconstructed.
-        uint gx = gl_WorkGroupID.x * 128u, gy = gl_WorkGroupID.y * 4u;
+        uint gx = (gl_WorkGroupID.x + origin_x) * 128u, gy = (gl_WorkGroupID.y + origin_y) * 4u;
         el_tiled = true;
         el_tile_base = (int(gx) - int(placement.x)) / 2 - 3;
         el_tile_row0 = gy - placement.y;   // wraps above the placement; those rows aren't read
@@ -429,7 +547,7 @@ void main()
         // The workgroup: 128 pixels (64 chroma columns) by 16 rows (8 chroma
         // rows, k0 .. k0+7); placement x and y are even. Workgroups wholly in
         // the bars or outside the active rows load nothing (all black there).
-        uint gx = gl_WorkGroupID.x * 128u, gy = gl_WorkGroupID.y * 16u;
+        uint gx = (gl_WorkGroupID.x + origin_x) * 128u, gy = (gl_WorkGroupID.y + origin_y) * 16u;
         int k0 = (int(gy) - int(placement.y)) / 2, c0 = (int(gx) - int(placement.x)) / 2;
         int cw = int(placement.z / 2u), last = int(placement.w / 2u) - 1;
         bool used = gx + 128u > placement.x && gx < placement.x + placement.z && gy + 16u > placement.y &&
@@ -458,13 +576,24 @@ void main()
         bool any_inside = x0 + 3u >= placement.x && y0 + 1u >= placement.y && x0 < placement.x + placement.z &&
                           y0 < placement.y + placement.w;
         bool any_shown = x0 + 3u >= active_area.x && x0 < active_area.z && y0 + 1u >= active_area.y && y0 < active_area.w;
-        if (ANNEXB != 0u && any_inside && (SOURCE == 0u || any_shown))
+        if (ANNEXB != 0u && any_inside && any_shown)
             // tile row of chroma row k (= ly0 / 2) is k - k0 + 0 .. 7 = local y + i;
             // column of the pair at x0 + 2j is its offset in the workgroup
             for (uint j = 0; j < 2; j++)
                 for (uint i = 0; i < 8; i++)
                     rows[j][i] = ctile[ly + i][lx * 2u + j];
-        else if (any_inside && (SOURCE == 0u || any_shown))
+        else if (VEC && chroma_filter != 0u && any_inside && any_shown && (placement.x & 3u) == 0u &&
+                 x0 >= placement.x && (x0 - placement.x) / 2u + 1u < placement.z / 2u && (placement.z & 7u) == 0u) {
+            // perf: both chroma columns of the block (even c) with one 32-bit load per row and plane
+            uint cw = placement.z / 2u, c = (x0 - placement.x) / 2u;
+            int last = int(placement.w / 2u) - 1;
+            for (int i = 0; i < 8; i++) {
+                uint row = uint(clamp(int(ly0 / 2u) + i - 3, 0, last));
+                uint u = cb2[(row * cw + c) >> 1], v = cr2[(row * cw + c) >> 1];
+                rows[0][i] = uvec2(u & 0xffffu, v & 0xffffu);
+                rows[1][i] = uvec2(u >> 16, v >> 16);
+            }
+        } else if (any_inside && any_shown)
             for (uint j = 0; j < 2; j++) {
                 uint xj = x0 + 2u * j;   // the pair's first pixel; placement.x is even
                 if (xj >= placement.x && (xj - placement.x) / 2u < placement.z / 2u)
@@ -478,6 +607,15 @@ void main()
         // Blocks are 4 wide and 16-aligned tiles hold 4 of them; the tile map
         // is dilated so a neighbour's coverage (x0-1, x0+4) marks it too.
         bool tile = OVERLAY == 1u ? gui_tile(x0, y) : OVERLAY == 2u;
+        if (VEC) {
+            uint sw = placement.z, lyy = y - placement.y;
+            pre_ok = (placement.x & 3u) == 0u && (sw & 3u) == 0u && x0 >= placement.x && x0 - placement.x + 3u < sw &&
+                     y >= placement.y && lyy < placement.w;
+            if (pre_ok) {
+                uvec2 q = yplane4[(lyy * sw + (x0 - placement.x)) >> 2];
+                pre_y = uint[4](q.x & 0xffffu, q.x >> 16, q.y & 0xffffu, q.y >> 16);
+            }
+        }
         uvec4 out4;
         for (uint pair = 0; pair < 2; pair++) {
             uint sx = x0 / 2u + pair;
@@ -497,10 +635,17 @@ void main()
                 else
                     shared_left = x0 == 0u ? shared_middle : gui_foreign(x0 - 1u, y);
             }
+            vec4 pair_a, pair_b;
+            if (OVERLAY == 3u && CB1_PAIR_REUSE != 0u)
+                cb1_pair_layers(sx * 2u, y, pair_a, pair_b);
             for (uint lane = 0; lane < 2; ++lane) {
                 uint x = sx * 2 + lane;
                 bool odd = (x & 1u) != 0u;
                 uvec2 v = reconstruct(x, y, odd, rows[pair]);
+                if (OVERLAY == 3u)
+                    v = CB1_PAIR_REUSE != 0u
+                        ? cb1_pair_blend(x, y, odd, v, odd ? pair_b : pair_a, odd ? pair_a : pair_b)
+                        : cb1_overlay(x, y, odd, v);
                 if (OVERLAY != 0u && tile) {
                     vec4 g = odd ? shared_right : shared_middle;
                     if (g.w > 0.0)

@@ -9,6 +9,23 @@ vec3 overlay_matrix(uint m, vec3 v)
     return r;
 }
 
+// The rest of overlay_source_colour from linear light (1.0 = 10000 cd/m2).
+bool overlay_source_colour_from_linear(vec3 lin, float alpha, out vec4 result)
+{
+    vec3 common_lms = overlay_matrix(18u, lin);
+    vec3 source_linear = overlay_matrix(9u, common_lms);
+    // (a linear desktop's out-of-gamut colours and highlights: clamped, not refused)
+    source_linear = clamp(source_linear, vec3(0.0), vec3(1.0));
+    precise vec3 power = pow(source_linear, vec3(2610.0 / 16384.0));
+    precise vec3 pq = pow((3424.0 / 4096.0 + (2413.0 / 128.0) * power) / (1.0 + (2392.0 / 128.0) * power),
+                          vec3(2523.0 / 32.0));
+    precise vec3 codes = (overlay_matrix(0u, pq) + vec3(coeff[27], coeff[28], coeff[29])) * 4096.0;
+    if (any(isnan(codes)) || any(isinf(codes)))
+        return false;
+    result = vec4(clamp(codes, vec3(0.0), vec3(4095.0)), alpha);
+    return true;
+}
+
 bool overlay_source_colour(uvec4 p, out vec4 result)
 {
     result = vec4(0.0);

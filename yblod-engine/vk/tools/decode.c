@@ -1,5 +1,6 @@
 /* See decode.h. */
 #include "decode.h"
+#include <stdlib.h>
 #include <libavutil/dovi_meta.h>
 #include <libavutil/opt.h>
 #include <stdio.h>
@@ -27,10 +28,62 @@ static AVCodecContext *open_decoder(struct dv_decoder *d, const AVCodecParameter
         return NULL;
     c->hw_device_ctx = av_buffer_ref(d->device);
     c->get_format = pick_vaapi;
-    c->extra_hw_frames = 24;
+    /* Frames the caller may hold at once beyond the decoder's own (more for
+     * dvvk-mr-compare --throughput's preloaded batch). */
+    const char *extra = getenv("DV_EXTRA_HW_FRAMES");
+    c->extra_hw_frames = extra ? atoi(extra) : 24;
     c->pkt_timebase = d->time_base;
     if (avcodec_open2(c, codec, NULL) < 0)
         return NULL;
+    return c;
+}
+
+/* Without ffmpeg-yblod's dovi_split (CB1's FFmpeg): the single-track Profile
+ * 7 layout split here. Length-prefixed HEVC; the BL keeps everything but NAL
+ * 63, the EL is each NAL 63's payload (the EL's own NAL) in Annex B. */
+static int nal_size_len = 4;
+
+static int split_packet(const AVPacket *in, AVPacket *out, int el)
+{
+    size_t room = (size_t)in->size + 64 * 4;
+    if (av_new_packet(out, (int)room) < 0)
+        return AVERROR(ENOMEM);
+    size_t n = 0;
+    const uint8_t *q = in->data, *end = in->data + in->size;
+    while (end - q > nal_size_len) {
+        uint32_t len = 0;
+        for (int i = 0; i < nal_size_len; i++)
+            len = len << 8 | q[i];
+        q += nal_size_len;
+        if (len < 2 || len > (size_t)(end - q))
+            break;
+        int type = (q[0] >> 1) & 63;
+        if (el && type == 63 && len > 2) {
+            static const uint8_t start[4] = {0, 0, 0, 1};
+            if (n + 4 + len - 2 > room)
+                break;
+            memcpy(out->data + n, start, 4);
+            memcpy(out->data + n + 4, q + 2, len - 2);
+            n += 4 + len - 2;
+        } else if (!el && type != 63) {
+            memcpy(out->data + n, q - nal_size_len, nal_size_len + len);
+            n += nal_size_len + len;
+        }
+        q += len;
+    }
+    av_packet_copy_props(out, in);
+    out->size = (int)n;
+    return 0;
+}
+
+static AVCodecContext *open_el_decoder(struct dv_decoder *d)
+{
+    AVCodecParameters *par = avcodec_parameters_alloc();
+    avcodec_parameters_copy(par, d->fmt->streams[d->stream]->codecpar);
+    av_freep(&par->extradata);
+    par->extradata_size = 0;
+    AVCodecContext *c = open_decoder(d, par);
+    avcodec_parameters_free(&par);
     return c;
 }
 
@@ -38,7 +91,9 @@ static AVBSFContext *open_split(struct dv_decoder *d, const char *mode)
 {
     const AVBitStreamFilter *f = av_bsf_get_by_name("dovi_split");
     AVBSFContext *b = NULL;
-    if (!f || av_bsf_alloc(f, &b) < 0)
+    if (!f)
+        return NULL;
+    if (av_bsf_alloc(f, &b) < 0)
         return NULL;
     avcodec_parameters_copy(b->par_in, d->fmt->streams[d->stream]->codecpar);
     b->time_base_in = d->time_base;
@@ -69,13 +124,28 @@ int dv_decoder_open(struct dv_decoder *d, const char *path, const char *node, do
     if (av_hwdevice_ctx_create(&d->device, AV_HWDEVICE_TYPE_VAAPI, node, NULL, 0) < 0)
         return -1;
     d->display = ((AVVAAPIDeviceContext *)((AVHWDeviceContext *)d->device->data)->hwctx)->display;
-    if (d->el_present) {
+    /* DV_OWN_SPLIT=1: this file's split even with dovi_split (ffmpeg-yblod's
+     * gave no EL frames for a cut single-track FEL clip, 2026-10-29) */
+    const char *own = getenv("DV_OWN_SPLIT");
+    if (d->el_present && av_bsf_get_by_name("dovi_split") && !(own && own[0] == '1')) {
         d->bsf[0] = open_split(d, "bl_rpu");
         d->bsf[1] = open_split(d, "el");
         if (!d->bsf[0] || !d->bsf[1])
             return -1;
         d->dec[0] = open_decoder(d, d->bsf[0]->par_out);
         d->dec[1] = open_decoder(d, d->bsf[1]->par_out);
+        if (!d->dec[0] || !d->dec[1])
+            return -1;
+    } else if (d->el_present) {
+        const AVCodecParameters *par = st->codecpar;
+        if (par->extradata_size < 23 || par->extradata[0] != 1) {
+            fprintf(stderr, "decode: Profile 7 needs hvcC (MKV/MP4) without dovi_split\n");
+            return -1;
+        }
+        nal_size_len = (par->extradata[21] & 3) + 1;
+        d->split = 1;
+        d->dec[0] = open_decoder(d, par);
+        d->dec[1] = open_el_decoder(d);
         if (!d->dec[0] || !d->dec[1])
             return -1;
     } else {
@@ -105,6 +175,16 @@ static int drain_decoder(struct dv_decoder *d, int layer)
 
 static int feed(struct dv_decoder *d, int layer, AVPacket *pkt)
 {
+    if (d->split) {
+        if (!pkt)
+            return avcodec_send_packet(d->dec[layer], NULL) == AVERROR_EOF ? 0 : 0;
+        AVPacket *out = av_packet_alloc();
+        int r = split_packet(pkt, out, layer);
+        if (!r && out->size)
+            r = avcodec_send_packet(d->dec[layer], out);
+        av_packet_free(&out);
+        return r == AVERROR(EAGAIN) ? 0 : r;
+    }
     if (!d->bsf[0]) {
         int r = avcodec_send_packet(d->dec[0], pkt);
         return r == AVERROR_EOF ? 0 : r;
@@ -139,6 +219,25 @@ int dv_decoder_next(struct dv_decoder *d, struct dv_pair *p)
     int layers = d->dec[1] ? 2 : 1;
     memset(p, 0, sizeof(*p));
     for (;;) {
+        /* Single-track MEL carries its changing RPU on the BL. Decide from
+         * that first parsed RPU, exactly as production mpv does. If metadata
+         * is available only on the EL, leave its decoder and pairing intact.
+         * Keep BL splitting active so NAL 63 never reaches the BL decoder. */
+        if (layers == 2 && !d->mel_decided && queued[0]) {
+            const AVFrameSideData *sd = av_frame_get_side_data(queue[0][0], AV_FRAME_DATA_DOVI_METADATA);
+            if (sd) {
+                d->mel_decided = 1;
+                const char *force = getenv("BIG_FELLA_DV_MEL_EL");
+                if (!(force && !strcmp(force, "decode")) &&
+                    dv_decoder_metadata_no_residual((const AVDOVIMetadata *)sd->data)) {
+                    while (queued[1]) av_frame_free(&queue[1][--queued[1]]);
+                    avcodec_free_context(&d->dec[1]);
+                    av_bsf_free(&d->bsf[1]);
+                    layers = 1;
+                    fprintf(stderr, "decode: MEL base-layer RPU; unused enhancement decoder stopped\n");
+                }
+            }
+        }
         /* A Profile 7 track whose configuration announces an EL that the
          * stream doesn't carry (RPU-only remuxes): play the BL alone. */
         if (layers == 2 && queued[1] == 0 && (queued[0] >= 8 || d->eof == 2)) {

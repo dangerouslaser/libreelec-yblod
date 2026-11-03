@@ -9,13 +9,19 @@ layout(binding = 11, std430) buffer Error { uint error; };
 layout(local_size_x = 64, local_size_y = 1) in;
 layout(constant_id = 0) const uint HORIZONTAL_FUSED = 1;   // 0: mmr64_lut_dual (EL planes already scaled)
 layout(binding = 0, std430) readonly buffer Y { uint16_t yg[]; };      // guide
+layout(binding = 0, std430) readonly buffer YW { uint ygw[]; };
 layout(binding = 1, std430) readonly buffer B { uint16_t bphase[]; };  // BL Cb then Cr phase
+layout(binding = 1, std430) readonly buffer BW { uint bphasew[]; };
 layout(binding = 2, std430) readonly buffer E0 { uint16_t el0[]; };
+layout(binding = 2, std430) readonly buffer E0W { uint el0w[]; };
 layout(binding = 3, std430) readonly buffer E1 { uint16_t el1[]; };
+layout(binding = 3, std430) readonly buffer E1W { uint el1w[]; };
 layout(binding = 4, std430) readonly buffer P { uint p[]; };           // [2][96]
 layout(binding = 5, std430) readonly buffer R { int rt[]; };           // [3][1024]
 layout(binding = 6, std430) writeonly buffer O0 { uint16_t out0[]; };
+layout(binding = 6, std430) writeonly buffer O0W { uvec2 out0w[]; };
 layout(binding = 7, std430) writeonly buffer O1 { uint16_t out1[]; };
+layout(binding = 7, std430) writeonly buffer O1W { uvec2 out1w[]; };
 layout(binding = 8, std430) readonly buffer L { int64_t table[]; };    // [2][3][1024]
 layout(push_constant) uniform Push { uint width, rows, nearest, row_offset; };
 HORIZONTAL(horizontal0, el0)
@@ -28,12 +34,20 @@ uint feature_product(uint a, uint b)
     return (lo >> 20) | (hi << 12);
 }
 int64_t constant64(uint base) { return int64_t((uint64_t(p[base + 9]) << 32) | uint64_t(p[base + 8])); }
-int64_t term(uint coefficient, uint feature) { return int64_t(int(coefficient)) * int64_t(uint64_t(feature)); }
+// features < 2^20 (the 64-bit route eligibility proof): a signed 32x32 multiply is exact
+int64_t term(uint coefficient, uint feature) { int hi, lo; imulExtended(int(coefficient), int(feature), hi, lo); return packInt2x32(ivec2(lo, hi)); }
 
-void mmr64_dual_pixel(uint i, uvec2 enhancement)
+bool recon32(uint m, int rv, out uint value)
+{
+    if (rv > 2147483647 - int(m)) { value = 0u; return false; }
+    int total = int(m) + rv;
+    value = total > -8 ? uint(min((min(total, 65536) + 8) >> 4, 4095)) : 0u;
+    return true;
+}
+
+void mmr64_dual_pixel(uvec3 s, uvec2 enhancement, out uvec2 o, out bvec2 ok)
 {
     const uint P0 = 0u, P1 = 96u;
-    uvec3 s = uvec3(yg[i], bphase[i], bphase[width * rows + i]);
     s.x = clamp(s.x, p[P0 + 2], p[P0 + 3]);
     s.y = clamp(s.y, p[P0 + 4], p[P0 + 5]);
     s.z = clamp(s.z, p[P0 + 6], p[P0 + 7]);
@@ -66,26 +80,73 @@ void mmr64_dual_pixel(uint i, uvec2 enhancement)
         uint shift = (channel != 0u ? p[P1 + 1] : p[P0 + 1]) + 4u;
         uint m = v < 0 ? 0u : uint(min(uint64_t(v) >> shift, uint64_t(65535)));
         int r = rt[(1u + channel) * 1024u + el];
-        int64_t total = int64_t(m) + int64_t(r);
-        if (overflows32(total)) {
+        uint value;
+        ok[channel] = recon32(m, r, value);
+        o[channel] = value;
+        if (!ok[channel])
             atomicOr(error, 2u);
-            continue;
-        }
-        uint16_t value = uint16_t(recon12(total));
-        if (channel != 0u) out1[i] = value; else out0[i] = value;
     }
 }
 
+uint half16(uint d, uint k) { return k == 0u ? d & 0xffffu : d >> 16; }
+
 void main()
 {
-    uint pair = gl_GlobalInvocationID.x, row = gl_GlobalInvocationID.y + row_offset;
-    if (pair * 2u >= width || row >= rows)
+    // perf experiment: two pairs per invocation (x .. x+3, x % 4 == 0; width % 4 == 0)
+    uint x = gl_GlobalInvocationID.x * 4u, row = gl_GlobalInvocationID.y + row_offset;
+    if (x >= width || row >= rows)
         return;
-    uint x = pair * 2u, first = row * width + x;
-    for (uint lane = 0; lane < 2; ++lane) {
-        uvec2 e = HORIZONTAL_FUSED != 0u
-            ? uvec2(horizontal0(width / 2, x + lane, row, nearest), horizontal1(width / 2, x + lane, row, nearest))
-            : uvec2(uint(el0[first + lane]), uint(el1[first + lane]));
-        mmr64_dual_pixel(first + lane, e);
-    }
+    uint first = row * width + x, ew = width / 2, e0 = x / 2;   // EL columns e0, e0 + 1 (even samples)
+    uvec2 g = uvec2(ygw[first >> 1], ygw[(first >> 1) + 1]);
+    uvec2 pb = uvec2(bphasew[first >> 1], bphasew[(first >> 1) + 1]);
+    uint pcoff = (width * rows + first) >> 1;
+    uvec2 pr = uvec2(bphasew[pcoff], bphasew[pcoff + 1]);
+    uvec2 e[4];
+    if (HORIZONTAL_FUSED != 0u) {
+        // EL window e0-4 .. e0+5 of each channel
+        uint t0[10], t1[10];
+        uint rb = row * ew;
+        if (e0 >= 4u && e0 + 5u < ew) {
+            uint base = (rb + e0 - 4u) >> 1;
+            for (uint k = 0; k < 5; ++k) {
+                uint a = el0w[base + k], b = el1w[base + k];
+                t0[2 * k] = a & 0xffffu; t0[2 * k + 1] = a >> 16;
+                t1[2 * k] = b & 0xffffu; t1[2 * k + 1] = b >> 16;
+            }
+        } else
+            for (uint k = 0; k < 10; ++k) {
+                uint j = rb + uint(edge(int(e0) - 4 + int(k), ew));
+                t0[k] = uint(el0[j]);
+                t1[k] = uint(el1[j]);
+            }
+        const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
+        e[0] = uvec2(t0[4], t1[4]);
+        e[2] = uvec2(t0[5], t1[5]);
+        if (nearest != 0u) {
+            e[1] = e[0];
+            e[3] = e[2];
+        } else {
+            ivec2 s1 = ivec2(0), s3 = ivec2(0);
+            for (int k = 0; k < 8; k++) {
+                s1 += taps[k] * ivec2(t0[1 + k], t1[1 + k]);
+                s3 += taps[k] * ivec2(t0[2 + k], t1[2 + k]);
+            }
+            e[1] = uvec2(rounded(s1.x, 4096), rounded(s1.y, 4096));
+            e[3] = uvec2(rounded(s3.x, 4096), rounded(s3.y, 4096));
+        }
+    } else
+        for (uint l = 0; l < 4; ++l)
+            e[l] = uvec2(uint(el0[first + l]), uint(el1[first + l]));
+    uvec2 o[4];
+    bvec2 ok[4];
+    for (uint l = 0; l < 4; ++l)
+        mmr64_dual_pixel(uvec3(half16(g[l >> 1], l & 1u), half16(pb[l >> 1], l & 1u), half16(pr[l >> 1], l & 1u)), e[l], o[l], ok[l]);
+    if (all(ok[0]) && all(ok[1]) && all(ok[2]) && all(ok[3])) {
+        out0w[first >> 2] = uvec2(o[0].x | (o[1].x << 16), o[2].x | (o[3].x << 16));
+        out1w[first >> 2] = uvec2(o[0].y | (o[1].y << 16), o[2].y | (o[3].y << 16));
+    } else
+        for (uint l = 0; l < 4; ++l) {
+            if (ok[l].x) out0[first + l] = uint16_t(o[l].x);
+            if (ok[l].y) out1[first + l] = uint16_t(o[l].y);
+        }
 }

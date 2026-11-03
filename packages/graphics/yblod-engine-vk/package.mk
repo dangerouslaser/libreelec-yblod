@@ -3,13 +3,13 @@
 PKG_NAME="yblod-engine-vk"
 PKG_VERSION="0.1.0"
 PKG_ARCH="x86_64"
-PKG_LICENSE="GPL-3.0-or-later AND MIT"
+PKG_LICENSE="GPL-3.0-or-later AND MIT AND LGPL-2.1-or-later"
 PKG_SITE="https://github.com/dangerouslaser/libreelec-yblod"
 PKG_URL=""
 PKG_DEPENDS_TARGET="toolchain cargo:host shaderc:host ffmpeg libva vulkan-loader vulkan-headers"
 # The crate is yblod-engine/vk; it compiles yblod's host C from yblod-engine/src.
 PKG_NEED_UNPACK="${ROOT}/yblod-engine/vk ${ROOT}/yblod-engine/src"
-PKG_LONGDESC="yblod's Dolby Vision source-tunnel engine on Vulkan compute (libdv_engine_vk.so.0)"
+PKG_LONGDESC="yblod's Dolby Vision source-tunnel engine on Vulkan compute (libdv_engine_vk.so.1, big-fella's dv-engine-vk)"
 PKG_TOOLCHAIN="manual"
 PKG_BUILD_FLAGS="-lto"
 
@@ -34,9 +34,13 @@ make_target() {
 
 makeinstall_target() {
   local lib="${PKG_BUILD}/.${TARGET_NAME}/target/${TARGET_NAME}/release/libdv_engine_vk.so"
+  # The soname: DVVK_LIBRARY in the header, its one place (build.rs links it in).
+  local soname
+  soname=$(sed -n 's/^#define DVVK_LIBRARY "\(.*\)"/\1/p' "${PKG_BUILD}/include/dv_engine_vk.h")
+  [ -n "${soname}" ] || die "no DVVK_LIBRARY in dv_engine_vk.h"
 
   mkdir -p "${INSTALL}/usr/lib"
-  cp "${lib}" "${INSTALL}/usr/lib/libdv_engine_vk.so.0"
+  cp "${lib}" "${INSTALL}/usr/lib/${soname}"
 
   # Kodi's adapter includes the C API; the library itself is dlopened.
   mkdir -p "${SYSROOT_PREFIX}/usr/include/dv-engine-vk"
