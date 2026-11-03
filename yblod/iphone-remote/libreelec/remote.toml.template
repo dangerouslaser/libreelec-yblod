@@ -10,7 +10,8 @@ name = ""
 pairing = true
 port = 49153
 # Avahi answers mDNS for the host name; our service records go under their
-# own name. @HOST@ is the host name (the start script fills it in).
+# own name. @HOST@ is the host name and the end of a MAC address (the start
+# script fills it in).
 mdns_host = "@HOST@-iphone-remote"
 state_dir = "/storage/.cache/iphone-remote"
 control_socket = "/run/iphone-remote/control.sock"
