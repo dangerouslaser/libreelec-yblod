@@ -1,0 +1,27 @@
+# YBLOD's iPhone remote (big-fella-remote): the box in the iPhone's Control
+# Center remote. These are LibreELEC's settings; to change them, copy this
+# file to /storage/.config/iphone-remote.toml, put the host name for @HOST@
+# and edit it there, then
+# systemctl restart iphone-remote.
+
+# The name the iPhone lists. Empty: the host name.
+name = ""
+# Whether new iPhones may pair at first (the add-on changes it later).
+pairing = true
+port = 49153
+# Avahi answers mDNS for the host name; our service records go under their
+# own name. @HOST@ is the host name and the end of a MAC address (the start
+# script fills it in).
+mdns_host = "@HOST@-iphone-remote"
+state_dir = "/storage/.cache/iphone-remote"
+control_socket = "/run/iphone-remote/control.sock"
+# Kodi's Home: KEY_HOMEPAGE, which Kodi maps to ActivateWindow(Home).
+home_key = 172
+# The phone's Return ends Kodi's keyboard dialog through JSON-RPC
+# (iphone-remote-kodi); an Enter after it would press what's under it.
+return_key = false
+
+[speaker]
+# No speakerd here: the volume buttons are the volume keys (Kodi's volume,
+# or the TV's where an add-on takes them).
+enabled = false

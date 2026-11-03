@@ -36,6 +36,9 @@ if [ "${MEDIACENTER}" = "kodi" ]; then
   # YBLOD default skin
   PKG_DEPENDS_TARGET+=" skin.estuary.yblod"
 
+  # YBLOD: the box in the iPhone's Control Center remote
+  PKG_DEPENDS_TARGET+=" yblod-iphone-remote"
+
   # YBLOD LG edition (YBLOD_EDITION=lg): webOS add-on and the dangerouslaser repository
   if [ "${YBLOD_EDITION}" = "lg" ]; then
     PKG_DEPENDS_TARGET+=" yblod-lg"

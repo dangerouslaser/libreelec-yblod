@@ -1,0 +1,40 @@
+# /etc/big-fella/remote.toml: big-fella-remote, the box in the iPhone's
+# Control Center remote. Every setting is optional; these are the defaults.
+# After an edit: systemctl restart big-fella-remote
+
+# The name the iPhone lists. Empty: the host name.
+name = ""
+
+# Whether new iPhones may pair until Settings > Phones says otherwise.
+pairing = true
+
+# The TCP port iPhones connect to (found through mDNS).
+port = 49153
+
+# The home screen's TV (Home) button: remote-bridged's home_key (172,
+# KEY_HOMEPAGE).
+home_key = 172
+
+# The mDNS host name the service points at. Empty: the host name. Set it
+# where another mDNS responder answers for the host name (Avahi).
+mdns_host = ""
+
+# The phone's Return as Enter on the virtual keyboard, after the text. Off:
+# the control socket's text event says "submit": true instead (Kodi).
+return_key = true
+
+[touch]
+# The touch area is 1000 wide and high. A swipe is one arrow per `step` of
+# travel; a finger resting within `edge` of the side it moved towards
+# repeats the arrow every `repeat_ms`, after `edge_delay_ms`.
+step = 160.0
+edge = 120.0
+edge_delay_ms = 450
+repeat_ms = 160
+
+[speaker]
+# The iPhone's volume buttons go to speakerd (the speaker the TV plays
+# through) while it has its speaker; otherwise they're the volume keys.
+enabled = true
+# speakerd's socket. Empty: the first /run/user/<uid>/speakerd.sock.
+socket = ""

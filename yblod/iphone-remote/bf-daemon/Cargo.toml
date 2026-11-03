@@ -1,0 +1,21 @@
+[package]
+name = "bf-daemon"
+version = "0.1.0"
+edition = "2024"
+description = "big-fella's daemons' shared helpers: accept backoff, sd_notify, bounded line reads, atomic writes, logging"
+license = "Apache-2.0"
+publish = false
+
+# Not a workspace: tvd, speakerd, remote-bridged and big-fella-connect each
+# take it as path = "../bf-daemon" (tools/build.sh mounts it at /bf-daemon,
+# beside the package being built).
+
+[dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["io-util", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+proptest = { version = "1", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["io-util", "time", "rt", "macros"] }

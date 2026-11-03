@@ -1,0 +1,61 @@
+[Unit]
+Description=big-fella remote (the TV in the iPhone's Control Center remote)
+Documentation=file:///usr/share/doc/big-fella-remote/README.md
+Wants=network-online.target
+After=network-online.target systemd-modules-load.service
+
+[Service]
+# Ready once its sockets are bound and it's announced (sd_notify).
+Type=notify
+ExecStart=/usr/bin/big-fella-remote --config /etc/big-fella/remote.toml
+Restart=on-failure
+# TCP 49153 taken fails the start: don't spin.
+RestartSec=10
+
+# Root without capabilities: /dev/uinput (root's, 0600) and the network,
+# nothing else. Writes only its state (/var/lib/big-fella-remote: our key,
+# paired phones) and its control socket (/run/big-fella-remote, which the
+# home screen connects to; who may use it is checked per connection).
+# Reads speakerd's socket in /run/user/UID (checked: the user's own).
+StateDirectory=big-fella-remote
+StateDirectoryMode=0700
+RuntimeDirectory=big-fella-remote
+RuntimeDirectoryMode=0755
+UMask=0077
+CapabilityBoundingSet=
+AmbientCapabilities=
+DevicePolicy=closed
+DeviceAllow=/dev/uinput rw
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+SystemCallErrorNumber=EPERM
+# AF_NETLINK: the interfaces' addresses, for mDNS.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+# Phones on this side of the router only (as the daemon checks too):
+# private, link-local, CGNAT and unique local addresses, and mDNS's
+# multicast groups.
+IPAddressDeny=any
+IPAddressAllow=localhost link-local multicast 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 fc00::/7
+MemoryMax=128M
+TasksMax=16
+
+[Install]
+WantedBy=multi-user.target
