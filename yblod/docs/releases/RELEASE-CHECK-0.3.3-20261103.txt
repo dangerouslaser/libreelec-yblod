@@ -1,0 +1,98 @@
+YBLOD 0.3.3 validation
+
+Build source: a9ecf85f233db961f3ce9221a7c5b3cacd703e7d (main after PR #24). Built from the
+identical tree fefbf33d as the PR head c8e560afcc.
+LibreELEC upstream base: master 20e5dac7, unchanged from 0.3.2. The pinned Kodi (e4b62810), FFmpeg
+and libplacebo sources and the pre-installed add-ons are unchanged from 0.3.2.
+
+Changes since 0.3.2
+- Linux 7.3: big-fella's i915/amdgpu HDMI patches from big-fella 69c770c (linux-yblod 7.3-7),
+  byte for byte; every one applies with fuzz 0.
+  - 9911 qms-hdr-8bpc (i915): QMS on HDR outputs whose 60 Hz base keeps the bpc.
+  - 9912 hdmi-spd-sdi (i915): SPD source device "Digital STB" (i915.spd_sdi, 1; 9 = upstream's
+    "PC general").
+  - 9913 hdmi-scdc-recheck (i915): the sink's SCDC TMDS_Config is checked for 4 s after a hotplug,
+    with a modeset if it doesn't match the link (at most 3 in 20 s).
+  - 9923 hdr-yuv420 (amdgpu, i915): PQ/HLG at 4K50/60 as 10 bpc YCbCr 4:2:0 instead of 8 bpc RGB
+    (amdgpu.hdr_yuv420, i915.hdr_yuv420). The DV tunnel stays 8 bpc RGB.
+  - 9924 dcn10-black-bg (amdgpu): DCN 1.x's MPC background black in the output's colour space.
+  - 9925 hdmi-hpd-hold (i915, amdgpu): an HPD drop of a sink with an active output is reported as
+    connected for up to 3 s (i915.hpd_hold_ms; amdgpu.hdmi_hpd_debounce_delay_ms 3000).
+  New, also in big-fella (e73aa82, linux-yblod 7.3-8): 9927 hdmi-scdc-after-hold (i915): no
+  SCDC recheck while 9925 holds HPD low; HPD's return starts 9913's 4 s recheck.
+  Not ported: 9926 qms-modes (off by default in big-fella; prunes 2160p23.976/29.97 on the G5).
+- iPhone remote (yblod/iphone-remote, package yblod-iphone-remote): big-fella's big-fella-remote
+  and bf-daemon crates (Apache-2.0), vendored from big-fella 12cf95b, with
+  big-fella-remote-kodi (src/kodi.rs, written for this release): the pairing PIN as a Kodi
+  notification; Kodi's keyboard dialog (Input.OnInputRequested/OnInputFinished) offered to the
+  phone, its typing sent with Input.SendText, Return ends it. In the daemon, for it: the text
+  event's "submit", return_key (off here: no Enter after Kodi's dialog), mdns_host (here
+  <host>-<MAC end>-iphone-remote; Avahi has the host name).
+  Services iphone-remote and iphone-remote-kodi (on by default; off with
+  /storage/.cache/services/iphone-remote.disabled), settings from
+  /storage/.config/iphone-remote.toml if present, state in /storage/.cache/iphone-remote.
+  Programs > iPhone Remote (script.yblod.iphoneremote, an optional system add-on): pairing of
+  new iPhones on or off, forget an iPhone, the remote off or on. TCP 49153 is open in the home
+  firewall profile (private subnets), as every other port is there.
+
+Images
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version strings.
+KERNEL, kodi.bin, both engines, the runtime defaults, libvulkan_radeon.so and the remote's
+binaries are identical in both (hashes below), and identical to those of test image
+0.3.3-test3(-lg). kodi.bin, both engines, the runtime defaults and RADV are unchanged from 0.3.2.
+
+Testing (test images 0.3.3-test2, -test3 and -test3-lg; test2 differs from the release only in
+the remote's start script and its settings template's comments)
+- cargo test (big-fella-remote): 43 of 43; tests/e2e/docker.sh (pyatv as the iPhone): passes.
+- ryzen-fella (Ryzen 5 3500U, amdgpu DCN 1.0, LG B4):
+  - HDR10 2160p59.94 (Gemini Man's base layer, DV stripped): the TV reports HDR10 YCbCr420.
+    With amdgpu.hdr_yuv420=0: RGB.
+  - tools/dv-amd-crc/bg-crc-test (big-fella), 2160p60 YCbCr 4:2:0: a fully transparent frame's
+    CRTC CRCs equal opaque black's, 9b83/9b83/5c03 (before 9924: b888/b888/c4c2).
+  - DV 1917 (P7 FEL): 480 flips in 20 s (one per vblank), 8 bpc RGB, 0 drops, 0 skips.
+  - iPhone remote, tests/e2e/kodi_iphone.py (pyatv as the iPhone, Kodi checked over JSON-RPC):
+    found by an mDNS browse beside Avahi; PIN pairing; Home, a swipe + Select (Videos), Back and
+    a volume button acted on by Kodi; Kodi's keyboard dialog brings up the phone's keyboard,
+    "wörld ✓" typed on the phone reaches Kodi, Return ends the dialog with no Enter after it;
+    the phone forgotten. Kodi restarting: the Kodi side reconnects by itself.
+  - Programs > iPhone Remote, run with a scripted dialog: pairing off and on, the remote off
+    (both services stopped) and on again. Kodi lists the add-on as enabled.
+- N150 (i915, LG B4, its input not on screen: kernel side only):
+  - HDR10 2160p59.94: port_clock 370878 (10 bpc 4:2:0).
+  - DV 1917: 480 flips in 20 s, 0 drops.
+- petunia (Intel i5-1135G7 in a VM with the iGPU, LG G5), 0.3.1-lg as the baseline:
+  - The G5 reads the input's SPD as "Digital STB" (Intel, Integrated gfx).
+  - 10 DV start/stops (1917 over NFS, the G5 sampled about 3 times a second): every HPD drop
+    held ("HPD back after 1007-1027 ms"), 0 drm uevents (0.3.1-lg: 10 in 5 cycles), one SCDC
+    modeset per stop after HPD's return, never "still wrong after 3 modesets". Blank on the
+    screen: 0.9 s at a DV start (0.3.1-lg 0.9 s), 2.2 s after a DV stop (0.3.1-lg 1.8 s).
+  - HDR10 2160p59.94: 10 bpc YCbCr 4:2:0 at 594 MHz, QMS 59.94 Hz on the 60 Hz base (9911).
+  - DV 23.976 over QMS (base 60): 480 flips in 20 s, no half rate.
+
+SHA256
+Standard update tar: 4dcac83b37c581b42427d25a65cd92482af14b73b366fffa55c24783a50c5262
+Standard install img.gz: 3ab487b341e9de6eb4da471c8848b41ab4ed39d489474772a71bf29b463513b1
+Standard SYSTEM: fc859573551a78c39439121499d73d016c3c3c8530201ab6e89748ce6962e274
+LG update tar: f322fa7bab5bca71d7a515053afe38da5c1efa4859fae8cb0c106277dfa12e69
+LG install img.gz: f540bbe86cfeab9c0b1818f3caeecfedbf255eb2606fb574b791ea3c3f727b4d
+LG SYSTEM: 5a97b7a39c2f2aaa83c2a05fcd683d520fa225d977ba0866ed8e17092d5e41da
+KERNEL (both): 149a4369fa1196af58e63cfc61570304c9ecf67bde89f1fda2f5278ce3a44fe0
+Kodi (both): bc498686ca01fd4810ee4f8de76b8e7ce1dc09af1d6f837f4dab2329592f0f5a
+Vulkan engine (both): 3be3f22b2aa092db693166adc6a49d3283c9f5ab56312130d8e65531d312ee4a
+OpenCL engine (both): 0ed3003f8074bb1b2a30a7a5eeb9027965e3b5d83e2d27f0c855d88742405ee9
+Runtime defaults (both): f41565af6b0d91886d0a5f5f7100465f755673f753488517db39a3f1580bc161
+RADV (both): adcba045b5b71b11c3c3bc2ef7305d5726adfd8e7c391879bb7fcecff6992f5a
+big-fella-remote (both): 939711f16b6bc4c580f3865e7a7f383ed27908d261a34c9a599eb7d485727fa9
+big-fella-remote-kodi (both): 0cb8ac603269944bd4d8eca40d9ae5cb9f3bea845c9327cd01f84bf79b6c0be6
+Source bundle: (see SHA256SUMS)
+
+Limitations
+- The iPhone remote was tested with pyatv playing the iPhone, not with a real iPhone on
+  LibreELEC (big-fella's daemon has been used with a real iPhone).
+- After a DV stop on the G5 the screen is blank about 0.4 s longer than in 0.3.1-lg: 9913's
+  modeset after HPD comes back (the G5 reports TMDS_Config 0x00 then). No "No signal" was seen in
+  15 stops with or without it.
+- A real unplug (the output reported gone after 3 s) was not tested.
+- QMS on the B4 (SDR 24p over QMS once showed corruption on the N150's B4, 2026-10-12) was not
+  re-checked: QMS for SDR is unchanged from 0.3.2.
+- The N150's 60p DV (about 40 fps shown) is unchanged from 0.3.2.

@@ -1,0 +1,26 @@
+YBLOD 0.3.3 brings HDR at 4K60 as 10-bit 4:2:0, fixes for LG TVs' HDMI quirks, and the iPhone's own TV remote.
+
+What changed
+- HDR10 and HLG at 4K 50/60 Hz now go out as 10-bit YCbCr 4:2:0, on Intel and AMD. Before, HDMI 2.0 had no room for 10-bit RGB there, so both drivers sent 8-bit RGB. Dolby Vision is unchanged (8-bit RGB, as it must be).
+- On an LG G5, HDR10 at 59.94 or 50 now changes rate with QMS on the 60 Hz signal, with no blank.
+- LG TVs no longer treat an Intel box as a PC: the HDMI source info now says "Digital STB", not "PC general" (webOS greyed out picture settings for a PC).
+- LG TVs drop the HDMI hotplug signal for about a second when Dolby Vision starts or stops (the G5 does). That's no longer reported as the TV being unplugged, and the HDMI link check that follows waits until the TV is back. On a G5, the screen after a Dolby Vision stop is blank for about 2.2 s (0.3.2: about 1.8 s), and the box re-checks the link each time, the fix for the occasional "No signal" after Dolby Vision that big-fella saw on that TV.
+- AMD Ryzen (Vega): on a 4:2:0 link, the GPU's background is green, which showed on half the screen wherever the picture is transparent. With the new 4:2:0 HDR output that would have shown, so the background is now black in every output format.
+- iPhone remote: the box shows up in the iPhone's own TV remote (Control Center, the lock screen, or the Apple TV Remote app); there's nothing to install on the phone. Pick the box ("LibreELEC", or its host name), type the 4-digit PIN Kodi shows, and the iPhone's buttons, swipes, volume buttons and keyboard work in Kodi. Typing goes straight into Kodi's keyboard, in any language. Programs > iPhone Remote turns pairing of new iPhones on or off, forgets paired iPhones, and turns the remote off. It answers only on your local network.
+- These are big-fella's kernel patches (https://github.com/dangerouslaser/big-fella) and its iPhone remote, with a Kodi side added for YBLOD.
+- The LibreELEC base, Linux 7.3, Mesa, Kodi's version, both Dolby Vision engines and the add-ons are unchanged from 0.3.2.
+
+Known issues
+- On an Intel N150, 60p Dolby Vision is still shown at about 40 frames a second (as in 0.3.2).
+- On the iPhone remote, the ±10 s buttons are Kodi's fast forward and rewind (speed), not 10-second jumps.
+
+Turning things off
+Each kernel change has a switch, for a kernel command line or modprobe option: i915.hdr_yuv420=0 / amdgpu.hdr_yuv420=0 (HDR as before), i915.spd_sdi=9 (say "PC general" again), i915.hpd_hold_ms=0 and amdgpu.hdmi_hpd_debounce_delay_ms=0 (report every hotplug drop). The iPhone remote: Programs > iPhone Remote > Turn the iPhone remote off.
+
+If you run 0.3.2
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
