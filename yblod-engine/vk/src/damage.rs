@@ -20,7 +20,7 @@ pub const WG_W: u32 = 128;
 pub const WG_H: u32 = 4;
 const HISTORY: usize = 32;
 // above this share of the canvas, one full dispatch is cheaper than several
-const FULL_SHARE: f64 = 0.7;
+const FULL_SHARE: f64 = 0.95;
 
 #[derive(Clone, Copy, Default)]
 struct Slot {
@@ -261,7 +261,8 @@ mod tile_tests {
         assert_eq!(tile_rects(&[[0, 0, 32, 32], [64, 64, 96, 96]], 32, grid).len(), 2);
         // clamped to the grid; most of it: all of it
         assert_eq!(tile_rects(&[[3800, 2100, 5000, 5000]], 32, grid), vec![[118, 65, 120, 68]]);
-        assert_eq!(tile_rects(&[[0, 0, 3840, 2000]], 32, grid), vec![[0, 0, 120, 68]]);
+        assert_eq!(tile_rects(&[[0, 0, 3840, 2100]], 32, grid), vec![[0, 0, 120, 68]]);
+        assert_eq!(tile_rects(&[[0, 0, 3840, 2000]], 32, grid), vec![[0, 0, 120, 63]]);
         // every pixel of every input lies in an output tile
         let input = [[100, 100, 300, 130], [290, 120, 900, 600], [3000, 10, 3001, 11]];
         let out = tile_rects(&input, 32, grid);

@@ -159,9 +159,9 @@ fn pack_source(r: &PackRoute) -> u32 {
 /// 1 prepared, 2 fused shell, 3 native CB1).
 fn select_pack(r: &PackRoute, overlay: u32) -> (u32, PackVariant) {
     let source = pack_source(r);
-    if r.chroma_filter != 0 && r.pack == plan::PACK_SITED && source < 2 {
+    if r.chroma_filter != 0 && r.pack == plan::PACK_SITED && source == 1 {
         if let Some(k) = ANNEXB_OVERLAYS.iter().position(|&o| o == overlay) {
-            return (source, PackVariant::Annexb(source as usize * ANNEXB_OVERLAYS.len() + k));
+            return (source, PackVariant::Annexb(k));
         }
     }
     (source, PackVariant::Regular(((source * PACK_OVERLAYS + overlay) * PACK_KINDS + r.pack) as usize))
@@ -212,16 +212,15 @@ mod pack_tests {
                 assert!(source < PACK_SOURCES);
                 match v {
                     PackVariant::Annexb(i) => {
-                        assert!(i < 2 * ANNEXB_OVERLAYS.len());
-                        assert_eq!(ANNEXB_OVERLAYS[i % 3], overlay);
-                        assert_eq!(i / 3, source as usize);
-                        assert!(r.chroma_filter != 0 && r.pack == plan::PACK_SITED && source < 2);
+                        assert!(i < ANNEXB_OVERLAYS.len());
+                        assert_eq!(ANNEXB_OVERLAYS[i], overlay);
+                        assert!(r.chroma_filter != 0 && r.pack == plan::PACK_SITED && source == 1);
                     }
                     PackVariant::Regular(i) => {
                         assert_eq!(i as u32, (source * PACK_OVERLAYS + overlay) * PACK_KINDS + r.pack);
                         assert!((i as u32) < PACK_SOURCES * PACK_OVERLAYS * PACK_KINDS);
-                        // the CB1 sited pack takes the tiled variant whenever one exists
-                        assert!(!(r.chroma_filter != 0 && r.pack == plan::PACK_SITED && source < 2 && overlay != 2));
+                        // the CB1 sited pack of a prepared source takes the tiled variant whenever one exists
+                        assert!(!(r.chroma_filter != 0 && r.pack == plan::PACK_SITED && source == 1 && overlay != 2));
                     }
                 }
             }
@@ -346,9 +345,9 @@ mod pack_tests {
     #[test]
     fn reachable_variants() {
         // every routing input: the variants select_pack picks are exactly
-        // pack_reachable's, and all six Annex B ones
+        // pack_reachable's, and all three Annex B ones (a prepared source's)
         let n = (PACK_SOURCES * PACK_OVERLAYS * PACK_KINDS) as usize;
-        let (mut regular, mut annexb) = (vec![false; n], [false; 6]);
+        let (mut regular, mut annexb) = (vec![false; n], [false; ANNEXB_OVERLAYS.len()]);
         for r in routings() {
             let Some(route) = planned(&r) else { continue };
             match select_pack(&route, overlay_kind(&r)).1 {
@@ -383,6 +382,7 @@ mod pack_tests {
                 (0, 2, 0),
                 (0, 2, 1),
                 (0, 2, 2),
+                (0, 3, 0),
                 (1, 0, 0),
                 (1, 1, 0),
                 (1, 2, 0),
@@ -409,13 +409,13 @@ mod pack_tests {
                 .count() as u32
         };
         let shipped = EngineOptions::default();
-        assert_eq!(n(&shipped), 19);
-        assert_eq!(pipeline_count(&shipped), 19 + 6 + OTHER_PIPELINES);
+        assert_eq!(n(&shipped), 20);
+        assert_eq!(pipeline_count(&shipped), 20 + 3 + OTHER_PIPELINES);
         let verify = EngineOptions { verify_every: 4, ..EngineOptions::default() };
         assert_eq!(n(&verify), 20);
-        assert_eq!(pipeline_count(&verify), 20 + 6 + OTHER_PIPELINES + 1);
+        assert_eq!(pipeline_count(&verify), 20 + 3 + OTHER_PIPELINES + 1);
         let lazy = EngineOptions { lazy_resized_pack: true, ..EngineOptions::default() };
-        assert_eq!(n(&lazy), 16);
+        assert_eq!(n(&lazy), 17);
         // DVVK_VERIFY's reference packs (source 0, the frame's kind) are made
         for r in routings() {
             let Some(route) = planned(&r) else { continue };
@@ -505,7 +505,8 @@ mod pack_tests {
 /// piecewise route's); the fused FEL (2) is the dual route, never 4:2:2.
 fn pack_reachable(source: u32, overlay: u32, kind: u32) -> bool {
     if overlay == 3 {
-        return source == 2 && kind == plan::PACK_SITED;
+        // native CB1: fused shells, and staged CB1 frames (no Annex B variant)
+        return (source == 2 || source == 0) && kind == plan::PACK_SITED;
     }
     match source {
         0 => true,
@@ -519,12 +520,11 @@ fn pack_lazy(o: &crate::options::EngineOptions, source: u32, kind: u32) -> bool 
     o.lazy_resized_pack && source == 2 && kind == plan::PACK_RESIZED
 }
 
-/// Whether Engine::new makes the regular variant: the reachable ones (and
-/// DVVK_VERIFY's reference for native CB1 frames: staged, sited, overlay 3),
-/// but not the lazy ones. Any other is made on first use (ensure_pack).
+/// Whether Engine::new makes the regular variant: the reachable ones (they
+/// include DVVK_VERIFY's reference for native CB1 frames: staged, sited,
+/// overlay 3), but not the lazy ones. Any other is made on first use (ensure_pack).
 fn pack_eager(o: &crate::options::EngineOptions, source: u32, overlay: u32, kind: u32) -> bool {
-    let verify_reference = o.verify_every > 0 && source == 0 && overlay == 3 && kind == plan::PACK_SITED;
-    (pack_reachable(source, overlay, kind) || verify_reference) && !pack_lazy(o, source, kind)
+    pack_reachable(source, overlay, kind) && !pack_lazy(o, source, kind)
 }
 
 /// How many pipelines Engine::new creates (DVVK_PREPARE progress).
@@ -537,7 +537,7 @@ fn pipeline_count(o: &crate::options::EngineOptions) -> u32 {
             }
         }
     }
-    packs + 2 * ANNEXB_OVERLAYS.len() as u32 + OTHER_PIPELINES + u32::from(o.verify_every > 0)
+    packs + ANNEXB_OVERLAYS.len() as u32 + OTHER_PIPELINES + u32::from(o.verify_every > 0)
 }
 
 // Offsets in the tables buffer (256-aligned).
@@ -855,12 +855,13 @@ impl Engine {
                 }
             }
         }
-        // CB1 contract: the sited pack, staged (0) or fused single-layer (1)
-        // sources, with no overlay, native CB1, or prepared subtitle colours.
-        // The prepared path retains its own blending and colour conversion.
+        // CB1 contract: the sited pack of a fused single-layer source (1),
+        // with no overlay, native CB1, or prepared subtitle colours. Staged
+        // sources (0) take the regular sited pack. The prepared path retains
+        // its own blending and colour conversion.
         let pair_reuse = o.cb1_pair_reuse;
         let mut pack_annexb = Vec::new();
-        for source in 0..2u32 {
+        for source in [1u32] {
             for overlay in ANNEXB_OVERLAYS {
                 pack_annexb.push(construction.keep(Pipeline::new(
                     &d,
@@ -2094,8 +2095,10 @@ impl Engine {
             for c in p.gui_coeff {
                 c.to_bits().hash(&mut hasher);
             }
+            // outside the active area every pixel is p.black (in the key): letterbox bars are not film
             let film = (p.placement[2] > 0 && p.placement[3] > 0).then(|| {
-                [p.placement[0], p.placement[1], p.placement[0] + p.placement[2], p.placement[1] + p.placement[3]]
+                [p.placement[0].max(p.active[0]), p.placement[1].max(p.active[1]),
+                 (p.placement[0] + p.placement[2]).min(p.active[2]), (p.placement[1] + p.placement[3]).min(p.active[3])]
             });
             let packet_rows = (p.packet_count * 3072).div_ceil(CANVAS_W);
             self.damage.plan(f.output as usize, hasher.finish(), film, packet_rows, check || fused_invalidate)
@@ -2800,7 +2803,7 @@ impl Engine {
                 err(),
             ],
             &[w, h, p.chroma_phase, p.nearest, first / 2],
-            ((w / 2).div_ceil(16), ((last - first) / 2).div_ceil(8)),
+            ((w / 4).div_ceil(16), ((last - first) / 2).div_ceil(8)),
         );
         // c = 1: the EL chroma, phase + vertical (overwrites V: the luma pass is done).
         barrier();
@@ -2835,7 +2838,7 @@ impl Engine {
                     err(),
                 ],
                 &[cw, ch, p.nearest, first / 2],
-                ((cw / 2).div_ceil(64), rows),
+                ((cw / 4).div_ceil(64), rows),
             );
         } else {
             for c in 0..2u32 {
@@ -3002,7 +3005,7 @@ impl Engine {
                     err(),
                 ],
                 &[cw, ch, 0u32, first / 2],
-                ((cw / 2).div_ceil(64), rows),
+                ((cw / 4).div_ceil(64), rows),
             );
         } else {
             self.record_chroma(cmd, slot, p, first, last);
