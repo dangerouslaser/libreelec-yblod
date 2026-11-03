@@ -8,5 +8,5 @@ fi
 host=$(cat /proc/sys/kernel/hostname 2>/dev/null)
 host=$(printf '%s' "${host:-LibreELEC}" | tr -c 'A-Za-z0-9-' '-' | cut -c1-40)
 mkdir -p /run/iphone-remote
-sed "s/@HOST@/$host/" /usr/share/iphone-remote/remote.toml.in > /run/iphone-remote/remote.toml
+sed "s/@HOST@/$host/" /usr/share/iphone-remote/remote.toml.template > /run/iphone-remote/remote.toml
 exec /usr/bin/big-fella-remote --config /run/iphone-remote/remote.toml

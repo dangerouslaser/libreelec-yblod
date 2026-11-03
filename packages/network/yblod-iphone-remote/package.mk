@@ -37,7 +37,7 @@ makeinstall_target() {
   cp ${bin}/big-fella-remote ${bin}/big-fella-remote-kodi ${INSTALL}/usr/bin/
   cp ${le}/iphone-remote-start ${INSTALL}/usr/lib/iphone-remote/
   chmod 0755 ${INSTALL}/usr/lib/iphone-remote/iphone-remote-start
-  cp ${le}/remote.toml.in ${INSTALL}/usr/share/iphone-remote/
+  cp ${le}/remote.toml.template ${INSTALL}/usr/share/iphone-remote/
   cp ${le}/iphone-remote.service ${le}/iphone-remote-kodi.service ${INSTALL}/usr/lib/systemd/system/
   cp -a ${le}/script.yblod.iphoneremote ${INSTALL}/usr/share/kodi/addons/
   cp ${PKG_BUILD}/big-fella-remote/README.md ${INSTALL}/usr/share/iphone-remote/

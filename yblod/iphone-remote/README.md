@@ -13,7 +13,7 @@ buttons and keyboard work in Kodi.
   same crate, `src/kodi.rs`) is Kodi's side: the PIN as a Kodi notification,
   and the phone's keyboard for Kodi's keyboard dialog, over JSON-RPC.
 - `libreelec/`: this image's side.
-  - `iphone-remote.service` runs the daemon with `remote.toml.in`, or with
+  - `iphone-remote.service` runs the daemon with `remote.toml.template`, or with
     `/storage/.config/iphone-remote.toml` if there is one. Paired iPhones
     and the box's key are kept in `/storage/.cache/iphone-remote`.
   - `iphone-remote-kodi.service` runs the Kodi side (JSON-RPC on
