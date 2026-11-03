@@ -1,0 +1,20 @@
+YBLOD 0.3.2 brings big-fella's latest Vulkan engine, renders Dolby Vision faster with the same picture, and fixes half-rate playback on AMD.
+
+What changed
+- Vulkan engine: YBLOD's Vulkan engine is now big-fella's dv-engine-vk 0.1.0-18, with two LibreELEC additions: Kodi's menus are read in place, and the engine checks every decoded picture when Kodi's decoder changes its surfaces.
+- Faster, same picture: the engine's passes do the same work with less GPU time and the same output. Unscaled pictures are still byte for byte CB1 Master Reference's. GPU time per frame in Kodi, 0.3.1 -> 0.3.2:
+  - Intel N150: 1917 (Profile 7 FEL) 26.5 -> 17.3 ms; Saving Private Ryan (FEL) 30.0 -> 23.3 ms; 28 Years Later (P8.1) and Gemini Man (MEL, 60p) about the same.
+  - CroqueMr's CB1 RC3 on the same N150: 20.3, 24.2, 9.2 and 9.1 ms.
+- AMD: on a Ryzen 5 3500U, Dolby Vision played at half the frame rate (24p at 12 frames a second): every frame was committed to the display as a possible mode change, and amdgpu showed each one a refresh late. Steady frames are now committed as plain page flips, as in CB1 RC3. Every frame is shown again, with no drops. GPU time per frame there: 1917 16.2 ms, Saving Private Ryan 19.9, 28 Years Later 5.1, Gemini Man 8.7 (CB1 RC3: 28.6, 28.6, 22.3, 11.1).
+- The LibreELEC base, Linux 7.3, Mesa, the kernel, Kodi's version, the OpenCL engine and the add-ons are unchanged from 0.3.1.
+
+Known issue
+On the Intel N150, 60p Dolby Vision (Gemini Man) is shown at about 40 frames a second, although Kodi reports no drops. 0.3.1 does the same. 24p is shown in full.
+
+If you run 0.3.1
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

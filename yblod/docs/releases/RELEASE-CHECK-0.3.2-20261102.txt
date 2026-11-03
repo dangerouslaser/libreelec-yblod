@@ -1,0 +1,80 @@
+YBLOD 0.3.2 validation
+
+Build source: 05652a1af718ff7e462c33a89b6ab64ea3a9d813 (main after PR #23). Built from the
+identical tree aba7cfc6 as the PR head 7f55e62320.
+LibreELEC upstream base: master 20e5dac7, unchanged from 0.3.1. The pinned Kodi (e4b62810), FFmpeg
+and libplacebo sources and the pre-installed add-ons are unchanged from 0.3.1.
+
+Changes since 0.3.1
+- yblod-engine/vk: big-fella's dv-engine-vk 0.1.0-18 (big-fella c727cc74e9), imported unmodified,
+  then LibreELEC additions:
+  - dvvk_set_overlay_ex + DVVK_OVERLAY_FLIP_Y: Kodi's GUI framebuffer read in place;
+  - DVVK_SURFACE_CHECK=1 (runtime defaults): a VA export per frame, because Kodi's adapter doesn't
+    reset the engine when the decoder's surface pool changes.
+  The library is libdv_engine_vk.so.1 (ABI 2).
+- yblod-engine/vk, faster passes with the same output:
+  - pack.comp's shared tiles are sized per variant (each one reserved 17 KB);
+  - wide loads in the pack and the FEL luma phase / MMR passes, two 2x2 blocks per invocation,
+    MMR products with imulExtended;
+  - the damage film rectangle is clipped to the active area, and one full dispatch is used only
+    above 95% of the canvas;
+  - CB1 staged (dual-layer) frames take the regular sited pack. The prepared source keeps the
+    three Annex B tiled variants.
+- Kodi patch yblod-27: the engine's ABI 2 (DVVK_LIBRARY and an ABI check, reset_checked, drain
+  before destroy), plus DV_VULKAN_CM4 / DV_VULKAN_NO_L2 metadata options (off by default).
+- Kodi patch yblod-28: once a DV scanout has been accepted, its frames commit without
+  DRM_MODE_ATOMIC_ALLOW_MODESET. Entering DV, a pending modeset, a restore, the frame after a
+  rejected commit and the first DV page after a regular page still commit the full state with
+  ALLOW_MODESET. CB1 RC3's frame-preparation patch does the same.
+
+Images
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version strings.
+KERNEL, kodi.bin, both engines, the runtime defaults and libvulkan_radeon.so are identical (hashes
+below). KERNEL, RADV and the OpenCL engine are unchanged from 0.3.1.
+
+Testing
+- cargo test: 34 of 34 pass.
+- golden.sh with this release's libdv_engine_vk.so.1 (Intel UHD 770, the same output as an N150):
+  90 of 90 hashes identical, plus the 18 FLIP_Y twins. The engine changes also gave 90 of 90 on an
+  N150.
+- Byte for byte against CB1's own code: dvvk-mr-compare with this release's library, every output
+  byte including the embedded metadata packets. 288 of 288 frames identical, none refused, on
+  1917 (P7 FEL), Gemini Man (P7 MEL), 28 Years Later (P8.1), 12 Angry Men (P8.1, letterboxed,
+  from 10 min), the DV NASA demo (P5) and Saving Private Ryan (P7 FEL, from 1:49:40).
+- Kodi playback on TVs, with clean images and fresh /storage. Method: the first-run wizard closed,
+  audio passthrough on the HDMI device (8 ch bitstream checked), shader caches warmed by a
+  discarded pass, then 50 s measured per passage, full films over NFS. GPU time is from DRM
+  fdinfo. The images were test builds whose kodi.bin is byte-identical to this release's. Their
+  engine differs from this release's only in which pack pipelines are made at start-up.
+  GPU ms per source frame, CB1 RC3 / YBLOD 0.3.1 / 0.3.2:
+  - Intel N150 (LG B4): 1917 20.3 / 26.5 / 17.3, Saving Private Ryan 24.2 / 30.0 / 23.3,
+    28 Years Later 9.2 / 11.6 / 12.3, Gemini Man (60p) 9.1 / 7.9 / 7.9.
+    0.3.2 had 0 drops, and every 24p frame was flipped.
+  - Ryzen 5 3500U (graphics engine): 1917 28.6 / half rate / 16.2, Saving Private Ryan 28.6 /
+    half rate / 19.9, 28 Years Later 22.3 / half rate / 5.1, Gemini Man 11.1 / half rate / 8.7.
+    0.3.2 had 0 drops and a flip on every vblank. 0.3.1 flipped every second vblank.
+
+SHA256
+Standard update tar: 2acc65fd7955ee07c7ac84547d8b130d8b08b5a4369fbded0de290b7276e4570
+Standard install img.gz: 54f752ce2044087c2ab98085f28afb2195cfdd7c3a0465e994e0bfe2c4c2c826
+Standard SYSTEM: dd485c7baf74321aeea8b87f41614b46cbcc4d31f9560914142064c8508f9318
+LG update tar: b8841fe65be18eafe80c0d1810260e38be425941609597fd838a5b1fd40b0b65
+LG install img.gz: 3c1e0b25bd0a762f36c0635f49ee6d5e81267a431e8f1834d247d59719de4fcd
+LG SYSTEM: b91e69055edd5cd306854ddaf02a296ca7223b6590f2233a16a4f712418af323
+KERNEL (both): 6f2e6210815d9eefaa6bfd1aa056d317a29a7a3dd066dde504c9cb95a9d9ac62
+Kodi (both): bc498686ca01fd4810ee4f8de76b8e7ce1dc09af1d6f837f4dab2329592f0f5a
+Vulkan engine (both): 3be3f22b2aa092db693166adc6a49d3283c9f5ab56312130d8e65531d312ee4a
+OpenCL engine (both): 0ed3003f8074bb1b2a30a7a5eeb9027965e3b5d83e2d27f0c855d88742405ee9
+Runtime defaults (both): f41565af6b0d91886d0a5f5f7100465f755673f753488517db39a3f1580bc161
+RADV (both): adcba045b5b71b11c3c3bc2ef7305d5726adfd8e7c391879bb7fcecff6992f5a
+Source bundle: (see SHA256SUMS)
+
+Limitations
+- The release images themselves were not installed on a TV. The tested images are described
+  above.
+- Intel N150: 60p Dolby Vision is shown at about 40 fps (in 10 s, 601 commits but 401 flips,
+  with flip gaps alternating between one and two vblanks). Kodi's drop counter doesn't see it.
+  0.3.1 does the same, and CB1 RC3 shows about 60. Each DV flip is a blocking commit; CB1 RC3
+  commits non-blocking and tracks the out-fence.
+- Under the CB1 contract, Kodi's GUI (203 nits, 8-bit) is blended with big-fella's native CB1
+  GUI blend instead of YBLOD's.
