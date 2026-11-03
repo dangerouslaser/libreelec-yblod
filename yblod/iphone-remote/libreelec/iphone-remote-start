@@ -1,0 +1,12 @@
+#!/bin/sh
+# Starts big-fella-remote with /storage/.config/iphone-remote.toml if there
+# is one, else the shipped settings with this box's host name in mdns_host.
+USER_CONFIG=/storage/.config/iphone-remote.toml
+if [ -f "$USER_CONFIG" ]; then
+  exec /usr/bin/big-fella-remote --config "$USER_CONFIG"
+fi
+host=$(cat /proc/sys/kernel/hostname 2>/dev/null)
+host=$(printf '%s' "${host:-LibreELEC}" | tr -c 'A-Za-z0-9-' '-' | cut -c1-40)
+mkdir -p /run/iphone-remote
+sed "s/@HOST@/$host/" /usr/share/iphone-remote/remote.toml.in > /run/iphone-remote/remote.toml
+exec /usr/bin/big-fella-remote --config /run/iphone-remote/remote.toml

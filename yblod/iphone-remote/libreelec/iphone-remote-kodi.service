@@ -1,0 +1,19 @@
+[Unit]
+Description=iPhone remote: Kodi's side (the pairing PIN, the phone's keyboard)
+After=iphone-remote.service kodi.service
+BindsTo=iphone-remote.service
+ConditionPathExists=!/storage/.cache/services/iphone-remote.disabled
+
+[Service]
+ExecStart=/usr/bin/big-fella-remote-kodi --control /run/iphone-remote/control.sock --kodi 127.0.0.1:9090
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=32M
+
+[Install]
+WantedBy=iphone-remote.service
