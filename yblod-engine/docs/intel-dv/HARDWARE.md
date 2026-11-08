@@ -10,6 +10,10 @@ sold with the same CPU.
    driver; the CPU marketing generation alone is not sufficient.
 2. Native HDMI, without active DisplayPort/LSPCON conversion. A native HDMI
    level shifter is not rejected merely for exposing a dual-mode identifier.
+   LSPCON routes stay excluded: the NUC7i7BN's MegaChips MCDP2800 (FW 1.77)
+   was tested and does not forward the Dolby VSIF (see VALIDATION.md). Those
+   NUCs fall back to Dolby Vision converted to HDR10 (LSPCON HDR10 signalling
+   works; conversion playback on Kaby Lake is not qualified).
 3. A valid Dolby EDID v0, v1 or v2 block advertising Standard DV. Both Kodi and
    the driver use the same validation. V0 and applicable v1 sinks use legacy
    Standard-DV HDMI signaling; modern sinks retain the Dolby-OUI packet.

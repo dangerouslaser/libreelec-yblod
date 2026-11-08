@@ -102,3 +102,36 @@ physical HDMI playback. See [BUILD.md](BUILD.md) to reproduce the image.
 # Format-aware information panel
 
 The adaptive panel was exercised with SDR, HDR10, HLG, Standard Dolby Vision and Dolby Vision converted to HDR10. Native formats select the compact panel; both DV paths retain source metadata. Missing metadata rows are hidden. HDR10 static mastering and content-light values were verified against the source. This UI change does not modify video processing or output selection.
+
+# NUC7i7BN: Dolby Vision through the MegaChips MCDP2800 LSPCON (not possible)
+
+Tested 2026-11-08 by a volunteer: NUC7i7BNB (Kaby Lake GT3, BIOS 0093), MCDP2800
+HW 2.2 FW 1.77 on port B (connector DP-1), direct HDMI to an LG OLED55C3 whose
+EDID parses as Standard DV v2. Image: NUC Display Lab v0.2.0-dvlab (the 0.3.3
+Linux 7.3 kernel plus a lab-only i915 patch; dangerouslaser/nuc-hardware-lab
+`image/dvlab`), report #8 in nuclab-reports. 3840x2160 23.976 Hz, RGB8 full range.
+
+| Step | Signalling | TV | DP RX CRC |
+|---|---|---|---|
+| C1 | DV-style AVI (RGB, full, VIC 93) via the MCA mailbox | normal picture, 8/8 near-black and 8/8 near-white steps | matches framebuffer |
+| C2 | HDR10: DRM InfoFrame as a DP InfoFrame SDP in the GMP DIP (`00 87 1d 4c`) | HDR logo | matches |
+| H1 | Dolby VSIF as a DP InfoFrame SDP in the VS DIP (`00 81 1d 4c 01 1b 46 d0 00 02`) | no DV; raw tunnel (green/purple) | matches |
+| H1b | as H1 with HB2 = 0x1c | no DV | matches |
+| H2 | the H1 packet in the GMP DIP (the slot C2 proves is forwarded) | no DV | matches |
+| Negative | H1 with every tunnel metadata CRC broken | no DV | matches |
+| C1 again | DV-style AVI | normal picture | matches |
+
+Readback confirmed the exact DIP bytes and enables in every step, and the
+firmware acknowledged every AVI write. The pixel bytes reach the converter
+unchanged (the sink CRC equals the framebuffer CRC, also for the tunnel frame),
+so the failure is the vendor InfoFrame: FW 1.77 converts the GMP SDP when it
+carries type 0x87 and drops it with type 0x81, and does not forward the VS DIP.
+The vendor DPCD range 0x5B0-0x5FF NAKs reads; no other mailbox is known, and
+none is written by guesswork (a stray AUX write can brick the converter).
+
+Result: no Dolby Vision route on this converter firmware. The DV property is
+not exposed on LSPCON connectors; these NUCs fall back to the Dolby Vision to
+HDR10 conversion. Its HDR10 signalling through the converter is confirmed (C2);
+conversion playback on Kaby Lake was not qualified. Recognition failed, so transport, lifecycle and playback were not
+qualified. The unmerged driver work is kept on branch `feature/nuc7-lspcon-dv`
+(`linux-9930`) in case another firmware or a documented mechanism turns up.
