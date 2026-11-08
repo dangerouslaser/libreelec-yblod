@@ -1,7 +1,7 @@
 //! Rollback for unpublished construction resources only. Runtime ownership and
 //! retirement remain explicit in Engine; this is not general GPU-resource RAII.
 use crate::device::Device;
-use crate::gpu::{DeviceBuffer, HostBuffer, OneShot, Pipeline, SampledImage};
+use crate::gpu::{DeviceBuffer, HostBuffer, Lut3d, OneShot, Pipeline, SampledImage};
 use ash::vk;
 
 type Action = Box<dyn FnOnce(&Device)>;
@@ -68,6 +68,12 @@ impl Resource for DeviceBuffer {
 impl Resource for SampledImage {
     fn rollback(&self) -> Action {
         let copy = Self { image: self.image, memory: self.memory, view: self.view };
+        Box::new(move |d| copy.destroy(d))
+    }
+}
+impl Resource for Lut3d {
+    fn rollback(&self) -> Action {
+        let copy = Self { image: self.image, memory: self.memory, view: self.view, n: self.n, ready: false };
         Box::new(move |d| copy.destroy(d))
     }
 }

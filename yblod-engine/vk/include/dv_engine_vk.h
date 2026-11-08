@@ -115,6 +115,41 @@ int dvvk_drain(dvvk_engine *, uint64_t timeout_ns);
  * engines cannot reset successfully; destroy/recreate only after retirement. */
 int dvvk_reset_checked(dvvk_engine *, uint64_t timeout_ns);
 void dvvk_reset(dvvk_engine *);
+
+/* Output mode (docs/hdr10-output.md). Optional symbols (dlsym), no ABI
+ * change: an engine without them is the tunnel only.
+ *   DVVK_OUTPUT_DV     the Dolby Vision tunnel (the default): the TV maps
+ *   DVVK_OUTPUT_HDR10  HDR10: the engine converts to BT.2020 PQ as CroqueMr's
+ *                      CB1 "Reference Basic" does (the film's own peak, L6 or
+ *                      its mastering display, scene by scene from L1); the
+ *                      picture is the same 12-bit 4:2:2 Y'CbCr byte layout as
+ *                      the tunnel (limited range, no metadata in it), which
+ *                      the display signals as YCbCr 4:2:2 12-bit BT.2020 with
+ *                      dvvk_output_signal()'s HDR static metadata.
+ * The mode applies from the next frame submitted; peak_nits/min_nits are
+ * for target-display modes (reserved, 0). */
+enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1 };
+typedef struct {
+    uint32_t mode;
+    uint32_t flags;               /* 0 */
+    float peak_nits, min_nits;    /* 0: the stream's */
+    uint32_t reserved[4];
+} dvvk_output_mode;
+/* The last frame's output: what the HDR static metadata InfoFrame (CTA-861.3)
+ * says. mode DVVK_OUTPUT_DV: everything 0. */
+typedef struct {
+    uint32_t mode;
+    uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ) */
+    uint16_t primaries[3][2];     /* display primaries x, y (0.00002 units): R, G, B */
+    uint16_t white[2];
+    uint16_t max_luminance;       /* cd/m2 */
+    uint16_t min_luminance;       /* 0.0001 cd/m2 */
+    uint16_t max_cll, max_fall;   /* cd/m2; 0: unknown */
+    uint32_t reserved[4];
+} dvvk_hdr_signal;
+int dvvk_set_output_mode(dvvk_engine *, const dvvk_output_mode *);
+int dvvk_output_signal(dvvk_engine *, dvvk_hdr_signal *);
+
 /* Decoded surfaces are imported once and then known by their VASurfaceID
  * until a reset: reset whenever the decoder's surface pool changes (a new
  * AVHWFramesContext may reuse ids for other allocations), and keep the old
@@ -138,6 +173,9 @@ DVVK_STATIC_ASSERT(offsetof(dvvk_sub_part, stride) == 24, "dvvk_sub_part layout"
 DVVK_STATIC_ASSERT(offsetof(dvvk_sub_part, color) == 32, "dvvk_sub_part layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_sub_part, data) == 40, "dvvk_sub_part layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_dmabuf) == 80, "dvvk_dmabuf layout");
+DVVK_STATIC_ASSERT(sizeof(dvvk_output_mode) == 32, "dvvk_output_mode layout");
+DVVK_STATIC_ASSERT(sizeof(dvvk_hdr_signal) == 48, "dvvk_hdr_signal layout");
+DVVK_STATIC_ASSERT(offsetof(dvvk_hdr_signal, max_luminance) == 24, "dvvk_hdr_signal layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, modifier) == 16, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, num_planes) == 24, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, fd) == 28, "dvvk_dmabuf layout");

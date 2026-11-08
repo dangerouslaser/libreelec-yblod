@@ -42,6 +42,9 @@
  *                        4000, 10000
  *     --cm4-headroom P   auto2's headroom, 0..50 (default 20)
  *     --tv-peak NITS     the TV's peak (0: unknown)
+ *     --output MODE      dv (the tunnel, default) or hdr10: the engine converts
+ *                        to HDR10 (dvvk_set_output_mode; the dumps are then
+ *                        12-bit 4:2:2 BT.2020 PQ Y'CbCr in the tunnel's bytes)
  *     --no-l2            L2 trims left out of the metadata
  *     --dump FILE        the last picture's XRGB8888 bytes
  *     --dump-at N[,M..]  dump picture N instead of the last; with several,
@@ -200,7 +203,7 @@ static void sleep_until(double t_ms)
 int main(int argc, char **argv)
 {
     int frames = 240, fel = 1, scaler = 0, have_dest = 0, desktop = 0, fp16 = 0, cb1 = 0, flip = 0;
-    unsigned cm4 = 0, cm4_trigger = 0, cm4_headroom = 20, tv_peak = 0, no_l2 = 0;
+    unsigned cm4 = 0, cm4_trigger = 0, cm4_headroom = 20, tv_peak = 0, no_l2 = 0, output = DVVK_OUTPUT_DV;
     uint32_t last_dm_status = UINT32_MAX;
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
     const char *metadata_prefix = NULL;
@@ -255,6 +258,8 @@ int main(int argc, char **argv)
             cm4_headroom = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--tv-peak") && i + 1 < argc)
             tv_peak = (unsigned)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--output") && i + 1 < argc)
+            output = !strcmp(argv[++i], "hdr10") ? DVVK_OUTPUT_HDR10 : DVVK_OUTPUT_DV;
         else if (!strcmp(argv[i], "--no-l2"))
             no_l2 = 1;
         else if (!strcmp(argv[i], "--cb1"))
@@ -290,6 +295,11 @@ int main(int argc, char **argv)
     dvvk_engine *e = NULL;
     if (dvvk_create(drm, dec.display, &e))
         return fprintf(stderr, "dvvk_create failed\n"), 1;
+    if (output != DVVK_OUTPUT_DV) {
+        dvvk_output_mode om = {.mode = output};
+        if (dvvk_set_output_mode(e, &om))
+            return fprintf(stderr, "dvvk_set_output_mode failed\n"), 1;
+    }
     for (int i = 0; i < SLOTS; i++)
         if (dvvk_set_output(e, (uint32_t)i, out[i].fd, out[i].stride))
             return fprintf(stderr, "dvvk_set_output failed\n"), 1;
@@ -499,6 +509,15 @@ int main(int argc, char **argv)
         dump_bo(&out[(n - 1) % SLOTS], dump);
     else if (dump && dumped < dumps)
         fprintf(stderr, "dvvk-bench: %d of %d dumps written\n", dumped, dumps);
+    if (output != DVVK_OUTPUT_DV) {
+        dvvk_hdr_signal sig;
+        if (!dvvk_output_signal(e, &sig))
+            printf("dvvk-bench: HDR10 signal: mode %u eotf %u max %u cd/m2 min %u (1e-4) cll %u fall %u "
+                   "R %u,%u G %u,%u B %u,%u W %u,%u\n",
+                   sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
+                   sig.primaries[0][0], sig.primaries[0][1], sig.primaries[1][0], sig.primaries[1][1],
+                   sig.primaries[2][0], sig.primaries[2][1], sig.white[0], sig.white[1]);
+    }
     dvvk_destroy(e);
     dv_decoder_close(&dec);
     return 0;

@@ -32,6 +32,16 @@
 //!   compute subgroup sizes, where the device supports them.
 //! - `DVVK_DESKTOP_L1=MIN,MAX,AVG`: desktop mode's L1 (12-bit PQ codes, 0 for a
 //!   default).
+//! - `DVVK_MAP_DIRECT=1`: HDR10 output (dvvk_set_output_mode) computes every
+//!   pixel's mapping exactly instead of through the scene's 3D LUT (a check);
+//!   `DVVK_MAP_LUT_ONLY=1` the LUT everywhere, no exact cells (timing);
+//!   `DVVK_MAP_N=N` the LUT's points per axis (default 65).
+//! - `DVVK_MAP_THRESH=C`: the 3D LUT's cells interpolating worse than C 12-bit
+//!   codes (default 0.5) are computed exactly; `DVVK_MAP_STATS=1` traces bakes.
+//! - `DVVK_MAP_INLINE=1`: HDR10 output's marked LUT cells computed in the
+//!   pack instead of map_fixup's pass (a comparison).
+//! - `DVVK_OUTPUT=hdr10`: the engine starts in HDR10 output (tools without
+//!   the API, e.g. golden runs of the existing dvvk-bench).
 //! - `DVVK_TEST_FAIL` (builds with the `test-faults` feature only): fault.rs.
 
 fn var(name: &str) -> Option<String> {
@@ -69,6 +79,14 @@ pub struct EngineOptions {
     pub subgroup: u32,
     pub subgroup_overrides: String,
     pub desktop_l1: Option<[u32; 3]>,
+    pub map_direct: bool,
+    pub map_lut_only: bool,
+    /// DVVK_MAP_INLINE=1: the marked cells computed in the pack (no fix-up pass).
+    pub map_inline: bool,
+    pub map_n: u32,
+    pub map_thresh: f32,
+    pub map_stats: bool,
+    pub output_hdr10: bool,
 }
 
 impl Default for EngineOptions {
@@ -92,6 +110,13 @@ impl Default for EngineOptions {
             subgroup: 0,
             subgroup_overrides: String::new(),
             desktop_l1: None,
+            map_direct: false,
+            map_lut_only: false,
+            map_inline: false,
+            map_n: crate::map::LUT_N,
+            map_thresh: crate::map::BAKE_THRESH,
+            map_stats: false,
+            output_hdr10: false,
         }
     }
 }
@@ -120,6 +145,13 @@ impl EngineOptions {
             subgroup: number("DVVK_SUBGROUP", 0),
             subgroup_overrides: var("DVVK_SUBGROUP_OVERRIDES").unwrap_or_default(),
             desktop_l1,
+            map_direct: flag("DVVK_MAP_DIRECT"),
+            map_lut_only: flag("DVVK_MAP_LUT_ONLY"),
+            map_inline: flag("DVVK_MAP_INLINE"),
+            map_n: number("DVVK_MAP_N", crate::map::LUT_N).clamp(9, 129),
+            map_thresh: number("DVVK_MAP_THRESH", crate::map::BAKE_THRESH),
+            map_stats: flag("DVVK_MAP_STATS"),
+            output_hdr10: var("DVVK_OUTPUT").as_deref() == Some("hdr10"),
         }
     }
 }
