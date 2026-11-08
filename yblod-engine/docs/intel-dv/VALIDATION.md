@@ -134,4 +134,45 @@ not exposed on LSPCON connectors; these NUCs fall back to the Dolby Vision to
 HDR10 conversion. Its HDR10 signalling through the converter is confirmed (C2);
 conversion playback on Kaby Lake was not qualified. Recognition failed, so transport, lifecycle and playback were not
 qualified. The unmerged driver work is kept on branch `feature/nuc7-lspcon-dv`
-(`linux-9930`) in case another firmware or a documented mechanism turns up.
+(`linux-9930-lspcon-mca-dv`) in case another firmware or a documented mechanism
+turns up.
+
+# INUC 11i5FL: Dolby Vision through an onboard DP-to-HDMI converter (0.3.4)
+
+Tested 2026-11-08 by a volunteer: INUSUAL INUC 11i5FL (Tiger Lake, board
+CM11EBV58W). Both HDMI sockets are DP outputs (DP-1 = port B, DP-2 = port E)
+behind identical onboard DP-to-HDMI protocol converters with a blank branch ID
+(DFP `0b f0 02 00`); there is no native HDMI. Direct HDMI to a Sony Bravia 7
+(Standard DV, VSVDB v2, interface 2).
+
+Lab (NUC Display Lab v0.3.0-dvlab, report #13; the same kernel with a lab
+patch), 3840x2160, RGB8 full range, the DV AVI as a DP InfoFrame SDP in the
+AVI DIP:
+
+| Step | Dolby VSIF | TV |
+|---|---|---|
+| C1 | none (DV AVI only) | no logo; level steps not sure |
+| C2 | HDR10 DRM InfoFrame SDP in the GMP DIP | HDR logo, 8/8 near-black steps |
+| H1, H1b | DP InfoFrame SDP in the VS DIP (HB2 0x1d / 0x1c) | black / no signal |
+| H2 | the same SDP in the GMP DIP | Dolby Vision logo, correct colour bars, at 4K23.976 and 4K59.94 |
+| Negative | H2 with every tunnel metadata CRC broken | Dolby Vision logo, colour bars |
+| C1 again | DV AVI only | no logo, 8/8 near-black and 8/8 near-white steps |
+
+The Sony accepted the broken-CRC frame, so on this TV the logo alone does not
+prove that the metadata arrives intact; the correct picture of the valid
+frame does show the tunnel decoded. The converter has no sink CRC.
+
+`linux-9930-dp-pcon-dv` implements H2 for the product: on DP ports where it is
+allowed, the connector gets DVBRIDGE_DV_STANDARD_LAB; at modeset the route must
+be a DP branch with an HDMI DFP and an HDMI sink, and the usual link policy
+applies (RGB8, full range, CTA timing, no HDR blob), with the downstream TMDS
+limit always respected. Readout maps the SDPs back for the state checker.
+
+Playback: the volunteer played Dolby Vision titles in Kodi on test image
+0.3.4-test1 (0.3.3 plus `linux-9930` only) and confirmed Dolby Vision on the
+TV. 0.3.4 adds linux-9928 (DVBRIDGE_TUNNEL_FORMAT, default dolby-vision, HDMI
+connectors only) and the engine's HDR10 code (unused); the converter route was
+not re-tested on the release image.
+
+Not qualified: other converters (`i915.dv_pcon=1` is experimental), the
+through-soundbar route, and Dolby Vision to HDR10 on DP (not offered).

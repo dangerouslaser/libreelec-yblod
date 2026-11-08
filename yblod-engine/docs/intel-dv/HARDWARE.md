@@ -14,6 +14,13 @@ sold with the same CPU.
    was tested and does not forward the Dolby VSIF (see VALIDATION.md). Those
    NUCs fall back to Dolby Vision converted to HDR10 (LSPCON HDR10 signalling
    works; conversion playback on Kaby Lake is not qualified).
+   Exception (0.3.4, `linux-9930-dp-pcon-dv`): gen11+ boards whose HDMI
+   sockets are an onboard DP-to-HDMI protocol converter (not LSPCON). The
+   Dolby VSIF goes to the converter as a DP InfoFrame SDP in the GMP DIP, as
+   HDR10 does. On by default only for allowlisted boards (DMI): the INUSUAL
+   INUC 11i5FL (board CM11EBV58W), verified (see VALIDATION.md). Other boards:
+   `i915.dv_pcon=1`, experimental. `i915.dv_pcon=0` turns it off. Kodi's
+   "Dolby Vision to HDR10" output mode is not offered on these DP ports.
 3. A valid Dolby EDID v0, v1 or v2 block advertising Standard DV. Both Kodi and
    the driver use the same validation. V0 and applicable v1 sinks use legacy
    Standard-DV HDMI signaling; modern sinks retain the Dolby-OUI packet.
