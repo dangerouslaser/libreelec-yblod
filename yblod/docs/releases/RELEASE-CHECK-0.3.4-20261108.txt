@@ -1,0 +1,81 @@
+YBLOD 0.3.4 validation
+
+Build source: a9c09d88e24ea344c4afc474c194b5e66b05a0f1 (main after PR #25). Built from the
+identical tree 94f7c6c3 as the PR head 9d97cd2ffd.
+LibreELEC upstream base: master 20e5dac7, unchanged from 0.3.3. The pinned Kodi (e4b62810), FFmpeg
+and libplacebo sources and the pre-installed add-ons are unchanged from 0.3.3.
+
+Changes since 0.3.3
+- Linux 7.3:
+  - 9930 dp-pcon-dv (i915), new: Standard Dolby Vision through an onboard DP-to-HDMI protocol
+    converter on gen11+.
+    - The Dolby VSIF (OUI 00-D0-46, signal 1) goes to the converter as a DP InfoFrame SDP in
+      the GMP DIP (00 81 1d 4c, version, length, PB1..PB26; PB27 reserved and checked to be
+      0). The DV AVI (CTA VIC, RGB, full range, no colorimetry) goes as an SDP in the AVI DIP.
+      The VS DIP is not used: it blanks the verified converter's output.
+    - DVBRIDGE_DV_STANDARD_LAB is attached to allowed non-eDP DP connectors.
+    - At modeset the route must be a DP branch with an HDMI DFP and an HDMI sink. The link
+      policy applies (verified_bridge in place of native_hdmi), and the compute_formats() retry
+      without the downstream TMDS limit is skipped for DV.
+    - Readout rebuilds the HDMI InfoFrames from the DIPs for the state checker.
+    - i915.dv_pcon: -1 (default) = DMI allowlist (board vendor Intel Corporation, board
+      CM11EBV58W: INUSUAL INUC 11i5FL), 1 = any gen11+ HDMI-capable non-LSPCON DP port, 0 = off.
+  - 9928 big-fella-tunnel-format (i915, amdgpu), from feature/dv-hdr10-output:
+    DVBRIDGE_TUNNEL_FORMAT (dolby-vision, the default / hdr10 / lldv) on HDMI connectors. Not
+    used by Kodi in this release. The committed copy's stray intel_hdmi.c.orig hunk was dropped.
+- dv-engine-vk: big-fella feature/dv-hdr10-tonemap (0.1.0-20) HDR10 output: optional symbols
+  dvvk_set_output_mode / dvvk_output_signal, no soname or ABI change. Nothing calls them in
+  this release. Source identical to feature/dv-hdr10-output eccc424844 (yblod-engine/vk).
+- Not included: Kodi yblod-29 (Output mode HDR10 through the tunnel), only compile-checked.
+
+Images
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version strings.
+Against 0.3.4-test1 (0.3.3 + linux-9930), SYSTEM differs only in the version strings, xe.ko and
+the Vulkan engine; KERNEL differs (linux-9928). kodi.bin, the OpenCL engine, the runtime
+defaults, RADV and the remote's binaries are identical to 0.3.3 (hashes below).
+
+Testing
+- Converter route, INUSUAL INUC 11i5FL + Sony Bravia 7 (volunteer, 2026-11-08):
+  - NUC Display Lab v0.3.0-dvlab (report #13; the same Linux 7.3 with a lab patch): the Dolby
+    VSIF SDP in the GMP DIP gives Dolby Vision and the correct test picture at 4K23.976 and
+    4K59.94. In the VS DIP the output is black. The TV also showed Dolby Vision for a frame
+    with broken tunnel metadata CRCs (it doesn't reject them).
+  - Test image 0.3.4-test1 (0.3.3 + linux-9930 only): Dolby Vision playback in Kodi confirmed.
+  - The release image was not re-tested on the TV. It adds linux-9928 to that kernel, which only
+    changes HDMI connectors' compute and a tunnel check that needs a YCbCr 4:2:2 AVI (the
+    converter route sends RGB).
+- linux-9928 + linux-9930: i915 and xe build without warnings (Linux 7.3 + the yblod series).
+  The release vmlinux has dv_pcon, the CM11EBV58W allowlist and DVBRIDGE_TUNNEL_FORMAT.
+- Vulkan engine, the release image's libdv_engine_vk.so.1 on Ollie (UHD 770):
+  golden.sh check, 1917 FEL + Gemini Man MEL + 28 Years Later P8.1: identical (90 hashes),
+  FLIP_Y twins identical (18). Dolby Vision output is unchanged.
+  The HDR10 output was checked by its author: every pixel within one 12-bit code of the CPU
+  double-precision Master Reference map; cargo test 34 of 34.
+- NUC7i7BNB (MegaChips MCDP2800 FW 1.77) + LG C3 (volunteer, report #8): no route. The firmware
+  forwards the HDR10 SDP but drops the Dolby VSIF from the VS and GMP DIPs. LSPCON stays excluded
+  (yblod-engine/docs/intel-dv/VALIDATION.md).
+
+SHA256
+Standard update tar: cce81584bf4e136c79b5dd9b4eb129cf8b702de4daa1e87a7eea1c8c76e37d26
+Standard install img.gz: af64146371f5cd2d3e89754044266e456a04ada0ce4126c155af4c538c1927fb
+Standard SYSTEM: 0f294a4eb0389adbe89222c83b0c643512405442cddcfe25a58511db8259a30c
+LG update tar: 6eaf13c389375e1a954f9700939f737e7de0acb7502deee9c11e65a683faccd6
+LG install img.gz: 5a774b76b73a6b8ea703aa62907fc10cff774c9f1fa263dad3bfca8a4c8e9e47
+LG SYSTEM: abb70dcd5f6ad2d1978649033ccf1ae76f07aee3928051da415e1004b0ad2836
+KERNEL (both): 34a49d65fc7dfe16bea11010996466a13a872de37ec976c98f9b8211b019ffa3
+Kodi (both): bc498686ca01fd4810ee4f8de76b8e7ce1dc09af1d6f837f4dab2329592f0f5a
+Vulkan engine (both): 137c4ef2858b48aca924f7397e1f26c72aa7ab7af6d87eae7f70b1c1169c1022
+OpenCL engine (both): 0ed3003f8074bb1b2a30a7a5eeb9027965e3b5d83e2d27f0c855d88742405ee9
+Runtime defaults (both): f41565af6b0d91886d0a5f5f7100465f755673f753488517db39a3f1580bc161
+RADV (both): adcba045b5b71b11c3c3bc2ef7305d5726adfd8e7c391879bb7fcecff6992f5a
+big-fella-remote (both): 939711f16b6bc4c580f3865e7a7f383ed27908d261a34c9a599eb7d485727fa9
+big-fella-remote-kodi (both): 0cb8ac603269944bd4d8eca40d9ae5cb9f3bea845c9327cd01f84bf79b6c0be6
+Source bundle: b19b3896eb68c8f45892b5777a696a61bf579df3e154d4101190c2ceb9d20f99
+
+Limitations
+- Only one converter board is allowlisted and verified, with one TV. Through a soundbar or AV
+  receiver the route is not tested.
+- The release image itself was not played on a TV (see above).
+- "Convert Dolby Vision to HDR10" is not offered on the converter's DP connectors.
+- The engine's HDR10 output and linux-9928 are present but unused; they have not run in Kodi.
+- The N150's 60p DV (about 40 fps shown) is unchanged.

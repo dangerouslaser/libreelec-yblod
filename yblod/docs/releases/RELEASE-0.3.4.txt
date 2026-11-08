@@ -1,0 +1,23 @@
+YBLOD 0.3.4 brings Dolby Vision to mini PCs whose HDMI sockets are an onboard DisplayPort-to-HDMI converter, starting with the INUSUAL INUC 11.
+
+What changed
+- INUSUAL INUC 11i5FL (Tiger Lake): Dolby Vision now works on both HDMI sockets. On this box they aren't native HDMI: each is a DisplayPort output with a converter chip behind it, so YBLOD used to refuse Dolby Vision there. The Dolby Vision signal now goes to the converter the way HDR10 already did, and the converter passes it on to the TV. A volunteer confirmed Dolby Vision at 4K 23.976 and 59.94 Hz on a Sony Bravia 7, and Dolby Vision playback in Kodi.
+- Other Intel PCs (11th generation and newer) with the same kind of converter can try it with the kernel option i915.dv_pcon=1. That's experimental: with an untested converter the TV may show no picture, or a green/purple picture instead of Dolby Vision. If it works on yours, please report the PC and TV, so it can be turned on by default for that model.
+- Groundwork for Dolby Vision converted to HDR10 by the Vulkan engine (the Master Reference conversion) and its kernel signalling. Kodi doesn't use it yet, so nothing changes in this release: "Output mode: HDR10" still uses the existing conversion.
+- Kodi, the OpenCL engine, the runtime defaults, Mesa and the add-ons are unchanged from 0.3.3. Dolby Vision output of the Vulkan engine is byte-identical to 0.3.3.
+
+Known issues
+- On the INUC 11 (and other boxes using the converter route), the "Convert Dolby Vision to HDR10" output mode is not offered. On a Dolby Vision TV this doesn't matter.
+- NUC7i7BN and other Kaby Lake NUCs with an LSPCON chip (MegaChips MCDP2800) still can't do Dolby Vision: the chip's firmware drops the Dolby Vision signal (tested with a volunteer, see the validation report). They keep Dolby Vision converted to HDR10.
+- On an Intel N150, 60p Dolby Vision is still shown at about 40 frames a second (as in 0.3.3).
+
+Turning things off
+i915.dv_pcon=0 turns the converter route off.
+
+If you run 0.3.3
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
