@@ -70,6 +70,27 @@ fn main() {
         c.include(inc);
     }
     c.compile("yblod_host");
+    // The output colour mapping (include/dvvk_map.h): yblod/dv_map.c and the
+    // part of libplacebo it uses (yblod/placebo: CB1's patched libplacebo
+    // e2972fdd, colour spaces, tone and gamut mapping), every symbol hidden
+    // (mpv loads its own libplacebo into the same process).
+    println!("cargo:rerun-if-changed=yblod/placebo");
+    let mut m = cc::Build::new();
+    m.std("gnu11")
+        .flag("-fvisibility=hidden")
+        .include("yblod/placebo")
+        .include("yblod/placebo/include")
+        .include("include")
+        .file("yblod/dv_map.c")
+        .file("yblod/placebo/common.c")
+        .file("yblod/placebo/colorspace.c")
+        .file("yblod/placebo/tone_mapping.c")
+        .file("yblod/placebo/gamut_mapping.c")
+        .warnings(false);
+    if let Ok(inc) = env::var("FFMPEG_INCLUDE") {
+        m.include(inc);
+    }
+    m.compile("dvvk_map");
     // The C ABI's soname: DVVK_LIBRARY in include/dv_engine_vk.h, the one
     // place it is written (mpv-yblod dlopens it by that macro).
     let header = fs::read_to_string("include/dv_engine_vk.h").unwrap();

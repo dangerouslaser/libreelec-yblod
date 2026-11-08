@@ -497,7 +497,8 @@ impl DeviceBuffer {
                     .usage(
                         vk::BufferUsageFlags::STORAGE_BUFFER
                             | vk::BufferUsageFlags::TRANSFER_SRC
-                            | vk::BufferUsageFlags::TRANSFER_DST,
+                            | vk::BufferUsageFlags::TRANSFER_DST
+                            | vk::BufferUsageFlags::INDIRECT_BUFFER,
                     )
                     .sharing_mode(vk::SharingMode::EXCLUSIVE),
                 None,
@@ -545,6 +546,25 @@ pub fn compute_barrier(d: &Device, cmd: vk::CommandBuffer) {
         .dst_stage_mask(vk::PipelineStageFlags2::COMPUTE_SHADER | vk::PipelineStageFlags2::TRANSFER)
         .dst_access_mask(
             vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE | vk::AccessFlags2::TRANSFER_READ,
+        )];
+    unsafe { d.device.cmd_pipeline_barrier2(cmd, &vk::DependencyInfo::default().memory_barriers(&m)) };
+}
+
+/// compute_barrier with indirect dispatch arguments (map_fixup's, written
+/// by the pack, reset by a transfer) on both sides.
+pub fn indirect_barrier(d: &Device, cmd: vk::CommandBuffer) {
+    let stages = vk::PipelineStageFlags2::COMPUTE_SHADER
+        | vk::PipelineStageFlags2::TRANSFER
+        | vk::PipelineStageFlags2::DRAW_INDIRECT;
+    let m = [vk::MemoryBarrier2::default()
+        .src_stage_mask(stages)
+        .src_access_mask(vk::AccessFlags2::SHADER_WRITE | vk::AccessFlags2::TRANSFER_WRITE)
+        .dst_stage_mask(stages)
+        .dst_access_mask(
+            vk::AccessFlags2::SHADER_READ
+                | vk::AccessFlags2::SHADER_WRITE
+                | vk::AccessFlags2::TRANSFER_WRITE
+                | vk::AccessFlags2::INDIRECT_COMMAND_READ,
         )];
     unsafe { d.device.cmd_pipeline_barrier2(cmd, &vk::DependencyInfo::default().memory_barriers(&m)) };
 }
@@ -689,6 +709,140 @@ impl SampledImage {
         }
         staging.destroy(d);
         result
+    }
+
+    pub fn destroy(&self, d: &Device) {
+        unsafe {
+            d.device.destroy_image_view(self.view, None);
+            d.device.destroy_image(self.image, None);
+            d.device.free_memory(self.memory, None);
+        }
+    }
+}
+
+/// The output mapping's 3D LUT (map_bake.comp): RGBA16 UNORM, n^3, sampled
+/// with trilinear filtering by the pack; written by a buffer copy (no
+/// storage-image format feature needed), always in GENERAL layout after the
+/// first copy (`ready`).
+pub struct Lut3d {
+    pub image: vk::Image,
+    pub memory: vk::DeviceMemory,
+    pub view: vk::ImageView,
+    pub n: u32,
+    pub ready: bool,
+}
+
+impl Lut3d {
+    pub fn new(d: &Device, n: u32) -> Result<Self> {
+        let format = vk::Format::R16G16B16A16_UNORM;
+        let info = vk::ImageCreateInfo::default()
+            .image_type(vk::ImageType::TYPE_3D)
+            .format(format)
+            .extent(vk::Extent3D { width: n, height: n, depth: n })
+            .mip_levels(1)
+            .array_layers(1)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .usage(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .initial_layout(vk::ImageLayout::UNDEFINED);
+        let image = unsafe { d.device.create_image(&info, None) }?;
+        let mut memory = vk::DeviceMemory::null();
+        let mut view = vk::ImageView::null();
+        let result = (|| {
+            let req = unsafe { d.device.get_image_memory_requirements(image) };
+            let index = d
+                .memory_type(req.memory_type_bits, vk::MemoryPropertyFlags::DEVICE_LOCAL)
+                .ok_or(Error::Missing("device-local memory"))?;
+            memory = unsafe {
+                d.device.allocate_memory(
+                    &vk::MemoryAllocateInfo::default().allocation_size(req.size).memory_type_index(index),
+                    None,
+                )
+            }?;
+            unsafe { d.device.bind_image_memory(image, memory, 0) }?;
+            view = unsafe {
+                d.device.create_image_view(
+                    &vk::ImageViewCreateInfo::default()
+                        .image(image)
+                        .view_type(vk::ImageViewType::TYPE_3D)
+                        .format(format)
+                        .subresource_range(color_range()),
+                    None,
+                )
+            }?;
+            Ok(Lut3d { image, memory, view, n, ready: false })
+        })();
+        if result.is_err() {
+            unsafe {
+                d.device.destroy_image_view(view, None);
+                d.device.destroy_image(image, None);
+                d.device.free_memory(memory, None);
+            }
+        }
+        result
+    }
+
+    /// Records the copy of `nodes` (n^3 RGBA16 texels, x fastest) into the
+    /// image, between the compute work before and after it.
+    pub fn record_copy(&mut self, d: &Device, cmd: vk::CommandBuffer, nodes: vk::Buffer) {
+        let before = [vk::ImageMemoryBarrier2::default()
+            .src_stage_mask(vk::PipelineStageFlags2::COMPUTE_SHADER)
+            .src_access_mask(vk::AccessFlags2::SHADER_READ)
+            .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+            .dst_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+            .old_layout(if self.ready { vk::ImageLayout::GENERAL } else { vk::ImageLayout::UNDEFINED })
+            .new_layout(vk::ImageLayout::GENERAL)
+            .image(self.image)
+            .subresource_range(color_range())];
+        let buffer_ready = [vk::MemoryBarrier2::default()
+            .src_stage_mask(vk::PipelineStageFlags2::COMPUTE_SHADER)
+            .src_access_mask(vk::AccessFlags2::SHADER_WRITE)
+            .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+            .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)];
+        let region = [vk::BufferImageCopy::default()
+            .image_subresource(vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .image_extent(vk::Extent3D { width: self.n, height: self.n, depth: self.n })];
+        let after = [vk::ImageMemoryBarrier2::default()
+            .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+            .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+            .dst_stage_mask(vk::PipelineStageFlags2::COMPUTE_SHADER)
+            .dst_access_mask(vk::AccessFlags2::SHADER_READ)
+            .old_layout(vk::ImageLayout::GENERAL)
+            .new_layout(vk::ImageLayout::GENERAL)
+            .image(self.image)
+            .subresource_range(color_range())];
+        unsafe {
+            d.device.cmd_pipeline_barrier2(
+                cmd,
+                &vk::DependencyInfo::default().memory_barriers(&buffer_ready).image_memory_barriers(&before),
+            );
+            d.device.cmd_copy_buffer_to_image(cmd, nodes, self.image, vk::ImageLayout::GENERAL, &region);
+            d.device.cmd_pipeline_barrier2(cmd, &vk::DependencyInfo::default().image_memory_barriers(&after));
+        }
+        self.ready = true;
+    }
+
+    /// Before its first copy the image is UNDEFINED: a frame that samples it
+    /// without a bake (the DV tunnel binds it unused) moves it to GENERAL.
+    pub fn record_init(&mut self, d: &Device, cmd: vk::CommandBuffer) {
+        if self.ready {
+            return;
+        }
+        let b = [vk::ImageMemoryBarrier2::default()
+            .dst_stage_mask(vk::PipelineStageFlags2::COMPUTE_SHADER)
+            .dst_access_mask(vk::AccessFlags2::SHADER_READ)
+            .old_layout(vk::ImageLayout::UNDEFINED)
+            .new_layout(vk::ImageLayout::GENERAL)
+            .image(self.image)
+            .subresource_range(color_range())];
+        unsafe { d.device.cmd_pipeline_barrier2(cmd, &vk::DependencyInfo::default().image_memory_barriers(&b)) };
+        self.ready = true;
     }
 
     pub fn destroy(&self, d: &Device) {

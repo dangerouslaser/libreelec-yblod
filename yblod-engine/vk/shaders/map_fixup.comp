@@ -1,0 +1,36 @@
+// HDR10 output's fix-up (docs/hdr10-output.md): the pairs whose samples fell
+// in a cell map_bake marked, computed exactly. The pack wrote those pairs'
+// input codes (in the tunnel's word layout, alpha byte 0) and listed them:
+// an entry per pack invocation, its 4x2 block (index (y0/2)*(w/4) + x0/4)
+// and which of its 4 pairs (bits 28..31: row * 2 + pair). Done pairs get
+// alpha 0xff, so a pair listed twice (overlapping damage regions) is mapped
+// once (two at once compute the same words). Dispatched indirectly: the
+// list's header is the dispatch's workgroup count.
+#version 460
+#define MAP_PARAMS_BINDING 1
+#define MAP_CELLS_BINDING 2
+#include "dv_map.glsl"
+layout(local_size_x = 64) in;
+layout(binding = 0, std430) buffer Out { uint pixels[]; };
+layout(push_constant) uniform Push { uint w, stride_words; };
+
+void main()
+{
+    uint s = gl_GlobalInvocationID.x;
+    if (s >= map_cells[mp.list + 3u])
+        return;
+    uint entry = map_cells[mp.list + 4u + s], idx = entry & 0x0fffffffu, q = w / 4u;
+    uint x0 = (idx % q) * 4u, y0 = (idx / q) * 2u;
+    for (uint k = 0u; k < 4u; k++) {
+        if ((entry >> (28u + k) & 1u) == 0u)
+            continue;
+        uint i = (y0 + (k >> 1)) * stride_words + x0 + 2u * (k & 1u);
+        uint wa = pixels[i], wb = pixels[i + 1u];
+        if ((wa >> 24) != 0u)
+            continue;
+        uvec2 a = map_unword(wa), b = map_unword(wb), ra, rb;
+        map_pair(a, b, map_exact(a.x, a.y, b.y), map_exact(b.x, a.y, b.y), ra, rb);
+        pixels[i] = map_word(ra);
+        pixels[i + 1u] = map_word(rb);
+    }
+}

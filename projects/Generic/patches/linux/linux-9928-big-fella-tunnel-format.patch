@@ -1,0 +1,679 @@
+big-fella: what the Dolby Vision tunnel carries (DVBRIDGE_TUNNEL_FORMAT)
+
+A connector property next to DVBRIDGE_DV_STANDARD_LAB, on i915 and amdgpu
+(dvbridge_tunnel_format.h, included by both, as intel_dv_lab_policy.h is):
+the tunnel's pipe and scanout stay what they are (RGB 8 bpc, full range, an
+unprocessed XRGB8888 primary carrying 12-bit YCbCr 4:2:2 in HDMI's 4:2:2 lane
+layout); the format says what the sink is told the bytes are:
+
+- dolby-vision (0, the default): TV-led Dolby Vision, as before.
+- hdr10: dv-engine-vk's HDR10 output. AVI YCbCr 4:2:2, BT.2020, limited
+  range, the CTA VIC; no vendor InfoFrame; the HDR static metadata InfoFrame
+  from HDR_OUTPUT_METADATA, which has to be there (type 1, PQ). The sink
+  needs YCbCr 4:2:2 and PQ in its EDID, not a Dolby block.
+- lldv: source-led Dolby Vision. AVI as hdr10; the Dolby VSIF with its
+  low-latency bit; no HDR metadata. The sink needs the Dolby block's
+  low-latency interface (v2, or v1 short with its LL bit).
+
+Changing the format of an engaged tunnel is a full modeset (i915: a
+connector property change; i915's tunnel check also recognises the HDR10
+tunnel, which has no vendor packet, by an RGB pipe with a YCbCr 4:2:2 AVI;
+amdgpu: mode_changed, and DC compares the stream's format). The Dolby
+block's 2160p60 bit only gates dolby-vision (and QMS for it). Rejections
+log the format.
+
+Research: big-fella docs/research/hdr10-lldv-signalling.md (the enum's
+design, Amlogic's LL packets). Applies after linux-9900 to linux-9927 (LibreELEC: regenerated against
+its tree, which has no linux-9926).
+
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
+@@ -1802,7 +1802,7 @@
+ 	int ret = -EINVAL;
+ 
+ 	if (amdgpu_dm_dv_is_property(connector, property))
+-		return amdgpu_dm_dv_set_property(connector, dm_new_state, val);
++		return amdgpu_dm_dv_set_property(connector, property, dm_new_state, val);
+ 
+ 	if (property == dev->mode_config.scaling_mode_property) {
+ 		enum amdgpu_rmx_type rmx_type;
+@@ -1868,10 +1868,8 @@
+ 		to_dm_connector_state(state);
+ 	int ret = -EINVAL;
+ 
+-	if (amdgpu_dm_dv_is_property(connector, property)) {
+-		*val = dm_state->dv_lab_standard;
+-		return 0;
+-	}
++	if (amdgpu_dm_dv_is_property(connector, property))
++		return amdgpu_dm_dv_get_property(connector, property, dm_state, val);
+ 
+ 	if (property == dev->mode_config.scaling_mode_property) {
+ 		switch (dm_state->scaling) {
+@@ -2694,7 +2692,11 @@
+ 	 * modesets, never a late InfoFrame update.
+ 	 */
+ 	if (to_dm_connector_state(new_con_state)->dv_lab_standard !=
+-	    to_dm_connector_state(old_con_state)->dv_lab_standard) {
++	    to_dm_connector_state(old_con_state)->dv_lab_standard ||
++	    /* big-fella: and changing what an engaged tunnel carries */
++	    (to_dm_connector_state(new_con_state)->dv_lab_standard &&
++	     to_dm_connector_state(new_con_state)->dv_tunnel_format !=
++	     to_dm_connector_state(old_con_state)->dv_tunnel_format)) {
+ 		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
+ 		if (IS_ERR(new_crtc_state))
+ 			return PTR_ERR(new_crtc_state);
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
+@@ -22,6 +22,7 @@
+ #include <linux/moduleparam.h>
+ #include <linux/ratelimit.h>
+ 
++#include <drm/display/drm_hdmi_helper.h>
+ #include <drm/drm_atomic.h>
+ #include <drm/drm_blend.h>
+ #include <drm/drm_edid.h>
+@@ -39,6 +40,7 @@
+  * included rather than copied, so both drivers apply the very same rules.
+  */
+ #include "../../../i915/display/intel_dv_lab_policy.h"
++#include "../../../i915/display/dvbridge_tunnel_format.h"
+ 
+ static bool enable_dv_lab = true;
+ module_param(enable_dv_lab, bool, 0400);
+@@ -70,6 +72,11 @@
+ 	if (aconnector->dv_lab_property)
+ 		drm_object_attach_property(&aconnector->base.base,
+ 					   aconnector->dv_lab_property, 0);
++	/* big-fella: what the tunnel carries (dvbridge_tunnel_format.h) */
++	aconnector->dv_format_property = dvbridge_tunnel_format_property(dev);
++	if (aconnector->dv_format_property)
++		drm_object_attach_property(&aconnector->base.base,
++					   aconnector->dv_format_property, DVBRIDGE_TUNNEL_DV);
+ }
+ 
+ bool amdgpu_dm_dv_is_property(const struct drm_connector *connector,
+@@ -80,12 +87,20 @@
+ 	if (connector->connector_type == DRM_MODE_CONNECTOR_WRITEBACK)
+ 		return false;
+ 	aconnector = to_amdgpu_dm_connector(connector);
+-	return aconnector->dv_lab_property && property == aconnector->dv_lab_property;
++	return (aconnector->dv_lab_property && property == aconnector->dv_lab_property) ||
++		(aconnector->dv_format_property && property == aconnector->dv_format_property);
+ }
+ 
+ int amdgpu_dm_dv_set_property(struct drm_connector *connector,
++			      const struct drm_property *property,
+ 			      struct dm_connector_state *state, u64 val)
+ {
++	if (property == to_amdgpu_dm_connector(connector)->dv_format_property) {
++		if (val > DVBRIDGE_TUNNEL_LLDV)
++			return -EINVAL;
++		state->dv_tunnel_format = val;
++		return 0;
++	}
+ 	if (val > 1 || connector->connector_type != DRM_MODE_CONNECTOR_HDMIA)
+ 		return -EINVAL;
+ 	if (val && !enable_dv_lab)
+@@ -94,6 +109,17 @@
+ 	return 0;
+ }
+ 
++int amdgpu_dm_dv_get_property(const struct drm_connector *connector,
++			      const struct drm_property *property,
++			      const struct dm_connector_state *state, u64 *val)
++{
++	if (property == to_amdgpu_dm_connector(connector)->dv_format_property)
++		*val = state->dv_tunnel_format;
++	else
++		*val = state->dv_lab_standard;
++	return 0;
++}
++
+ /* The EDID the stream was made for: the stream holds its sink, while the
+  * connector's EDID blob can be replaced by a hotplug at any time.
+  */
+@@ -158,11 +184,13 @@
+ 	u8 wire[HDMI_INFOFRAME_HEADER_SIZE + HDMI_DOLBY_VENDOR_INFOFRAME_SIZE];
+ 	struct dc_info_packet vsp;
+ 	unsigned int hdmi_vic = 0;
++	unsigned int format = state->dv_tunnel_format;
+ 	struct intel_dv_lab_link l = {
+ 		.requested = true,
+ 		.lab_enabled = enable_dv_lab && aconnector->dv_lab_property &&
+ 			dv_dcn(stream->ctx->dc),
+-		.sink_standard = caps.status == DV_EDID_STANDARD,
++		/* big-fella: the sink the format needs (dvbridge_tunnel_format.h) */
++		.sink_standard = dvbridge_tunnel_sink(format, &caps, connector),
+ 		.hdmi = stream->signal == SIGNAL_TYPE_HDMI_TYPE_A && info->is_hdmi &&
+ 			info->has_hdmi_infoframe,
+ 		/* No LSPCON on AMD; a DP->HDMI converter or an FRL link isn't native. */
+@@ -173,7 +201,8 @@
+ 		/* amdgpu's own Broadcast RGB rule, as resolved for this stream */
+ 		.limited_range = stream->output_color_space == COLOR_SPACE_SRGB_LIMITED ||
+ 			stream->output_color_space == COLOR_SPACE_2020_RGB_LIMITEDRANGE,
+-		.hdr_blob = !!state->base.hdr_output_metadata,
++		/* HDR10's own metadata is checked below */
++		.hdr_blob = format != DVBRIDGE_TUNNEL_HDR10 && state->base.hdr_output_metadata,
+ 		.cloned = false, /* one connector per stream; the scanout check counts */
+ 		.progressive = !(mode->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN |
+ 			DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK)),
+@@ -188,7 +217,11 @@
+ 	int ret;
+ 
+ 	ret = intel_dv_lab_validate(&l);
+-	if (!ret && l.width == 3840 && l.rounded_refresh > 30 && !caps.supports_2160p60)
++	if (!ret)
++		ret = dvbridge_tunnel_hdr_metadata(format, state->base.hdr_output_metadata);
++	/* the Dolby block's 2160p60 bit is about TV-led Dolby Vision */
++	if (!ret && format == DVBRIDGE_TUNNEL_DV && l.width == 3840 &&
++	    l.rounded_refresh > 30 && !caps.supports_2160p60)
+ 		ret = -EOPNOTSUPP;
+ 	/* i915 refuses these while building the AVI InfoFrame. */
+ 	if (!ret && (!intel_dv_lab_avi_vic(vic) || stream->timing.flags.DSC ||
+@@ -202,7 +235,8 @@
+ 		 */
+ 		if (__ratelimit(&aconnector->dv_log_limit))
+ 			drm_err(connector->dev,
+-				"DVBridge: link rejected errno=%d connector=%u dce_version=%d enabled=%d edid=%s version=%u legacy_vsif=%d sink60=%d native_hdmi=%d signal=%d dongle=%d hdmi=%d rgb=%d limited=%d hdr_blob=%d progressive=%d bpc=%u pipe_bpp=%u colorspace=%u mode=%ux%u@%u vic=%u dsc=%d\n",
++				"DVBridge: link rejected format=%s errno=%d connector=%u dce_version=%d enabled=%d edid=%s version=%u legacy_vsif=%d sink60=%d native_hdmi=%d signal=%d dongle=%d hdmi=%d rgb=%d limited=%d hdr_blob=%d progressive=%d bpc=%u pipe_bpp=%u colorspace=%u mode=%ux%u@%u vic=%u dsc=%d\n",
++				dvbridge_tunnel_format_name(format),
+ 				ret, connector->base.id, stream->ctx->dce_version,
+ 				l.lab_enabled, dvbridge_edid_reason(caps.status),
+ 				caps.version, caps.legacy_vsif, caps.supports_2160p60,
+@@ -214,6 +248,65 @@
+ 		return ret;
+ 	}
+ 
++	if (format != DVBRIDGE_TUNNEL_DV) {
++		/* big-fella: HDR10 and LLDV. The pipe stays RGB 8 bpc full range
++		 * (no CSC on the bytes), the AVI InfoFrame is ours: YCbCr 4:2:2,
++		 * BT.2020, limited range, the CTA VIC, the connector's content
++		 * type (DC sends a valid avi_infopacket as it is). LLDV: the Dolby
++		 * VSIF with its low-latency bit; HDR10: no vendor InfoFrame, and
++		 * the HDR static metadata DC made from HDR_OUTPUT_METADATA.
++		 */
++		u8 avi_wire[HDMI_INFOFRAME_HEADER_SIZE + HDMI_AVI_INFOFRAME_SIZE];
++		struct hdmi_avi_infoframe avi;
++		struct dc_info_packet avip;
++
++		ret = drm_hdmi_avi_infoframe_from_display_mode(&avi, connector, mode);
++		if (ret)
++			return ret;
++		drm_hdmi_avi_infoframe_content_type(&avi, &state->base);
++		avi.video_code = vic;
++		dvbridge_tunnel_avi(&avi);
++		len = hdmi_avi_infoframe_pack(&avi, avi_wire, sizeof(avi_wire));
++		if (len < 0)
++			return len;
++		ret = dv_copy_packet(&avip, avi_wire, len);
++		if (ret)
++			return ret;
++		memset(&vsp, 0, sizeof(vsp));
++		if (format == DVBRIDGE_TUNNEL_LLDV) {
++			struct hdmi_dolby_vendor_infoframe dv;
++
++			hdmi_dolby_vendor_infoframe_init(&dv);
++			dv.signal = true;
++			dv.low_latency = true;
++			len = hdmi_dolby_vendor_infoframe_pack(&dv, wire, sizeof(wire));
++			if (len < 0)
++				return len;
++			ret = dv_copy_packet(&vsp, wire, len);
++			if (ret)
++				return ret;
++			stream->hdr_static_metadata.valid = false;
++		}
++		stream->vsp_infopacket = vsp;
++		stream->hfvsif_infopacket.valid = false;
++		stream->vtem_infopacket.valid = false;
++		stream->avi_infopacket = avip;
++		stream->timing.vic = vic;
++		stream->timing.hdmi_vic = 0;
++		stream->output_color_space = COLOR_SPACE_SRGB;
++		stream->dither_option = DITHER_OPTION_DISABLE;
++		stream->dv_lab = true;
++		stream->dv_tunnel_format = format;
++
++		drm_dbg_kms(connector->dev,
++			    "DVBridge: [CONNECTOR:%d:%s] %s tunnel stream %ux%u@%u vic %u, AVI %*ph%s\n",
++			    connector->base.id, connector->name, dvbridge_tunnel_format_name(format),
++			    mode->hdisplay, mode->vdisplay, drm_mode_vrefresh(mode), vic,
++			    (int)sizeof(avi_wire), avi_wire,
++			    stream->hdr_static_metadata.valid ? ", HDR static metadata" : "");
++		return 0;
++	}
++
+ 	if (caps.legacy_vsif) {
+ 		/* HDMI-1.4b form with its Dolby Vision bit; HDMI VIC 1/2/3 =
+ 		 * CTA 95/94/93, whose AVI VIC then goes to 0 (DC does that).
+@@ -255,6 +348,7 @@
+ 	/* FMT: no spatial/temporal dither, no truncation step. */
+ 	stream->dither_option = DITHER_OPTION_DISABLE;
+ 	stream->dv_lab = true;
++	stream->dv_tunnel_format = DVBRIDGE_TUNNEL_DV;
+ 
+ 	drm_dbg_kms(connector->dev,
+ 		    "DVBridge: [CONNECTOR:%d:%s] tunnel stream %ux%u@%u vic %u hdmi_vic %u, %s VSIF %*ph\n",
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
+@@ -21,7 +21,11 @@
+ bool amdgpu_dm_dv_is_property(const struct drm_connector *connector,
+ 			      const struct drm_property *property);
+ int amdgpu_dm_dv_set_property(struct drm_connector *connector,
++			      const struct drm_property *property,
+ 			      struct dm_connector_state *state, u64 val);
++int amdgpu_dm_dv_get_property(const struct drm_connector *connector,
++			      const struct drm_property *property,
++			      const struct dm_connector_state *state, u64 *val);
+ int amdgpu_dm_dv_configure_stream(struct drm_connector *connector,
+ 				  const struct dm_connector_state *state,
+ 				  const struct drm_display_mode *mode,
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
+@@ -812,6 +812,8 @@
+ 	struct drm_connector base;
+ 	/* big-fella: DVBRIDGE_DV_STANDARD_LAB (amdgpu_dm_dv.c), NULL when absent */
+ 	struct drm_property *dv_lab_property;
++	/* big-fella: DVBRIDGE_TUNNEL_FORMAT (amdgpu_dm_dv.c), NULL when absent */
++	struct drm_property *dv_format_property;
+ 	/* Diagnostics only: no influence on DV admission or recovery. */
+ 	struct ratelimit_state dv_log_limit;
+ 	uint32_t connector_id;
+@@ -1076,6 +1078,8 @@
+ 	struct drm_connector_state base;
+ 	/* big-fella: the Dolby Vision tunnel is asked for (amdgpu_dm_dv.c) */
+ 	bool dv_lab_standard;
++	/* big-fella: enum dvbridge_tunnel_format, what the tunnel's bytes are */
++	u8 dv_tunnel_format;
+ 
+ 	enum amdgpu_rmx_type scaling;
+ 	uint8_t underscan_vborder;
+--- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
++++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
+@@ -3772,7 +3772,8 @@
+ 	/* big-fella: entering or leaving the DV tunnel reprograms the InfoFrames
+ 	 * and the formatter (from CB1).
+ 	 */
+-	if (cur_stream->dv_lab != new_stream->dv_lab)
++	if (cur_stream->dv_lab != new_stream->dv_lab ||
++	    cur_stream->dv_tunnel_format != new_stream->dv_tunnel_format)
+ 		return true;
+ 
+ 	return memcmp(
+--- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
++++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
+@@ -209,6 +209,10 @@
+ 	 * picture (amdgpu_dm_dv.c): its InfoFrames and FMT setup are its own.
+ 	 */
+ 	bool dv_lab;
++	/* big-fella: what it carries (enum dvbridge_tunnel_format): its own
++	 * AVI and vendor InfoFrames, so a change is a timing change for DC
++	 */
++	u8 dv_tunnel_format;
+ 	struct dc_panel_patch sink_patches;
+ 	struct dc_crtc_timing timing;
+ 	struct dc_crtc_timing_adjust adjust;
+--- a/drivers/gpu/drm/i915/display/dvbridge_tunnel_format.h
++++ b/drivers/gpu/drm/i915/display/dvbridge_tunnel_format.h
+@@ -0,0 +1,126 @@
++/* SPDX-License-Identifier: MIT */
++/*
++ * big-fella: what the Dolby Vision tunnel's bytes are, the connector
++ * property DVBRIDGE_TUNNEL_FORMAT next to DVBRIDGE_DV_STANDARD_LAB (which
++ * still turns the tunnel on). The pipe and scanout are the tunnel's in every
++ * format (RGB 8 bpc, full range, an unprocessed XRGB8888 primary carrying
++ * 12-bit YCbCr 4:2:2 in HDMI's 4:2:2 lane layout); what changes is what the
++ * sink is told it is:
++ *
++ *   dolby-vision  TV-led Dolby Vision (as before): AVI RGB, no colorimetry,
++ *                 full range; the Dolby VSIF (or HDMI-1.4b's); no HDR
++ *                 metadata. A sink with Standard Dolby Vision.
++ *   hdr10         HDR10 the player made (dv-engine-vk's HDR10 output): AVI
++ *                 YCbCr 4:2:2, BT.2020, limited range; no vendor InfoFrame;
++ *                 the HDR static metadata InfoFrame from HDR_OUTPUT_METADATA,
++ *                 which must be there and PQ. A sink with YCbCr 4:2:2 and
++ *                 PQ in its EDID, Dolby Vision or not.
++ *   lldv          source-led ("low latency") Dolby Vision: AVI as hdr10;
++ *                 the Dolby VSIF with its low-latency bit; no HDR metadata.
++ *                 A sink whose Dolby block has the low-latency interface.
++ *
++ * The pixels are the player's business; these rules only make the link say
++ * what the player meant. Included by i915 (intel_hdmi.c) and amdgpu
++ * (amdgpu_dm_dv.c), as intel_dv_lab_policy.h is, so both apply the same.
++ */
++#ifndef __DVBRIDGE_TUNNEL_FORMAT_H__
++#define __DVBRIDGE_TUNNEL_FORMAT_H__
++
++#include <linux/errno.h>
++#include <linux/hdmi.h>
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <drm/drm_connector.h>
++#include <drm/drm_property.h>
++
++#include "dvbridge_edid.h"
++
++enum dvbridge_tunnel_format {
++	DVBRIDGE_TUNNEL_DV = 0,
++	DVBRIDGE_TUNNEL_HDR10 = 1,
++	DVBRIDGE_TUNNEL_LLDV = 2,
++};
++
++static const struct drm_prop_enum_list dvbridge_tunnel_formats[] = {
++	{ DVBRIDGE_TUNNEL_DV, "dolby-vision" },
++	{ DVBRIDGE_TUNNEL_HDR10, "hdr10" },
++	{ DVBRIDGE_TUNNEL_LLDV, "lldv" },
++};
++
++static inline struct drm_property *dvbridge_tunnel_format_property(struct drm_device *dev)
++{
++	return drm_property_create_enum(dev, DRM_MODE_PROP_ATOMIC, "DVBRIDGE_TUNNEL_FORMAT",
++					dvbridge_tunnel_formats,
++					ARRAY_SIZE(dvbridge_tunnel_formats));
++}
++
++static inline const char *dvbridge_tunnel_format_name(unsigned int format)
++{
++	return format < ARRAY_SIZE(dvbridge_tunnel_formats) ?
++		dvbridge_tunnel_formats[format].name : "unknown";
++}
++
++/* The Dolby block's low-latency interface: any v2 block (interface 0/1 are
++ * low latency only, 2/3 standard and low latency), a short v1 block with
++ * its LL bit (dvbridge_parse_edid: not legacy_vsif).
++ */
++static inline bool dvbridge_sink_lldv(const struct dvbridge_sink_caps *caps)
++{
++	if (caps->status == DV_EDID_LLDV_ONLY)
++		return true;
++	return caps->status == DV_EDID_STANDARD &&
++		(caps->version == 2 || (caps->version == 1 && !caps->legacy_vsif));
++}
++
++/* Whether the sink takes this format: the Dolby block for dolby-vision and
++ * lldv; YCbCr 4:2:2 and PQ (its HDR static metadata block) for hdr10.
++ */
++static inline bool dvbridge_tunnel_sink(unsigned int format,
++					const struct dvbridge_sink_caps *caps,
++					const struct drm_connector *connector)
++{
++	switch (format) {
++	case DVBRIDGE_TUNNEL_DV:
++		return caps->status == DV_EDID_STANDARD;
++	case DVBRIDGE_TUNNEL_HDR10:
++		return (connector->display_info.color_formats &
++			BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422)) &&
++			(connector->display_info.hdr_sink_metadata.hdmi_type1.eotf &
++			 BIT(HDMI_EOTF_SMPTE_ST2084));
++	case DVBRIDGE_TUNNEL_LLDV:
++		return dvbridge_sink_lldv(caps);
++	}
++	return false;
++}
++
++/* HDR_OUTPUT_METADATA: required (static type 1, PQ) for hdr10, refused
++ * otherwise (the Dolby VSIF and an HDR InfoFrame don't go together).
++ */
++static inline int dvbridge_tunnel_hdr_metadata(unsigned int format,
++					       const struct drm_property_blob *blob)
++{
++	const struct hdr_output_metadata *hdr;
++
++	if (format != DVBRIDGE_TUNNEL_HDR10)
++		return blob ? -EINVAL : 0;
++	if (!blob || blob->length < sizeof(*hdr))
++		return -EINVAL;
++	hdr = blob->data;
++	return hdr->metadata_type == HDMI_STATIC_METADATA_TYPE1 &&
++		hdr->hdmi_metadata_type1.eotf == HDMI_EOTF_SMPTE_ST2084 ? 0 : -EINVAL;
++}
++
++/* The AVI InfoFrame of hdr10 and lldv: YCbCr 4:2:2 (the tunnel's bytes are
++ * HDMI's 4:2:2 lanes), BT.2020, limited range. The VIC (the CTA one) and
++ * the content type are the caller's.
++ */
++static inline void dvbridge_tunnel_avi(struct hdmi_avi_infoframe *frame)
++{
++	frame->colorspace = HDMI_COLORSPACE_YUV422;
++	frame->colorimetry = HDMI_COLORIMETRY_EXTENDED;
++	frame->extended_colorimetry = HDMI_EXTENDED_COLORIMETRY_BT2020;
++	frame->quantization_range = HDMI_QUANTIZATION_RANGE_DEFAULT;
++	frame->ycc_quantization_range = HDMI_YCC_QUANTIZATION_RANGE_LIMITED;
++}
++
++#endif
+--- a/drivers/gpu/drm/i915/display/intel_atomic.c
++++ b/drivers/gpu/drm/i915/display/intel_atomic.c
+@@ -35,6 +35,7 @@
+ #include <drm/drm_fourcc.h>
+ #include <drm/drm_print.h>
+ 
++#include "dvbridge_tunnel_format.h"
+ #include "intel_atomic.h"
+ #include "intel_cdclk.h"
+ #include "intel_display_core.h"
+@@ -74,6 +75,11 @@
+ 		*val = intel_conn_state->dv_hdr10_deep_color;
+ 		return 0;
+ 	}
++	if (to_intel_connector(connector)->dv_format_property &&
++	    property == to_intel_connector(connector)->dv_format_property) {
++		*val = intel_conn_state->dv_tunnel_format;
++		return 0;
++	}
+ 
+ 	if (property == display->properties.force_audio)
+ 		*val = intel_conn_state->force_audio;
+@@ -125,6 +131,14 @@
+ 		intel_conn_state->dv_hdr10_deep_color = val;
+ 		return 0;
+ 	}
++	if (to_intel_connector(connector)->dv_format_property &&
++	    property == to_intel_connector(connector)->dv_format_property) {
++		/* the enum's values only (DRM checks them too) */
++		if (val > DVBRIDGE_TUNNEL_LLDV)
++			return -EINVAL;
++		intel_conn_state->dv_tunnel_format = val;
++		return 0;
++	}
+ 
+ 	if (property == display->properties.force_audio) {
+ 		intel_conn_state->force_audio = val;
+@@ -171,6 +185,8 @@
+ 	 * up in a modeset.
+ 	 */
+ 	if (new_conn_state->dv_lab_standard != old_conn_state->dv_lab_standard ||
++	    (new_conn_state->dv_lab_standard &&
++	     new_conn_state->dv_tunnel_format != old_conn_state->dv_tunnel_format) ||
+ 	    new_conn_state->dv_hdr10_deep_color != old_conn_state->dv_hdr10_deep_color ||
+ 	    new_conn_state->force_audio != old_conn_state->force_audio ||
+ 	    new_conn_state->broadcast_rgb != old_conn_state->broadcast_rgb ||
+--- a/drivers/gpu/drm/i915/display/intel_display.c
++++ b/drivers/gpu/drm/i915/display/intel_display.c
+@@ -4328,6 +4328,12 @@
+ 
+ static bool intel_dv_lab_active(const struct intel_crtc_state *state)
+ {
++	/* big-fella: the HDR10 tunnel has no vendor packet; an RGB pipe whose
++	 * AVI says YCbCr 4:2:2 is only ever the tunnel (dvbridge_tunnel_format.h).
++	 */
++	if (state->output_format == INTEL_OUTPUT_FORMAT_RGB &&
++	    state->infoframes.avi.avi.colorspace == HDMI_COLORSPACE_YUV422)
++		return true;
+ 	/* Both Standard DV packet forms carry byte-sensitive tunnel data. */
+ 	if (state->infoframes.hdmi.vendor.any.oui == HDMI_DOLBY_IEEE_OUI)
+ 		return state->infoframes.hdmi.vendor.dolby.signal;
+--- a/drivers/gpu/drm/i915/display/intel_display_types.h
++++ b/drivers/gpu/drm/i915/display/intel_display_types.h
+@@ -526,6 +526,8 @@
+ 	/* Private experimental property; absent unless explicitly enabled at boot. */
+ 	struct drm_property *dv_lab_property;
+ 	struct drm_property *dv_hdr10_property;
++	/* big-fella: DVBRIDGE_TUNNEL_FORMAT (dvbridge_tunnel_format.h) */
++	struct drm_property *dv_format_property;
+ 	/* Diagnostics only: no influence on DV admission or recovery. */
+ 	struct ratelimit_state dv_log_limit;
+ 	/*
+@@ -634,6 +636,8 @@
+ 	/* Scalar copy/reset lifecycle, no property-blob reference to leak. */
+ 	bool dv_lab_standard;
+ 	bool dv_hdr10_deep_color;
++	/* big-fella: enum dvbridge_tunnel_format, what the tunnel's bytes are */
++	u8 dv_tunnel_format;
+ 
+ 	enum hdmi_force_audio force_audio;
+ 	int broadcast_rgb;
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -52,6 +52,7 @@
+ #include "g4x_hdmi.h"
+ #include "intel_atomic.h"
+ #include "intel_dv_lab_policy.h"
++#include "dvbridge_tunnel_format.h"
+ #include "intel_dvbridge_hdr_policy.h"
+ #include "intel_audio.h"
+ #include "intel_connector.h"
+@@ -787,13 +788,21 @@
+ 		frame->video_code = intel_dv_lab_avi_vic(drm_match_cea_mode(adjusted_mode));
+ 		if (!frame->video_code)
+ 			return false;
+-		/* HDMI-1.4b carries its 4K timing in the vendor packet. */
+-		if (caps.legacy_vsif && frame->video_code >= 93 && frame->video_code <= 95)
+-			frame->video_code = 0;
+-		frame->colorspace = HDMI_COLORSPACE_RGB;
+-		frame->colorimetry = HDMI_COLORIMETRY_NONE;
+-		frame->extended_colorimetry = 0;
+-		frame->quantization_range = HDMI_QUANTIZATION_RANGE_FULL;
++		/* big-fella: HDR10 and LLDV say what the bytes are, YCbCr 4:2:2
++		 * BT.2020 (dvbridge_tunnel_format.h); the CTA VIC stays in AVI.
++		 */
++		if (to_intel_digital_connector_state(conn_state)->dv_tunnel_format !=
++		    DVBRIDGE_TUNNEL_DV) {
++			dvbridge_tunnel_avi(frame);
++		} else {
++			/* HDMI-1.4b carries its 4K timing in the vendor packet. */
++			if (caps.legacy_vsif && frame->video_code >= 93 && frame->video_code <= 95)
++				frame->video_code = 0;
++			frame->colorspace = HDMI_COLORSPACE_RGB;
++			frame->colorimetry = HDMI_COLORIMETRY_NONE;
++			frame->extended_colorimetry = 0;
++			frame->quantization_range = HDMI_QUANTIZATION_RANGE_FULL;
++		}
+ 	}
+ 
+ 	/* TODO: handle pixel repetition for YCBCR420 outputs */
+@@ -863,6 +872,15 @@
+ 	if (!crtc_state->has_infoframe || !info->has_hdmi_infoframe)
+ 		return true;
+ 
++	/* big-fella: the HDR10 tunnel sends no vendor InfoFrame: AVI has the
++	 * CTA VIC, and there's no Dolby Vision to signal.
++	 */
++	if (to_intel_digital_connector_state(conn_state)->dv_lab_standard &&
++	    to_intel_digital_connector_state(conn_state)->dv_tunnel_format ==
++	    DVBRIDGE_TUNNEL_HDR10)
++		return intel_dv_lab_avi_vic(drm_match_cea_mode(&crtc_state->hw.adjusted_mode)) &&
++			!(crtc_state->hw.adjusted_mode.flags & DRM_MODE_FLAG_3D_MASK);
++
+ 	crtc_state->infoframes.enable |=
+ 		intel_hdmi_infoframe_enable(HDMI_INFOFRAME_TYPE_VENDOR);
+ 
+@@ -873,13 +891,26 @@
+ 		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
+ 			edid ? edid->data : NULL, edid ? edid->length : 0);
+ 		unsigned int vic = drm_match_cea_mode(&crtc_state->hw.adjusted_mode);
++		bool lldv = to_intel_digital_connector_state(conn_state)->dv_tunnel_format ==
++			DVBRIDGE_TUNNEL_LLDV;
+ 
+ 		/* AVI carries the CTA timing. Reserve the vendor slot for Dolby;
+ 		 * do not generate HDMI-1.4's competing 4K VIC vendor packet.
+ 		 */
+-		if (caps.status != DV_EDID_STANDARD || !intel_dv_lab_avi_vic(vic) ||
++		if (!dvbridge_tunnel_sink(lldv ? DVBRIDGE_TUNNEL_LLDV : DVBRIDGE_TUNNEL_DV,
++					  &caps, conn_state->connector) ||
++		    !intel_dv_lab_avi_vic(vic) ||
+ 		    (crtc_state->hw.adjusted_mode.flags & DRM_MODE_FLAG_3D_MASK))
+ 			return false;
++		/* big-fella: source-led Dolby Vision, the Dolby-OUI packet with
++		 * its low-latency bit (no HDMI-1.4b form for it).
++		 */
++		if (lldv) {
++			hdmi_dolby_vendor_infoframe_init(dv);
++			dv->signal = true;
++			dv->low_latency = true;
++			return hdmi_dolby_vendor_infoframe_check(dv) == 0;
++		}
+ 		if (caps.legacy_vsif) {
+ 			hdmi_vendor_infoframe_init(frame);
+ 			frame->dolby_vision = true;
+@@ -2688,7 +2719,8 @@
+ 		}
+ 	}
+ 
+-	if (intel_conn_state->dv_lab_standard && b->vdisplay == 2160) {
++	if (intel_conn_state->dv_lab_standard &&
++	    intel_conn_state->dv_tunnel_format == DVBRIDGE_TUNNEL_DV && b->vdisplay == 2160) {
+ 		const struct drm_property_blob *edid = conn_state->connector->edid_blob_ptr;
+ 		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
+ 			edid ? edid->data : NULL, edid ? edid->length : 0);
+@@ -3030,10 +3062,12 @@
+ 		const struct drm_property_blob *edid = connector->base.edid_blob_ptr;
+ 		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
+ 			edid ? edid->data : NULL, edid ? edid->length : 0);
++		unsigned int format = to_intel_digital_connector_state(conn_state)->dv_tunnel_format;
+ 		struct intel_dv_lab_link link = {
+ 			.requested = true,
+ 			.lab_enabled = display->params.enable_dv_lab && DISPLAY_VER(display) >= 12,
+-			.sink_standard = caps.status == DV_EDID_STANDARD,
++			/* big-fella: the sink the format needs (dvbridge_tunnel_format.h) */
++			.sink_standard = dvbridge_tunnel_sink(format, &caps, &connector->base),
+ 			.hdmi = pipe_config->has_hdmi_sink && pipe_config->has_infoframe &&
+ 				connector->base.display_info.has_hdmi_infoframe,
+ 			.native_hdmi = intel_dv_lab_native_hdmi(
+@@ -3043,7 +3077,8 @@
+ 			.rgb = pipe_config->output_format == INTEL_OUTPUT_FORMAT_RGB &&
+ 				pipe_config->sink_format == INTEL_OUTPUT_FORMAT_RGB,
+ 			.limited_range = pipe_config->limited_color_range,
+-			.hdr_blob = !!conn_state->hdr_output_metadata,
++			/* HDR10's own metadata is checked below */
++			.hdr_blob = format != DVBRIDGE_TUNNEL_HDR10 && conn_state->hdr_output_metadata,
+ 			.cloned = intel_hdmi_is_cloned(pipe_config),
+ 			.progressive = !(adjusted_mode->flags & (DRM_MODE_FLAG_INTERLACE |
+ 				DRM_MODE_FLAG_DBLSCAN | DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK)),
+@@ -3056,8 +3091,11 @@
+ 		};
+ 
+ 		ret = intel_dv_lab_validate(&link);
+-		if (!ret && link.width == 3840 && link.rounded_refresh > 30 &&
+-		    !caps.supports_2160p60)
++		if (!ret)
++			ret = dvbridge_tunnel_hdr_metadata(format, conn_state->hdr_output_metadata);
++		/* the Dolby block's 2160p60 bit is about TV-led Dolby Vision */
++		if (!ret && format == DVBRIDGE_TUNNEL_DV && link.width == 3840 &&
++		    link.rounded_refresh > 30 && !caps.supports_2160p60)
+ 			ret = -EOPNOTSUPP;
+ 		if (ret) {
+ 			/* First cause, then at most once per 30 seconds per connector.
+@@ -3065,7 +3103,8 @@
+ 			 */
+ 			if (__ratelimit(&connector->dv_log_limit))
+ 				drm_err(display->drm,
+-					"DVBridge: link rejected errno=%d connector=%u display_ver=%u enabled=%d edid=%s version=%u legacy_vsif=%d sink60=%d native_hdmi=%d lspcon=%d dual_mode=%d vbt_dual_mode=%d hdmi=%d rgb=%d limited=%d hdr_blob=%d cloned=%d progressive=%d bpc=%u pipe_bpp=%u colorspace=%u mode=%ux%u@%u\n",
++					"DVBridge: link rejected format=%s errno=%d connector=%u display_ver=%u enabled=%d edid=%s version=%u legacy_vsif=%d sink60=%d native_hdmi=%d lspcon=%d dual_mode=%d vbt_dual_mode=%d hdmi=%d rgb=%d limited=%d hdr_blob=%d cloned=%d progressive=%d bpc=%u pipe_bpp=%u colorspace=%u mode=%ux%u@%u\n",
++					dvbridge_tunnel_format_name(format),
+ 					ret, connector->base.base.id, DISPLAY_VER(display),
+ 					link.lab_enabled, dvbridge_edid_reason(caps.status),
+ 					caps.version, caps.legacy_vsif, caps.supports_2160p60,
+@@ -3437,6 +3476,11 @@
+ 			DRM_MODE_PROP_ATOMIC, "DVBRIDGE_HDR10_DEEP_COLOR");
+ 		if (connector->dv_hdr10_property)
+ 			drm_object_attach_property(&_connector->base, connector->dv_hdr10_property, 0);
++		/* big-fella: what the tunnel carries (dvbridge_tunnel_format.h) */
++		connector->dv_format_property = dvbridge_tunnel_format_property(display->drm);
++		if (connector->dv_format_property)
++			drm_object_attach_property(&_connector->base, connector->dv_format_property,
++						   DVBRIDGE_TUNNEL_DV);
+ 	}
+ 
+ 	intel_attach_force_audio_property(&connector->base);

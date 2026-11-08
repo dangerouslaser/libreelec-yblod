@@ -112,7 +112,8 @@ const ANNEXB_OVERLAYS: [u32; 3] = [0, 3, 1];
 // Every other pipeline Engine::new creates: fel_chroma, the 18 staged FEL /
 // piecewise kernels (FelPipelines), single_polynomial, overlay_prepare x2,
 // resize_prepare, cb1_tiles. (prepare_end checks the total.)
-const OTHER_PIPELINES: u32 = 1 + 18 + 1 + 2 + 1 + 1;
+// And map_bake's three passes (the HDR10 output's 3D LUT), map_fixup.
+const OTHER_PIPELINES: u32 = 1 + 18 + 1 + 2 + 1 + 1 + 3 + 1;
 
 /// What of a frame's plan picks its pack variant.
 #[derive(Clone, Copy, Debug)]
@@ -614,6 +615,7 @@ struct Slot {
     error: vk::Buffer,
     gui_coeff: vk::Buffer,
     gui_error: vk::Buffer,
+    map_params: vk::Buffer,
 }
 
 /// One frame in flight, including buffers that cannot be reused before completion.
@@ -625,6 +627,7 @@ struct Ctx {
     error: HostBuffer,
     gui_coeff: HostBuffer,
     gui_error: HostBuffer,
+    map_params: HostBuffer, // the output mapping's dvvk_map_gpu (HDR10 output)
     bounds_result: HostBuffer,
     bounds_generation: Option<u64>,
     // The plan's tables_generation in `tables` (None: unknown): the same one
@@ -685,6 +688,7 @@ impl Ctx {
             error: self.error.buffer,
             gui_coeff: self.gui_coeff.buffer,
             gui_error: self.gui_error.buffer,
+            map_params: self.map_params.buffer,
         }
     }
 }
@@ -804,6 +808,23 @@ pub struct Engine {
     // overlay buffer last given
     damage: crate::damage::Damage,
     last_shell: Option<u64>,
+    // HDR10 output (docs/hdr10-output.md): the mode, the last frame's
+    // mapping, the scene's 3D LUT (its nodes, then the image the pack samples)
+    // and its exactly-computed cells, the key it was baked for, and the pack
+    // variants with MAP (made on first use: (Annex B, index)).
+    map_mode: crate::map::OutputMode,
+    map: Option<Box<crate::map::Map>>,
+    map_lut: gpu::Lut3d,
+    map_nodes: DeviceBuffer,
+    map_cells: DeviceBuffer,
+    map_baked: Option<u64>,
+    map_bake: [Pipeline; 3],
+    map_fixup: Pipeline,
+    /// map_cells' fix-up list (words: groups, 1, 1, count, the entries)
+    map_list: u32,
+    pack_map: HashMap<(bool, usize), Pipeline>,
+    pub map_bakes: u64,
+    map_frames: u64,
 }
 
 impl Engine {
@@ -834,6 +855,7 @@ impl Engine {
         pack_bindings.extend([sampled, sampled, sampled, storage, storage, storage]);
         pack_bindings.extend([sampled, storage, storage]); // the fused overlay: shell, keys, coefficients
         pack_bindings.extend([sampled, sampled, storage]); // CB1 LUTs and GPU bounds
+        pack_bindings.extend([sampled, storage, storage]); // HDR10 output: the 3D LUT, its parameters and exact cells
         let pack_push = std::mem::size_of::<PackPush>() as u32;
         // The variants a frame can use (pack_eager; the rest stay None).
         let mut pack = Vec::with_capacity((PACK_SOURCES * PACK_OVERLAYS * PACK_KINDS) as usize);
@@ -1074,6 +1096,20 @@ impl Engine {
         } else {
             None
         };
+        let map_bake = [
+            construction.keep(Pipeline::new(&d, "map_bake", &[storage, storage, storage], 8, &[(0, 0)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &[storage, storage, storage], 8, &[(0, 1)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &[storage, storage, storage], 8, &[(0, 2)])?),
+        ];
+        let n = o.map_n;
+        let map_lut = construction.keep(gpu::Lut3d::new(&d, n)?);
+        let map_nodes = construction.keep(DeviceBuffer::new(&d, (n * n * n) as u64 * 8)?);
+        let map_fixup = construction.keep(Pipeline::new(&d, "map_fixup", &[storage, storage, storage], 8, &[])?);
+        // the marked cells' bits, then (256-aligned) map_fixup's list: its
+        // header and an entry per pack invocation at most
+        let map_list = ((n - 1).pow(3).div_ceil(32) * 4).next_multiple_of(256) / 4;
+        let entries = (CANVAS_W / 4) * CANVAS_H.div_ceil(2);
+        let map_cells = construction.keep(DeviceBuffer::new(&d, u64::from(map_list + 4 + entries) * 4)?);
         gpu::prepare_end()?;
         d.save_pipeline_cache();
         let mut ring = Vec::new();
@@ -1106,6 +1142,7 @@ impl Engine {
                 error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_coeff: construction.keep(HostBuffer::new(&d, 128, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
+                map_params: construction.keep(HostBuffer::new(&d, 2048, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 bounds_result: construction.keep(HostBuffer::new(
                     &d,
                     32,
@@ -1216,6 +1253,21 @@ impl Engine {
             reference_pass: std::cell::Cell::new(false),
             damage: crate::damage::Damage::new((CANVAS_W, CANVAS_H), o.damage),
             last_shell: None,
+            map_mode: crate::map::OutputMode {
+                mode: if o.output_hdr10 { crate::map::DVVK_OUTPUT_HDR10 } else { crate::map::DVVK_OUTPUT_DV },
+                ..Default::default()
+            },
+            map: None,
+            map_lut,
+            map_nodes,
+            map_cells,
+            map_baked: None,
+            map_bake,
+            map_fixup,
+            map_list,
+            pack_map: HashMap::new(),
+            map_bakes: 0,
+            map_frames: 0,
             va: va_display,
             boost: crate::power::Boost::new(drm_fd, o.gpu_boost),
             d,
@@ -1658,6 +1710,93 @@ impl Engine {
         Ok(())
     }
 
+    /// The pack's spec constants for a variant (as Engine::new makes them).
+    fn pack_spec(&self, variant: PackVariant) -> Vec<(u32, u32)> {
+        let (fma, blend_fma) = self.pack_fma;
+        match variant {
+            PackVariant::Regular(i) => {
+                let i = i as u32;
+                let (source, overlay, kind) = (i / (PACK_OVERLAYS * PACK_KINDS), (i / PACK_KINDS) % PACK_OVERLAYS, i % PACK_KINDS);
+                vec![(0, kind), (1, fma), (2, overlay), (3, blend_fma), (4, source), (6, 2)]
+            }
+            PackVariant::Annexb(k) => vec![
+                (0, 0),
+                (1, fma),
+                (2, ANNEXB_OVERLAYS[k]),
+                (3, blend_fma),
+                (4, 1),
+                (5, 1),
+                (6, 8),
+                (7, self.d.options.cb1_pair_reuse as u32),
+            ],
+        }
+    }
+
+    fn pack_map_key(variant: PackVariant) -> (bool, usize) {
+        match variant {
+            PackVariant::Annexb(k) => (true, k),
+            PackVariant::Regular(i) => (false, i),
+        }
+    }
+
+    /// The HDR10 pack's MAP (pack.comp): 1 LUT + map_fixup, or a diagnostic.
+    fn map_spec(&self) -> u32 {
+        let o = &self.d.options;
+        if o.map_direct {
+            2
+        } else if o.map_lut_only {
+            3
+        } else if o.map_inline {
+            4
+        } else {
+            1
+        }
+    }
+
+    /// HDR10 output: the frame's pack variant with MAP, made on first use
+    /// (the pipeline cache keeps it for the next engine).
+    fn ensure_pack_map(&mut self) -> Result<()> {
+        if self.map.is_none() {
+            return Ok(());
+        }
+        let variant = select_pack(&PackRoute::of(&self.plan), self.pack_overlay()).1;
+        let key = Self::pack_map_key(variant);
+        if self.pack_map.contains_key(&key) {
+            return Ok(());
+        }
+        let start = std::time::Instant::now();
+        let Some(first) = self.pack[0].as_ref() else { return Err(Error::Missing("the first pack variant")) };
+        let bindings = first.bindings.clone();
+        let mut spec = self.pack_spec(variant);
+        spec.push((8, self.map_spec()));
+        let pipe = Pipeline::new_deferred(&self.d, "pack", &bindings, std::mem::size_of::<PackPush>() as u32, &spec)?;
+        eprintln!("dvvk HDR10 pack: {variant:?} creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
+        self.pack_map.insert(key, pipe);
+        self.d.save_pipeline_cache();
+        Ok(())
+    }
+
+    /// dvvk_set_output_mode: from the next frame.
+    pub fn set_output_mode(&mut self, mode: &crate::map::OutputMode) -> Result<()> {
+        if mode.mode != crate::map::DVVK_OUTPUT_DV && mode.mode != crate::map::DVVK_OUTPUT_HDR10 {
+            return Err(Error::Unsupported(format!("output mode {}", mode.mode)));
+        }
+        if mode.flags != 0 || mode.peak_nits != 0.0 || mode.min_nits != 0.0 {
+            return Err(Error::Unsupported("output mode options".into()));
+        }
+        if *mode != self.map_mode {
+            self.map_mode = *mode;
+            self.map = None;
+            self.map_baked = None;
+        }
+        Ok(())
+    }
+
+    /// dvvk_output_signal: the last frame's.
+    pub fn output_signal(&self) -> crate::map::HdrSignal {
+        self.map.as_ref().map(|m| m.signal).unwrap_or_default()
+    }
+
     /// The finished frame of context `ci`: its check and its timestamps.
     fn collect_frame(&mut self, ci: usize) {
         // This context already completed: read its snapshot of the occupied
@@ -1823,6 +1962,25 @@ impl Engine {
             return Ok((status, 0));
         }
         self.dm_status = self.plan.dm_status;
+        // HDR10 output: the frame's mapping (a stream it can't map is refused,
+        // as the tunnel refuses one: the caller shows an ordinary picture).
+        // Desktop frames (the film in a box) stay the tunnel's business.
+        self.map = None;
+        if self.map_mode.mode == crate::map::DVVK_OUTPUT_HDR10 {
+            match crate::map::Map::plan(&self.map_mode, f.metadata) {
+                Ok(mut m) => {
+                    m.set_black([self.plan.black[0], self.plan.black[1], self.plan.black[2]]);
+                    m.set_lut_n(self.map_lut.n);
+                    m.set_list(self.map_list);
+                    self.map = Some(m);
+                }
+                Err(status) => return Ok((status, 0)),
+            }
+            self.map_frames += 1;
+            if self.d.options.map_stats && self.map_frames % 120 == 0 {
+                eprintln!("dvvk map: {} LUT bakes in {} frames", self.map_bakes, self.map_frames);
+            }
+        }
         // Native CB1 GUI path: keep desktop/linear FP16, resized pictures and
         // combined subtitle sources on their existing paths. DVVK_OVERLAY_PREPARE
         // also retains the prepared blend.
@@ -1843,6 +2001,7 @@ impl Engine {
             }
         }
         self.ensure_pack()?;
+        self.ensure_pack_map()?;
         if !self.cb1_overlay() {
             self.cb1_tiles_valid = false;
         }
@@ -2095,12 +2254,13 @@ impl Engine {
             for c in p.gui_coeff {
                 c.to_bits().hash(&mut hasher);
             }
+            self.map.as_ref().map(|m| m.key).hash(&mut hasher);
             // outside the active area every pixel is p.black (in the key): letterbox bars are not film
             let film = (p.placement[2] > 0 && p.placement[3] > 0).then(|| {
                 [p.placement[0].max(p.active[0]), p.placement[1].max(p.active[1]),
                  (p.placement[0] + p.placement[2]).min(p.active[2]), (p.placement[1] + p.placement[3]).min(p.active[3])]
             });
-            let packet_rows = (p.packet_count * 3072).div_ceil(CANVAS_W);
+            let packet_rows = if self.map.is_some() { 0 } else { (p.packet_count * 3072).div_ceil(CANVAS_W) };
             self.damage.plan(f.output as usize, hasher.finish(), film, packet_rows, check || fused_invalidate)
         };
         if self.profile.is_some() && self.damage.stats.0 >= 120 {
@@ -2316,13 +2476,57 @@ impl Engine {
             _ => bl.luma.view, // unused: a valid view to bind
         };
         let variant = select_pack(&PackRoute::of(p), overlay_kind).1;
-        let pack = match variant {
-            PackVariant::Annexb(i) => &self.pack_annexb[i],
-            PackVariant::Regular(i) => match self.pack[i].as_ref() {
+        // HDR10 output: the frame's parameters, and the scene's 3D LUT baked
+        // when they changed (map_bake.comp), before the pack reads them.
+        let mapped = self.map.is_some();
+        if let Some(m) = self.map.as_ref() {
+            self.ring[ci].map_params.bytes_mut()[..m.gpu.bytes.len()].copy_from_slice(&m.gpu.bytes);
+            if self.map_baked != Some(m.key) {
+                let n = self.map_lut.n;
+                // earlier frames' packs read the LUT and cells: done before these writes
+                gpu::compute_barrier(d, cmd);
+                unsafe { d.device.cmd_fill_buffer(cmd, self.map_cells.buffer, 0, vk::WHOLE_SIZE, 0) };
+                gpu::compute_barrier(d, cmd);
+                let push: [u32; 2] = [n, self.d.options.map_thresh.to_bits()];
+                let binds =
+                    [Bind::Buffer(slot.map_params), Bind::Buffer(self.map_nodes.buffer), Bind::Buffer(self.map_cells.buffer)];
+                // nodes, the cells they interpolate badly, the marks in the nodes' alpha
+                self.dispatch3(cmd, &self.map_bake[0], &binds, &push, n.div_ceil(4));
+                gpu::compute_barrier(d, cmd);
+                self.dispatch3(cmd, &self.map_bake[1], &binds, &push, (n - 1).div_ceil(4));
+                gpu::compute_barrier(d, cmd);
+                self.dispatch3(cmd, &self.map_bake[2], &binds, &push, n.div_ceil(4));
+                self.map_lut.record_copy(d, cmd, self.map_nodes.buffer);
+                gpu::compute_barrier(d, cmd);
+                self.map_baked = Some(m.key);
+                self.map_bakes += 1;
+            }
+        } else {
+            self.map_lut.record_init(d, cmd);
+        }
+        let fixup = mapped && self.map_spec() == 1;
+        if fixup {
+            // map_fixup's list emptied (the last frame's fix-up read it)
+            gpu::indirect_barrier(d, cmd);
+            let header: [u32; 4] = [0, 1, 1, 0];
+            let bytes = unsafe { std::slice::from_raw_parts(header.as_ptr() as *const u8, 16) };
+            unsafe { d.device.cmd_update_buffer(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4, bytes) };
+            gpu::indirect_barrier(d, cmd);
+        }
+        let pack = if mapped {
+            match self.pack_map.get(&Self::pack_map_key(variant)) {
                 Some(pack) => pack,
-                // ensure_pack made the variant this frame uses
-                None => return Err(Error::Missing("a pack variant")),
-            },
+                None => return Err(Error::Missing("an HDR10 pack variant")),
+            }
+        } else {
+            match variant {
+                PackVariant::Annexb(i) => &self.pack_annexb[i],
+                PackVariant::Regular(i) => match self.pack[i].as_ref() {
+                    Some(pack) => pack,
+                    // ensure_pack made the variant this frame uses
+                    None => return Err(Error::Missing("a pack variant")),
+                },
+            }
         };
         let fused_tables = if source == 1 {
             Bind::Range(slot.tables, T_SINGLE, 6144)
@@ -2355,6 +2559,9 @@ impl Engine {
                 Bind::Sampled(self.cb1_luts[0].view, self.linear),
                 Bind::Sampled(self.cb1_luts[1].view, self.linear),
                 Bind::Buffer(self.cb1_tiles.buffer),
+                Bind::Sampled(self.map_lut.view, self.linear),
+                Bind::Buffer(slot.map_params),
+                Bind::Buffer(self.map_cells.buffer),
             ],
         );
         let push = PackPush {
@@ -2364,7 +2571,8 @@ impl Engine {
             w: CANVAS_W,
             h: CANVAS_H,
             stride_words: out_stride / 4,
-            packet_count: p.packet_count,
+            // HDR10 output carries no Dolby Vision metadata in the picture
+            packet_count: if mapped { 0 } else { p.packet_count },
             top_left: p.top_left,
             source_w: p.source_w,
             source_h: p.source_h,
@@ -2386,6 +2594,18 @@ impl Engine {
         // same value).
         let wg_h = if matches!(variant, PackVariant::Annexb(_)) { 16 } else { 4 };
         self.dispatch_partitioned(cmd, pack, &push, regions.as_deref(), wg_h);
+        if fixup {
+            // the pairs the pack listed (a marked LUT cell), computed exactly
+            gpu::indirect_barrier(d, cmd);
+            unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.map_fixup.pipeline) };
+            self.push.bind(
+                cmd,
+                &self.map_fixup,
+                &[Bind::Buffer(out_buffer), Bind::Buffer(slot.map_params), Bind::Buffer(self.map_cells.buffer)],
+            );
+            gpu::push_constants(d, cmd, &self.map_fixup, &[CANVAS_W, out_stride / 4]);
+            unsafe { d.device.cmd_dispatch_indirect(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4) };
+        }
         stamp(cmd, 3);
         if check {
             gpu::compute_barrier(d, cmd);
@@ -2621,6 +2841,9 @@ impl Engine {
                 Bind::Sampled(self.cb1_luts[0].view, self.linear),
                 Bind::Sampled(self.cb1_luts[1].view, self.linear),
                 Bind::Buffer(self.cb1_tiles.buffer),
+                Bind::Sampled(self.map_lut.view, self.linear),
+                Bind::Buffer(slot.map_params),
+                Bind::Buffer(self.map_cells.buffer),
             ],
             &reference_push,
             ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)),
@@ -2741,6 +2964,15 @@ impl Engine {
         self.push.bind(cmd, pipe, binds);
         gpu::push_constants(d, cmd, pipe, push);
         unsafe { d.device.cmd_dispatch(cmd, groups.0.max(1), groups.1.max(1), 1) };
+    }
+
+    /// A cubic dispatch (map_bake: groups^3 workgroups).
+    fn dispatch3<T: Copy>(&self, cmd: vk::CommandBuffer, pipe: &Pipeline, binds: &[Bind], push: &T, groups: u32) {
+        let d = &self.d;
+        unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipe.pipeline) };
+        self.push.bind(cmd, pipe, binds);
+        gpu::push_constants(d, cmd, pipe, push);
+        unsafe { d.device.cmd_dispatch(cmd, groups, groups, groups) };
     }
 
     /// reconstruct_impl's direct route for a half-size EL (opencl_backend.c),
@@ -3038,6 +3270,7 @@ impl Drop for Engine {
             c.error.destroy(d);
             c.gui_coeff.destroy(d);
             c.gui_error.destroy(d);
+            c.map_params.destroy(d);
             c.bounds_result.destroy(d);
         }
         unsafe { d.device.destroy_semaphore(self.timeline, None) };
@@ -3045,6 +3278,12 @@ impl Drop for Engine {
             unsafe { d.device.destroy_semaphore(r, None) };
         }
         self.shot.destroy(d);
+        for p in self.pack_map.values().chain(self.map_bake.iter()).chain(std::iter::once(&self.map_fixup)) {
+            p.destroy(d);
+        }
+        self.map_lut.destroy(d);
+        self.map_nodes.destroy(d);
+        self.map_cells.destroy(d);
         self.cb1_tiles.destroy(d);
         self.cb1_tiles_pipe.destroy(d);
         for lut in &self.cb1_luts {

@@ -280,6 +280,35 @@ pub unsafe extern "C" fn dvvk_submit(e: *mut Engine, frame: *const DvvkFrame, ti
     })
 }
 
+/// dvvk_set_output_mode (optional symbol): the output from the next frame.
+///
+/// # Safety
+/// `e` must be an engine from dvvk_create (or NULL); `mode` valid.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_set_output_mode(e: *mut Engine, mode: *const crate::map::OutputMode) -> i32 {
+    let Some(mode) = mode.as_ref() else { return DVVK_INVALID };
+    with_engine(e, "set_output_mode", DVVK_INVALID, DVVK_BACKEND, |e| match e.set_output_mode(mode) {
+        Ok(()) => 0,
+        Err(err) => {
+            log_error("set_output_mode", err);
+            DVVK_UNSUPPORTED
+        }
+    })
+}
+
+/// dvvk_output_signal (optional symbol): the last frame's HDR static metadata.
+///
+/// # Safety
+/// `e` must be an engine from dvvk_create (or NULL); `out` valid.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_output_signal(e: *mut Engine, out: *mut crate::map::HdrSignal) -> i32 {
+    let Some(out) = out.as_mut() else { return DVVK_INVALID };
+    with_engine(e, "output_signal", DVVK_INVALID, DVVK_BACKEND, |e| {
+        *out = e.output_signal();
+        0
+    })
+}
+
 /// The CM4 / L2 result of the last frame planned (dvvk_plan.dm_status:
 /// DVVK_CM4_STATUS_* | L2 blocks removed << 8; dv-engine-vk 0.1.0-18, an
 /// optional symbol). UINT32_MAX for NULL or a panic.
