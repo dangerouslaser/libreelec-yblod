@@ -7,13 +7,21 @@ sold with the same CPU.
 ## Conditions for automatic DV output
 
 1. Intel display engine generation 12 or later, handled by the patched display
-   driver; the CPU marketing generation alone is not sufficient.
+   driver; the CPU marketing generation alone is not sufficient. Exceptions:
+   the converter routes in condition 2 (gen11+, and the NUC7's gen9 LSPCON).
 2. Native HDMI, without active DisplayPort/LSPCON conversion. A native HDMI
    level shifter is not rejected merely for exposing a dual-mode identifier.
-   LSPCON routes stay excluded: the NUC7i7BN's MegaChips MCDP2800 (FW 1.77)
-   was tested and does not forward the Dolby VSIF (see VALIDATION.md). Those
-   NUCs fall back to Dolby Vision converted to HDR10 (LSPCON HDR10 signalling
-   works; conversion playback on Kaby Lake is not qualified).
+   In its normal (PCON) mode the NUC7i7BN's MegaChips MCDP2800 LSPCON (FW
+   1.77) does not forward the Dolby VSIF (see VALIDATION.md). Exception (0.3.5,
+   `linux-9931-lspcon-ls-dv`): for Dolby Vision the driver switches it to
+   level-shifter mode and drives the port as HDMI, so the native-HDMI DV
+   signalling reaches the TV; DV off switches it back. DV is 4K up to 30 Hz
+   there (level-shifter and gen9 HDMI clock limits), so Kodi's refresh-rate
+   switching must be on. On by default only for allowlisted boards (DMI board
+   NUC7i7BNB) with an MC2800 on FW 1.77; `i915.dv_lspcon=1` for other gen9/10
+   LSPCON boards (experimental), `i915.dv_lspcon=0` turns it off. Other
+   LSPCONs (Parade) stay excluded and fall back to Dolby Vision converted to
+   HDR10.
    Exception (0.3.4, `linux-9930-dp-pcon-dv`): gen11+ boards whose HDMI
    sockets are an onboard DP-to-HDMI protocol converter (not LSPCON). The
    Dolby VSIF goes to the converter as a DP InfoFrame SDP in the GMP DIP, as
