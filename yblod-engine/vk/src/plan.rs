@@ -10,6 +10,12 @@ pub const CHROMA_MMR64_LUT: u32 = 3;
 pub const PACK_SITED: u32 = 0;
 pub const PACK_422: u32 = 1;
 pub const PACK_RESIZED: u32 = 2;
+/// dvvk_plan_in.el_scaler (include/dvvk_plan.h, ABI 3).
+pub const EL_ANNEXB: u32 = 1;
+pub const EL_BILINEAR: u32 = 2;
+/// dvvk_plan.el_method, the shaders' encoding.
+pub const EL_METHOD_ANNEXB: u32 = 0;
+pub const EL_METHOD_BILINEAR: u32 = 1;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
@@ -48,7 +54,8 @@ pub struct Plan {
     pub width: u32,
     pub height: u32,
     pub el_scale: u32,
-    pub nearest: u32,
+    /// EL_METHOD_*: how a half-size EL is upsampled.
+    pub el_method: u32,
     pub chroma_phase: u32,
     pub chroma_kind: [u32; 2],
     pub dual: u32,
@@ -348,7 +355,9 @@ mod tests {
         bytes.iter().fold(0xcbf2_9ce4_8422_2325u64, |h, &b| (h ^ b as u64).wrapping_mul(0x100_0000_01b3))
     }
 
-    /// Config k of the oracle harness: 0 FEL nearest, 1 Annex B, 2 FEL off,
+    /// Config k of the oracle harness: 0 FEL bilinear (nearest neighbour
+    /// until ABI 3, the same plan bytes: el_method 1 where nearest was 1),
+    /// 1 Annex B, 2 FEL off,
     /// 3 CB1 contract with the overlay, 4 a 1920x1080 box with the overlay,
     /// 5 the same in desktop mode.
     fn plan_in(has_el: bool, k: u32) -> (PlanIn, Option<PlanDesktop>) {
@@ -372,7 +381,7 @@ mod tests {
             chroma_top_left: 1,
             has_el: has_el as u32,
             nv12: 0,
-            el_scaler: 0,
+            el_scaler: EL_BILINEAR,
             fel: 1,
             packet_id: 3,
             refresh: 1,
@@ -386,9 +395,9 @@ mod tests {
         };
         let mut desktop = None;
         match k {
-            1 => p.el_scaler = 1,
+            1 => p.el_scaler = EL_ANNEXB,
             2 => p.fel = 0,
-            3 => (p.cb1_contract, p.el_scaler, p.overlay) = (1, 1, 1),
+            3 => (p.cb1_contract, p.el_scaler, p.overlay) = (1, EL_ANNEXB, 1),
             4 | 5 => {
                 (p.x, p.y, p.dw, p.dh, p.overlay) = (960, 540, 1920, 1080, 1);
                 if k == 5 {
@@ -1017,5 +1026,116 @@ mod tests {
             }
         }
         assert!(failed.is_empty(), "new digests:\n{}", failed.join("\n"));
+    }
+}
+
+/// The EL upsampling's CPU reference (yblod-engine/src/pixel_spatial.c,
+/// dv_bilinear_scale2x and dv_annex_b_scale2x): what the shaders' bilinear
+/// (shaders/common/dv_common.glsl el_bilinear_*) computes, and that it samples
+/// at Annex B's phases.
+#[cfg(test)]
+mod el_tests {
+    extern "C" {
+        fn dv_bilinear_scale2x(
+            input: *const u16,
+            count: usize,
+            w: u32,
+            h: u32,
+            chroma: u32,
+            scratch: *mut u16,
+            scratch_count: usize,
+            out: *mut u16,
+            out_count: usize,
+        ) -> i32;
+        fn dv_annex_b_scale2x(
+            input: *const u16,
+            count: usize,
+            w: u32,
+            h: u32,
+            chroma: u32,
+            scratch: *mut u16,
+            scratch_count: usize,
+            out: *mut u16,
+            out_count: usize,
+        ) -> i32;
+    }
+
+    fn scale(bilinear: bool, input: &[u16], w: usize, h: usize, chroma: bool) -> Vec<u16> {
+        let (mut scratch, mut out) = (vec![0u16; w], vec![0u16; 4 * w * h]);
+        let f = if bilinear { dv_bilinear_scale2x } else { dv_annex_b_scale2x };
+        let r = unsafe {
+            f(input.as_ptr(), input.len(), w as u32, h as u32, chroma as u32, scratch.as_mut_ptr(), w, out.as_mut_ptr(), out.len())
+        };
+        assert_eq!(r, 0);
+        out
+    }
+
+    /// The shaders' bilinear, written out as they compute it: the vertical
+    /// pass (fel_vertical_pair: el_bilinear_quarter(near, far); the chroma's
+    /// 64/192 of fel_phase_vertical_uv) then the horizontal one
+    /// (HORIZONTAL / el_bilinear_mid: (a + b + 1) / 2), edges clamped.
+    fn shader_model(input: &[u16], w: usize, h: usize, chroma: bool) -> Vec<u16> {
+        let at = |x: isize, y: isize| input[y.clamp(0, h as isize - 1) as usize * w + x.clamp(0, w as isize - 1) as usize] as i64;
+        let vertical = |x: usize, row: usize| -> i64 {
+            let (r, odd) = ((row / 2) as isize, row % 2 == 1);
+            let (near, far) = (at(x as isize, r), at(x as isize, if odd { r + 1 } else { r - 1 }));
+            if chroma {
+                (192 * near + 64 * far + 128) / 256
+            } else {
+                (3 * near + far + 2) / 4
+            }
+        };
+        let mut out = vec![0u16; 4 * w * h];
+        for y in 0..2 * h {
+            for x in 0..2 * w {
+                let ix = x / 2;
+                let v = if x % 2 == 0 { vertical(ix, y) } else { (vertical(ix, y) + vertical((ix + 1).min(w - 1), y) + 1) / 2 };
+                out[y * 2 * w + x] = v as u16;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn bilinear_reference_is_the_shaders_arithmetic() {
+        let (w, h) = (37, 23);
+        let mut seed = 0x2545_f491_4f6c_dd1du64;
+        let input: Vec<u16> = (0..w * h)
+            .map(|_| {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                (seed % 1024) as u16
+            })
+            .collect();
+        for chroma in [false, true] {
+            assert_eq!(scale(true, &input, w, h, chroma), shader_model(&input, w, h, chroma), "chroma {chroma}");
+        }
+        // the extremes stay codes: no ringing, unlike Annex B
+        let out = scale(true, &input, w, h, false);
+        assert!(out.iter().all(|&v| v <= 1023));
+    }
+
+    #[test]
+    fn bilinear_samples_at_annex_b_phases() {
+        // A plane linear in x and y: both filters reproduce a ramp exactly at
+        // their sample positions (Annex B's taps are normalized and centred
+        // on the same points), so equal values mean equal phases. Away from
+        // the clamped edges (Annex B's 8-tap and 4-tap reach).
+        let (w, h) = (40, 24);
+        let input: Vec<u16> = (0..w * h).map(|i| (8 * (i % w) + 16 * (i / w) + 64) as u16).collect();
+        for chroma in [false, true] {
+            let (b, a) = (scale(true, &input, w, h, chroma), scale(false, &input, w, h, chroma));
+            for y in 4..2 * h - 4 {
+                for x in 8..2 * w - 8 {
+                    assert_eq!(b[y * 2 * w + x], a[y * 2 * w + x], "chroma {chroma} at {x},{y}");
+                }
+            }
+            // and they do differ on detail (a step): the filters aren't the same
+            let step: Vec<u16> = (0..w * h).map(|i| if i % w < w / 2 { 100 } else { 900 }).collect();
+            assert_ne!(scale(true, &step, w, h, chroma), scale(false, &step, w, h, chroma));
+        }
+        // invalid shapes are refused
+        assert_ne!(unsafe { dv_bilinear_scale2x(input.as_ptr(), input.len(), 0, 0, 0, std::ptr::null_mut(), 0, std::ptr::null_mut(), 0) }, 0);
     }
 }

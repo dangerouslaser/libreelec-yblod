@@ -58,7 +58,7 @@ struct PackPush {
     top_left: u32,
     source_w: u32,
     source_h: u32,
-    nearest: u32,
+    el_method: u32,     // plan::EL_METHOD_*: the fused FEL pack's EL upsampling
     gui_flags: u32,     // the fused overlay: 1 invalidate the cache, 2 the shell rows bottom first
     origin: [u32; 2],   // the dispatch's first workgroup (a part of the canvas, damage.rs)
     chroma_filter: u32, // sited pack: 1 CB1's Annex B 4:2:2 filters
@@ -120,14 +120,14 @@ const OTHER_PIPELINES: u32 = 1 + 18 + 1 + 2 + 1 + 1 + 3 + 1;
 struct PackRoute {
     route: u32,
     equal: u32,
-    nearest: u32,
+    el_method: u32,
     pack: u32,
     chroma_filter: u32,
 }
 
 impl PackRoute {
     fn of(p: &Plan) -> PackRoute {
-        PackRoute { route: p.route, equal: p.equal, nearest: p.nearest, pack: p.pack, chroma_filter: p.chroma_filter }
+        PackRoute { route: p.route, equal: p.equal, el_method: p.el_method, pack: p.pack, chroma_filter: p.chroma_filter }
     }
 }
 
@@ -145,7 +145,8 @@ fn pack_source(r: &PackRoute) -> u32 {
     if r.route == plan::ROUTE_SINGLE && r.pack != plan::PACK_RESIZED {
         // Resized frames read 4 taps per sample: cheaper from the planes.
         1
-    } else if r.route == plan::ROUTE_DUAL && r.equal == 0 && r.nearest != 0 {
+    } else if r.route == plan::ROUTE_DUAL && r.equal == 0 && r.el_method == plan::EL_METHOD_BILINEAR {
+        // Bilinear is fused: its 2-tap EL costs little in the pack's luma.
         // Annex B stays staged: fused (its vertical taps shared through a
         // workgroup tile), 1917 took 12.8 ms against 11.1 ms staged on
         // Tiger Lake at a fixed 1000 MHz (the fused pack's luma costs more
@@ -193,10 +194,10 @@ mod pack_tests {
         let mut v = Vec::new();
         for route in [plan::ROUTE_DUAL, plan::ROUTE_SINGLE, plan::ROUTE_PIECEWISE] {
             for equal in 0..2 {
-                for nearest in 0..2 {
+                for el_method in 0..2 {
                     for pack in [plan::PACK_SITED, plan::PACK_422, plan::PACK_RESIZED] {
                         for chroma_filter in 0..2 {
-                            v.push(PackRoute { route, equal, nearest, pack, chroma_filter });
+                            v.push(PackRoute { route, equal, el_method, pack, chroma_filter });
                         }
                     }
                 }
@@ -230,7 +231,7 @@ mod pack_tests {
 
     #[test]
     fn sources() {
-        let r = |route, equal, nearest, pack| PackRoute { route, equal, nearest, pack, chroma_filter: 0 };
+        let r = |route, equal, el_method, pack| PackRoute { route, equal, el_method, pack, chroma_filter: 0 };
         assert_eq!(pack_source(&r(plan::ROUTE_SINGLE, 0, 0, plan::PACK_SITED)), 1);
         assert_eq!(pack_source(&r(plan::ROUTE_SINGLE, 0, 0, plan::PACK_RESIZED)), 0);
         assert_eq!(pack_source(&r(plan::ROUTE_DUAL, 0, 1, plan::PACK_RESIZED)), 2);
@@ -302,9 +303,11 @@ mod pack_tests {
         let contract = contract(r);
         let full = !r.nv12 && !contract; // DV_SINGLE_FULL_HEIGHT
         let resized_pack = if r.resized { plan::PACK_RESIZED } else { plan::PACK_SITED };
-        let (equal, nearest, pack) = match r.route {
+        // el_scaler 1 Annex B, 0 bilinear; the contract is always Annex B
+        let bilinear = r.el_scaler == 0 && !contract;
+        let (equal, el_method, pack) = match r.route {
             // NV12 pictures are piecewise only
-            plan::ROUTE_DUAL if !r.nv12 => ((r.el_flag == 0) as u32, (r.el_scaler == 0) as u32, resized_pack),
+            plan::ROUTE_DUAL if !r.nv12 => ((r.el_flag == 0) as u32, bilinear as u32, resized_pack),
             plan::ROUTE_SINGLE if !r.nv12 => (0, 0, resized_pack),
             plan::ROUTE_PIECEWISE if !(full && r.resized) => (0, 0, if full { plan::PACK_422 } else { resized_pack }),
             _ => return None,
@@ -312,7 +315,7 @@ mod pack_tests {
         if contract && pack != plan::PACK_SITED {
             return None;
         }
-        Some(PackRoute { route: r.route, equal, nearest, pack, chroma_filter: contract as u32 })
+        Some(PackRoute { route: r.route, equal, el_method, pack, chroma_filter: contract as u32 })
     }
 
     /// Engine::pack_overlay for these inputs.
@@ -393,7 +396,6 @@ mod pack_tests {
                 (2, 1, 2),
                 (2, 2, 0),
                 (2, 2, 2),
-                (2, 3, 0),
             ]
         );
     }
@@ -410,13 +412,13 @@ mod pack_tests {
                 .count() as u32
         };
         let shipped = EngineOptions::default();
-        assert_eq!(n(&shipped), 20);
-        assert_eq!(pipeline_count(&shipped), 20 + 3 + OTHER_PIPELINES);
+        assert_eq!(n(&shipped), 19);
+        assert_eq!(pipeline_count(&shipped), 19 + 3 + OTHER_PIPELINES);
         let verify = EngineOptions { verify_every: 4, ..EngineOptions::default() };
-        assert_eq!(n(&verify), 20);
-        assert_eq!(pipeline_count(&verify), 20 + 3 + OTHER_PIPELINES + 1);
+        assert_eq!(n(&verify), 19);
+        assert_eq!(pipeline_count(&verify), 19 + 3 + OTHER_PIPELINES + 1);
         let lazy = EngineOptions { lazy_resized_pack: true, ..EngineOptions::default() };
-        assert_eq!(n(&lazy), 17);
+        assert_eq!(n(&lazy), 16);
         // DVVK_VERIFY's reference packs (source 0, the frame's kind) are made
         for r in routings() {
             let Some(route) = planned(&r) else { continue };
@@ -435,7 +437,7 @@ mod pack_tests {
         let modelled: Vec<_> = routings()
             .iter()
             .filter_map(planned)
-            .map(|p| (p.route, p.equal, p.nearest, p.pack, p.chroma_filter))
+            .map(|p| (p.route, p.equal, p.el_method, p.pack, p.chroma_filter))
             .collect();
         let mut plan = Plan::boxed();
         let mut seen = 0;
@@ -454,7 +456,7 @@ mod pack_tests {
                     chroma_top_left: 1,
                     has_el: has_el as u32,
                     nv12: b(0) as u32,
-                    el_scaler: b(1) as u32,
+                    el_scaler: if b(1) { plan::EL_ANNEXB } else { plan::EL_BILINEAR },
                     fel: b(2) as u32,
                     packet_id: 0,
                     refresh: 0,
@@ -477,7 +479,7 @@ mod pack_tests {
                 seen += 1;
                 let r = PackRoute::of(&plan);
                 assert!(
-                    modelled.contains(&(r.route, r.equal, r.nearest, r.pack, r.chroma_filter)),
+                    modelled.contains(&(r.route, r.equal, r.el_method, r.pack, r.chroma_filter)),
                     "{name} {input:?}: {r:?}"
                 );
             }
@@ -501,13 +503,14 @@ mod pack_tests {
 /// for a plan yblod/plan.c makes and an overlay the engine picks
 /// (pack_tests::reachable_variants proves it over the planner's routing
 /// inputs). 19 of the 36: native CB1 (3) is CB1's contract, which is unscaled
-/// (sited) and takes the Annex B variants from sources 0 and 1; the fused
-/// single layer (1) is unscaled single-route pictures, sited (4:2:2 is the
-/// piecewise route's); the fused FEL (2) is the dual route, never 4:2:2.
+/// (sited), Annex B (so never the fused FEL) and takes the Annex B variants
+/// from source 1; the fused single layer (1) is unscaled single-route
+/// pictures, sited (4:2:2 is the piecewise route's); the fused FEL (2) is the
+/// dual route with the bilinear EL, never 4:2:2.
 fn pack_reachable(source: u32, overlay: u32, kind: u32) -> bool {
     if overlay == 3 {
-        // native CB1: fused shells, and staged CB1 frames (no Annex B variant)
-        return (source == 2 || source == 0) && kind == plan::PACK_SITED;
+        // native CB1: staged CB1 frames (no Annex B variant)
+        return source == 0 && kind == plan::PACK_SITED;
     }
     match source {
         0 => true,
@@ -616,6 +619,7 @@ struct Slot {
     gui_coeff: vk::Buffer,
     gui_error: vk::Buffer,
     map_params: vk::Buffer,
+    stats: vk::Buffer,
 }
 
 /// One frame in flight, including buffers that cannot be reused before completion.
@@ -628,6 +632,11 @@ struct Ctx {
     gui_coeff: HostBuffer,
     gui_error: HostBuffer,
     map_params: HostBuffer, // the output mapping's dvvk_map_gpu (HDR10 output)
+    // HDR10+ output: the pack's statistics of this frame's film (pack.comp
+    // STATS: hist[256], max[3], sum lo, hi, count), and what its metadata is
+    // made from (the frame's AVDOVIMetadata, 8-aligned; the overlay flag).
+    stats: HostBuffer,
+    hdr10plus: Option<Hdr10PlusFrame>,
     bounds_result: HostBuffer,
     bounds_generation: Option<u64>,
     // The plan's tables_generation in `tables` (None: unknown): the same one
@@ -647,6 +656,17 @@ struct Ctx {
     verify: Option<HostBuffer>,
     verified: bool,
 }
+
+/// An HDR10+ output frame's inputs to its dynamic metadata (dvvk_hdr10plus_packet).
+struct Hdr10PlusFrame {
+    metadata: Vec<u64>, // the AVDOVIMetadata bytes, 8-aligned
+    size: usize,
+    overlay: bool,
+    area: [u32; 4], // the film's active area in the canvas (x0, y0, x1, y1), as STATS measures it
+}
+
+/// The statistics record's words (pack.comp STATS).
+pub const STATS_WORDS: usize = 262;
 
 /// DVVK_VERIFY=k: every k-th frame is rendered a second time by the
 /// reference route (the staged reconstruction, overlay_prepare's colour cache
@@ -689,6 +709,7 @@ impl Ctx {
             gui_coeff: self.gui_coeff.buffer,
             gui_error: self.gui_error.buffer,
             map_params: self.map_params.buffer,
+            stats: self.stats.buffer,
         }
     }
 }
@@ -822,7 +843,7 @@ pub struct Engine {
     map_fixup: Pipeline,
     /// map_cells' fix-up list (words: groups, 1, 1, count, the entries)
     map_list: u32,
-    pack_map: HashMap<(bool, usize), Pipeline>,
+    pack_map: HashMap<(bool, usize, bool), Pipeline>,
     pub map_bakes: u64,
     map_frames: u64,
 }
@@ -856,6 +877,7 @@ impl Engine {
         pack_bindings.extend([sampled, storage, storage]); // the fused overlay: shell, keys, coefficients
         pack_bindings.extend([sampled, sampled, storage]); // CB1 LUTs and GPU bounds
         pack_bindings.extend([sampled, storage, storage]); // HDR10 output: the 3D LUT, its parameters and exact cells
+        pack_bindings.push(storage); // HDR10+ output: the frame's statistics
         let pack_push = std::mem::size_of::<PackPush>() as u32;
         // The variants a frame can use (pack_eager; the rest stay None).
         let mut pack = Vec::with_capacity((PACK_SOURCES * PACK_OVERLAYS * PACK_KINDS) as usize);
@@ -1143,6 +1165,12 @@ impl Engine {
                 gui_coeff: construction.keep(HostBuffer::new(&d, 128, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 map_params: construction.keep(HostBuffer::new(&d, 2048, vk::BufferUsageFlags::STORAGE_BUFFER)?),
+                stats: construction.keep(HostBuffer::new(
+                    &d,
+                    (STATS_WORDS * 4).next_multiple_of(256) as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+                )?),
+                hdr10plus: None,
                 bounds_result: construction.keep(HostBuffer::new(
                     &d,
                     32,
@@ -1254,7 +1282,7 @@ impl Engine {
             damage: crate::damage::Damage::new((CANVAS_W, CANVAS_H), o.damage),
             last_shell: None,
             map_mode: crate::map::OutputMode {
-                mode: if o.output_hdr10 { crate::map::DVVK_OUTPUT_HDR10 } else { crate::map::DVVK_OUTPUT_DV },
+                mode: o.output_mode,
                 ..Default::default()
             },
             map: None,
@@ -1732,11 +1760,16 @@ impl Engine {
         }
     }
 
-    fn pack_map_key(variant: PackVariant) -> (bool, usize) {
+    fn pack_map_key(variant: PackVariant, stats: bool) -> (bool, usize, bool) {
         match variant {
-            PackVariant::Annexb(k) => (true, k),
-            PackVariant::Regular(i) => (false, i),
+            PackVariant::Annexb(k) => (true, k, stats),
+            PackVariant::Regular(i) => (false, i, stats),
         }
+    }
+
+    /// HDR10+ output: the pack measures the film (pack.comp STATS).
+    fn stats(&self) -> bool {
+        self.map.as_ref().is_some_and(|m| m.signal.mode == crate::map::DVVK_OUTPUT_HDR10PLUS)
     }
 
     /// The HDR10 pack's MAP (pack.comp): 1 LUT + map_fixup, or a diagnostic.
@@ -1760,7 +1793,7 @@ impl Engine {
             return Ok(());
         }
         let variant = select_pack(&PackRoute::of(&self.plan), self.pack_overlay()).1;
-        let key = Self::pack_map_key(variant);
+        let key = Self::pack_map_key(variant, self.stats());
         if self.pack_map.contains_key(&key) {
             return Ok(());
         }
@@ -1769,6 +1802,7 @@ impl Engine {
         let bindings = first.bindings.clone();
         let mut spec = self.pack_spec(variant);
         spec.push((8, self.map_spec()));
+        spec.push((9, key.2 as u32));
         let pipe = Pipeline::new_deferred(&self.d, "pack", &bindings, std::mem::size_of::<PackPush>() as u32, &spec)?;
         eprintln!("dvvk HDR10 pack: {variant:?} creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
         self.pack_map.insert(key, pipe);
@@ -1778,7 +1812,7 @@ impl Engine {
 
     /// dvvk_set_output_mode: from the next frame.
     pub fn set_output_mode(&mut self, mode: &crate::map::OutputMode) -> Result<()> {
-        if mode.mode != crate::map::DVVK_OUTPUT_DV && mode.mode != crate::map::DVVK_OUTPUT_HDR10 {
+        if mode.mode > crate::map::DVVK_OUTPUT_HDR10PLUS {
             return Err(Error::Unsupported(format!("output mode {}", mode.mode)));
         }
         if mode.flags != 0 || mode.peak_nits != 0.0 || mode.min_nits != 0.0 {
@@ -1795,6 +1829,53 @@ impl Engine {
     /// dvvk_output_signal: the last frame's.
     pub fn output_signal(&self) -> crate::map::HdrSignal {
         self.map.as_ref().map(|m| m.signal).unwrap_or_default()
+    }
+
+    /// dvvk_hdr10plus_packet: HDR10+ frame `ticket`'s dynamic metadata, from
+    /// its own statistics when it is done, else the latest finished HDR10+
+    /// frame's before it. Never blocks. Ok(status) as the C API returns it.
+    pub fn hdr10plus_packet(&self, ticket: u64, flags: u32, out: &mut crate::hdr10plus::Packet) -> Result<i32> {
+        if ticket == 0 || flags & !3 != 0 {
+            return Ok(-1);
+        }
+        let ctx = &self.ring[((ticket - 1) % RING as u64) as usize];
+        let Some(frame) = ctx.hdr10plus.as_ref().filter(|_| ctx.ticket == ticket) else { return Ok(-1) };
+        let done = unsafe { self.d.device.get_semaphore_counter_value(self.timeline) }?;
+        let Some(source) = self
+            .ring
+            .iter()
+            .filter(|c| c.hdr10plus.is_some() && c.ticket != 0 && c.ticket <= ticket && c.ticket <= done)
+            .max_by_key(|c| c.ticket)
+        else {
+            return Ok(1);
+        };
+        let mut words = [0u32; STATS_WORDS];
+        for (i, w) in source.stats.bytes()[..STATS_WORDS * 4].as_chunks::<4>().0.iter().enumerate() {
+            words[i] = u32::from_le_bytes(*w);
+        }
+        let bytes = unsafe { std::slice::from_raw_parts(frame.metadata.as_ptr() as *const u8, frame.size) };
+        let status = crate::hdr10plus::packet(bytes, &words, flags, frame.overlay, out);
+        out.statistics_ticket = source.ticket;
+        if self.d.options.hdr10plus_trace {
+            // the statistics record as measured (the CPU reference compares the histogram)
+            let hist: Vec<String> = words[..256].iter().map(|w| w.to_string()).collect();
+            eprintln!(
+                "{{\"dvvk_hdr10plus_stats\":{},\"ticket\":{},\"area\":[{},{},{},{}],\"max_pq_bits\":[{},{},{}],\"sum64\":{},\"count\":{},\"histogram\":[{}]}}",
+                source.ticket,
+                ticket,
+                source.hdr10plus.as_ref().unwrap().area[0],
+                source.hdr10plus.as_ref().unwrap().area[1],
+                source.hdr10plus.as_ref().unwrap().area[2],
+                source.hdr10plus.as_ref().unwrap().area[3],
+                words[256],
+                words[257],
+                words[258],
+                (u64::from(words[260]) << 32) | u64::from(words[259]),
+                words[261],
+                hist.join(",")
+            );
+        }
+        Ok(status)
     }
 
     /// The finished frame of context `ci`: its check and its timestamps.
@@ -1966,7 +2047,7 @@ impl Engine {
         // as the tunnel refuses one: the caller shows an ordinary picture).
         // Desktop frames (the film in a box) stay the tunnel's business.
         self.map = None;
-        if self.map_mode.mode == crate::map::DVVK_OUTPUT_HDR10 {
+        if self.map_mode.mode != crate::map::DVVK_OUTPUT_DV {
             match crate::map::Map::plan(&self.map_mode, f.metadata) {
                 Ok(mut m) => {
                     m.set_black([self.plan.black[0], self.plan.black[1], self.plan.black[2]]);
@@ -2116,6 +2197,14 @@ impl Engine {
             r.bytes_mut()[..8].copy_from_slice(&[0u8, 0, 0, 0, 255, 255, 255, 255]);
         }
         self.ring[ci].verified = check;
+        self.ring[ci].hdr10plus = self.stats().then(|| {
+            let mut metadata = vec![0u64; f.metadata.len().div_ceil(8)];
+            let bytes = unsafe { std::slice::from_raw_parts_mut(metadata.as_mut_ptr() as *mut u8, f.metadata.len()) };
+            bytes.copy_from_slice(f.metadata);
+            let (a, pl) = (self.plan.active, self.plan.placement);
+            let area = [a[0].max(pl[0]), a[1].max(pl[1]), a[2].min(pl[0] + pl[2]), a[3].min(pl[1] + pl[3])];
+            Hdr10PlusFrame { metadata, size: f.metadata.len(), overlay: self.plan.overlay_visible != 0, area }
+        });
         let result = self.record_submit(f, ci, waits.as_slice(), check);
         let ticket = match result {
             Ok(ticket) => ticket,
@@ -2168,6 +2257,11 @@ impl Engine {
         }
         self.ring[ci].packets.bytes_mut().copy_from_slice(&p.packets);
         self.ring[ci].error.bytes_mut()[..4].copy_from_slice(&0u32.to_le_bytes());
+        // HDR10+ output: the pack adds this frame's statistics to a zeroed record
+        let stats = self.stats();
+        if stats {
+            self.ring[ci].stats.bytes_mut()[..STATS_WORDS * 4].fill(0);
+        }
         // The overlay's colour error belongs to the prepared overlay: every
         // frame that uses it reports it.
         self.ring[ci].gui_error.bytes_mut()[..4].copy_from_slice(&self.overlay_error_flag.to_le_bytes());
@@ -2247,7 +2341,7 @@ impl Engine {
                 p.top_left,
                 p.source_w,
                 p.source_h,
-                p.nearest,
+                p.el_method,
                 out_stride,
             )
                 .hash(&mut hasher);
@@ -2261,7 +2355,8 @@ impl Engine {
                  (p.placement[0] + p.placement[2]).min(p.active[2]), (p.placement[1] + p.placement[3]).min(p.active[3])]
             });
             let packet_rows = if self.map.is_some() { 0 } else { (p.packet_count * 3072).div_ceil(CANVAS_W) };
-            self.damage.plan(f.output as usize, hasher.finish(), film, packet_rows, check || fused_invalidate)
+            // (HDR10+: the whole picture, so the pack measures every film pixel once)
+            self.damage.plan(f.output as usize, hasher.finish(), film, packet_rows, check || fused_invalidate || stats)
         };
         if self.profile.is_some() && self.damage.stats.0 >= 120 {
             let (n, partial) = self.damage.stats;
@@ -2318,7 +2413,7 @@ impl Engine {
             let t = slot.tables;
             let s = self.sampler;
             let cw = w / 2;
-            let push = [w, h, p.chroma_phase, p.nearest, p.dual, p.chroma_kind[0], p.chroma_kind[1], first / 2];
+            let push = [w, h, p.chroma_phase, p.el_method, p.dual, p.chroma_kind[0], p.chroma_kind[1], first / 2];
             self.dispatch(
                 cmd,
                 &self.fel_chroma,
@@ -2514,7 +2609,7 @@ impl Engine {
             gpu::indirect_barrier(d, cmd);
         }
         let pack = if mapped {
-            match self.pack_map.get(&Self::pack_map_key(variant)) {
+            match self.pack_map.get(&Self::pack_map_key(variant, self.stats())) {
                 Some(pack) => pack,
                 None => return Err(Error::Missing("an HDR10 pack variant")),
             }
@@ -2562,6 +2657,7 @@ impl Engine {
                 Bind::Sampled(self.map_lut.view, self.linear),
                 Bind::Buffer(slot.map_params),
                 Bind::Buffer(self.map_cells.buffer),
+                Bind::Buffer(slot.stats),
             ],
         );
         let push = PackPush {
@@ -2576,7 +2672,7 @@ impl Engine {
             top_left: p.top_left,
             source_w: p.source_w,
             source_h: p.source_h,
-            nearest: p.nearest,
+            el_method: p.el_method,
             gui_flags: fused_invalidate as u32
                 // the shell's rows bottom first (Kodi's GUI framebuffer)
                 | (self.sources.shell_flip as u32) << 1
@@ -2585,7 +2681,9 @@ impl Engine {
                 // cost more than the arithmetic (a changed 4K desktop 25 -> 14.5 ms)
                 | 1 << 3
                 // a linear half-float shell (a desktop with HDR content in it)
-                | (self.sources.shell().map(|s| s.linear).unwrap_or(false) as u32) << 5,
+                | (self.sources.shell().map(|s| s.linear).unwrap_or(false) as u32) << 5
+                // HDR10+ output: this pass measures the film (not the reference pass)
+                | (stats as u32) << 6,
             origin: [0, 0],
             chroma_filter: p.chroma_filter,
         };
@@ -2844,6 +2942,7 @@ impl Engine {
                 Bind::Sampled(self.map_lut.view, self.linear),
                 Bind::Buffer(slot.map_params),
                 Bind::Buffer(self.map_cells.buffer),
+                Bind::Buffer(slot.stats),
             ],
             &reference_push,
             ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)),
@@ -3014,7 +3113,7 @@ impl Engine {
             cmd,
             vertical,
             &[Bind::Sampled(el.luma.view, self.sampler), fb(F_V), err()],
-            &[cw, ch, 0u32, p.nearest, first / 2],
+            &[cw, ch, 0u32, p.el_method, first / 2],
             (columns.div_ceil(16), ((last - first) / 2).div_ceil(8)),
         );
         barrier();
@@ -3034,7 +3133,7 @@ impl Engine {
                 fb(F_G),
                 err(),
             ],
-            &[w, h, p.chroma_phase, p.nearest, first / 2],
+            &[w, h, p.chroma_phase, p.el_method, first / 2],
             ((w / 4).div_ceil(16), ((last - first) / 2).div_ceil(8)),
         );
         // c = 1: the EL chroma, phase + vertical (overwrites V: the luma pass is done).
@@ -3044,7 +3143,7 @@ impl Engine {
             cmd,
             &f.phase_vertical_uv,
             &[Bind::Sampled(el.chroma.view, self.sampler), fb(F_V), fb(F_VP), err()],
-            &[cw / 2, ch / 2, p.chroma_phase, p.nearest, first / 4],
+            &[cw / 2, ch / 2, p.chroma_phase, p.el_method, first / 4],
             ((cw / 2).div_ceil(16), ((last - first) / 4).div_ceil(8)),
         );
         barrier();
@@ -3069,7 +3168,7 @@ impl Engine {
                     fb(F_ES),
                     err(),
                 ],
-                &[cw, ch, p.nearest, first / 2],
+                &[cw, ch, p.el_method, first / 2],
                 ((cw / 4).div_ceil(64), rows),
             );
         } else {
@@ -3080,7 +3179,7 @@ impl Engine {
                     cmd,
                     &f.scale_horizontal,
                     &[src, es, err()],
-                    &[cw, ch, p.nearest, first / 2],
+                    &[cw, ch, p.el_method, first / 2],
                     (cw.div_ceil(64), rows),
                 );
             }

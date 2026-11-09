@@ -1,5 +1,5 @@
 /* Which route and kernels the engine takes for each frame of a file (yblod's
- * host code via yblod/plan.c), headless:  dvvk-routes FILE [FRAMES] [scaler] */
+ * host code via yblod/plan.c), headless:  dvvk-routes FILE [FRAMES] [scaler: 1 Annex B, 2 bilinear] */
 #include "decode.h"
 #include "../include/dvvk_plan.h"
 #include <stdio.h>
@@ -16,7 +16,7 @@ int main(int argc, char **argv)
     if (argc < 2)
         return 2;
     int frames = argc > 2 ? atoi(argv[2]) : 24;
-    unsigned scaler = argc > 3 ? (unsigned)atoi(argv[3]) : 0;
+    unsigned scaler = argc > 3 ? (unsigned)atoi(argv[3]) : DVVK_EL_ANNEXB;
     struct dv_decoder d;
     if (dv_decoder_open(&d, argv[1], "/dev/dri/renderD128", 0) < 0)
         return 1;

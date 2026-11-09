@@ -98,40 +98,53 @@ run() {
 }
 
 S="--overlay $OV"
-run fel-s0            "$FEL" --el-scaler 0
-run fel-s1            "$FEL" --el-scaler 1
+# The EL upsampling (dvvk_plan_in.el_scaler, ABI 3): B bilinear, the fused
+# FEL pack; Annex B (dvvk-bench's default, staged) where a run says
+# --el-scaler annexb or --cb1. Until ABI 3 the runs with B were nearest
+# neighbour (fel-s0*: now fel-bl*); for MEL and P8.1 the method changes
+# nothing (no half-size EL is upsampled), so their hashes stayed.
+B="--el-scaler bilinear"
+run fel-bl            "$FEL" $B
+run fel-s1            "$FEL" --el-scaler annexb
 run fel-off           "$FEL" --fel 0
-run fel-s0-static     "$FEL" --el-scaler 0 --mode static $S
-run fel-s0-rect       "$FEL" --el-scaler 0 --mode rect $S
-run fel-s1-change     "$FEL" --el-scaler 1 --mode change $S
+run fel-bl-static     "$FEL" $B --mode static $S
+run fel-bl-rect       "$FEL" $B --mode rect $S
+run fel-s1-change     "$FEL" --el-scaler annexb --mode change $S
 run fel-cb1           "$FEL" --cb1
 run fel-cb1-static    "$FEL" --cb1 --mode static $S
 run fel-cb1-rect      "$FEL" --cb1 --mode rect $S
 run fel-cb1-change    "$FEL" --cb1 --mode change $S
-run fel-box           "$FEL" --dest 960,540,1920,1080
-run fel-box-fel       "$FEL" --dest 480,270,2880,1620 --mode static $S
-run fel-desktop       "$FEL" --desktop --dest 960,540,1920,1080 --mode rect $S
-run fel-fp16          "$FEL" --mode static --fp16 $S
+run fel-box           "$FEL" $B --dest 960,540,1920,1080
+run fel-box-fel       "$FEL" $B --dest 480,270,2880,1620 --mode static $S
+run fel-desktop       "$FEL" $B --desktop --dest 960,540,1920,1080 --mode rect $S
+run fel-fp16          "$FEL" $B --mode static --fp16 $S
 # CM4 metadata (dvvk_plan_in.dm_options, 0.1.0-18): only the packet rows differ
 run fel-cb1-cm4       "$FEL" --cb1 --cm4 always
 run fel-cb1-nol2      "$FEL" --cb1 --no-l2
-run fel-cm4-nol2      "$FEL" --cm4 always --no-l2
+run fel-cm4-nol2      "$FEL" $B --cm4 always --no-l2
+# Annex B outside the contract: a box (resized pack) and the static overlay
+run fel-s1-box        "$FEL" --el-scaler annexb --dest 480,270,2880,1620 --mode static $S
+# HDR10+ output (YBLOD 0.4.0): the untone-mapped BT.2020 PQ picture the
+# statistics are measured on (the bilinear FEL and the contract's Annex B)
+run fel-h10p          "$FEL" $B --output hdr10plus
+run fel-cb1-h10p      "$FEL" --cb1 --output hdr10plus --mode static $S
 if [ -n "$MEL" ]; then
-  run mel             "$MEL"
-  run mel-static      "$MEL" --mode static $S
+  run mel             "$MEL" $B
+  run mel-static      "$MEL" $B --mode static $S
   run mel-cb1         "$MEL" --cb1
   run mel-cb1-static  "$MEL" --cb1 --mode static $S
   run mel-cb1-rect    "$MEL" --cb1 --mode rect $S
-  run mel-box         "$MEL" --dest 960,540,1920,1080 --mode static $S
+  run mel-box         "$MEL" $B --dest 960,540,1920,1080 --mode static $S
   run mel-cb1-cm4     "$MEL" --cb1 --cm4 always
   run mel-cb1-cm4-nol2 "$MEL" --cb1 --cm4 always --no-l2
 fi
 if [ -n "$P81" ]; then
-  run p81             "$P81"
+  run p81             "$P81" $B
   run p81-cb1-static  "$P81" --cb1 --mode static $S
   run p81-cb1-rect    "$P81" --cb1 --mode rect $S
-  run p81-box         "$P81" --dest 960,540,1920,1080 --mode rect $S
+  run p81-box         "$P81" $B --dest 960,540,1920,1080 --mode rect $S
   run p81-cb1-cm4     "$P81" --cb1 --cm4 always
+  run p81-h10p        "$P81" --cb1 --output hdr10plus
 fi
 
 # DVVK_OVERLAY_FLIP_Y (Kodi's GUI framebuffer, rows bottom first): the same
@@ -140,11 +153,11 @@ fi
 MAIN=$OUT
 OUT=$WORK/twins.sha256
 : > "$OUT"
-run fel-s0-static~flip    "$FEL" --el-scaler 0 --mode static --flip $S
-run fel-s1-change~flip    "$FEL" --el-scaler 1 --mode change --flip $S
+run fel-bl-static~flip    "$FEL" $B --mode static --flip $S
+run fel-s1-change~flip    "$FEL" --el-scaler annexb --mode change --flip $S
 run fel-cb1-static~flip   "$FEL" --cb1 --mode static --flip $S
 run fel-cb1-change~flip   "$FEL" --cb1 --mode change --flip $S
-run fel-box-fel~flip      "$FEL" --dest 480,270,2880,1620 --mode static --flip $S
+run fel-box-fel~flip      "$FEL" $B --dest 480,270,2880,1620 --mode static --flip $S
 [ -z "$MEL" ] || run mel-cb1-static~flip "$MEL" --cb1 --mode static --flip $S
 TWINS=$OUT
 OUT=$MAIN

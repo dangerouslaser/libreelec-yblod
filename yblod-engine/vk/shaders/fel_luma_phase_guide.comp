@@ -15,7 +15,7 @@ layout(binding = 5, std430) writeonly buffer Out { uint16_t outp[]; };
 layout(binding = 5, std430) writeonly buffer Out4 { uvec2 out4[]; };
 layout(binding = 6, std430) writeonly buffer Phase { uint cbw[]; };   // cb then cr (w/2 x h/2 each), pairs
 layout(binding = 7, std430) writeonly buffer Guide { uint guidew[]; };
-layout(push_constant) uniform Push { uint w, h, method, nearest, row_offset; };
+layout(push_constant) uniform Push { uint w, h, method, el_method, row_offset; };
 
 uint tv(uint i) { return (tempw[i >> 1] >> ((i & 1u) * 16u)) & 0xffffu; }
 
@@ -65,9 +65,9 @@ void main()
         uint el[4];
         el[0] = t[4];
         el[2] = t[5];
-        if (nearest != 0u) {
-            el[1] = t[4];
-            el[3] = t[5];
+        if (el_method == EL_BILINEAR) {
+            el[1] = el_bilinear_mid(t[4], t[5]);
+            el[3] = el_bilinear_mid(t[5], t[6]);
         } else {
             int s1 = 0, s3 = 0;
             for (int k = 0; k < 8; k++) {
