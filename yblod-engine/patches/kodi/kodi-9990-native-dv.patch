@@ -2284,7 +2284,7 @@ index 3cc705b..149666e 100644
    else if (right.type == StreamType::SUBTITLE)
    {
 diff --git a/xbmc/cores/VideoPlayer/DVDStreamInfo.h b/xbmc/cores/VideoPlayer/DVDStreamInfo.h
-index 1da58a7..ca706b9 100644
+index 609a130..56d7c32 100644
 --- a/xbmc/cores/VideoPlayer/DVDStreamInfo.h
 +++ b/xbmc/cores/VideoPlayer/DVDStreamInfo.h
 @@ -80,6 +80,9 @@ public:
@@ -2295,8 +2295,8 @@ index 1da58a7..ca706b9 100644
 +  FFmpegExtraData doviELConfig;
 +#endif
  
-   // AUDIO
-   int channels;
+   // Dolby Vision profile 8 compatibility IDs 1 and 4 identify HDR10 and HLG
+   // base layers respectively.
 diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
 index fc7cb95..85f7ac8 100644
 --- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp

@@ -458,7 +458,7 @@ index a6a247a3..e5337d23 100644
    if (m_CurrentVideo.dts != DVD_NOPTS_VALUE)
      state.dts = m_CurrentVideo.dts;
 diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
-index d6c52a0e..343b17f7 100644
+index 1832c04..9105b1a 100644
 --- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
 @@ -10,6 +10,7 @@
@@ -469,15 +469,15 @@ index d6c52a0e..343b17f7 100644
  #include "utils/DVBridgeDiagnosticState.h"
  #include "utils/StringUtils.h"
  #endif
-@@ -30,6 +31,7 @@
- #include "windowing/WinSystem.h"
+@@ -31,6 +32,7 @@
  
+ #include <algorithm>
  #include <iomanip>
 +#include <cstdlib>
  #include <iterator>
  #include <memory>
  #include <mutex>
-@@ -258,6 +260,13 @@ void CVideoPlayerVideo::CloseStream(bool bWaitForBuffers)
+@@ -268,6 +270,13 @@ void CVideoPlayerVideo::CloseStream(bool bWaitForBuffers)
    {
      SendMessage(std::make_shared<CDVDMsg>(CDVDMsg::VIDEO_DRAIN), 0);
      m_messageQueue.WaitUntilEmpty();
@@ -491,7 +491,7 @@ index d6c52a0e..343b17f7 100644
    }
  
    m_messageQueue.Abort();
-@@ -381,6 +390,17 @@ void CVideoPlayerVideo::Process()
+@@ -391,6 +400,17 @@ void CVideoPlayerVideo::Process()
      }
      else if (ret == MSGQ_TIMEOUT)
      {
@@ -509,7 +509,7 @@ index d6c52a0e..343b17f7 100644
        if (m_outputSate == OUTPUT_AGAIN &&
            m_picture.videoBuffer)
        {
-@@ -644,6 +664,16 @@ void CVideoPlayerVideo::UpdatePlayerInfo()
+@@ -675,6 +695,16 @@ void CVideoPlayerVideo::UpdatePlayerInfo()
  bool CVideoPlayerVideo::ProcessDecoderOutput(double &frametime, double &pts)
  {
    CDVDVideoCodec::VCReturn decoderState = m_pVideoCodec->GetPicture(&m_picture);
@@ -526,7 +526,7 @@ index d6c52a0e..343b17f7 100644
  
    if (decoderState == CDVDVideoCodec::VC_BUFFER)
    {
-@@ -805,6 +835,26 @@ bool CVideoPlayerVideo::ProcessDecoderOutput(double &frametime, double &pts)
+@@ -857,6 +887,26 @@ bool CVideoPlayerVideo::ProcessDecoderOutput(double &frametime, double &pts)
        msg.cachetime = DVD_MSEC_TO_TIME(50); //! @todo implement
        msg.cachetotal = DVD_MSEC_TO_TIME(100); //! @todo implement
        msg.timestamp = hasTimestamp ? (pts + m_renderManager.GetDelay() * 1000) : DVD_NOPTS_VALUE;
@@ -2186,7 +2186,7 @@ index 0ca0a397..59e9101d 100644
  
    CGUIWindow* pWindow = GetWindow(GetActiveWindow());
 diff --git a/xbmc/guilib/GUIWindowManager.h b/xbmc/guilib/GUIWindowManager.h
-index 59de35c8..012a1b6c 100644
+index 4c5f70f..c0b6b72 100644
 --- a/xbmc/guilib/GUIWindowManager.h
 +++ b/xbmc/guilib/GUIWindowManager.h
 @@ -16,6 +16,8 @@
@@ -2206,12 +2206,13 @@ index 59de35c8..012a1b6c 100644
  
    /*! \brief Rendering of the current window and any dialogs
     Render is called every frame to draw the current window and any dialogs.
-@@ -305,5 +308,6 @@ private:
+@@ -305,6 +308,7 @@ private:
    mutable bool m_inhibitTouchGestureEvents{false};
  
    CDirtyRegionList m_dirtyregions;
 +  std::atomic<uint64_t> m_dirtyGeneration{0};
    CDirtyRegionTracker m_tracker;
+   bool m_presentedFrame{false};
  };
 diff --git a/xbmc/video/windows/GUIWindowFullScreen.cpp b/xbmc/video/windows/GUIWindowFullScreen.cpp
 index 5f5a555c..d972fd63 100644
