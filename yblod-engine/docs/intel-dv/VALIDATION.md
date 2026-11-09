@@ -103,7 +103,10 @@ physical HDMI playback. See [BUILD.md](BUILD.md) to reproduce the image.
 
 The adaptive panel was exercised with SDR, HDR10, HLG, Standard Dolby Vision and Dolby Vision converted to HDR10. Native formats select the compact panel; both DV paths retain source metadata. Missing metadata rows are hidden. HDR10 static mastering and content-light values were verified against the source. This UI change does not modify video processing or output selection.
 
-# NUC7i7BN: Dolby Vision through the MegaChips MCDP2800 LSPCON (not possible)
+# NUC7i7BN: Dolby Vision through the MegaChips MCDP2800 LSPCON
+
+PCON mode (below): not possible. Level-shifter mode (0.3.5, next section):
+Dolby Vision works.
 
 Tested 2026-11-08 by a volunteer: NUC7i7BNB (Kaby Lake GT3, BIOS 0093), MCDP2800
 HW 2.2 FW 1.77 on port B (connector DP-1), direct HDMI to an LG OLED55C3 whose
@@ -136,6 +139,38 @@ conversion playback on Kaby Lake was not qualified. Recognition failed, so trans
 qualified. The unmerged driver work is kept on branch `feature/nuc7-lspcon-dv`
 (`linux-9930-lspcon-mca-dv`) in case another firmware or a documented mechanism
 turns up.
+
+# NUC7i7BN: Dolby Vision through the MCDP2800 in level-shifter mode (0.3.5)
+
+Tested 2026-11-09 by the same volunteer and NUC7 + LG OLED55C3, NUC Display Lab
+v0.3.1-dvlab and v0.4.0-dvlab (reports #15 and #17 in nuclab-reports; the
+0.3.3 Linux 7.3 kernel plus a lab-only i915 patch). The lab put the MCDP2800 in
+level-shifter mode through the standard dual-mode register (I2C 0x40, offset
+0x40, over AUX; read back `00` in level-shifter mode, `01` in PCON mode) and
+re-probed i915, so the port appeared as HDMI-A-1 driven by the GPU's own
+native-HDMI DV path. EDID through the LSPCON's I2C-over-AUX bridge.
+3840x2160 23.976 Hz RGB8 full range (296.7 MHz TMDS).
+
+| Step (report #17) | Frame | Dolby VSIF | TV |
+|---|---|---|---|
+| Levels | steps pattern | no | 8/8 near-black, 8/8 near-white |
+| No VSIF | DV reference | no | no DV, raw tunnel (green/purple) |
+| DV-A | DV reference | yes | Dolby Vision, correct test picture |
+| DV-B | same picture, RPU L1 max 4095 / avg 3600 | yes | Dolby Vision, darker than DV-A |
+| DV-A again | DV reference | yes | Dolby Vision, brighter again |
+| Broken metadata | every tunnel metadata CRC broken | yes | Dolby Vision, test picture (the C3 does not reject it) |
+
+The DV reference and DV-B frames differ only in the 87 metadata pixels of
+row 0, so the brightness change shows the TV uses the transported metadata.
+Report #15 gave the same DV result. Switching back to PCON mode retrained the
+DP link (HBR2 x4) and restored the normal picture in both runs.
+
+Qualified: recognition, pixel and metadata transport (volunteer's visual
+comparison, not a measurement). Not qualified: the in-modeset mode switch of
+`linux-9931` (the lab re-probed i915 instead), TV off/on and suspend/resume
+during DV, and Kodi playback on Kaby Lake GT3. Limits: 4K up to 30 Hz (the
+MCDP28x0 datasheet's 340 Mchar/s level-shifter limit, gen9 HDMI 300 MHz); no
+HDR10 tunnel format in level-shifter mode (gen9 has no DRM InfoFrame DIP).
 
 # INUC 11i5FL: Dolby Vision through an onboard DP-to-HDMI converter (0.3.4)
 
