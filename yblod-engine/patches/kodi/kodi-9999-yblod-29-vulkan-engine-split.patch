@@ -91,10 +91,10 @@ index 22a539b..55aba53 100644
  endif()
  
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
-index c8055b5..8135cb0 100644
+index 6e621c9..aabeb0c 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
-@@ -125,6 +125,8 @@ CDVBridgeGLES::~CDVBridgeGLES()
+@@ -121,6 +121,8 @@ CDVBridgeGLES::~CDVBridgeGLES()
    Summary("closed");
    CDVPlaybackInfo::presented.store(0);
    glDeleteFramebuffers(1, &m_framebuffer);
@@ -103,7 +103,7 @@ index c8055b5..8135cb0 100644
    dvbridge_gl_packer_destroy(m_packer);
    dvbridge_renderer_destroy(m_renderer);
    dvbridge_vpp_destroy(&m_vpp);
-@@ -183,11 +185,13 @@ bool CDVBridgeGLES::Initialize(bool allowSoftware, bool hdr10)
+@@ -179,11 +181,13 @@ bool CDVBridgeGLES::Initialize(bool allowSoftware, bool hdr10)
    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
    glBindFramebuffer(GL_READ_FRAMEBUFFER, read);
    m_packer = dvbridge_gl_packer_create(DVBRIDGE_VERTEX, DVBRIDGE_FRAGMENT);
@@ -118,7 +118,7 @@ index c8055b5..8135cb0 100644
  }
  
  void CDVBridgeGLES::Reset()
-@@ -202,6 +206,10 @@ void CDVBridgeGLES::Reset()
+@@ -196,6 +200,10 @@ void CDVBridgeGLES::Reset()
    m_pendingInfo = 0;
    m_prepared = m_packed = false;
    m_direct = false;
@@ -129,7 +129,7 @@ index c8055b5..8135cb0 100644
    dvbridge_renderer_reset(m_renderer);
    // Playback ended: free the media-engine surfaces and the decoder's VA device reference.
    dvbridge_vpp_release(m_vpp);
-@@ -383,9 +391,7 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+@@ -376,9 +384,7 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
        const bool entering = !m_wasSource;
        m_sourceFrame = m_wasSource = m_prepared = true;
        m_packed = m_direct = false;
@@ -140,7 +140,7 @@ index c8055b5..8135cb0 100644
        m_pendingInfo = CDVPlaybackInfo::HDMI | (fel ? CDVPlaybackInfo::FEL : 0u);
        const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
        if (entering && trace && std::strcmp(trace, "1") == 0)
-@@ -529,7 +535,10 @@ bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
+@@ -514,16 +520,21 @@ bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
    m_prepared = m_packed = false;
    m_direct = false;
    m_pendingInfo = 0;
@@ -150,9 +150,10 @@ index c8055b5..8135cb0 100644
 +  m_graphicsCandidate = nullptr;
 +  if (!m_graphics || !m_packer || m_hdr10)
      return Failure("graphics-unavailable");
-   ApplyPlaybackSignal(m_renderer, m_packer);
+-  SetIptOffset(m_renderer, m_packer);
++  ApplyPlaybackSignal(m_renderer, m_packer);
    // 0.005 cd/m2 black (the spec's default source minimum, as Amlogic's graphics minimum). The
-@@ -537,8 +546,10 @@ bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
+   // average follows the static-metadata convention of midway between the scene limits.
    const unsigned black = PQCode(0.005f);
    const unsigned white = PQCode(whiteNits);
    m_graphicsWhite = whiteNits;
@@ -165,7 +166,7 @@ index c8055b5..8135cb0 100644
    return m_prepared || Failure("graphics-prepare");
  }
  
-@@ -547,10 +558,10 @@ bool CDVBridgeGLES::PackGraphics(unsigned int guiTexture, unsigned int framebuff
+@@ -532,10 +543,10 @@ bool CDVBridgeGLES::PackGraphics(unsigned int guiTexture, unsigned int framebuff
                                   bool wideColour)
  {
    m_packed = false;
@@ -178,7 +179,7 @@ index c8055b5..8135cb0 100644
    const dvbridge_graphics_style style{m_graphicsWhite, saturation, gamma, wideColour};
    m_packed = dvbridge_gl_pack_graphics(m_packer, guiTexture, framebuffer, width, height, packets,
                                         count, flipY, &style);
-@@ -597,6 +608,18 @@ bool CDVBridgeGLES::Presented(bool success)
+@@ -582,6 +593,18 @@ bool CDVBridgeGLES::Presented(bool success)
    }
    if (success && m_source && !m_source->DisplayReplaced())
      return Failure("private-scanout-retirement");
@@ -195,13 +196,13 @@ index c8055b5..8135cb0 100644
 +    return committed;
 +  }
    const bool committed = success && m_prepared && m_packed && dvbridge_render_commit(m_renderer);
-   if (committed && m_drainTicket)
-     CDVPrivateDrain::Get().Commit(m_drainTicket);
+   // A held frame during paced recovery is not a new presentation attempt.
+   if (DVBRIDGE::DiagnosticsEnabled() && m_prepared)
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
-index 0d0ab00..143944a 100644
+index ed473a1..f92ccbf 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
-@@ -83,6 +83,10 @@ private:
+@@ -79,6 +79,10 @@ private:
    pl_opengl m_gl = nullptr;
    pl_log m_log = nullptr;
    dvbridge_renderer* m_renderer = nullptr;
