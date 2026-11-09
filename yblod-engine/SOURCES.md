@@ -28,6 +28,22 @@ Implementation references and boundaries:
 - `dv_scanout_slots.c`, geometry helpers, and renderer/backend code implement
   this project's buffer ownership, validation and OpenCL/VAAPI integration.
 
+- YBLOD 0.4.0: `pixel_spatial.c` also has the bilinear EL upsampling
+  (`dv_bilinear_scale2x`, the Vulkan engine's `DVVK_EL_BILINEAR` reference;
+  it replaced big-fella's nearest neighbour).
+- YBLOD 0.4.0, HDR10+: `cb1_hdr10plus*.c/.h`, `cb1_dv_hdr10plus.c/.h`,
+  `cb1_hdr10plus_dovi.c/.h`, `dvbridge_creative.c/.h` (a subset),
+  `dvbridge_policy.c/.h`, `dvbridge_metadata_bounds.h`, `mpv_dvbridge_cm4.h`
+  and `cb1_trim_math.h` are CroqueMr's CB1 (github.com/CroqueMr/intel-dv-libreelec,
+  GPL-2.0-or-later) at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17, each
+  with its notice and that pin in its header; `LICENSES/CB1-AVDVPlus-HDR10Plus.txt`
+  and `LICENSES/CB1-Hades-HDR10Plus.txt` are the notices CB1 ships for the
+  HDR10+ -> Dolby Vision estimator (the GPL-2.0 text: `LICENSES/intel-dv-GPL-2.0.txt`).
+  `yblod_hdr10plus.c/.h` is YBLOD's glue for the Vulkan engine
+  (`vk/include/dv_engine_vk.h`: `dvvk_hdr10plus_packet`, `dvvk_hdr10plus_to_dovi`).
+  The Vulkan engine compiles them (`vk/build.rs`); CB1's tests run in its
+  `cargo test` (`vk/yblod/tests`).
+
 References:
 
 - [ETSI GS CCM 001 V1.1.1](https://www.etsi.org/deliver/etsi_gs/CCM/001_099/001/01.01.01_60/gs_ccm001v010101p.pdf)

@@ -34,6 +34,7 @@ fn main() {
     // yblod's host code (tables, metadata, packets) and yblod/plan.c, from
     // the same patched yblod-engine tree yblod-engine's PKGBUILD builds.
     let yblod = PathBuf::from(env::var("YBLOD_ENGINE_SRC").expect("YBLOD_ENGINE_SRC: yblod-engine/src, patched"));
+    println!("cargo:rerun-if-changed={}", yblod.display());
     println!("cargo:rerun-if-env-changed=YBLOD_ENGINE_SRC");
     println!("cargo:rerun-if-changed=yblod");
     println!("cargo:rerun-if-changed=include");
@@ -87,10 +88,46 @@ fn main() {
         .file("yblod/placebo/tone_mapping.c")
         .file("yblod/placebo/gamut_mapping.c")
         .warnings(false);
+    // HDR10+ (YBLOD 0.4.0): CroqueMr's CB1 HDR10+ host code, ported into
+    // yblod-engine/src (pinned commit in each file), and its glue; its
+    // creative resolver uses the same libplacebo subset.
+    m.include(&yblod);
+    for f in [
+        "cb1_hdr10plus.c",
+        "cb1_hdr10plus_curve.c",
+        "cb1_hdr10plus_analysis.c",
+        "cb1_dv_hdr10plus.c",
+        "cb1_hdr10plus_dovi.c",
+        "dvbridge_creative.c",
+        "dvbridge_policy.c",
+        "yblod_hdr10plus.c",
+    ] {
+        m.file(yblod.join(f));
+        println!("cargo:rerun-if-changed={}", yblod.join(f).display());
+    }
     if let Ok(inc) = env::var("FFMPEG_INCLUDE") {
         m.include(inc);
     }
     m.compile("dvvk_map");
+    // The HDR10+ C tests `cargo test` runs (src/hdr10plus.rs): CB1's, ported
+    // unchanged (yblod/tests/cb1), and YBLOD's. Nothing in the library
+    // references them, so the shared library doesn't link them in.
+    println!("cargo:rerun-if-changed=yblod/tests");
+    let mut t = cc::Build::new();
+    t.std("gnu11")
+        .include("yblod/tests") // its assert.h first
+        .include(&yblod)
+        .include("yblod/placebo")
+        .include("yblod/placebo/include")
+        .include("include")
+        .warnings(false);
+    for f in ["shims.c", "run_transport.c", "run_curve.c", "run_dv_hdr10plus.c", "run_dovi.c", "describe.c", "yblod.c"] {
+        t.file(format!("yblod/tests/{f}"));
+    }
+    if let Ok(inc) = env::var("FFMPEG_INCLUDE") {
+        t.include(inc);
+    }
+    t.compile("yblod_tests");
     // The C ABI's soname: DVVK_LIBRARY in include/dv_engine_vk.h, the one
     // place it is written (mpv-yblod dlopens it by that macro).
     let header = fs::read_to_string("include/dv_engine_vk.h").unwrap();

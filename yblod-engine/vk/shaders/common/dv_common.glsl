@@ -62,14 +62,30 @@ uvec2 phase_uv_sample(sampler2D src, uint x, int row, uint h, uint method)
 uint recon12(int64_t total) { return uint(clamp(total > -8 ? (total + 8) / 16 : int64_t(0), int64_t(0), int64_t(4095))); }
 bool overflows32(int64_t total) { return total > int64_t(2147483647) || total < int64_t(-2147483647) - 1; }
 
-// horizontal(): the EL's 8-tap 2x upsample (even samples passed through);
+// The EL's 2x upsampling, dvvk_plan.el_method: EL_ANNEXB the CCM Annex B
+// filters (8-tap horizontal, 4-tap vertical luma), EL_BILINEAR 2-tap linear
+// interpolation at the same sample phases: even columns pass through and odd
+// ones are midway between their two EL neighbours; luma rows lie a quarter
+// of an EL row above (even) and below (odd) their EL row. The EL chroma's
+// vertical step (64/192 after the chroma phase filter) is 2-tap already and
+// the same for both. Integer only, rounded as rounded() rounds.
+#define EL_ANNEXB 0u
+#define EL_BILINEAR 1u
+// the odd (interpolated) column between EL samples a (left) and b (right)
+uint el_bilinear_mid(uint a, uint b) { return (a + b + 1u) / 2u; }
+// a row a quarter of an EL row from `near` towards `far`
+uint el_bilinear_quarter(int near, int far) { return rounded(3 * near + far, 4); }
+
+// horizontal(): the EL's 2x upsample (even samples passed through);
 // HORIZONTAL(name, buffer) defines one for a given source buffer.
 #define HORIZONTAL(NAME, BUF)                                                              \
-    uint NAME(uint w, uint x, uint y, uint nearest)                                        \
+    uint NAME(uint w, uint x, uint y, uint method)                                         \
     {                                                                                      \
         uint ix = x / 2;                                                                   \
-        if ((x & 1u) == 0u || nearest != 0u)                                               \
+        if ((x & 1u) == 0u)                                                                \
             return uint(BUF[y * w + ix]);                                                  \
+        if (method == EL_BILINEAR)                                                         \
+            return el_bilinear_mid(uint(BUF[y * w + ix]), uint(BUF[y * w + uint(edge(int(ix) + 1, w))])); \
         const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);                \
         int v = 0;                                                                         \
         for (int k = 0; k < 8; k++)                                                        \

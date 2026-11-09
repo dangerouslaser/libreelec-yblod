@@ -11,13 +11,15 @@ layout(local_size_x = 16, local_size_y = 8) in;
 layout(binding = 0) uniform sampler2D src;
 layout(binding = 1, std430) writeonly buffer Dst { uint dst[]; };   // pairs of 16-bit samples
 layout(binding = 2, std430) buffer Error { uint error; };
-layout(push_constant) uniform Push { uint w, h, channel, nearest, row_offset; };
+layout(push_constant) uniform Push { uint w, h, channel, method, row_offset; };
 
 uvec2 rows(uint x, uint y)
 {
-    if (nearest != 0u) {
-        uint v = input_sample(src, x, y, channel);
-        return uvec2(v);
+    if (method == EL_BILINEAR) {
+        int a = int(input_sample(src, x, uint(edge(int(y) - 1, h)), channel));
+        int b = int(input_sample(src, x, y, channel));
+        int c = int(input_sample(src, x, uint(edge(int(y) + 1, h)), channel));
+        return uvec2(el_bilinear_quarter(b, a), el_bilinear_quarter(b, c));
     }
     int s0 = int(input_sample(src, x, uint(edge(int(y) - 2, h)), channel));
     int s1 = int(input_sample(src, x, uint(edge(int(y) - 1, h)), channel));

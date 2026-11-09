@@ -9,7 +9,7 @@ use crate::plan::{Plan, PlanDesktop, PlanIn};
 use std::mem::{offset_of, size_of};
 
 /// include/dv_engine_vk.h DVVK_ABI_VERSION.
-pub const ABI_VERSION: u32 = 2;
+pub const ABI_VERSION: u32 = 3;
 /// include/dv_engine_vk.h DVVK_LIBRARY (build.rs reads it from there).
 pub const LIBRARY: &str = env!("DVVK_LIBRARY");
 

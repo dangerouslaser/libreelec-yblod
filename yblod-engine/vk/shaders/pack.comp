@@ -69,9 +69,24 @@ layout(constant_id = 8) const uint MAP = 0;
 #define MAP_CELLS_BINDING 23
 #include "dv_map.glsl"
 layout(binding = 21) uniform sampler3D map_lut;
+// STATS (MAP != 0; HDR10+ output, dvvk_output_mode DVVK_OUTPUT_HDR10PLUS): the
+// statistics CB1's DV -> HDR10+ metadata reads (cb1_hdr10plus_statistics), of
+// every pixel of the active film area as the output carries it, before the
+// overlay: a 256-bin histogram of maxRGB in 16-nit steps, each channel's
+// maximum (PQ, as float bits: non-negative floats order as their bits), the
+// sum of maxRGB light (1/64 nit units, 64-bit) and the count. Reduced in
+// shared memory per workgroup, then added to the frame's record (host
+// visible, zeroed by the engine; gui_flags bit 6 counts: not the reference
+// pass). Layout: hist[256], max[3], sum lo, sum hi, count.
+layout(constant_id = 9) const uint STATS = 0;
+layout(binding = 24, std430) buffer Stats { uint stats[]; };
+const uint STATS_BINS = STATS != 0u ? 256u : 1u;
+shared uint st_hist[STATS_BINS];
+shared uint st_max[3];
+shared uint st_sum, st_count;
 layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
-    uint w, h, stride_words, packet_count, top_left, source_w, source_h, nearest;
+    uint w, h, stride_words, packet_count, top_left, source_w, source_h, el_method;   // EL_ANNEXB / EL_BILINEAR
     uint gui_flags;   // OVERLAY 2: bit 0 invalidate the cache, 1 the shell's rows bottom first, 2 count changed pixels
     // the dispatch covers the workgroups from here (a part of the canvas: only
     // what changed since the output buffer was last written, see the engine)
@@ -93,8 +108,11 @@ uint unorm16_code(float v)
 uint el_v(uint x, uint row, uint el_h)
 {
     uint r = row / 2;
-    if (nearest != 0u)
-        return unorm16_code(texelFetch(el_luma, ivec2(x, r), 0).r);
+    if (el_method == EL_BILINEAR) {
+        int b = int(unorm16_code(texelFetch(el_luma, ivec2(x, r), 0).r));
+        int a = int(unorm16_code(texelFetch(el_luma, ivec2(x, edge(int(r) + ((row & 1u) == 0u ? -1 : 1), el_h)), 0).r));
+        return el_bilinear_quarter(b, a);
+    }
     int s[5];
     for (int k = 0; k < 5; k++)
         s[k] = int(unorm16_code(texelFetch(el_luma, ivec2(x, edge(int(r) + k - 2, el_h)), 0).r));
@@ -102,9 +120,9 @@ uint el_v(uint x, uint row, uint el_h)
                             : rounded(-9 * s[1] + 111 * s[2] + 29 * s[3] - 3 * s[4], 128);
 }
 
-// SOURCE 2, the sited pack, Annex B: the workgroup's EL luma upsampled
-// vertically (el_v), once per EL column it needs (its 64 + the 8-tap halo)
-// and per output row, instead of up to 8 times per sample.
+// SOURCE 2, the sited pack: the workgroup's EL luma upsampled vertically
+// (el_v), once per EL column it needs (its 64 + the 8-tap halo) and per
+// output row, instead of up to 8 times (bilinear: 2) per sample.
 const uint ELTILE_ROWS = (SOURCE == 2u && PACK == 0u) ? 4u : 1u;
 shared uint el_tile[ELTILE_ROWS][71];
 bool el_tiled = false;
@@ -119,6 +137,8 @@ uint fel_luma(uint x, uint y, uint sw, uint sh)
         int j = int(ix) - el_tile_base;
         if ((x & 1u) == 0u)
             el = el_tile[t][j];
+        else if (el_method == EL_BILINEAR)
+            el = el_bilinear_mid(el_tile[t][j], el_tile[t][j + 1]);
         else {
             const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
             int v = 0;
@@ -126,8 +146,10 @@ uint fel_luma(uint x, uint y, uint sw, uint sh)
                 v += taps[k] * int(el_tile[t][j + k - 3]);
             el = rounded(v, 4096);
         }
-    } else if ((x & 1u) == 0u || nearest != 0u)
+    } else if ((x & 1u) == 0u)
         el = el_v(ix, y, sh / 2);
+    else if (el_method == EL_BILINEAR)
+        el = el_bilinear_mid(el_v(ix, y, sh / 2), el_v(uint(edge(int(ix) + 1, ew)), y, sh / 2));
     else {
         const int taps[8] = int[8](22, 94, -524, 2456, 2456, -524, 94, 22);
         int v = 0;
@@ -534,8 +556,25 @@ void chroma_rows_at(uint cx, uint k, uint sw, uint sh, out uvec2 rows[8])
     }
 }
 
+// The statistics of one output sample: 12-bit Y'CbCr codes (BT.2020
+// limited range) to PQ R'G'B', maxRGB light.
+void stats_sample(uvec3 c)
+{
+    float y = (float(c.x) - 256.0) * (1.0 / 3504.0), cb = (float(c.y) - 2048.0) * (1.0 / 3584.0),
+          cr = (float(c.z) - 2048.0) * (1.0 / 3584.0);
+    float r = y + 1.4746 * cr, b = y + 1.8814 * cb;
+    vec3 rgb = clamp(vec3(r, (y - 0.2627 * r - 0.0593 * b) * (1.0 / 0.6780), b), 0.0, 1.0);
+    atomicMax(st_max[0], floatBitsToUint(rgb.r));
+    atomicMax(st_max[1], floatBitsToUint(rgb.g));
+    atomicMax(st_max[2], floatBitsToUint(rgb.b));
+    float nits = 10000.0 * map_pq_eotf(vec3(max(rgb.r, max(rgb.g, rgb.b)))).x;
+    atomicAdd(st_hist[min(255u, uint(floor(nits / 16.0 + 0.5)))], 1u);
+    atomicAdd(st_sum, uint(floor(nits * 64.0 + 0.5)));
+    atomicAdd(st_count, 1u);
+}
+
 // One invocation: 4 pixels x 2 rows (x0 % 4 == 0, y0 even), stored 16 bytes a row.
-void main()
+void pack_main()
 {
     uint x0 = (gl_GlobalInvocationID.x + origin_x * 32u) * 4u, y0 = (gl_GlobalInvocationID.y + origin_y * gl_WorkGroupSize.y) * 2u;
     uint lx = gl_LocalInvocationID.x, ly = gl_LocalInvocationID.y;
@@ -554,7 +593,7 @@ void main()
         if (gl_LocalInvocationIndex == 0u && wg_changed != 0u && (gui_flags & 1u) == 0u)
             atomicAdd(gui_changed, wg_changed);
     }
-    if (SOURCE == 2u && PACK == 0u && nearest == 0u) {
+    if (SOURCE == 2u && PACK == 0u) {
         // The tile's rows: the workgroup's 4 output rows, where reconstructed.
         uint gx = (gl_WorkGroupID.x + origin_x) * 128u, gy = (gl_WorkGroupID.y + origin_y) * 4u;
         el_tiled = true;
@@ -643,7 +682,7 @@ void main()
             }
         }
         uvec4 out4;
-        uvec2 lv4[4];
+        uvec2 lv4[4], film4[4];
         for (uint pair = 0; pair < 2; pair++) {
             uint sx = x0 / 2u + pair;
             vec4 shared_left = vec4(0.0), shared_middle = vec4(0.0), shared_right = vec4(0.0);
@@ -670,6 +709,7 @@ void main()
                 uint x = sx * 2 + lane;
                 bool odd = (x & 1u) != 0u;
                 uvec2 v = reconstruct(x, y, odd, rows[pair]);
+                film4[pair * 2u + lane] = v;
                 if (OVERLAY == 3u)
                     v = CB1_PAIR_REUSE != 0u
                         ? cb1_pair_blend(x, y, odd, v, odd ? pair_b : pair_a, odd ? pair_a : pair_b)
@@ -717,6 +757,27 @@ void main()
                     map_pair(a, b, m4[2u * pair], m4[2u * pair + 1u], lv4[2u * pair], lv4[2u * pair + 1u]);
             }
         }
+        if (STATS != 0u && MAP != 0u && (gui_flags & 64u) != 0u && y >= active_area.y && y < active_area.w &&
+            y >= placement.y && y < placement.y + placement.w) {
+            // the film's samples as the output carries them (the overlay's:
+            // mapped again without it); pairs wholly in the film's area
+            vec3 sm[4];
+            for (uint i = 0u; i < 4u; i++) {
+                uint e = i & ~1u;
+                bool marked;
+                sm[i] = map_lane(film4[i].x, film4[e].y, film4[e + 1u].y,
+                                 map_coord(film4[i].x, map_base(film4[e].y, film4[e + 1u].y)), marked);
+            }
+            for (uint pair = 0u; pair < 2u; pair++) {
+                uint xp = x0 + 2u * pair;
+                if (xp < active_area.x || xp + 1u >= active_area.z || xp < placement.x || xp + 1u >= placement.x + placement.z)
+                    continue;
+                uvec2 qa, qb;
+                map_pair(film4[2u * pair], film4[2u * pair + 1u], sm[2u * pair], sm[2u * pair + 1u], qa, qb);
+                stats_sample(uvec3(qa.x, qa.y, qb.y));
+                stats_sample(uvec3(qb.x, qa.y, qb.y));
+            }
+        }
         for (uint i = 0u; i < 4u; i++)
             out4[i] = MAP == 1u && raw[i >> 1] ? map_word(lv4[i]) & 0x00ffffffu : finish(x0 + i, y, lv4[i]);
         pixels4[(y * stride_words + x0) / 4u] = out4;
@@ -727,5 +788,35 @@ void main()
         if ((slot & 63u) == 0u)
             atomicAdd(map_cells[mp.list], 1u);
         map_cells[mp.list + 4u + slot] = ((y0 / 2u) * (w / 4u) + x0 / 4u) | fixup << 28;
+    }
+}
+
+void main()
+{
+    if (STATS != 0u) {
+        for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y)
+            st_hist[i] = 0u;
+        if (gl_LocalInvocationIndex == 0u) {
+            st_max[0] = st_max[1] = st_max[2] = 0u;
+            st_sum = st_count = 0u;
+        }
+        barrier();
+    }
+    pack_main();
+    if (STATS != 0u) {
+        barrier();
+        if (st_count == 0u)
+            return;
+        for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y)
+            if (st_hist[i] != 0u)
+                atomicAdd(stats[i], st_hist[i]);
+        if (gl_LocalInvocationIndex == 0u) {
+            for (uint c = 0u; c < 3u; c++)
+                atomicMax(stats[256u + c], st_max[c]);
+            uint old = atomicAdd(stats[259], st_sum);
+            if (old + st_sum < old)
+                atomicAdd(stats[260], 1u);
+            atomicAdd(stats[261], st_count);
+        }
     }
 }

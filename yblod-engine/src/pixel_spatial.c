@@ -1,6 +1,6 @@
 /* Private spatial test reference; backend/filter choices remain explicit.
- * Enhancement path: the informative CCM Annex B example, or (big-fella)
- * nearest neighbour: every EL sample repeated over its 2x2 block.
+ * Enhancement path: the informative CCM Annex B example, or (YBLOD 0.4.0)
+ * bilinear: 2-tap linear interpolation at the same sample phases.
  * MMR luma guide follows CCM 5.4.2.3.3 for left-sited 4:2:0 inputs.
  */
 #include <stdint.h>
@@ -92,15 +92,31 @@ int dv_annex_b_scale2x(const uint16_t *in,size_t count,unsigned w,unsigned h,
     }
     return 0;
 }
-/* big-fella: nearest-neighbour EL upscale. The EL luma grid is co-sited
- * horizontally and centred vertically on the BL's, so output (x,y) takes EL
- * sample (x/2,y/2) exactly; chroma (left-sited after nothing is moved) the
- * same. No rounding, no ringing: the output stays within the input codes. */
-int dv_nearest_scale2x(const uint16_t *in,size_t count,unsigned w,unsigned h,
-                       uint16_t *out,size_t out_count)
+/* YBLOD 0.4.0: the bilinear EL upscale (dvvk_plan_in.el_scaler
+ * DVVK_EL_BILINEAR), the Vulkan engine's CPU reference. The same sample
+ * phases as dv_annex_b_scale2x, only 2-tap filters: horizontally the even
+ * output columns are the EL samples and the odd ones midway between two
+ * (Annex B's 8 taps are symmetric about that point); vertically, luma rows
+ * 2y and 2y+1 lie a quarter of an EL row above and below row y (the centre
+ * of Annex B's 4-tap phases), (3 * near + far) / 4, and chroma keeps Annex
+ * B's 64/192 rows, already 2-tap (the caller applies the chroma phase filter
+ * first, as for Annex B). Edges clamp; integer, rounded half up. */
+int dv_bilinear_scale2x(const uint16_t *in,size_t count,unsigned w,unsigned h,
+                        unsigned chroma,uint16_t *scratch,size_t scratch_count,
+                        uint16_t *out,size_t out_count)
 {
-    if (!shape(in,count,w,h) || !out || out_count!=4*(size_t)w*h) return -1;
-    for (unsigned y=0;y<2*h;++y) for (unsigned x=0;x<2*w;++x)
-        out[(size_t)y*2*w+x]=in[(size_t)(y/2)*w+x/2];
+    if (!shape(in,count,w,h) || chroma>1 || !scratch || scratch_count!=w || !out || out_count!=4*(size_t)w*h) return -1;
+    for (unsigned y=0;y<2*h;++y) {
+        int row=(int)(y/2),far=(y%2)?row+1:row-1;
+        for (unsigned x=0;x<w;++x) {
+            int64_t near_value=in[(size_t)row*w+x],far_value=in[(size_t)edge(far,h)*w+x];
+            scratch[x]=chroma?rounded(192*near_value+64*far_value,256)
+                             :rounded(3*near_value+far_value,4);
+        }
+        for (unsigned x=0;x<2*w;++x) {
+            unsigned ix=x/2;
+            out[(size_t)y*2*w+x]=(x%2)?rounded((int64_t)scratch[ix]+scratch[edge((int)ix+1,w)],2):scratch[ix];
+        }
+    }
     return 0;
 }

@@ -12,7 +12,8 @@
  *     --rate HZ          submit rate (default 23.976; 0: as fast as possible)
  *     --dest X,Y,W,H     the film's rectangle (default: aspect-fit full screen)
  *     --fel 0|1          FEL off/on (default 1)
- *     --el-scaler 0|1    nearest / Annex B
+ *     --el-scaler M      annexb (1, the default) or bilinear (2): the FEL's
+ *                        EL upsampling (dvvk_plan_in.el_scaler); --cb1 is Annex B
  *     --overlay FILE     the overlay: raw 3840x2160 BGRA (ARGB8888 bytes, as
  *                        `ffmpeg -i shot.png -vf scale=3840:2160 -pix_fmt bgra
  *                        -f rawvideo FILE`), premultiplied; pixels inside
@@ -42,9 +43,14 @@
  *                        4000, 10000
  *     --cm4-headroom P   auto2's headroom, 0..50 (default 20)
  *     --tv-peak NITS     the TV's peak (0: unknown)
- *     --output MODE      dv (the tunnel, default) or hdr10: the engine converts
- *                        to HDR10 (dvvk_set_output_mode; the dumps are then
- *                        12-bit 4:2:2 BT.2020 PQ Y'CbCr in the tunnel's bytes)
+ *     --output MODE      dv (the tunnel, default), hdr10 or hdr10plus: the
+ *                        engine converts to HDR10 / HDR10+ (dvvk_set_output_mode;
+ *                        the dumps are then 12-bit 4:2:2 BT.2020 PQ Y'CbCr in
+ *                        the tunnel's bytes). hdr10plus prints each picture's
+ *                        dvvk_hdr10plus_packet as a JSON line ("hdr10plus":
+ *                        right after submit, "late" statistics allowed; and
+ *                        for dumped pictures once done, "own")
+ *     --hdr10plus-v0     HDR10+ application version 0 (default 1)
  *     --no-l2            L2 trims left out of the metadata
  *     --dump FILE        the last picture's XRGB8888 bytes
  *     --dump-at N[,M..]  dump picture N instead of the last; with several,
@@ -70,6 +76,27 @@
 #define W 3840
 #define H 2160
 #define SLOTS 4
+
+/* One dvvk_hdr10plus_packet as a JSON line. */
+static void print_hdr10plus(dvvk_engine *e, int n, uint64_t ticket, uint32_t flags, const char *when)
+{
+    dvvk_hdr10plus_metadata m;
+    memset(&m, 0, sizeof(m));
+    int st = dvvk_hdr10plus_packet(e, ticket, flags, &m);
+    printf("{\"hdr10plus\":\"%s\",\"picture\":%d,\"ticket\":%llu,\"status\":%d", when, n,
+           (unsigned long long)ticket, st);
+    if (st == 0 || st == DVVK_HDR10PLUS_FALLBACK) {
+        printf(",\"statistics_ticket\":%llu,\"pixels\":%llu,\"average_maxrgb\":%.4f,\"maxscl\":[%.4f,%.4f,%.4f]"
+               ",\"coverage\":%u,\"reason\":%u,\"l1\":[%u,%u,%u],\"l3\":%u,\"curve_error\":%.6f,\"color_error\":%.6f,\"vsif\":\"",
+               (unsigned long long)m.statistics_ticket, (unsigned long long)m.pixels, m.average_maxrgb, m.maxscl[0],
+               m.maxscl[1], m.maxscl[2], m.coverage, m.reason, m.effective_l1[0], m.effective_l1[1], m.effective_l1[2],
+               m.l3_used, m.maximum_curve_pq_error, m.maximum_color_pq_error);
+        for (int i = 0; i < 31; i++)
+            printf("%02x", m.vsif[i]);
+        printf("\"");
+    }
+    printf("}\n");
+}
 
 static double now_ms(void)
 {
@@ -202,8 +229,9 @@ static void sleep_until(double t_ms)
 
 int main(int argc, char **argv)
 {
-    int frames = 240, fel = 1, scaler = 0, have_dest = 0, desktop = 0, fp16 = 0, cb1 = 0, flip = 0;
+    int frames = 240, fel = 1, scaler = DVVK_EL_ANNEXB, have_dest = 0, desktop = 0, fp16 = 0, cb1 = 0, flip = 0;
     unsigned cm4 = 0, cm4_trigger = 0, cm4_headroom = 20, tv_peak = 0, no_l2 = 0, output = DVVK_OUTPUT_DV;
+    int hdr10plus_v0 = 0;
     uint32_t last_dm_status = UINT32_MAX;
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
     const char *metadata_prefix = NULL;
@@ -224,7 +252,16 @@ int main(int argc, char **argv)
         } else if (!strcmp(argv[i], "--fel") && i + 1 < argc)
             fel = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--el-scaler") && i + 1 < argc)
-            scaler = atoi(argv[++i]);
+        {
+            const char *m = argv[++i];
+            scaler = !strcmp(m, "bilinear") || !strcmp(m, "2") ? DVVK_EL_BILINEAR
+                     : !strcmp(m, "annexb") || !strcmp(m, "1") ? DVVK_EL_ANNEXB
+                                                                : -1;
+            if (scaler < 0) {
+                fprintf(stderr, "--el-scaler: annexb or bilinear\n");
+                return 2;
+            }
+        }
         else if (!strcmp(argv[i], "--overlay") && i + 1 < argc)
             overlay_path = argv[++i];
         else if (!strcmp(argv[i], "--mode") && i + 1 < argc)
@@ -259,7 +296,12 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--tv-peak") && i + 1 < argc)
             tv_peak = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--output") && i + 1 < argc)
-            output = !strcmp(argv[++i], "hdr10") ? DVVK_OUTPUT_HDR10 : DVVK_OUTPUT_DV;
+        {
+            const char *m = argv[++i];
+            output = !strcmp(m, "hdr10") ? DVVK_OUTPUT_HDR10 : !strcmp(m, "hdr10plus") ? DVVK_OUTPUT_HDR10PLUS : DVVK_OUTPUT_DV;
+        }
+        else if (!strcmp(argv[i], "--hdr10plus-v0"))
+            hdr10plus_v0 = 1;
         else if (!strcmp(argv[i], "--no-l2"))
             no_l2 = 1;
         else if (!strcmp(argv[i], "--cb1"))
@@ -442,7 +484,7 @@ int main(int argc, char **argv)
                                  .dh = dw == w && dh == h ? 0 : dh,
                                  .chroma_top_left = (uint32_t)(contract ? siting == 1 : top_left),
                                  .has_el = p.el != NULL, .nv12 = (uint32_t)nv12,
-                                 .el_scaler = (uint32_t)(contract ? 1 : scaler), .fel = (uint32_t)fel,
+                                 .el_scaler = (uint32_t)(contract ? DVVK_EL_ANNEXB : scaler), .fel = (uint32_t)fel,
                                  .packet_id = packet_id, .refresh = (uint32_t)(contract ? cb1_refresh : n == 0),
                                  .cb1_contract = (uint32_t)contract, .overlay = (uint32_t)use_overlay,
                                  .overlay_visible_before = (uint32_t)ov_before, .pts = p.bl->pts, .white_nits = white,
@@ -483,9 +525,14 @@ int main(int argc, char **argv)
         tickets[slot] = ticket;
         held[slot] = p;
         have[slot] = 1;
+        uint32_t hflags = (hdr10plus_v0 ? 0 : DVVK_HDR10PLUS_V1) | DVVK_HDR10PLUS_NO_DELAY;
+        if (output == DVVK_OUTPUT_HDR10PLUS)
+            print_hdr10plus(e, n, ticket, hflags, "late");
         for (int k = 0; dump && k < dumps; k++)
             if (n == dump_at[k]) {
                 dvvk_wait(e, ticket, UINT64_MAX);
+                if (output == DVVK_OUTPUT_HDR10PLUS)
+                    print_hdr10plus(e, n, ticket, hflags, "own");
                 char path[4096];
                 if (dumps == 1)
                     snprintf(path, sizeof(path), "%s", dump);

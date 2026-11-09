@@ -40,8 +40,10 @@
 //!   codes (default 0.5) are computed exactly; `DVVK_MAP_STATS=1` traces bakes.
 //! - `DVVK_MAP_INLINE=1`: HDR10 output's marked LUT cells computed in the
 //!   pack instead of map_fixup's pass (a comparison).
-//! - `DVVK_OUTPUT=hdr10`: the engine starts in HDR10 output (tools without
-//!   the API, e.g. golden runs of the existing dvvk-bench).
+//! - `DVVK_HDR10PLUS_TRACE=1`: each dvvk_hdr10plus_packet call prints the
+//!   statistics record it used (stderr, JSON; the CPU reference compares it).
+//! - `DVVK_OUTPUT=hdr10` / `hdr10plus`: the engine starts in that output
+//!   mode (tools without the API, e.g. golden runs of the existing dvvk-bench).
 //! - `DVVK_TEST_FAIL` (builds with the `test-faults` feature only): fault.rs.
 
 fn var(name: &str) -> Option<String> {
@@ -86,7 +88,10 @@ pub struct EngineOptions {
     pub map_n: u32,
     pub map_thresh: f32,
     pub map_stats: bool,
-    pub output_hdr10: bool,
+    /// The output mode the engine starts in (crate::map::DVVK_OUTPUT_*).
+    pub output_mode: u32,
+    /// DVVK_HDR10PLUS_TRACE=1: each dvvk_hdr10plus_packet's statistics record on stderr.
+    pub hdr10plus_trace: bool,
 }
 
 impl Default for EngineOptions {
@@ -116,7 +121,8 @@ impl Default for EngineOptions {
             map_n: crate::map::LUT_N,
             map_thresh: crate::map::BAKE_THRESH,
             map_stats: false,
-            output_hdr10: false,
+            output_mode: crate::map::DVVK_OUTPUT_DV,
+            hdr10plus_trace: false,
         }
     }
 }
@@ -151,7 +157,12 @@ impl EngineOptions {
             map_n: number("DVVK_MAP_N", crate::map::LUT_N).clamp(9, 129),
             map_thresh: number("DVVK_MAP_THRESH", crate::map::BAKE_THRESH),
             map_stats: flag("DVVK_MAP_STATS"),
-            output_hdr10: var("DVVK_OUTPUT").as_deref() == Some("hdr10"),
+            output_mode: match var("DVVK_OUTPUT").as_deref() {
+                Some("hdr10") => crate::map::DVVK_OUTPUT_HDR10,
+                Some("hdr10plus") => crate::map::DVVK_OUTPUT_HDR10PLUS,
+                _ => crate::map::DVVK_OUTPUT_DV,
+            },
+            hdr10plus_trace: var("DVVK_HDR10PLUS_TRACE").as_deref() == Some("1"),
         }
     }
 }
