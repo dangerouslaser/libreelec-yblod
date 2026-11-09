@@ -1,0 +1,514 @@
+diff --git a/tools/dvbridge/dvbridge_core.c b/tools/dvbridge/dvbridge_core.c
+index 9145805..13004ae 100644
+--- a/tools/dvbridge/dvbridge_core.c
++++ b/tools/dvbridge/dvbridge_core.c
+@@ -2,6 +2,7 @@
+ /* Own frame metadata and commit serializer state only after a successful presentation. */
+ #include "dvbridge_core.h"
+ #include "dvbridge_metadata.h"
++#include <libavutil/mem.h>
+ 
+ struct dvbridge_context {
+     struct dvbridge_dv state;
+@@ -106,3 +107,43 @@ bool dvbridge_active_area(const struct dvbridge_candidate *candidate, unsigned m
+     memcpy(margins, candidate->margins, sizeof(candidate->margins));
+     return true;
+ }
++
++struct dvbridge_candidate *dvbridge_prepare_graphics(
++    const struct dvbridge_context *context, unsigned min_pq, unsigned max_pq,
++    unsigned avg_pq, double pts)
++{
++    if (!context || !(min_pq <= avg_pq && avg_pq <= max_pq && max_pq <= 4095))
++        return NULL;
++    size_t size = 0;
++    AVDOVIMetadata *graphics = av_dovi_metadata_alloc(&size);
++    if (!graphics)
++        return NULL;
++    AVDOVIRpuDataHeader *header = av_dovi_get_header(graphics);
++    AVDOVIColorMetadata *color = av_dovi_get_color(graphics);
++    header->disable_residual_flag = 1;
++    color->signal_eotf = 65535;
++    color->signal_color_space = 0;
++    color->source_min_pq = min_pq;
++    color->source_max_pq = max_pq;
++    graphics->num_ext_blocks = 1;
++    AVDOVIDmData *l1 = av_dovi_get_ext(graphics, 0);
++    memset(l1, 0, sizeof(*l1));
++    l1->level = 1;
++    l1->l1.min_pq = min_pq;
++    l1->l1.max_pq = max_pq;
++    l1->l1.avg_pq = avg_pq;
++    const struct dvbridge_geometry geometry = {3840, 2160, 0, 0, 3840, 2160};
++    struct dvbridge_candidate *candidate =
++        dvbridge_prepare(context, graphics, size, pts, geometry, false);
++    av_free(graphics);
++    return candidate;
++}
++
++bool dvbridge_fel_active(const void *metadata, size_t bytes)
++{
++    if (!metadata || (uintptr_t)metadata % _Alignof(AVDOVIMetadata) ||
++        !dvbridge_dv_bounds(metadata, bytes))
++        return false;
++    const AVDOVIMetadata *m = metadata;
++    return !av_dovi_get_header(m)->disable_residual_flag && !dvbridge_dv_is_mel(m);
++}
+diff --git a/tools/dvbridge/dvbridge_core.h b/tools/dvbridge/dvbridge_core.h
+index 0344f3e..75a0530 100644
+--- a/tools/dvbridge/dvbridge_core.h
++++ b/tools/dvbridge/dvbridge_core.h
+@@ -31,6 +31,17 @@ const uint32_t *dvbridge_packets(const struct dvbridge_candidate *candidate, uns
+ /* Left, right, top, bottom blanking margins in the final 3840x2160 raster. */
+ bool dvbridge_active_area(const struct dvbridge_candidate *candidate, unsigned margins[4]);
+ 
++/* A graphics-only frame (no video, full raster): static metadata from 12-bit
++ * PQ codes, no reshaping, one L1 block, full-raster L5 (added by the
++ * serializer). The frame itself is packed by dvbridge_gl_pack_graphics. */
++struct dvbridge_candidate *dvbridge_prepare_graphics(
++    const struct dvbridge_context *context, unsigned min_pq, unsigned max_pq,
++    unsigned avg_pq, double pts);
++
++/* Whether the metadata reconstructs a full enhancement layer (FEL): residuals
++ * enabled and not the trivial NLQ a Profile 7 MEL carries. */
++bool dvbridge_fel_active(const void *metadata, size_t bytes);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt b/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
+index 22a539b..55aba53 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
+@@ -60,7 +60,8 @@ if(ENABLE_DVBRIDGE)
+   file(READ "${DVBRIDGE_SOURCE_DIR}/pack_gles300.vert" DVBRIDGE_VERTEX_SOURCE)
+   file(READ "${DVBRIDGE_SOURCE_DIR}/pack_gles300.frag" DVBRIDGE_FRAGMENT_SOURCE)
+   configure_file(DVBridgeShaders.h.in DVBridgeShaders.h @ONLY)
+-  list(APPEND SOURCES DVBridgeGLES.cpp DVPrivateSource.cpp DVPrivateScanout.cpp DVPrivateVulkan.cpp)
++  list(APPEND SOURCES DVBridgeGLES.cpp DVPrivateSource.cpp DVPrivateScanout.cpp DVPrivateVulkan.cpp
++                      dv_scanout_slots.cpp)
+   list(APPEND HEADERS DVBridgeGLES.h DVPrivateSource.h DVPrivateScanout.h DVPrivateVulkan.h dv_scanout_slots.h)
+ endif()
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index c8055b5..8135cb0 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -125,6 +125,8 @@ CDVBridgeGLES::~CDVBridgeGLES()
+   Summary("closed");
+   CDVPlaybackInfo::presented.store(0);
+   glDeleteFramebuffers(1, &m_framebuffer);
++  dvbridge_candidate_destroy(m_graphicsCandidate);
++  dvbridge_destroy(m_graphics);
+   dvbridge_gl_packer_destroy(m_packer);
+   dvbridge_renderer_destroy(m_renderer);
+   dvbridge_vpp_destroy(&m_vpp);
+@@ -183,11 +185,13 @@ bool CDVBridgeGLES::Initialize(bool allowSoftware, bool hdr10)
+   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, read);
+   m_packer = dvbridge_gl_packer_create(DVBRIDGE_VERTEX, DVBRIDGE_FRAGMENT);
++  // The menu output's metadata state, apart from the video's.
++  m_graphics = dvbridge_create();
+   if (DVBRIDGE::DiagnosticsEnabled())
+     CLog::Log(LOGINFO, "DVBridge renderer init: rgb={}/{}/{} samples={} linear={} direct_target={} renderer={} packer={}",
+         red, green, blue, samples, encoding == GL_LINEAR, m_scanout != nullptr,
+         m_renderer != nullptr, m_packer != nullptr);
+-  return m_renderer && m_packer && (!hdr10 || m_scanout);
++  return m_renderer && m_packer && m_graphics && (!hdr10 || m_scanout);
+ }
+ 
+ void CDVBridgeGLES::Reset()
+@@ -202,6 +206,10 @@ void CDVBridgeGLES::Reset()
+   m_pendingInfo = 0;
+   m_prepared = m_packed = false;
+   m_direct = false;
++  m_graphicsFrame = false;
++  dvbridge_candidate_destroy(m_graphicsCandidate);
++  m_graphicsCandidate = nullptr;
++  dvbridge_reset(m_graphics);
+   dvbridge_renderer_reset(m_renderer);
+   // Playback ended: free the media-engine surfaces and the decoder's VA device reference.
+   dvbridge_vpp_release(m_vpp);
+@@ -383,9 +391,7 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+       const bool entering = !m_wasSource;
+       m_sourceFrame = m_wasSource = m_prepared = true;
+       m_packed = m_direct = false;
+-      dvbridge_color color{};
+-      const bool fel = enhancement && dvbridge_map_color(&color, metadata.Data(), metadata.Size(), true) &&
+-                       color.dovi.nlq_active;
++      const bool fel = enhancement && dvbridge_fel_active(metadata.Data(), metadata.Size());
+       m_pendingInfo = CDVPlaybackInfo::HDMI | (fel ? CDVPlaybackInfo::FEL : 0u);
+       const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
+       if (entering && trace && std::strcmp(trace, "1") == 0)
+@@ -529,7 +535,10 @@ bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
+   m_prepared = m_packed = false;
+   m_direct = false;
+   m_pendingInfo = 0;
+-  if (!m_renderer || !m_packer || m_hdr10)
++  m_graphicsFrame = false;
++  dvbridge_candidate_destroy(m_graphicsCandidate);
++  m_graphicsCandidate = nullptr;
++  if (!m_graphics || !m_packer || m_hdr10)
+     return Failure("graphics-unavailable");
+   ApplyPlaybackSignal(m_renderer, m_packer);
+   // 0.005 cd/m2 black (the spec's default source minimum, as Amlogic's graphics minimum). The
+@@ -537,8 +546,10 @@ bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
+   const unsigned black = PQCode(0.005f);
+   const unsigned white = PQCode(whiteNits);
+   m_graphicsWhite = whiteNits;
+-  m_prepared = white > black &&
+-               dvbridge_render_graphics(m_renderer, black, white, (black + white) / 2, pts);
++  if (white > black)
++    m_graphicsCandidate =
++        dvbridge_prepare_graphics(m_graphics, black, white, (black + white) / 2, pts);
++  m_prepared = m_graphicsFrame = m_graphicsCandidate != nullptr;
+   return m_prepared || Failure("graphics-prepare");
+ }
+ 
+@@ -547,10 +558,10 @@ bool CDVBridgeGLES::PackGraphics(unsigned int guiTexture, unsigned int framebuff
+                                  bool wideColour)
+ {
+   m_packed = false;
+-  if (!m_prepared)
++  if (!m_prepared || !m_graphicsFrame)
+     return Failure("pack-without-prepared-graphics");
+   unsigned int count;
+-  const auto* packets = dvbridge_packets(dvbridge_render_candidate(m_renderer), &count);
++  const auto* packets = dvbridge_packets(m_graphicsCandidate, &count);
+   const dvbridge_graphics_style style{m_graphicsWhite, saturation, gamma, wideColour};
+   m_packed = dvbridge_gl_pack_graphics(m_packer, guiTexture, framebuffer, width, height, packets,
+                                        count, flipY, &style);
+@@ -597,6 +608,18 @@ bool CDVBridgeGLES::Presented(bool success)
+   }
+   if (success && m_source && !m_source->DisplayReplaced())
+     return Failure("private-scanout-retirement");
++  if (m_graphicsFrame)
++  {
++    const bool committed = success && m_prepared && m_packed &&
++                           dvbridge_commit(m_graphics, m_graphicsCandidate);
++    dvbridge_candidate_destroy(m_graphicsCandidate);
++    m_graphicsCandidate = nullptr;
++    if (!committed)
++      dvbridge_reset(m_graphics);
++    CDVPlaybackInfo::presented.store(0);
++    m_prepared = m_packed = m_graphicsFrame = false;
++    return committed;
++  }
+   const bool committed = success && m_prepared && m_packed && dvbridge_render_commit(m_renderer);
+   if (committed && m_drainTicket)
+     CDVPrivateDrain::Get().Commit(m_drainTicket);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index 0d0ab00..143944a 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -83,6 +83,10 @@ private:
+   pl_opengl m_gl = nullptr;
+   pl_log m_log = nullptr;
+   dvbridge_renderer* m_renderer = nullptr;
++  // Menu output (graphics-only frames): its own metadata state and candidate.
++  dvbridge_context* m_graphics = nullptr;
++  dvbridge_candidate* m_graphicsCandidate = nullptr;
++  bool m_graphicsFrame = false;
+   dvbridge_gl_packer* m_packer = nullptr;
+   pl_tex m_scanout = nullptr;
+   bool m_direct = false;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
+index f2881dd..fdb7d7d 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
+@@ -1,23 +1,13 @@
+ #include "DVPrivateScanout.h"
+ #include <GLES3/gl3.h>
+ #include <drm_fourcc.h>
+-#include <dlfcn.h>
+ #include <unistd.h>
+ #include <cstring>
+ 
+-bool CDVPrivateScanout::Initialize(gbm_device* device, void* library)
++bool CDVPrivateScanout::Initialize(gbm_device* device)
+ {
+-  if (!device || !library || m_initialized) return false;
+-#define LOAD(member, symbol) member = reinterpret_cast<decltype(member)>(dlsym(library, #symbol)); if (!member) return false
+-  LOAD(m_init, dv_scanout_slots_init);
+-  LOAD(m_acquire, dv_scanout_slots_acquire);
+-  LOAD(m_written, dv_scanout_slots_written);
+-  LOAD(m_committed, dv_scanout_slots_committed);
+-  LOAD(m_reset, dv_scanout_slots_reset_stream);
+-  LOAD(m_restored, dv_scanout_slots_restored);
+-  LOAD(m_canDestroy, dv_scanout_slots_can_destroy);
+-#undef LOAD
+-  m_init(&m_slots);
++  if (!device || m_initialized) return false;
++  dv_scanout_slots_init(&m_slots);
+   m_initialized = true;
+   m_display = eglGetCurrentDisplay();
+   auto create = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
+@@ -51,22 +41,22 @@ bool CDVPrivateScanout::Initialize(gbm_device* device, void* library)
+   return success;
+ }
+ bool CDVPrivateScanout::Begin(uint64_t frame, int64_t pts)
+-{ return m_initialized && m_acquire(&m_slots,{frame,pts},&m_lease) == 0; }
++{ return m_initialized && dv_scanout_slots_acquire(&m_slots,{frame,pts},&m_lease) == 0; }
+ bool CDVPrivateScanout::Written(dv_scanout_outcome outcome)
+-{ return m_initialized && m_written(&m_slots,&m_lease,outcome) == 0; }
++{ return m_initialized && dv_scanout_slots_written(&m_slots,&m_lease,outcome) == 0; }
+ bool CDVPrivateScanout::Presented(bool success)
+-{ return m_initialized && m_committed(&m_slots,&m_lease,success ? DV_SCANOUT_ACCEPTED : DV_SCANOUT_REJECTED) == 0; }
++{ return m_initialized && dv_scanout_slots_committed(&m_slots,&m_lease,success ? DV_SCANOUT_ACCEPTED : DV_SCANOUT_REJECTED) == 0; }
+ bool CDVPrivateScanout::ResetStream()
+-{ return !m_initialized || m_reset(&m_slots) == 0; }
++{ return !m_initialized || dv_scanout_slots_reset_stream(&m_slots) == 0; }
+ bool CDVPrivateScanout::Replaced()
+ {
+   if (!m_initialized) return true;
+   if (m_slots.writing || m_slots.quarantined) return false;
+-  m_restored(&m_slots);
++  dv_scanout_slots_restored(&m_slots);
+   return true;
+ }
+ bool CDVPrivateScanout::CanClose() const
+-{ return !m_initialized || m_canDestroy(&m_slots); }
++{ return !m_initialized || dv_scanout_slots_can_destroy(&m_slots); }
+ bool CDVPrivateScanout::Close()
+ {
+   if (!CanClose()) return false;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+index bea0c62..5b8c2c8 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+@@ -8,7 +8,7 @@
+ class CDVPrivateScanout
+ {
+ public:
+-  bool Initialize(gbm_device* device, void* library);
++  bool Initialize(gbm_device* device);
+   bool Begin(uint64_t frame, int64_t pts);
+   bool Written(dv_scanout_outcome outcome);
+   bool Presented(bool success);
+@@ -32,11 +32,4 @@ private:
+   EGLImageKHR m_image[2]{EGL_NO_IMAGE_KHR,EGL_NO_IMAGE_KHR};
+   EGLDisplay m_display{EGL_NO_DISPLAY};
+   PFNEGLDESTROYIMAGEKHRPROC m_destroyImage{nullptr};
+-  decltype(&dv_scanout_slots_init) m_init{nullptr};
+-  decltype(&dv_scanout_slots_acquire) m_acquire{nullptr};
+-  decltype(&dv_scanout_slots_written) m_written{nullptr};
+-  decltype(&dv_scanout_slots_committed) m_committed{nullptr};
+-  decltype(&dv_scanout_slots_reset_stream) m_reset{nullptr};
+-  decltype(&dv_scanout_slots_restored) m_restored{nullptr};
+-  decltype(&dv_scanout_slots_can_destroy) m_canDestroy{nullptr};
+ };
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+index f4cfc9d..6f6c13f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+@@ -25,9 +25,27 @@ extern "C"
+ 
+ bool CDVPrivateSource::Initialize(void* display)
+ {
++  if (eglGetCurrentContext() == EGL_NO_CONTEXT)
++    return false;
++  // The Vulkan engine writes the private scanout buffers itself; their slot
++  // bookkeeping is Kodi's (dv_scanout_slots.cpp). It needs nothing from the
++  // OpenCL library.
++  auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
++  const auto drm = window ? window->GetDrm() : nullptr;
++  if (CDVPrivateVulkan::Requested(drm ? drm->GetFileDescriptor() : -1))
++  {
++    if (InitializeVulkan(display))
++    {
++      m_display = display;
++      CLog::Log(LOGINFO,"Private source direct scanout initialized: two cached buffers, Vulkan engine");
++      return true;
++    }
++    if (!CloseVulkan()) return false;
++    CLog::Log(LOGWARNING,"Vulkan engine unavailable; using yblod's OpenCL engine");
++  }
+   const char* library = std::getenv("DV_PRIVATE_SOURCE_LIBRARY");
+   const char* resources = std::getenv("DV_PRIVATE_SOURCE_RESOURCES");
+-  if (!library || !resources || eglGetCurrentContext() == EGL_NO_CONTEXT)
++  if (!library || !resources)
+     return false;
+   m_library = dlopen(library, RTLD_NOW | RTLD_LOCAL);
+   if (!m_library)
+@@ -53,21 +71,6 @@ bool CDVPrivateSource::Initialize(void* display)
+   m_packOverlayCached = reinterpret_cast<decltype(m_packOverlayCached)>(dlsym(m_library, "dv_source_renderer_pack_overlay_cached"));
+   if (!abi || abi() != 4 || !m_create || !m_render || !m_drain || !m_destroy)
+     return false;
+-  // The Vulkan engine only writes the private scanout buffers; the slot
+-  // bookkeeping above stays the OpenCL library's.
+-  auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
+-  const auto drm = window ? window->GetDrm() : nullptr;
+-  if (CDVPrivateVulkan::Requested(drm ? drm->GetFileDescriptor() : -1))
+-  {
+-    if (InitializeVulkan(display))
+-    {
+-      m_display = display;
+-      CLog::Log(LOGINFO,"Private source direct scanout initialized: two cached buffers, Vulkan engine");
+-      return true;
+-    }
+-    if (!CloseVulkan()) return false;
+-    CLog::Log(LOGWARNING,"Vulkan engine unavailable; using yblod's OpenCL engine");
+-  }
+   const char* direct = std::getenv("DV_PRIVATE_SCANOUT");
+   if (direct && std::strcmp(direct,"1") == 0)
+   {
+@@ -145,7 +148,7 @@ bool CDVPrivateSource::InitializeScanout(void* display, const char* resources)
+   auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
+   if (!m_createStorage || !m_attachOutput || !m_selectOutput || !window) return false;
+   m_scanout = new CDVPrivateScanout;
+-  if (!m_scanout->Initialize(window->GetGBMDevice().Get(),m_library)) return false;
++  if (!m_scanout->Initialize(window->GetGBMDevice().Get())) return false;
+   m_texture = m_scanout->Texture(0);
+   if (fail("buffers")) return false;
+   m_engine = m_createStorage(reinterpret_cast<uintptr_t>(display),
+@@ -164,7 +167,7 @@ bool CDVPrivateSource::InitializeVulkan(void* display)
+   const int fd = drm->GetRenderNodeFileDescriptor() >= 0 ? drm->GetRenderNodeFileDescriptor()
+                                                           : drm->GetFileDescriptor();
+   m_scanout = new CDVPrivateScanout;
+-  if (!m_scanout->Initialize(window->GetGBMDevice().Get(),m_library)) return false;
++  if (!m_scanout->Initialize(window->GetGBMDevice().Get())) return false;
+   m_vulkan = new CDVPrivateVulkan;
+   return m_vulkan->Initialize(display, fd, window->GetGBMDevice().Get(),
+                               m_scanout->Buffer(0), m_scanout->Buffer(1));
+@@ -356,7 +359,8 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+     const int acquired = AcquireFrame(display, owner, enhancement, pts, geometry, metadata, size);
+     if (acquired != 1) return acquired;
+   }
+-  if (input.format == DV_SOURCE_INPUT_NV12 && (!m_submitInput || !m_present))
++  // The OpenCL library's 8-bit input entry points; the Vulkan engine takes NV12 itself.
++  if (!m_vulkan && input.format == DV_SOURCE_INPUT_NV12 && (!m_submitInput || !m_present))
+   {
+     ReleaseInputs();
+     return 0;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.cpp
+new file mode 100644
+index 0000000..343525b
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.cpp
+@@ -0,0 +1,126 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++/* The two private scanout buffers' ownership (dv_scanout_slots.h), in Kodi
++ * itself: yblod-engine/src/dv_scanout_slots.c, which the OpenCL engine
++ * library exported, unchanged in behaviour. The Vulkan engine only writes
++ * the buffers; this bookkeeping was always the caller's. */
++#include "dv_scanout_slots.h"
++
++#include <cstring>
++
++namespace
++{
++// dv_status (yblod-engine/src/dv_engine.h)
++constexpr int DV_OK = 0;
++constexpr int DV_INVALID = -1;
++constexpr int DV_IDENTITY = -6;
++constexpr int DV_BACKEND = -8;
++
++bool Matches(const dv_scanout_slots* p, const dv_scanout_lease* l)
++{
++  return l && l->serial == p->pending.serial && l->slot == p->pending.slot &&
++         l->identity.frame_id == p->pending.identity.frame_id &&
++         l->identity.pts == p->pending.identity.pts && l->packet_id == p->pending.packet_id &&
++         l->refresh == p->pending.refresh;
++}
++} // namespace
++
++extern "C"
++{
++void dv_scanout_slots_init(dv_scanout_slots* p)
++{
++  std::memset(p, 0, sizeof(*p));
++  p->current = -1;
++  p->refresh = 1;
++}
++
++int dv_scanout_slots_acquire(dv_scanout_slots* p, dv_scanout_identity id, dv_scanout_lease* out)
++{
++  if (!p || !out)
++    return DV_INVALID;
++  if (p->quarantined)
++    return DV_BACKEND;
++  if (p->writing || p->ready)
++    return DV_SCANOUT_BUSY;
++  if (p->serial == UINT64_MAX)
++    return DV_BACKEND;
++  const dv_scanout_lease lease{++p->serial, id, p->current == 0 ? 1u : 0u, p->packet_id,
++                               p->refresh};
++  p->pending = lease;
++  p->writing = 1;
++  *out = lease;
++  return DV_OK;
++}
++
++int dv_scanout_slots_written(dv_scanout_slots* p, const dv_scanout_lease* l,
++                             dv_scanout_outcome result)
++{
++  if (!p || result < DV_SCANOUT_REJECTED || result > DV_SCANOUT_UNCERTAIN)
++    return DV_INVALID;
++  if (p->quarantined)
++    return DV_BACKEND;
++  if (!p->writing || !Matches(p, l))
++    return DV_IDENTITY;
++  if (result == DV_SCANOUT_UNCERTAIN)
++  {
++    p->quarantined = 1;
++    return DV_BACKEND;
++  }
++  p->writing = 0;
++  p->ready = result == DV_SCANOUT_ACCEPTED;
++  if (!p->ready)
++    p->refresh = 1;
++  return DV_OK;
++}
++
++int dv_scanout_slots_committed(dv_scanout_slots* p, const dv_scanout_lease* l,
++                               dv_scanout_outcome result)
++{
++  if (!p || result < DV_SCANOUT_REJECTED || result > DV_SCANOUT_UNCERTAIN)
++    return DV_INVALID;
++  if (p->quarantined)
++    return DV_BACKEND;
++  if (!p->ready || !Matches(p, l))
++    return DV_IDENTITY;
++  if (result == DV_SCANOUT_UNCERTAIN)
++  {
++    p->quarantined = 1;
++    return DV_BACKEND;
++  }
++  p->ready = 0;
++  if (result == DV_SCANOUT_ACCEPTED)
++  {
++    p->current = static_cast<int>(l->slot);
++    p->packet_id = (p->packet_id + 1) & 15u;
++    p->refresh = 0;
++  }
++  else
++    p->refresh = 1;
++  return DV_OK;
++}
++
++int dv_scanout_slots_reset_stream(dv_scanout_slots* p)
++{
++  if (!p)
++    return DV_INVALID;
++  if (p->quarantined)
++    return DV_BACKEND;
++  if (p->writing)
++    return DV_SCANOUT_BUSY;
++  p->ready = 0;
++  p->packet_id = 0;
++  p->refresh = 1;
++  return DV_OK;
++}
++
++void dv_scanout_slots_restored(dv_scanout_slots* p)
++{
++  const uint64_t serial = p->serial;
++  dv_scanout_slots_init(p);
++  p->serial = serial;
++}
++
++int dv_scanout_slots_can_destroy(const dv_scanout_slots* p)
++{
++  return p && p->current < 0 && !p->writing && !p->ready && !p->quarantined;
++}
++}
