@@ -22,10 +22,16 @@ Changed for YBLOD's 7.3 and its Dolby Vision patches (linux-9900, 9928,
 9930, 9931):
 - VS DIP / vsp_infopacket ownership: the HDR10+ VSIF and the Dolby VSIF
   never share a commit. Connector atomic_check refuses HDR10PLUS_METADATA
-  together with DVBRIDGE_DV_STANDARD_LAB=1 (any DVBRIDGE_TUNNEL_FORMAT,
-  also hdr10, which sends no VSIF but is still the RGB8 tunnel), and the
-  i915 compute (intel_hdmi_compute_hdmi_infoframe) and HDR10+ check, and
-  the amdgpu final atomic check, refuse it again. Readout: the VS DIP
+  together with DVBRIDGE_DV_STANDARD_LAB=1 in the dolby-vision and lldv
+  tunnel formats, and the i915 compute (intel_hdmi_compute_hdmi_infoframe)
+  and HDR10+ check, and the amdgpu final atomic check, refuse it again.
+  The hdr10 tunnel format sends no Dolby VSIF and may carry HDR10+: that
+  is Dolby Vision to HDR10+ (the Vulkan engine's PQ picture through the
+  tunnel, YBLOD 0.4.0). Its pipe is RGB 8 bpc carrying 12-bit YCbCr 4:2:2
+  BT.2020 declared by linux-9928's own AVI InfoFrame, so for it the core
+  check (drm_connector_check_hdr10plus(state, tunnel=true)) does not
+  require max bpc >= 10 or a BT.2020 Colorspace, and the drivers' link
+  depth checks are skipped. Readout: the VS DIP
   unpacks to the HDR10+ member of union hdmi_vendor_any_infoframe (whole
   union zeroed on compute), so the state checker compares like for like.
 - Native HDMI connectors only: the property is attached to i915 HDMI
@@ -96,7 +102,8 @@ TEST_ONLY to probe) unless all of:
 - HDR_OUTPUT_METADATA is set: static metadata type 1, EOTF SMPTE ST 2084;
 - Colorspace is BT2020_RGB or BT2020_YCC; max bpc >= 10 and the link
   actually runs at >= 10 bpc (i915 pipe_bpp >= 30, amdgpu stream depth);
-- DVBRIDGE_DV_STANDARD_LAB is 0;
+  except in the DV tunnel's hdr10 format (12-bit 4:2:2 on an 8 bpc pipe);
+- DVBRIDGE_DV_STANDARD_LAB is 0, or 1 with DVBRIDGE_TUNNEL_FORMAT hdr10;
 - the same commit sets the CRTC's primary plane with a framebuffer (the
   picture the packet describes); CRTC active; no async flip (page-flip
   with DRM_MODE_PAGE_FLIP_ASYNC); no 3D mode;
@@ -130,7 +137,7 @@ HDR10+). Compile-checked only (i915, xe, amdgpu, -Werror, on YBLOD's
 Linux 7.3 series). Applies after linux-9931.
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 4396874b9..4faaf300c 100644
+index 4396874b9..6f698f2cd 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -98,6 +98,7 @@
@@ -141,7 +148,7 @@ index 4396874b9..4faaf300c 100644
  #include <drm/drm_eld.h>
  #include <drm/drm_mode.h>
  #include <drm/drm_utils.h>
-@@ -3798,6 +3799,94 @@ static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
+@@ -3798,6 +3799,97 @@ static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
  		drm_crtc_vblank_get(&acrtc->base);
  }
  
@@ -213,13 +220,16 @@ index 4396874b9..4faaf300c 100644
 +		primary = conn->crtc ?
 +			drm_atomic_get_new_plane_state(state, conn->crtc->primary) : NULL;
 +		if (!stream || !(frame_mask & drm_crtc_mask(conn->crtc)) ||
-+		    drm_connector_check_hdr10plus(conn) ||
-+		    to_dm_connector_state(conn)->dv_lab_standard ||
++		    drm_connector_check_hdr10plus(conn, amdgpu_dm_hdr10plus_tunnel(conn)) ||
++		    (to_dm_connector_state(conn)->dv_lab_standard &&
++		     !amdgpu_dm_hdr10plus_tunnel(conn)) ||
 +		    !crtc_state->active || !primary || primary->crtc != conn->crtc ||
 +		    !primary->fb || !to_dm_plane_state(primary)->dc_state ||
 +		    !stream->hdr10plus || stream->signal != SIGNAL_TYPE_HDMI_TYPE_A ||
 +		    stream->timing.hdmi_vic ||
-+		    amdgpu_dm_convert_dc_color_depth_into_bpc(stream->timing.display_color_depth) < 10 ||
++		    /* the HDR10 tunnel's 8 bpc stream carries 12-bit 4:2:2 */
++		    (amdgpu_dm_convert_dc_color_depth_into_bpc(stream->timing.display_color_depth) < 10 &&
++		     !amdgpu_dm_hdr10plus_tunnel(conn)) ||
 +		    crtc_state->async_flip ||
 +		    (crtc_state->mode.flags & DRM_MODE_FLAG_3D_MASK)) {
 +			drm_dbg_atomic(connector->dev,
@@ -236,7 +246,7 @@ index 4396874b9..4faaf300c 100644
  static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  				    struct drm_device *dev,
  				    struct amdgpu_display_manager *dm,
-@@ -3830,6 +3919,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -3830,6 +3922,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  		struct dc_scaling_info scaling_infos[MAX_SURFACES];
  		struct dc_flip_addrs flip_addrs[MAX_SURFACES];
  		struct dc_stream_update stream_update;
@@ -244,7 +254,7 @@ index 4396874b9..4faaf300c 100644
  	} *bundle;
  
  	bundle = kzalloc_obj(*bundle);
-@@ -4087,6 +4177,24 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -4087,6 +4180,24 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  			flush_workqueue(dm->vblank_control_workqueue);
  
  		bundle->stream_update.stream = acrtc_state->stream;
@@ -269,7 +279,7 @@ index 4396874b9..4faaf300c 100644
  		if (new_pcrtc_state->mode_changed) {
  			bundle->stream_update.src = acrtc_state->stream->src;
  			bundle->stream_update.dst = acrtc_state->stream->dst;
-@@ -5482,6 +5590,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5482,6 +5593,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  				goto fail;
  		}
  
@@ -286,7 +296,7 @@ index 4396874b9..4faaf300c 100644
  		/*
  		 * If we already removed the old stream from the context
  		 * (and set the new stream to NULL) then we can't reuse
-@@ -5494,6 +5612,8 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5494,6 +5615,8 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  		if (amdgpu_freesync_vid_mode &&
  		    dm_new_crtc_state->stream &&
  		    dm_new_conn_state->dv_lab_standard == dm_old_conn_state->dv_lab_standard &&
@@ -295,7 +305,7 @@ index 4396874b9..4faaf300c 100644
  		    amdgpu_dm_is_timing_unchanged_for_freesync(new_crtc_state, old_crtc_state))
  			goto skip_modeset;
  
-@@ -6155,6 +6275,9 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6155,6 +6278,9 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
  	struct drm_dp_mst_topology_state *mst_state;
  	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
  
@@ -305,7 +315,7 @@ index 4396874b9..4faaf300c 100644
  	trace_amdgpu_dm_atomic_check_begin(state);
  
  	ret = drm_atomic_helper_check_modeset(dev, state);
-@@ -6634,6 +6757,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6634,6 +6760,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
  	if (ret)
  		goto fail;
  
@@ -318,27 +328,30 @@ index 4396874b9..4faaf300c 100644
  	WARN_ON(ret);
  
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
-index 97eb9c20e..977a42f19 100644
+index 97eb9c20e..023b7bc86 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
-@@ -2675,6 +2675,16 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+@@ -2675,6 +2675,19 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
  
  	trace_amdgpu_dm_connector_atomic_check(new_con_state);
  
 +	/* linux-9932: HDR10+ (CB1). The HDR10+ and Dolby vendor InfoFrames
 +	 * share vsp_infopacket: never both in one commit. The tunnel's HDR10
-+	 * format sends no VSIF but is still the tunnel, so it is refused too.
++	 * format sends no Dolby VSIF, so it may carry HDR10+ (Dolby Vision to
++	 * HDR10+); its dolby-vision and LLDV formats may not.
 +	 */
 +	drm_connector_hdr10plus_drop_inactive(state, new_con_state);
-+	if (drm_connector_check_hdr10plus(new_con_state) ||
++	if (drm_connector_check_hdr10plus(new_con_state,
++					  amdgpu_dm_hdr10plus_tunnel(new_con_state)) ||
 +	    (new_con_state->hdr10plus_metadata &&
-+	     to_dm_connector_state(new_con_state)->dv_lab_standard))
++	     to_dm_connector_state(new_con_state)->dv_lab_standard &&
++	     !amdgpu_dm_hdr10plus_tunnel(new_con_state)))
 +		return -EINVAL;
 +
  	if (conn->connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
  		ret = drm_dp_mst_root_conn_atomic_check(new_con_state, &aconn->mst_mgr);
  		if (ret < 0)
-@@ -2696,7 +2706,9 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+@@ -2696,7 +2709,9 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
  	    /* big-fella: and changing what an engaged tunnel carries */
  	    (to_dm_connector_state(new_con_state)->dv_lab_standard &&
  	     to_dm_connector_state(new_con_state)->dv_tunnel_format !=
@@ -349,7 +362,7 @@ index 97eb9c20e..977a42f19 100644
  		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
  		if (IS_ERR(new_crtc_state))
  			return PTR_ERR(new_crtc_state);
-@@ -3382,6 +3394,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+@@ -3382,6 +3397,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
  	if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
  		/* Content Type is currently only implemented for HDMI. */
  		drm_connector_attach_content_type_property(&aconnector->base);
@@ -358,6 +371,36 @@ index 97eb9c20e..977a42f19 100644
  	}
  
  	if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
+index 36f2c52ea..72b609b84 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
+@@ -456,3 +456,12 @@ int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state)
+ 	}
+ 	return 0;
+ }
++
++/* linux-9932: the DV tunnel in its HDR10 format sends no Dolby VSIF: Dolby
++ * Vision to HDR10+ sends the engine's PQ picture through it with HDR10+. */
++bool amdgpu_dm_hdr10plus_tunnel(const struct drm_connector_state *conn)
++{
++	const struct dm_connector_state *state = to_dm_connector_state(conn);
++
++	return state->dv_lab_standard && state->dv_tunnel_format == DVBRIDGE_TUNNEL_HDR10;
++}
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
+index 6f4b76095..2f4cceea0 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
+@@ -32,4 +32,8 @@ int amdgpu_dm_dv_configure_stream(struct drm_connector *connector,
+ 				  struct dc_stream_state *stream);
+ int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state);
+ 
++/* linux-9932: the DV tunnel in its HDR10 format may carry HDR10+. */
++struct drm_connector_state;
++bool amdgpu_dm_hdr10plus_tunnel(const struct drm_connector_state *conn);
++
+ #endif
 diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
 index d87801223..6b10c9f8d 100644
 --- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
@@ -447,7 +490,7 @@ index 68d59e17f..f0faa9f44 100644
  		*val = state->content_protection;
  	} else if (property == config->hdcp_content_type_property) {
 diff --git a/drivers/gpu/drm/drm_connector.c b/drivers/gpu/drm/drm_connector.c
-index 8b4baed06..d7d618fb6 100644
+index 8b4baed06..8da1ef3b2 100644
 --- a/drivers/gpu/drm/drm_connector.c
 +++ b/drivers/gpu/drm/drm_connector.c
 @@ -21,6 +21,8 @@
@@ -471,7 +514,7 @@ index 8b4baed06..d7d618fb6 100644
  
  	return 0;
  }
-@@ -2909,6 +2916,101 @@ void drm_connector_attach_hdr_output_metadata_property(struct drm_connector *con
+@@ -2909,6 +2916,106 @@ void drm_connector_attach_hdr_output_metadata_property(struct drm_connector *con
  }
  EXPORT_SYMBOL(drm_connector_attach_hdr_output_metadata_property);
  
@@ -493,11 +536,16 @@ index 8b4baed06..d7d618fb6 100644
 +/**
 + * drm_connector_check_hdr10plus - validate the shared output contract
 + * @state: new connector state
++ * @tunnel: YBLOD: the output is the Dolby Vision tunnel in its HDR10 format
++ *	(linux-9928 DVBRIDGE_TUNNEL_FORMAT hdr10): an RGB 8 bpc pipe whose
++ *	bytes are 12-bit YCbCr 4:2:2 BT.2020, declared by the driver's own AVI
++ *	InfoFrame. max bpc and Colorspace then do not describe the link, so
++ *	they are not required; HDR_OUTPUT_METADATA (PQ) still is.
 + *
 + * Drivers additionally check actual link depth, packet conflicts and latching.
 + * Return: zero when disabled or admissible, negative errno otherwise.
 + */
-+int drm_connector_check_hdr10plus(const struct drm_connector_state *state)
++int drm_connector_check_hdr10plus(const struct drm_connector_state *state, bool tunnel)
 +{
 +	const struct drm_display_info *info = &state->connector->display_info;
 +	const struct hdr_output_metadata *hdr;
@@ -506,7 +554,7 @@ index 8b4baed06..d7d618fb6 100644
 +	if (!state->hdr10plus_metadata)
 +		return 0;
 +	if (!state->crtc || state->connector->connector_type != DRM_MODE_CONNECTOR_HDMIA ||
-+	    !info->hdr10plus_supported || state->max_bpc < 10 ||
++	    !info->hdr10plus_supported || (!tunnel && state->max_bpc < 10) ||
 +	    !state->hdr_output_metadata ||
 +	    state->hdr_output_metadata->length != sizeof(*hdr))
 +		return -EINVAL;
@@ -516,7 +564,7 @@ index 8b4baed06..d7d618fb6 100644
 +	hdr = state->hdr_output_metadata->data;
 +	if (hdr->metadata_type || hdr->hdmi_metadata_type1.metadata_type ||
 +	    hdr->hdmi_metadata_type1.eotf != HDMI_EOTF_SMPTE_ST2084 ||
-+	    (state->colorspace != DRM_MODE_COLORIMETRY_BT2020_RGB &&
++	    (!tunnel && state->colorspace != DRM_MODE_COLORIMETRY_BT2020_RGB &&
 +	     state->colorspace != DRM_MODE_COLORIMETRY_BT2020_YCC))
 +		return -EINVAL;
 +	return 0;
@@ -608,26 +656,37 @@ index 07970e5b5..62bec406b 100644
  	info->edid_hdmi_rgb444_dc_modes = 0;
  	info->edid_hdmi_ycbcr444_dc_modes = 0;
 diff --git a/drivers/gpu/drm/i915/display/intel_atomic.c b/drivers/gpu/drm/i915/display/intel_atomic.c
-index dfe51d863..b954e77a4 100644
+index dfe51d863..83c53bbe2 100644
 --- a/drivers/gpu/drm/i915/display/intel_atomic.c
 +++ b/drivers/gpu/drm/i915/display/intel_atomic.c
-@@ -173,6 +173,15 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
+@@ -36,6 +36,7 @@
+ #include <drm/drm_print.h>
+ 
+ #include "dvbridge_tunnel_format.h"
++#include "intel_hdmi.h"
+ #include "intel_atomic.h"
+ #include "intel_cdclk.h"
+ #include "intel_display_core.h"
+@@ -173,6 +174,18 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
  
  	intel_hdcp_atomic_check(conn, old_state, new_state);
  
 +	/* linux-9932: HDR10+ (CB1). The HDR10+ and Dolby vendor InfoFrames
 +	 * share the one VS DIP: never both in one commit. The tunnel's HDR10
-+	 * format sends no VSIF but is still the tunnel, so it is refused too.
++	 * format sends no Dolby VSIF, so it may carry HDR10+ (Dolby Vision to
++	 * HDR10+: the engine's PQ picture through the tunnel); its dolby-vision
++	 * and LLDV formats may not.
 +	 */
 +	drm_connector_hdr10plus_drop_inactive(state, new_state);
-+	if (drm_connector_check_hdr10plus(new_state) ||
-+	    (new_state->hdr10plus_metadata && new_conn_state->dv_lab_standard))
++	if (drm_connector_check_hdr10plus(new_state, intel_hdr10plus_tunnel(new_conn_state)) ||
++	    (new_state->hdr10plus_metadata && new_conn_state->dv_lab_standard &&
++	     !intel_hdr10plus_tunnel(new_conn_state)))
 +		return -EINVAL;
 +
  	if (!new_state->crtc) {
  		new_conn_state->dv_lab_standard = false;
  		new_conn_state->dv_hdr10_deep_color = false;
-@@ -190,6 +199,7 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
+@@ -190,6 +203,7 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
  	if (new_conn_state->dv_lab_standard != old_conn_state->dv_lab_standard ||
  	    (new_conn_state->dv_lab_standard &&
  	     new_conn_state->dv_tunnel_format != old_conn_state->dv_tunnel_format) ||
@@ -734,7 +793,7 @@ index b2bd2cef3..6842e7da7 100644
  	struct ref_tracker *wakeref;
  
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 797427855..222c84ba2 100644
+index 797427855..bb9eaaae0 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -796,6 +796,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
@@ -779,7 +838,7 @@ index 797427855..222c84ba2 100644
  	if (to_intel_digital_connector_state(conn_state)->dv_lab_standard) {
  		const struct drm_property_blob *edid = conn_state->connector->edid_blob_ptr;
  		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
-@@ -949,6 +977,14 @@ intel_hdmi_compute_hdmi_infoframe(struct intel_encoder *encoder,
+@@ -949,6 +977,15 @@ intel_hdmi_compute_hdmi_infoframe(struct intel_encoder *encoder,
  	crtc_state->infoframes.enable |=
  		intel_hdmi_infoframe_enable(HDMI_INFOFRAME_TYPE_VENDOR);
  
@@ -787,18 +846,27 @@ index 797427855..222c84ba2 100644
 +	 * Dolby VSIF: intel_digital_connector_atomic_check() refuses both.
 +	 */
 +	if (conn_state->hdr10plus_metadata)
-+		return !to_intel_digital_connector_state(conn_state)->dv_lab_standard &&
++		return (!to_intel_digital_connector_state(conn_state)->dv_lab_standard ||
++			intel_hdr10plus_tunnel(to_intel_digital_connector_state(conn_state))) &&
 +			intel_hdmi_hdr10plus_unpack(&crtc_state->infoframes.hdmi,
 +						    conn_state->hdr10plus_metadata) == 0;
 +
  	if (to_intel_digital_connector_state(conn_state)->dv_lab_standard) {
  		struct hdmi_dolby_vendor_infoframe *dv =
  			&crtc_state->infoframes.hdmi.vendor.dolby;
-@@ -1387,6 +1423,73 @@ static void vlv_set_infoframes(struct intel_encoder *encoder,
+@@ -1387,6 +1424,83 @@ static void vlv_set_infoframes(struct intel_encoder *encoder,
  			      &crtc_state->infoframes.hdmi);
  }
  
 +/* linux-9932: HDR10+ (CB1 linux-9940/9941, ported to YBLOD's 7.3) */
++
++/* The DV tunnel in its HDR10 format (linux-9928) sends no Dolby VSIF: Dolby
++ * Vision to HDR10+ sends the engine's PQ picture through it with HDR10+. */
++bool intel_hdr10plus_tunnel(const struct intel_digital_connector_state *conn)
++{
++	return conn->dv_lab_standard && conn->dv_tunnel_format == DVBRIDGE_TUNNEL_HDR10;
++}
++
 +bool intel_hdmi_hdr10plus_present(const struct intel_crtc_state *crtc_state)
 +{
 +	return crtc_state->infoframes.hdmi.any.type == HDMI_INFOFRAME_TYPE_VENDOR &&
@@ -828,10 +896,12 @@ index 797427855..222c84ba2 100644
 +		primary = drm_atomic_get_new_plane_state(&state->base, crtc->base.primary);
 +		if (!(state->hdr10plus_primary_mask & drm_crtc_mask(&crtc->base)) ||
 +		    connector->base.connector_type != DRM_MODE_CONNECTOR_HDMIA ||
-+		    drm_connector_check_hdr10plus(&conn->base) || conn->dv_lab_standard ||
++		    drm_connector_check_hdr10plus(&conn->base, intel_hdr10plus_tunnel(conn)) ||
++		    (conn->dv_lab_standard && !intel_hdr10plus_tunnel(conn)) ||
 +		    !pipe->uapi.active || !primary || primary->crtc != &crtc->base ||
 +		    !primary->fb || !pipe->has_hdmi_sink || !pipe->has_infoframe ||
-+		    pipe->pipe_bpp < 30 || pipe->uapi.async_flip ||
++		    /* the HDR10 tunnel's 8 bpc pipe carries 12-bit 4:2:2 */
++		    (pipe->pipe_bpp < 30 && !intel_hdr10plus_tunnel(conn)) || pipe->uapi.async_flip ||
 +		    (pipe->hw.adjusted_mode.flags & DRM_MODE_FLAG_3D_MASK)) {
 +			drm_dbg_atomic(state->base.dev,
 +				       "[CONNECTOR:%d:%s] HDR10+ refused (frame %d, pipe_bpp %d, dv %d)\n",
@@ -868,7 +938,7 @@ index 797427855..222c84ba2 100644
  void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
  				   const struct intel_crtc_state *crtc_state,
  				   const struct drm_connector_state *conn_state)
-@@ -3569,8 +3672,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3569,8 +3683,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  	intel_attach_hdmi_colorspace_property(&connector->base);
  	drm_connector_attach_content_type_property(&connector->base);
  
@@ -884,7 +954,7 @@ index 797427855..222c84ba2 100644
  	if (!HAS_GMCH(display))
  		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.h b/drivers/gpu/drm/i915/display/intel_hdmi.h
-index 4fa0bd063..ac6d8f7be 100644
+index 4fa0bd063..1bd4544af 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.h
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.h
 @@ -14,7 +14,9 @@ enum port;
@@ -897,11 +967,14 @@ index 4fa0bd063..ac6d8f7be 100644
  struct intel_crtc_state;
  struct intel_digital_port;
  struct intel_encoder;
-@@ -39,6 +41,9 @@ void intel_infoframe_init(struct intel_digital_port *dig_port);
+@@ -39,6 +41,12 @@ void intel_infoframe_init(struct intel_digital_port *dig_port);
  u32 intel_hdmi_infoframes_enabled(struct intel_encoder *encoder,
  				  const struct intel_crtc_state *crtc_state);
  u32 intel_hdmi_infoframe_enable(unsigned int type);
 +int intel_hdmi_hdr10plus_check(struct intel_atomic_state *state, struct intel_crtc *crtc);
++/* linux-9932: the DV tunnel in its HDR10 format may carry HDR10+. */
++struct intel_digital_connector_state;
++bool intel_hdr10plus_tunnel(const struct intel_digital_connector_state *conn);
 +bool intel_hdmi_hdr10plus_present(const struct intel_crtc_state *crtc_state);
 +void intel_hdmi_hdr10plus_update(struct intel_atomic_state *state, struct intel_crtc *crtc);
  void intel_hdmi_read_gcp_infoframe(struct intel_encoder *encoder,
@@ -1008,7 +1081,7 @@ index 16d440453..103f601a9 100644
  	if (size < HDMI_INFOFRAME_HEADER_SIZE)
  		return -EINVAL;
 diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
-index a0cf0268d..605094b53 100644
+index a0cf0268d..1ef2b5d18 100644
 --- a/include/drm/drm_connector.h
 +++ b/include/drm/drm_connector.h
 @@ -926,6 +926,10 @@ struct drm_display_info {
@@ -1036,7 +1109,7 @@ index a0cf0268d..605094b53 100644
  int drm_connector_attach_colorspace_property(struct drm_connector *connector);
  void drm_connector_attach_hdr_output_metadata_property(struct drm_connector *connector);
 +void drm_connector_attach_hdr10plus_metadata_property(struct drm_connector *connector);
-+int drm_connector_check_hdr10plus(const struct drm_connector_state *state);
++int drm_connector_check_hdr10plus(const struct drm_connector_state *state, bool tunnel);
 +void drm_connector_hdr10plus_drop_inactive(struct drm_atomic_commit *state,
 +					   struct drm_connector_state *conn_state);
 +u32 drm_atomic_hdr10plus_frame_mask(struct drm_atomic_commit *state);
