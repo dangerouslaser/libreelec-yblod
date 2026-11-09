@@ -19,7 +19,7 @@ value (native HDMI: Intel display gen12 and later, AMD), and an engine with
 HDR10 output. It is hidden on the converter routes: the DP-to-HDMI
 converters (linux-9930) have no such property; the NUC7's LSPCON in
 level-shifter mode (linux-9931) has it but its kernel takes only Dolby
-Vision, so after three refused HDR10 commits on a connection that never
+Vision, so after ten refused HDR10 commits on a connection that never
 took one, the option is withdrawn until Kodi restarts and the title plays
 without conversion (notification). The converter routes get Dolby Vision
 or nothing (plan decision 3). The GL HDR10 conversion of 0.3 (libplacebo

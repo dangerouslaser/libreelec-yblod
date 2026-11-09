@@ -337,7 +337,7 @@ index d26cd00..60474b3 100644
    GetSettingsManager()->UnregisterSettingOptionsFiller("fontheights");
    GetSettingsManager()->UnregisterSettingOptionsFiller("fonts");
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-index ceed2cb..e16434e 100644
+index ceed2cb..b30d751 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 @@ -53,6 +53,10 @@ extern "C"
@@ -397,7 +397,7 @@ index ceed2cb..e16434e 100644
    return DVBRIDGE::Eligible(available, available, source, software, interlaced, stereo);
  }
  } // namespace
-@@ -917,6 +946,67 @@ int CWinSystemGbmGLESContext::VideoOutputBitDepth(const VideoPicture* picture) c
+@@ -917,6 +946,69 @@ int CWinSystemGbmGLESContext::VideoOutputBitDepth(const VideoPicture* picture) c
    return 8;
  }
  
@@ -438,8 +438,10 @@ index ceed2cb..e16434e 100644
 +    return;
 +  }
 +  // A connection that never took one: the kernel refuses the format here. Give the title back
-+  // to plain playback (the option is hidden from now on).
-+  if (tunnelHDR10Verdict.load() != 0 || ++m_dvTunnelHDR10Failures < 3)
++  // to plain playback (the option is hidden from now on). Ten attempted commits, so that a
++  // few failures while the link settles do not count (frames held back by the HDMI recovery
++  // are not attempted).
++  if (tunnelHDR10Verdict.load() != 0 || ++m_dvTunnelHDR10Failures < 10)
 +    return;
 +  tunnelHDR10Verdict = 2;
 +  CLog::Log(LOGERROR, "DVBridge: this connection refuses HDR10 through the tunnel; Convert Dolby "
@@ -465,7 +467,7 @@ index ceed2cb..e16434e 100644
  bool CWinSystemGbmGLESContext::BeginDVBridge()
  {
    const auto failure = [this](const char* stage) {
-@@ -941,6 +1031,12 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+@@ -941,6 +1033,12 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
      return failure("renderer-init");
    if (!m_dvState.Captured() && !m_dvState.Capture(*drm))
      return failure("drm-state-capture");
@@ -478,7 +480,7 @@ index ceed2cb..e16434e 100644
    m_compositeShader.reset();
    return SetGuiCompositing(AVCOL_TRC_SMPTE2084);
  }
-@@ -1037,6 +1133,10 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+@@ -1037,6 +1135,10 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
  
  bool CWinSystemGbmGLESContext::EndDVBridge()
  {
