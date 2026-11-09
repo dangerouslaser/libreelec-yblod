@@ -1,0 +1,91 @@
+YBLOD 0.3.5 validation
+
+Build source: 35b3d0c621ea77480aae7c68b5c8dc796132bbf9 (main after PR #26). Built from the
+identical tree 76da8682 as the PR head ba79275f74.
+LibreELEC upstream base: unchanged from 0.3.4. The pinned Kodi (e4b62810), FFmpeg and
+libplacebo sources and the pre-installed add-ons are unchanged from 0.3.4 (the source archives
+hash the same as in the 0.3.4 bundle).
+
+Changes since 0.3.4
+- Linux 7.3:
+  - 9931 lspcon-ls-dv (i915), new: Standard Dolby Vision through a MegaChips MCDP2800 LSPCON
+    switched to level-shifter mode (gen9/10).
+    - In PCON mode FW 1.77 drops the Dolby VSIF (0.3.4 validation). With
+      DVBRIDGE_DV_STANDARD_LAB set, intel_ddi_compute_output_type() returns HDMI for the LSPCON
+      port's DP connector. intel_ddi_pre_enable_hdmi() switches the LSPCON to level-shifter mode
+      through the standard dual-mode register (I2C 0x40, offset 0x40, over the AUX DDC) with
+      TMDS output on; intel_ddi_post_disable_hdmi() switches it back to PCON mode and waits for
+      native AUX. The native-HDMI DV path (DV AVI, Dolby VSIF in the VS DIP) then applies.
+    - dig_port->hdmi takes the DP connector (DDC = the LSPCON's I2C-over-AUX bridge) and the
+      adaptor limit (340 MHz). DV is 4K up to 30 Hz (gen9 HDMI 300 MHz).
+    - While in level-shifter mode: DP detect reports HPD only and keeps the EDID; short HPD
+      pulses, DP link checks and intel_lspcon_resume() leave the chip alone.
+    - Readout: intel_ddi_connector_get_hw_state() accepts an HDMI-mode DDI on that DP
+      connector; the InfoFrame hooks use the GPU's DIPs for the HDMI output (output type, or
+      lspcon.ls_dv during readout) and the LSPCON's otherwise.
+    - QMS is off on LSPCON ports (the VTEM does not fit gen9's 32-byte GMP DIP). Only the
+      dolby-vision tunnel format is admitted (no DRM InfoFrame DIP on gen9).
+    - DV policy: verified_bridge in place of native_hdmi, and the lab gate admits gen9 for this
+      route.
+    - i915.dv_lspcon: -1 (default) = DMI allowlist (board vendor Intel Corporation, board
+      NUC7i7BNB), 1 = any gen9/10 LSPCON port, 0 = off. At modeset the LSPCON must be MegaChips
+      (MCA), branch device ID MC2800, firmware 1.77.
+- Docs: HARDWARE.md condition 2, VALIDATION.md (NUC7 level-shifter section).
+
+Images
+Standard and LG SYSTEM differ only in the LG add-ons, the add-on manifest and the version strings.
+Against 0.3.4 (both editions, every file in SYSTEM compared): only etc/issue, etc/os-release,
+etc/release (version strings and BUILD_ID), xe.ko and modules.builtin.modinfo differ. KERNEL
+differs (linux-9931) and is identical in both editions; it is the build tree's bzImage, whose
+vmlinux carries the NUC7i7BNB allowlist and the LSPCON DV messages. The built-in i915 and xe.ko
+list the dv_lspcon parameter. kodi.bin, both engines, the runtime defaults, RADV and the remote's
+binaries are byte-identical to 0.3.4 (hashes below are 0.3.4's).
+
+Testing
+- NUC7i7BNB (MegaChips MCDP2800 HW 2.2 FW 1.77) + LG OLED55C3 (volunteer, 2026-11-09):
+  - NUC Display Lab v0.3.1-dvlab (report #15) and v0.4.0-dvlab (report #17), the 0.3.3 Linux 7.3
+    with a lab-only i915 patch. The lab switched the LSPCON to level-shifter mode with the same
+    dual-mode register and re-probed i915, so the port was HDMI-A-1 on the native-HDMI DV path.
+    4K23.976 RGB8 full range:
+    - levels 8/8 and 8/8;
+    - DV reference without the Dolby VSIF: no DV, raw tunnel;
+    - with the VSIF: Dolby Vision and the correct test picture;
+    - a frame differing only in its tunnel metadata (L1 max 4095 / avg 3600) shown darker, the
+      reference brighter again (the volunteer's visual comparison);
+    - a frame with broken metadata CRCs: Dolby Vision too (the C3 does not reject it);
+    - back to PCON mode: DP link trained (HBR2 x4), normal picture.
+  - NOT tested: the in-modeset switch of linux-9931 (the lab re-probed i915 instead), TV
+    off/on and suspend/resume during DV, and Kodi playback on Kaby Lake GT3. This release was
+    not played on a TV.
+- linux-9931 on Linux 7.3 + the 0.3.4 series: i915 and xe build with -Werror (no warnings);
+  the patch applies with patch -p1 to a clean 0.3.4 kernel tree.
+- Vulkan and OpenCL engines: byte-identical to 0.3.4, so the 0.3.4 golden checks stand.
+- INUC 11i5FL converter route (linux-9930): unchanged; 9931 only acts on VBT LSPCON ports.
+
+SHA256
+Standard update tar: 7e4bb16a0010d49ebeb1f83fc9f8d2ffc5c161910b11d7c5fd9db6415c540349
+Standard install img.gz: 04fc5f5f1b06e237f5932c4716cf602bd552799499f43c64efb40e0c2d51f1d1
+Standard SYSTEM: 4f5937525e3881022ad43f43a0151893e5812a350435a2e020b744ce805859bf
+LG update tar: b303dde69e2e1954c51bc6f61c2142481776eea3684e07e6744f9f495aafda8e
+LG install img.gz: 9e35154906ad9b111027561ee47931efe25a70ce030df9f68158d6e1b1aca828
+LG SYSTEM: ee289721ebfd296f323473c328a3ce347acdd9407c83e4189490f59890b1f6dc
+KERNEL (both): 8901d2557ab530bb8cf967317c445cbbbf3752712d927afd3bbd519f1b2a222e
+Kodi (both): bc498686ca01fd4810ee4f8de76b8e7ce1dc09af1d6f837f4dab2329592f0f5a
+Vulkan engine (both): 137c4ef2858b48aca924f7397e1f26c72aa7ab7af6d87eae7f70b1c1169c1022
+OpenCL engine (both): 0ed3003f8074bb1b2a30a7a5eeb9027965e3b5d83e2d27f0c855d88742405ee9
+Runtime defaults (both): f41565af6b0d91886d0a5f5f7100465f755673f753488517db39a3f1580bc161
+RADV (both): adcba045b5b71b11c3c3bc2ef7305d5726adfd8e7c391879bb7fcecff6992f5a
+big-fella-remote (both): 939711f16b6bc4c580f3865e7a7f383ed27908d261a34c9a599eb7d485727fa9
+big-fella-remote-kodi (both): 0cb8ac603269944bd4d8eca40d9ae5cb9f3bea845c9327cd01f84bf79b6c0be6
+Source bundle: 703e2940922bb28787b6119e07ebb90f447d5574cd794f088c7c6dd4fdc9cd71
+
+Limitations
+- The NUC7 route's mode switch inside a modeset has not run on hardware. If it fails, a DV
+  title shows no picture on that NUC; i915.dv_lspcon=0 restores the 0.3.4 behaviour (DV
+  converted to HDR10).
+- One board, one firmware, one TV. Through a soundbar or AV receiver the route is not tested.
+- NUC7 DV is 4K up to 30 Hz; Kodi's refresh-rate switching must be on for DV titles.
+- HDCP is not supported on the NUC7's DV output (the DP connector's HDCP would use the DP
+  method); Kodi does not use HDCP.
+- "Convert Dolby Vision to HDR10" is still not offered on the converter's DP connectors.
+- The N150's 60p DV (about 40 fps shown) is unchanged.

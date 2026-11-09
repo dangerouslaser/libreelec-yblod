@@ -1,0 +1,24 @@
+YBLOD 0.3.5 brings Dolby Vision to the Intel NUC7i7BN, whose HDMI socket sits behind a MegaChips LSPCON chip.
+
+What changed
+- Intel NUC7i7BNH / NUC7i7BNK (Kaby Lake, board NUC7i7BNB): Dolby Vision now works. In its normal mode the NUC's HDMI chip (MegaChips MCDP2800) drops the Dolby Vision signal, which is why YBLOD 0.3.4 and earlier converted Dolby Vision to HDR10 there. For Dolby Vision, YBLOD now switches the chip to its pass-through mode, so the TV gets the same Dolby Vision signal as from a native HDMI port. When Dolby Vision stops, the chip goes back to its normal mode (4K 60 Hz, HDR10).
+- A volunteer confirmed with the NUC Display Lab test stick that the TV (LG C3) shows Dolby Vision this way, with the correct picture, and that it uses the Dolby Vision metadata sent to it.
+- Everything else is unchanged from 0.3.4: Kodi, both engines, the runtime defaults, Mesa and the add-ons. Only the kernel changed.
+
+Known issues
+- NUC7: Dolby Vision is 4K up to 30 Hz (24p films are fine). The chip's pass-through mode can't carry 4K 60 Hz. Keep Kodi's "Adjust display refresh rate" on, so Dolby Vision titles play at their own frame rate. A Dolby Vision title at 4K 60 Hz won't play as Dolby Vision on this NUC.
+- NUC7: the automatic switch between the chip's two modes during playback is new in this release and hasn't been played on a TV yet (the lab test switched it a different way). If a Dolby Vision title gives a black screen or "No Signal", please report it, and turn the route off with i915.dv_lspcon=0 to get the 0.3.4 behaviour back (Dolby Vision converted to HDR10).
+- Other Kaby Lake NUCs with a MegaChips LSPCON (on the same firmware 1.77) can try it with i915.dv_lspcon=1. That's experimental. NUCs with a Parade LSPCON are not supported and keep Dolby Vision converted to HDR10.
+- On the INUC 11 (and other boxes using the converter route), the "Convert Dolby Vision to HDR10" output mode is still not offered.
+- On an Intel N150, 60p Dolby Vision is still shown at about 40 frames a second (as in 0.3.4).
+
+Turning things off
+i915.dv_lspcon=0 turns the NUC7 route off. i915.dv_pcon=0 turns the INUC 11 converter route off.
+
+If you run 0.3.4
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0).
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
