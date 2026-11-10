@@ -1,0 +1,91 @@
+YBLOD 0.4.0 validation
+
+Build source: feature/yblod-0.4.0 at 1d020cadbce791d5dfaf4e0cd8c9b82302085ef9 (tree 62287331), merged
+into main for the release. Contents:
+- LibreELEC master merged (2026-11-09, upstream/libreelec-20261109): Kodi e4b62810 -> e6192109
+  (312 commits), LLVM 23.1.5, FFmpeg backports (VC-1 parser, MPEG-2 extradata), RPi kernel; the
+  Generic kernel stays Linux 7.3. Kodi patches rebased with context refreshes only.
+- PR #27 (main): linux-9931 v2, the NUC7 LSPCON switch waits for HPD and retries.
+- PR #28: linux-9932 HDR10+ output (i915 display version >= 10, amdgpu HDMI-A), ported from
+  CroqueMr's CB1 linux-9940/9941/9942 (GPL-2.0-or-later). Connector blob HDR10PLUS_METADATA (the
+  31-byte HDMI HDR10+ VSIF), per atomic commit with the frame's primary FB; never together with the
+  Dolby VSIF; allowed in the DV tunnel's hdr10 format (12-bit 4:2:2 on an 8 bpc pipe: max bpc /
+  Colorspace / link depth checks skipped there).
+- PR #30: Vulkan engine ABI 3: EL upscaling Annex B or bilinear (nearest removed); DV -> HDR10+
+  output mode (Master Reference reconstruction without tone mapping, per-frame active-area
+  statistics on the GPU, CB1's curve fit and V0/V1 packing: dvvk_hdr10plus_packet); HDR10+ -> DV
+  (CB1's cb1_hdr10plus_dovi rules: P8.1 AVDOVIMetadata, identity composer, L1 + L6, no invented
+  trims, no L3: stays CM2.9 unless the CM4.0 option adds its blocks; dvvk_hdr10plus_to_dovi);
+  CM4.0 (dm_cm4.c) confirmed equal to CB1 0.5's cb1_cmv40.c.
+- PR #29: Kodi Vulkan only (OpenCL engine, libdv_source_private, the libplacebo compatibility
+  renderer and their packages removed; libplacebo no longer in the image), DV -> HDR10 on Vulkan
+  (yblod-31, from feature/dv-hdr10-output), the new Dolby Vision menu with a settings migration.
+- PR #31: Kodi integration (yblod-33 bilinear + ABI 3, yblod-34 Convert to HDR10+ and HDR10+
+  videos as Dolby Vision), dead OpenCL sources removed from yblod-engine/src.
+
+Images
+Both editions built from 1d020cad in the release tree on Ollie (run-release.sh 0.4.0; the
+standard edition retried at 10 and 6 jobs after running out of memory at 16, as before).
+Compared with 0.3.4 file by file (SYSTEM, both editions identical in shape): 46 files removed
+(OpenCL ICD loader, Intel IGC/OpenCL runtime, the OpenCL kernels in /usr/share/native-dv,
+libplacebo, and old versions of upstream libraries), 35 added (new versions of upstream libraries,
+the CB1 HDR10+ licence notices, the CM4.0 MIT notice), 1141 changed (the upstream update, Kodi,
+the kernel modules, the engine). Images about 75 MB smaller.
+Spot checks in the standard SYSTEM:
+- /usr/lib/libdv_engine_vk.so.1 exports dvvk_hdr10plus_packet, dvvk_hdr10plus_to_dovi,
+  dvvk_set_output_mode; no libdv_source_private, no libOpenCL, no libplacebo.
+- settings.xml's Dolby Vision category: outputmode, elupscaler, dvmetadata, removel2, tvpeak,
+  hdr10plussources, enhancedinfo, the menu-output group, guicache/homecache/halfgui, verify,
+  frametrace, gputiming, settingsversion. None of the removed settings.
+- /usr/lib/kodi/native-dv.env (via kodi.service.d/20-native-dv.conf): Vulkan only, DV_EL_SCALER
+  annexb, DV_VULKAN_CM4 off; no OpenCL variables.
+- KERNEL: identical in both editions and equal to the build tree's bzImage; vmlinux has
+  HDR10PLUS_METADATA and its checks, the NUC7 switch's HPD retry, the NUC7i7BNB and CM11EBV58W
+  allowlists.
+
+Testing
+- Kernel: i915, xe and amdgpu build with -Werror (linux-9931 v2 and linux-9932, also after the
+  hdr10-tunnel change); the full Generic series applies with patch -p1 -F0 to kernel.org 7.3.
+- Kodi: the series applies to Kodi e6192109 with zero fuzz (only LibreELEC's own 1007 has fuzz,
+  unchanged); PR #29's series built and linked in a separate tree; the full series (with #31)
+  built in the release build.
+- Engine (Ollie, UHD 770): cargo test 38 passed (with CB1's ported HDR10+ tests: 16,845 C checks);
+  CPU tests 4/4; golden.sh identical (102 hashes: every Annex B, CB1, MEL and P8.1 hash unchanged
+  from 0.3.4; the former nearest FEL runs replaced by bilinear; new HDR10+ cases), FLIP_Y twins
+  identical (18). New hashes recorded on Ollie only, not the N150.
+  - Bilinear: fused vs staged GPU paths, 120 frames x 3 configurations, 0 differed; GPU time
+    14.4-14.7 ms vs Annex B 13.6-15.0 ms.
+  - HDR10+ statistics vs a CPU reference (1917 FEL, 28 Years Later P8.1, Gemini Man MEL; pictures
+    0/5/11): at most 0.0031 % of pixels in a different 16-nit bin, average maxRGB within 0.0007
+    nit, channel maxima within 6e-7 relative. On all three titles CB1's code rejected the L2
+    trims and the L1 curve fit: they send statistics-only HDR10+ (no curve).
+  - HDR10 output: byte-identical to 0.3.4's engine; against CB1's renderer (~/cb1-hdr10-ref) the
+    largest 12-bit code differences are Y/Cb/Cr 7.5/29.7/18.5 (1917), 9.7/2.3/2.2 (28 Years
+    Later), 2.1/2.1/2.1 (Gemini Man); mean absolute difference at most 1.76.
+- Hardware: NUC7i7BNB + LG OLED55C3, Dolby Vision through the MCDP2800 in level-shifter mode:
+  NUC Display Lab reports #15/#17 (re-probe), then 0.3.5 in Kodi (in-modeset switch: one
+  intermittent failure, then working; the 0.4.0 retry fix is not played). INUC 11 converter route
+  unchanged from 0.3.4.
+- NOT tested on a display: HDR10+ output, DV -> HDR10+, HDR10+ -> DV (and no dovi_tool check of
+  its metadata), bilinear EL, DV -> HDR10 through the Vulkan engine in Kodi, the Vulkan-only
+  start-failure path, the new menu. This release image was not played on a TV.
+
+SHA256
+Standard update tar: 650ff31c28a3efd17f094499ce586eb6d5e98a5256dca3418e2a199fb7eaa40a
+Standard install img.gz: 53da1a3d88de60dc5a2e63eb626fcf33e449a4e003d9e3f00067898fd8fc05d7
+Standard SYSTEM: 9586427a1537846d4f7485e7131d174a043ae2101897f985975d3ed9d3a89b27
+LG update tar: 2ff609ed2cd5c1bb97f0e8681c52e2462ed8ae1f87f3a3581c8c28d86756d937
+LG install img.gz: 6eea4c121a0ad2ae05866d08973345ceb074e74e7555978067db4deb3b6684b3
+LG SYSTEM: b1bb535d52ae0d2fd4e7c42cd264bb4a446c7cea5b53f742be478e81466e8da8
+KERNEL (both): fcd4dbc7bea2e32fd48e20a28a1bcd011738d882dd7aa470a10e620d9e0fa02f
+Kodi (both): d3b50e4ad32871f253650f5b1b803d63651fddd721a3b08759ec2799c0ddbfa3
+Vulkan engine (both): 47fd299724888dfce94e99647b12e25b9adc17d4187b1ae462dda678da6929bf
+Source bundle: fee8daa0427307ed6a5cadc85e4df900d77a880ab808b38f5f90d156f588ae54
+
+Limitations
+- No HDR10+ TV was available: HDR10+ output and both HDR10+ conversions are software-verified only.
+- The release image itself was not played on a TV.
+- HDR10 / HDR10+ outputs are native HDMI only; converter routes (INUC 11, NUC7) offer Dolby Vision
+  only.
+- If the Vulkan engine cannot start there is no Dolby Vision rendering (plain base layer).
+- The N150's 60p DV (about 40 fps shown) is unchanged.

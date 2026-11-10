@@ -1,0 +1,30 @@
+YBLOD 0.4.0 runs Dolby Vision on YBLOD's Vulkan engine only, adds Dolby Vision to HDR10 and HDR10+ conversions and HDR10+ to Dolby Vision, CM4.0 metadata, a choice of enhancement-layer upscaling, and a rebuilt Dolby Vision settings page.
+
+What changed
+- One engine: Dolby Vision is now always rendered by YBLOD's Vulkan engine. The older OpenCL engine and the compatibility renderer are gone, with their settings and about 75 MB of image size. If the Vulkan engine can't start on a PC, Kodi says so once and plays the video without Dolby Vision processing.
+- Dolby Vision to HDR10: "Convert Dolby Vision to HDR10" now uses the Vulkan engine's Master Reference conversion, sent through the Dolby Vision tunnel. Offered on native HDMI ports of Intel 12th generation and newer (and AMD) whose TV supports HDR10.
+- Dolby Vision to HDR10+ (new): for HDR10+ TVs. The engine measures every frame and sends HDR10+ dynamic metadata with it. Offered only when the TV reports HDR10+ support.
+- HDR10+ to Dolby Vision (new): Settings > Player > Dolby Vision > "HDR10+ videos": Native (default) or Dolby Vision. With Dolby Vision, HDR10+ videos play as Dolby Vision on a Dolby Vision TV, with brightness information derived from the video's HDR10+ data.
+- CM4.0: optional conversion of Dolby Vision CM2.9 metadata to CM4.0 ("Dolby Vision metadata": Original, CM4.0 auto, CM4.0 always), removal of L2 trims, and a TV peak brightness setting. Off by default.
+- Enhancement-layer upscaling: Annex B (Master Reference, the default) or Bilinear. The old nearest-neighbour option is gone.
+- Rebuilt Dolby Vision settings page: only settings YBLOD applies. Settings that no longer exist are removed from your saved settings automatically.
+- Intel NUC7i7BN: Dolby Vision through the NUC's HDMI chip (MegaChips MCDP2800), switched to pass-through mode for Dolby Vision titles (4K up to 30 Hz). The switch now waits for the TV, which could briefly drop its connection signal. This first shipped in 0.3.5, which was not published to the update channels.
+- Based on the current LibreELEC master: Kodi e6192109 (312 upstream commits, among them audio fixes when streams are flushed, DTS-HD detection, a fix for the vblank clock during modesets, and two buffer overflow fixes), LLVM 23.1.5 and FFmpeg backports.
+
+Known issues
+- HDR10+ output and both HDR10+ conversions have not been tested on an HDR10+ TV (none was available). Dolby Vision to HDR10+ may send HDR10+ statistics without a tone curve on darker films; the TV then uses its own mapping.
+- HDR10 and HDR10+ outputs need a native HDMI port. On PCs whose HDMI socket is a converter chip (INUSUAL INUC 11, Intel NUC7i7BN) only Dolby Vision is offered.
+- Bilinear upscaling, Dolby Vision to HDR10 through the Vulkan engine and HDR10+ to Dolby Vision have been checked in software but not yet played on a TV in this release.
+- NUC7i7BN: Dolby Vision is 4K up to 30 Hz; keep "Adjust display refresh rate" on. On 0.3.5 the automatic mode switch worked for one volunteer after an occasional failure to switch; 0.4.0's fix for that failure has not been played yet.
+- On an Intel N150, 60p Dolby Vision is still shown at about 40 frames a second.
+
+Turning things off
+Settings > Player > Dolby Vision > Output mode. i915.dv_lspcon=0 turns the NUC7 route off; i915.dv_pcon=0 the INUC 11 converter route.
+
+If you run 0.3.4
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). Check Settings > Player > Dolby Vision after updating: removed settings are dropped, new ones start at their defaults.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
