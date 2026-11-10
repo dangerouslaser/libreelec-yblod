@@ -52,6 +52,23 @@ later, amdgpu), progressive 3840 × 2160, and the Vulkan engine with HDR10
 output. A Dolby Vision EDID is not needed. Not on the converter routes
 (condition 2).
 
+## Conditions for HDR10+ output (Convert to HDR10+)
+
+Everything Convert to HDR10 needs, plus: the connector's `HDR10PLUS_METADATA`
+property (linux-9932: i915 HDMI connectors on display version 10 and later
+and amdgpu HDMI-A connectors; never the DP connectors of the converter
+routes), an HDR10+ Vendor-Specific Video Data Block in the TV's EDID (Kodi
+reads its application version and sends packets of that version), and the
+Vulkan engine with HDR10+ output. LG TVs have no HDR10+; Samsung, and
+Panasonic/Philips models with HDR10+, do. Untested on hardware so far.
+
+## HDR10+ videos as Dolby Vision
+
+The Dolby Vision output's conditions above (a Standard Dolby Vision TV,
+3840 × 2160, hardware decoding through VAAPI), an engine with
+`dvvk_hdr10plus_to_dovi`, and an HDR10+ video with one processing window per
+picture. No HDR10+ support is needed in the TV.
+
 The driver policy accepts CTA 24/25/30/50/60 Hz timings and their fractional
 variants, including 23.976 Hz. Acceptance is not a performance certification at
 every rate. Kodi's renderer currently uses a 4K transport raster; a lower

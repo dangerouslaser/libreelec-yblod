@@ -1,0 +1,48 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 12cefc6..3648db0 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -303,9 +303,6 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   //  bilinear yblod's own processing with the bilinear EL pass, for every picture.
+   m_cb1 = MasterReference();
+   m_elScaler = m_cb1 ? kElScalerAnnexB : kElScalerBilinear;
+-  if (!m_cb1 && kElScalerBilinear == kElScalerAnnexB)
+-    CLog::Log(LOGWARNING, "Vulkan engine: no bilinear enhancement layer pass in this engine yet; "
+-              "Annex B without the Master Reference processing");
+   m_fel = !EnvIs("DV_FEL", "0");
+   m_async = !EnvIs("DV_VULKAN_ASYNC", "0");
+   m_dmOptions = DmOptions();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 9e3874f..da876a3 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -21,15 +21,11 @@ class CDVPrivateVulkan
+ {
+ public:
+   static constexpr int DV_VULKAN_FAILED = -8; // dv_status DV_BACKEND
+-  /* dvvk_plan_in.el_scaler: the Annex B EL filter.
+-   * TODO(0.4.0 workstream B, engine): the engine's bilinear EL method. The
+-   * engine agent defines it (plan.el_scaler becomes the method); until then
+-   * this is the Annex B value, so "Bilinear" is yblod's own processing
+-   * (cb1_contract off) with the Annex B EL. Replace with the engine's
+-   * constant (e.g. DVVK_EL_SCALER_BILINEAR) and re-check kElScalerAnnexB
+-   * against its definition when the engine's ABI changes. */
+-  static constexpr uint32_t kElScalerAnnexB = 1;
+-  static constexpr uint32_t kElScalerBilinear = kElScalerAnnexB; // TODO: engine bilinear value
++  /* dvvk_plan_in.el_scaler (ABI 3): the enhancement layer upscale. Annex B
++   * (the Master Reference filters; forced by cb1_contract) or bilinear. */
++  static_assert(DVVK_ABI_VERSION == 3, "Kodi's el_scaler values are those of engine ABI 3");
++  static constexpr uint32_t kElScalerAnnexB = DVVK_EL_ANNEXB;
++  static constexpr uint32_t kElScalerBilinear = DVVK_EL_BILINEAR;
+   /* The engine library loads with Kodi's ABI and has not failed to start. */
+   static bool Usable();
+   /* The engine library has HDR10 output (dvvk_set_output_mode and
+@@ -111,7 +107,7 @@ private:
+   bool m_guiShown{false}, m_async{true};
+   bool m_guiDirect{false}; // the engine reads Kodi's GUI framebuffer in place
+   uint64_t m_guiId{0}, m_ticket{0};
+-  unsigned m_elScaler{1}, m_reports{0}, m_colourReports{0}, m_rangeReports{0};
++  unsigned m_elScaler{kElScalerAnnexB}, m_reports{0}, m_colourReports{0}, m_rangeReports{0};
+   bool m_fel{true};
+   bool m_failed{false}; // a checked reset failed: no more frames until Close
+   // CM4 / L2 options for every frame (DV_VULKAN_CM4, DV_VULKAN_NO_L2), and
