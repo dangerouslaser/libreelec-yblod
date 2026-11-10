@@ -41,7 +41,7 @@ static dv_status settings_from_ffmpeg(const void *data,size_t bytes,unsigned wid
                                  dv_single_reshape *single,int source_transport,unsigned sample_depth)
 {
     if(!data||!out||!source_dm||!source_bytes||bytes<sizeof(AVDOVIMetadata)||
-       !width||!height||width>4096||height>4096||width%4||height%4)return DV_INVALID;
+       !width||!height||width>4096||height>4096||width%2||height%2)return DV_INVALID;
     const unsigned char *raw=data;AVDOVIMetadata metadata;memcpy(&metadata,data,sizeof(metadata));
     if(!span(metadata.header_offset,sizeof(AVDOVIRpuDataHeader),bytes)||
        !span(metadata.mapping_offset,sizeof(AVDOVIDataMapping),bytes)||

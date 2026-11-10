@@ -1,0 +1,95 @@
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index bdeef3b..17b5973 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -106,12 +106,16 @@ bool CDVBridgeGLES::SourceEligible(const Layer& base, const AVFrame* enhancement
+   const bool paired = enhancement || base.pairedSiting;
+   // 8-bit bases: single-layer pictures sited left only.
+   const bool allowNV12 = !paired && base.chromaPosition == AVCHROMA_LOC_LEFT;
++  // As the engine: 4:2:0 sizes are even (cropped encodes such as 3840x1746); an enhancement
++  // layer (half size, 4:2:0 itself) or a scaled picture needs multiples of 4.
++  const bool scaled = geometry.width != base.width || geometry.height != base.height;
++  const int align = paired || scaled ? 4 : 2;
+   return base.width > 0 && base.width <= 3840 && base.height > 0 && base.height <= 2160 &&
+-      base.width % 4 == 0 && base.height % 4 == 0 &&
++      base.width % align == 0 && base.height % align == 0 &&
+       (base.format == Format::P010 || (allowNV12 && base.format == Format::NV12)) &&
+       geometry.x >= 0 && geometry.y >= 0 && geometry.x % 2 == 0 && geometry.y % 2 == 0 &&
+       geometry.width > 0 && geometry.width <= 3840 && geometry.height > 0 && geometry.height <= 2160 &&
+-      geometry.width % 4 == 0 && geometry.height % 4 == 0 &&
++      geometry.width % align == 0 && geometry.height % align == 0 &&
+       geometry.x <= 3840 - geometry.width && geometry.y <= 2160 - geometry.height &&
+       (paired || base.chromaPosition == AVCHROMA_LOC_TOPLEFT ||
+        base.chromaPosition == AVCHROMA_LOC_LEFT) &&
+@@ -126,6 +130,10 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+   m_sourceFrame = false;
+   m_prepared = m_packed = false;
+   m_graphicsFrame = false;
++  // A 4:2:0 picture starts on an even row and column (each chroma sample covers two of
++  // each); centring 1746 rows on 2160 gives row 207, so it moves up one.
++  geometry.x &= ~1;
++  geometry.y &= ~1;
+   if (SourceEligible(base, enhancement, geometry))
+   {
+     if (!m_source) m_source = new CDVPrivateSource;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 16c149d..09a28de 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -891,6 +891,19 @@ bool NativeDVEligible(bool source, bool software, bool interlaced, bool stereo)
+ }
+ } // namespace
+ 
++namespace
++{
++// The picture sizes the Vulkan engine takes (CDVBridgeGLES::SourceEligible unscaled): decided
++// when the video opens, so another size plays as the base layer instead of not at all. An
++// unknown size is left to the per-picture check.
++bool SourceSizeSupported(unsigned width, unsigned height, bool enhancement)
++{
++  const unsigned align = enhancement ? 4 : 2;
++  return !width || !height ||
++         (width <= 3840 && height <= 2160 && width % align == 0 && height % align == 0);
++}
++} // namespace
++
+ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
+ {
+   if (!(stream.codecOptions & CODEC_FORCE_SOFTWARE))
+@@ -900,12 +913,17 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
+         stream.dovi.bl_present_flag, stream.dovi.el_present_flag, stream.dovi.rpu_present_flag);
+     StreamTelemetry::StaticMetadata(stream.masteringMetadata.get(), stream.contentLightMetadata.get());
+   }
+-  const bool eligible = NativeDVEligible(stream.dovi.dv_profile != 0,
++  const bool sized = SourceSizeSupported(stream.width, stream.height, stream.dovi.dv_profile == 7);
++  const bool eligible = sized && NativeDVEligible(stream.dovi.dv_profile != 0,
+                           (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0,
+                           stream.interlaced, !stream.stereo_mode.empty());
++  if (stream.dovi.dv_profile && !sized)
++    CLog::Log(LOGWARNING, "DVBridge: the Vulkan engine does not take {}x{} Dolby Vision pictures; playing the base layer",
++              stream.width, stream.height);
+   if (stream.dovi.dv_profile && DiagnosticsEnabled())
+-    CLog::Log(LOGINFO, "DVBridge stream candidate: profile={} level={} compatibility={} native_eligible={} software={} interlaced={} stereo={} mode={} (selection probe, not active output)",
+-        stream.dovi.dv_profile, stream.dovi.dv_level, stream.dovi.dv_bl_signal_compatibility_id, eligible,
++    CLog::Log(LOGINFO, "DVBridge stream candidate: profile={} level={} compatibility={} size={}x{} native_eligible={} software={} interlaced={} stereo={} mode={} (selection probe, not active output)",
++        stream.dovi.dv_profile, stream.dovi.dv_level, stream.dovi.dv_bl_signal_compatibility_id,
++        stream.width, stream.height, eligible,
+         (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0, stream.interlaced,
+         !stream.stereo_mode.empty(), static_cast<int>(playbackMode.load()));
+   return eligible;
+@@ -943,9 +961,12 @@ bool DVBRIDGE::VideoModesetExpected()
+ 
+ bool DVBRIDGE::WantsNativeOutput(const VideoPicture* picture)
+ {
+-  return picture && NativeDVEligible(picture->doviMetadata.Data() != nullptr, false,
+-                                     (picture->iFlags & DVP_FLAG_INTERLACED) != 0,
+-                                     !picture->stereoMode.empty());
++  return picture &&
++         SourceSizeSupported(picture->iWidth, picture->iHeight,
++                             picture->doviEnhancement || picture->doviElSkipped) &&
++         NativeDVEligible(picture->doviMetadata.Data() != nullptr, false,
++                          (picture->iFlags & DVP_FLAG_INTERLACED) != 0,
++                          !picture->stereoMode.empty());
+ }
+ 
+ bool CWinSystemGbmGLESContext::DVBridgeRequested(const VideoPicture* picture)

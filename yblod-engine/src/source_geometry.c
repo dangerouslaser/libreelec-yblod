@@ -4,8 +4,10 @@ static int destination_valid(const dv_source_geometry *g,unsigned width,unsigned
 {
     return g&&g->chroma_siting<=DV_SOURCE_CHROMA_TOP_LEFT&&g->width&&g->height&&g->canvas_width&&g->canvas_height&&
         g->width<=4096&&g->height<=4096&&g->canvas_width<=4096&&g->canvas_height<=4096&&
-        !(g->width%4)&&!(g->height%4)&&!(g->canvas_width%4)&&!(g->canvas_height%4)&&
-        width&&height&&!(width%4)&&!(height%4)&&
+        !(g->canvas_width%4)&&!(g->canvas_height%4)&&width&&height&&
+        /* 4:2:0 needs even sizes; a scaled picture (resize maps) keeps multiples of 4 */
+        (width==g->width&&height==g->height ? !(width%2)&&!(height%2)
+         : !(g->width%4)&&!(g->height%4)&&!(width%4)&&!(height%4))&&
         !(g->x%2)&&!(g->y%2)&&width<=g->canvas_width&&height<=g->canvas_height&&
         g->x<=g->canvas_width-width&&g->y<=g->canvas_height-height;
 }

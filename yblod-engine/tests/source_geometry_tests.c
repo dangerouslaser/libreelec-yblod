@@ -34,6 +34,22 @@ static void overlay_tests(void)
     assert(dv_source_overlay_metadata(dm,104,1,0)&&!memcmp(dm,saved,sizeof(dm)));
     puts("{\"overlay_L5_transitions\":true,\"source_preserved\":true,\"malformed_rejected\":true}");
 }
+static void even_size_tests(void)
+{
+    /* Cropped encodes: 4:2:0 sizes are even, not always multiples of 4. */
+    const unsigned sizes[][2]={{3840,1746},{3840,1606},{1920,1038},{3834,1600}};
+    for(unsigned i=0;i<sizeof(sizes)/sizeof(sizes[0]);++i){
+        dv_source_geometry g={sizes[i][0],sizes[i][1],3840,2160,0,0,DV_SOURCE_CHROMA_TOP_LEFT,0,0};
+        g.x=(3840-g.width)/2&~1u;g.y=(2160-g.height)/2&~1u;
+        assert(dv_source_geometry_valid(&g));
+        g.y|=1;assert(!dv_source_geometry_valid(&g));g.y&=~1u;
+        g.height-=1;assert(!dv_source_geometry_valid(&g));g.height+=1;
+        /* scaled pictures keep multiples of 4 (resize maps) */
+        g.destination_width=g.width;g.destination_height=g.height+2;
+        assert(!dv_source_geometry_valid(&g));
+    }
+    puts("{\"even_sizes\":true,\"odd_placement_rejected\":true,\"scaled_multiple_of_4\":true}");
+}
 static void scaling_tests(void)
 {
     dv_source_geometry g={3840,2080,3840,2160,0,42,DV_SOURCE_CHROMA_CENTER_LEFT,0,0};
@@ -102,5 +118,6 @@ int main(void)
     g.chroma_siting=2;assert(!dv_source_geometry_valid(&g));assert(dv_source_place_metadata(&g,dm,&n)&&n==71&&!memcmp(dm,saved,sizeof(dm)));
     puts("{\"geometry_translation\":true,\"existing_and_missing_L5\":true,\"unchanged_on_rejection\":true,\"identity_unchanged\":true}");
     scaling_tests();
+    even_size_tests();
     overlay_tests();
 }
