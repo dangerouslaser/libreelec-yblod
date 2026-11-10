@@ -19,4 +19,6 @@ IOSchedulingClass=idle
 TimeoutStartSec=15min
 
 [Install]
-WantedBy=multi-user.target
+# kodi.target, as kodi.service: under multi-user.target, After=kodi.service is
+# an ordering cycle (Kodi starts after graphical.target) and the job is dropped.
+WantedBy=kodi.target
