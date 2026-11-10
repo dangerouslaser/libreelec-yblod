@@ -321,7 +321,7 @@ int main(int argc, char **argv)
     if (!file || (use_overlay && !overlay_path))
         return fprintf(stderr, "usage: dvvk-bench [options] FILE (see the source)\n"), 2;
     if (have_dest)
-        dx &= ~1u, dy &= ~1u, dwid &= ~3u, dhei &= ~3u;
+        dx &= ~1u, dy &= ~1u, dwid &= ~1u, dhei &= ~1u;
 
     const char *node = getenv("DVVK_NODE") ? getenv("DVVK_NODE") : "/dev/dri/renderD128";
     struct dv_decoder dec;
@@ -437,7 +437,7 @@ int main(int argc, char **argv)
             int x0 = (int)lround((3840 - w * scale) / 2), y0 = (int)lround((2160 - h * scale) / 2);
             int x1 = (int)lround((3840 + w * scale) / 2), y1 = (int)lround((2160 + h * scale) / 2);
             x = (unsigned)x0 & ~1u, y = (unsigned)y0 & ~1u;
-            dw = (unsigned)(x1 - (int)x) & ~3u, dh = (unsigned)(y1 - (int)y) & ~3u;
+            dw = (unsigned)(x1 - (int)x) & ~1u, dh = (unsigned)(y1 - (int)y) & ~1u;
         }
         int nv12 = ((AVHWFramesContext *)p.bl->hw_frames_ctx->data)->sw_format == AV_PIX_FMT_NV12;
         int top_left = p.bl->chroma_location == AVCHROMA_LOC_TOPLEFT;

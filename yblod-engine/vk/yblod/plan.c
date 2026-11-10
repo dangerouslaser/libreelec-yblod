@@ -605,7 +605,8 @@ int dvvk_plan_frame_state(const dvvk_plan_in *in, const dvvk_plan_desktop *deskt
     unsigned w = in->width, h = in->height, depth = in->nv12 ? 8 : 10;
     /* DV_SINGLE_FULL_HEIGHT; CB1 reshapes at 4:2:0 and resamples the result */
     int contract = in->cb1_contract != 0, nv12 = in->nv12 != 0, full = !nv12 && !contract;
-    if (!dv_source_geometry_valid(&g))
+    /* the EL is half size and 4:2:0 itself: its base layer in multiples of 4 */
+    if (!dv_source_geometry_valid(&g) || (in->has_el && (w % 4 || h % 4)))
         return DV_INVALID;
     unsigned dw = dv_source_destination_width(&g), dh = dv_source_destination_height(&g);
     int resized = dw != w || dh != h;
