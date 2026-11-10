@@ -1,0 +1,39 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+#
+# Builds the Vulkan engine's pipeline cache once per image and GPU, so the
+# first Dolby Vision title after an update starts at once instead of after the
+# engine's shader compilation (about 50 s on Tiger Lake, longer on an N150).
+# yblod-dv-prepare.service runs it at boot at idle priority, alongside Kodi.
+#
+# dvvk-prepare creates the installed engine with every pack variant built
+# eagerly (no video, no display) and exits; the engine saves its pipeline
+# cache to $XDG_CACHE_HOME/dv-engine-vk (~/.cache without it), the file Kodi's
+# engine reads. Mesa's own shader cache fills on the way.
+#
+# The marker holds the image (VERSION and BUILD_ID) and the render devices; a
+# new image or GPU makes it run again. If the engine can't start (no Vulkan
+# GPU), it leaves no marker and Kodi builds the cache on first use as before.
+
+cache="${XDG_CACHE_HOME:-${HOME:-/storage}/.cache}/dv-engine-vk"
+marker="${cache}/.prepared"
+
+. /etc/os-release
+id="${VERSION} ${BUILD_ID}"
+for d in /sys/class/drm/renderD*/device; do
+  [ -r "${d}/vendor" ] && id="${id} $(cat "${d}/vendor"):$(cat "${d}/device")"
+done
+
+if [ -f "${marker}" ] && [ "$(cat "${marker}")" = "${id}" ]; then
+  exit 0
+fi
+
+mkdir -p "${cache}"
+start=$(cut -d. -f1 /proc/uptime)
+if /usr/lib/yblod/dvvk-prepare >/dev/null; then
+  echo "${id}" > "${marker}"
+  echo "dv-prepare: Dolby Vision engine pipelines ready in $(($(cut -d. -f1 /proc/uptime) - start)) s"
+else
+  echo "dv-prepare: the Vulkan engine did not start (status $?); Kodi builds its pipelines on first use" >&2
+fi
+exit 0
