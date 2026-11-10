@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT
+# Builds the Dolby Vision engine's pipeline cache after an update (dv-prepare),
+# at idle priority after Kodi has started, so it never delays the menu.
+[Unit]
+Description=Prepare the Dolby Vision engine after an update
+After=kodi.service
+ConditionPathExists=/usr/lib/libdv_engine_vk.so.1
+
+[Service]
+Type=oneshot
+# The engine and Mesa key their caches on the same environment as Kodi's.
+Environment=HOME=/storage
+EnvironmentFile=/usr/lib/kodi/native-dv.env
+EnvironmentFile=-/storage/.config/native-dv.env
+ExecStart=/usr/lib/yblod/dv-prepare
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+TimeoutStartSec=15min
+
+[Install]
+WantedBy=multi-user.target
