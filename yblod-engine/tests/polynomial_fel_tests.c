@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
-int dv_nearest_scale2x(const uint16_t *,size_t,unsigned,unsigned,uint16_t *,size_t);
+int dv_bilinear_scale2x(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t,uint16_t *,size_t);
 int dv_annex_b_scale2x(const uint16_t *,size_t,unsigned,unsigned,unsigned,uint16_t *,size_t,uint16_t *,size_t);
 int dv_reference_chroma_batch(const dv_intel_composer_config *,unsigned,size_t,
     const uint16_t *,const uint16_t *,const uint16_t *,const uint16_t *,
@@ -82,20 +82,40 @@ int main(void)
     cfg.component[1].polynomial_order[0]=3;
     assert(dv_prepare_polynomial_component(&cfg,1,table,residuals)==-1);
     for(unsigned i=0;i<1024;++i)assert(table[i]==0x5555&&residuals[i]==0x55555555);
-    /* big-fella: nearest-neighbour EL upscale repeats each sample over its
-     * 2x2 block; the Annex B filter differs from it on odd samples only
-     * where neighbours differ, and agrees on flat input. */
-    {enum {w=6,h=4};uint16_t in[w*h],near[4*w*h],annex[4*w*h],scratch[w];
+    /* YBLOD 0.4.0: the bilinear EL upscale (DVVK_EL_BILINEAR's CPU
+     * reference) against its definition: vertically (3 near + far) / 4 for
+     * luma and Annex B's 64/192 rows for chroma, horizontally the EL sample
+     * on even columns and the rounded mean of two on odd ones, edges
+     * clamped; invalid shapes and samples are refused; on flat input it
+     * agrees with the Annex B filter. */
+    {enum {w=6,h=4};uint16_t in[w*h],bilinear[4*w*h],annex[4*w*h],scratch[w];
      for(unsigned i=0;i<w*h;++i)in[i]=(uint16_t)(100+37*i%900);
-     assert(!dv_nearest_scale2x(in,w*h,w,h,near,4*w*h));
-     for(unsigned y=0;y<2*h;++y)for(unsigned x=0;x<2*w;++x)assert(near[y*2*w+x]==in[(y/2)*w+x/2]);
-     assert(dv_nearest_scale2x(in,w*h,w,h,near,4*w*h-1)==-1);
-     in[0]=1024;assert(dv_nearest_scale2x(in,w*h,w,h,near,4*w*h)==-1);
-     for(unsigned i=0;i<w*h;++i)in[i]=777;
-     assert(!dv_nearest_scale2x(in,w*h,w,h,near,4*w*h));
      for(unsigned chroma=0;chroma<2;++chroma){
+         assert(!dv_bilinear_scale2x(in,w*h,w,h,chroma,scratch,w,bilinear,4*w*h));
+         for(unsigned y=0;y<2*h;++y){
+             unsigned row=y/2,far=(y%2)?(row+1<h?row+1:h-1):(row?row-1:0);
+             uint16_t column[w];
+             for(unsigned x=0;x<w;++x){
+                 int64_t n=in[row*w+x],f=in[far*w+x];
+                 column[x]=(uint16_t)(chroma?(192*n+64*f+128)/256:(3*n+f+2)/4);
+             }
+             for(unsigned x=0;x<2*w;++x){
+                 unsigned ix=x/2,next=ix+1<w?ix+1:w-1;
+                 uint16_t expected=(x%2)?(uint16_t)((column[ix]+column[next]+1)/2):column[ix];
+                 assert(bilinear[y*2*w+x]==expected);
+             }
+         }
+     }
+     assert(dv_bilinear_scale2x(in,w*h,w,h,0,scratch,w,bilinear,4*w*h-1)==-1);
+     assert(dv_bilinear_scale2x(in,w*h,w,h,2,scratch,w,bilinear,4*w*h)==-1);
+     assert(dv_bilinear_scale2x(in,w*h,w,h,0,scratch,w-1,bilinear,4*w*h)==-1);
+     in[0]=1024;assert(dv_bilinear_scale2x(in,w*h,w,h,0,scratch,w,bilinear,4*w*h)==-1);
+     for(unsigned i=0;i<w*h;++i)in[i]=777;
+     for(unsigned chroma=0;chroma<2;++chroma){
+         assert(!dv_bilinear_scale2x(in,w*h,w,h,chroma,scratch,w,bilinear,4*w*h));
          assert(!dv_annex_b_scale2x(in,w*h,w,h,chroma,scratch,w,annex,4*w*h));
-         assert(!memcmp(near,annex,sizeof(near)));}}
-    puts("polynomial FEL: 6291456 BL/EL combinations matched; residual retained; nearest EL scaler checked");
+         assert(!memcmp(bilinear,annex,sizeof(bilinear)));
+         for(unsigned i=0;i<4*w*h;++i)assert(bilinear[i]==777);}}
+    puts("polynomial FEL: 6291456 BL/EL combinations matched; residual retained; bilinear EL scaler checked");
     return 0;
 }

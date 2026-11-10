@@ -11,9 +11,8 @@ tunnel picture with matching metadata for TV-led output, or converts to HDR10.
 Its `build.rs` compiles YBLOD's host C from `src/` (tables, the metadata
 serializer, `dv_ffmpeg_metadata.c`, plan inputs). The OpenCL engine
 (`libdv_source_private`, OpenCL kernels and runtime packages) and the
-libplacebo compatibility renderer in Kodi were removed in 0.4.0; their
-sources in `src/` that the Vulkan build does not use are left to the engine
-work (0.4.0 workstream A, engine side).
+libplacebo compatibility renderer in Kodi were removed in 0.4.0, and so were
+their sources in `src/` and the OpenCL GPU tests in `tests/`.
 
 Everything specific to the Dolby Vision pipeline lives in this folder: the engine
 (`src/`, `tests/`, `integration/`), its patches for Kodi, FFmpeg, libplacebo and the

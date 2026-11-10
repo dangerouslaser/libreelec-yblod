@@ -1,9 +1,12 @@
 # Source scope and references
 
-This is a selected source export of the project's C/OpenCL implementation,
-not a transfer of its development repository or all diagnostic tooling.
-The build lists its translation units explicitly. The installed resources
-are the five shaders named in `CMakeLists.txt`.
+This is a selected source export of the project's C implementation (the
+host C the Vulkan engine compiles, `vk/build.rs`), not a transfer of its
+development repository or all diagnostic tooling. The build lists its
+translation units explicitly. The OpenCL engine (`opencl_backend.c`,
+`dv_engine.c`, `dv_source_renderer.c`, the `*.cl` kernels) was removed in
+YBLOD 0.4.0; the Vulkan shaders in `vk/shaders` took over their GPU work and
+cite them where they port them.
 
 Implementation references and boundaries:
 
@@ -19,14 +22,16 @@ Implementation references and boundaries:
 - `dv_cm4.c` cross-checks extension grammar against quietvoid's `dovi_tool`.
   It preserves the supplied fields while changing their representation; it
   does not implement the display's content-mapping algorithm.
-- `source_tunnel.cl` packs the reconstructed samples; CPU code packetizes the
+- The tunnel packing (the Vulkan engine's `pack.comp`, formerly OpenCL
+  `source_tunnel.cl`) packs the reconstructed samples; CPU code packetizes the
   accompanying metadata. The protocol basis is ETSI sections 6.3 and 6.4.
   The source representation and frame-bound metadata must agree. Merely
   engaging a TV's Dolby Vision mode is not an accuracy test.
-- `source_overlay.c`/`.cl` transform premultiplied sRGB GUI colours into the
+- `source_overlay.c` transforms premultiplied sRGB GUI colours into the
   current source domain. The movie does not take an extra RGB round trip.
-- `dv_scanout_slots.c`, geometry helpers, and renderer/backend code implement
-  this project's buffer ownership, validation and OpenCL/VAAPI integration.
+- `dv_scanout_slots.c` and the geometry helpers implement this project's
+  buffer ownership and validation. Kodi carries its own copy of the scanout
+  slots (yblod-29, `dv_scanout_slots.cpp`); the CPU test here checks the C.
 
 - YBLOD 0.4.0: `pixel_spatial.c` also has the bilinear EL upsampling
   (`dv_bilinear_scale2x`, the Vulkan engine's `DVVK_EL_BILINEAR` reference;
