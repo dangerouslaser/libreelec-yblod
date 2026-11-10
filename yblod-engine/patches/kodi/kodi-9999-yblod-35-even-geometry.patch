@@ -1,5 +1,5 @@
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
-index bdeef3b..17b5973 100644
+index bdeef3b..e4eabe8 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
 @@ -106,12 +106,16 @@ bool CDVBridgeGLES::SourceEligible(const Layer& base, const AVFrame* enhancement
@@ -21,10 +21,35 @@ index bdeef3b..17b5973 100644
        geometry.x <= 3840 - geometry.width && geometry.y <= 2160 - geometry.height &&
        (paired || base.chromaPosition == AVCHROMA_LOC_TOPLEFT ||
         base.chromaPosition == AVCHROMA_LOC_LEFT) &&
-@@ -126,6 +130,10 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+@@ -119,13 +123,34 @@ bool CDVBridgeGLES::SourceEligible(const Layer& base, const AVFrame* enhancement
+       base.pts >= -9223372036854775808.0 && base.pts < 9223372036854775808.0;
+ }
+ 
+-bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancement,
++bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhancement,
+                                   const CDVMetadataBuffer& metadata, dvbridge_geometry geometry,
+                                   const DVPrivateOverlay* overlay)
+ {
    m_sourceFrame = false;
    m_prepared = m_packed = false;
    m_graphicsFrame = false;
++  Layer base = decoded;
++  // The engine scales in multiples of 4: a scaled single-layer picture (1920x1038 to 4K, or
++  // 3834 wide to 3840) leaves out its last 1-3 rows and columns, and its rectangle shrinks
++  // to match around the same centre. An unscaled picture keeps every row.
++  if ((geometry.width != base.width || geometry.height != base.height) && !enhancement &&
++      !base.pairedSiting && base.width > 0 && base.height > 0)
++  {
++    const int width = base.width & ~3, height = base.height & ~3;
++    const int dw = static_cast<int>(std::lround(static_cast<double>(geometry.width) * width / base.width)) & ~3;
++    const int dh = static_cast<int>(std::lround(static_cast<double>(geometry.height) * height / base.height)) & ~3;
++    geometry.x += (geometry.width - dw) / 2;
++    geometry.y += (geometry.height - dh) / 2;
++    geometry.width = dw;
++    geometry.height = dh;
++    base.width = width;
++    base.height = height;
++  }
 +  // A 4:2:0 picture starts on an even row and column (each chroma sample covers two of
 +  // each); centring 1746 rows on 2160 gives row 207, so it moves up one.
 +  geometry.x &= ~1;
