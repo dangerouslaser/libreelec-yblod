@@ -51,8 +51,32 @@ pictures when `DV_VULKAN_CB1=1` (on in runtime.env); scaled pictures, and the
 OpenCL engine, stay yblod's own. The code forks on `cb1_contract` in
 `yblod/plan.c` and on `chroma_filter` / `ANNEXB` in `shaders/pack.comp`.
 
+**YBLOD 0.4.0** (ABI 3, soname still `.so.1`; the layouts are unchanged):
+- *EL upsampling: Annex B or bilinear.* `dvvk_plan_in.el_scaler` is
+  `DVVK_EL_ANNEXB` (1) or `DVVK_EL_BILINEAR` (2); nearest neighbour (0) is
+  gone and refused (`DV_INVALID`). Bilinear is 2-tap linear interpolation at
+  Annex B's sample phases (`shaders/common/dv_common.glsl` `el_bilinear_*`,
+  the push constant `el_method` in every FEL shader and the pack); its CPU
+  reference is `dv_bilinear_scale2x` in `../src/pixel_spatial.c`. Bilinear
+  FEL takes the fused route (`fel_chroma` + the pack's luma), Annex B stays
+  staged; `cb1_contract` is always Annex B. golden.sh: every Annex B hash
+  unchanged, the former nearest runs now bilinear (`fel-bl*`, recorded on
+  Ollie's UHD 770; DVVK_VERIFY fused = staged).
+- *Dolby Vision -> HDR10+.* `dvvk_set_output_mode(DVVK_OUTPUT_HDR10PLUS)`:
+  the HDR10 output's reconstruction without its tone curve, the pack
+  measuring the active film area before the overlay (`STATS`: 16-nit maxRGB
+  histogram, channel maxima, average maxRGB), read back without a wait, and
+  `dvvk_hdr10plus_packet(ticket)` building the 31-byte HDR10+ InfoFrame with
+  CroqueMr's CB1 metadata code (`../src/cb1_dv_hdr10plus.c` and friends,
+  ported at a pinned commit). Statistics checked against the CPU reference
+  (`dvvk-hdr10-compare --stats` on the dumps, `DVVK_HDR10PLUS_TRACE=1`).
+- *HDR10+ -> Dolby Vision.* `dvvk_hdr10plus_to_dovi`: CB1's
+  `cb1_hdr10plus_dovi.c` as Profile 8.1 metadata (identity composer, L1, L6)
+  for `dvvk_submit`.
+- `cargo test` runs CB1's HDR10+ tests, ported unchanged (`yblod/tests`).
+
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
-headless; `--flip` for Kodi's GUI framebuffer) with `golden.sh` and
+headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus`) with `golden.sh` and
 `golden.sha256` (the byte-for-byte oracle; runs in the image's root, busybox
 included), `dvvk-routes`, `dvvk-fence`, `vkprobe`, `dvvk-prepare`, and the
 `dvvk-interop` binary in the crate. `cargo test` covers plan.c's packets, CB1's

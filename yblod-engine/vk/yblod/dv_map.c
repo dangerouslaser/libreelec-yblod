@@ -109,7 +109,7 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
     if (!mode || !metadata || !out || metadata_size < sizeof(AVDOVIMetadata) ||
         (uintptr_t)metadata % _Alignof(AVDOVIMetadata))
         return -1;
-    if (mode->mode != DVVK_OUTPUT_HDR10)
+    if (mode->mode != DVVK_OUTPUT_HDR10 && mode->mode != DVVK_OUTPUT_HDR10PLUS)
         return -1;
     const AVDOVIMetadata *m = metadata;
     if (!mappable(m))
@@ -224,7 +224,9 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
     rows(g->lms2ipt, &pl_ipt_lms2ipt);
     rows(g->ipt2lms, &pl_ipt_ipt2lms);
     g->lut_n = 65;
-    if (!pl_tone_map_params_noop(&tone)) {
+    /* HDR10+ (CB1's DV -> HDR10+): the reconstruction in BT.2020 PQ without
+     * tone mapping; the receiver applies the HDR10+ curve once. */
+    if (mode->mode == DVVK_OUTPUT_HDR10 && !pl_tone_map_params_noop(&tone)) {
         g->flags |= DVVK_MAP_TONE;
         if (meta == PL_HDR_METADATA_CIE_Y)
             g->flags |= DVVK_MAP_L1;
@@ -238,7 +240,7 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
     out->key = fnv1a(g, sizeof(*g));   /* black_in/out still 0: not in the key */
 
     dvvk_hdr_signal *s = &out->signal;
-    s->mode = DVVK_OUTPUT_HDR10;
+    s->mode = mode->mode;
     s->eotf = 2;
     source_primaries(m, s);
     s->max_luminance = (uint16_t)ceilf(peak);

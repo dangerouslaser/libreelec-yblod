@@ -62,7 +62,7 @@ struct dvvk_plan_state {
     struct {
         int valid;
         dv_intel_composer_config cfg;
-        uint32_t el_scaler, chroma_phase, contract;
+        uint32_t el_method, chroma_phase, contract;
         dvvk_plan out;      /* plan_dual's fields */
     } dual;
     /* plan_dual's parts, for a configuration the dual entry isn't */
@@ -276,14 +276,15 @@ static int mmr_tables(dvvk_plan_state *st, const dv_intel_composer_config *cfg, 
 }
 
 /* reconstruct_impl's table preparation and kernel choice, direct route. */
-static int plan_dual(dvvk_plan_state *st, const dv_frame_settings *s, int contract, dvvk_plan *o)
+static int plan_dual(dvvk_plan_state *st, const dv_frame_settings *s, int contract, uint32_t el_method,
+                     dvvk_plan *o)
 {
     const dv_intel_composer_config *cfg = &s->composer;
-    if (cfg->el_spatial_resampling_flag > 1 || s->el_scaler > 1 || s->chroma_phase > 1)
+    if (cfg->el_spatial_resampling_flag > 1 || el_method > DVVK_EL_METHOD_BILINEAR || s->chroma_phase > 1)
         return DV_UNSUPPORTED;
     o->equal = !cfg->el_spatial_resampling_flag;
     o->el_scale = o->equal ? 1 : 2;
-    o->nearest = !s->el_scaler;
+    o->el_method = el_method;
     /* 2: none. CB1 reshapes the decoded chroma as it is and enlarges the EL's 64/192. */
     o->chroma_phase = contract ? 2u : s->chroma_phase;
     if (luma_tables(st, cfg, o->mapping, o->residual[0]))
@@ -337,13 +338,14 @@ static int plan_dual(dvvk_plan_state *st, const dv_frame_settings *s, int contra
 
 /* plan_dual, or its last result for the same composer configuration and
  * settings: the same function of the same inputs. */
-static int plan_dual_cached(dvvk_plan_state *st, const dv_frame_settings *s, int contract, dvvk_plan *o)
+static int plan_dual_cached(dvvk_plan_state *st, const dv_frame_settings *s, int contract, uint32_t el_method,
+                            dvvk_plan *o)
 {
     typeof(st->dual) *c = &st->dual;
-#define DUAL_FIELDS(F) F(equal) F(el_scale) F(nearest) F(chroma_phase) F(mapping) F(residual) \
+#define DUAL_FIELDS(F) F(equal) F(el_scale) F(el_method) F(chroma_phase) F(mapping) F(residual) \
     F(chroma_mapping) F(mmr_params) F(mmr_lut) F(dual) F(horizontal_fused) F(chroma_kind)
 #define COPY(f) memcpy(&dst->f, &src->f, sizeof(dst->f));
-    if (c->valid && c->el_scaler == s->el_scaler && c->chroma_phase == s->chroma_phase &&
+    if (c->valid && c->el_method == el_method && c->chroma_phase == s->chroma_phase &&
         c->contract == (uint32_t)contract && !memcmp(&c->cfg, &s->composer, sizeof(c->cfg))) {
         const dvvk_plan *src = &c->out;
         dvvk_plan *dst = o;
@@ -352,13 +354,13 @@ static int plan_dual_cached(dvvk_plan_state *st, const dv_frame_settings *s, int
     }
     c->valid = 0;
     st->generation++;
-    int status = plan_dual(st, s, contract, o);
+    int status = plan_dual(st, s, contract, el_method, o);
     if (status == DV_OK) {
         const dvvk_plan *src = o;
         dvvk_plan *dst = &c->out;
         DUAL_FIELDS(COPY)
         c->cfg = s->composer;
-        c->el_scaler = s->el_scaler;
+        c->el_method = el_method;
         c->chroma_phase = s->chroma_phase;
         c->contract = (uint32_t)contract;
         c->valid = 1;
@@ -587,6 +589,12 @@ int dvvk_plan_frame_state(const dvvk_plan_in *in, const dvvk_plan_desktop *deskt
     if (!in || !o || !state || (!metadata && metadata_size))
         return DV_INVALID;
     memset(o, 0, sizeof(*o));
+    /* the EL method (ABI 3; 0, nearest neighbour, is gone); the contract is
+     * CB1's Master Reference processing: Annex B */
+    if (in->el_scaler != DVVK_EL_ANNEXB && in->el_scaler != DVVK_EL_BILINEAR)
+        return DV_INVALID;
+    uint32_t el_method = in->cb1_contract || in->el_scaler == DVVK_EL_ANNEXB ? DVVK_EL_METHOD_ANNEXB
+                                                                            : DVVK_EL_METHOD_BILINEAR;
     dv_source_geometry g = {
         .width = in->width, .height = in->height, .canvas_width = 3840, .canvas_height = 2160,
         .x = in->x, .y = in->y,
@@ -610,7 +618,6 @@ int dvvk_plan_frame_state(const dvvk_plan_in *in, const dvvk_plan_desktop *deskt
     int status = dv_transport_settings_from_ffmpeg(metadata, metadata_size, w, h, id, &settings, dm, &bytes);
     int single = !in->has_el, use_piecewise = 0;
     if (status == DV_OK) {
-        settings.el_scaler = in->el_scaler;
         if (!single && !in->fel && settings.composer.residual_enabled) {
             dv_intel_composer_config *cfg = &settings.composer;
             cfg->residual_enabled = 0;
@@ -712,7 +719,7 @@ int dvvk_plan_frame_state(const dvvk_plan_in *in, const dvvk_plan_desktop *deskt
             return DV_UNSUPPORTED;
     } else {
         o->route = DVVK_ROUTE_DUAL;
-        if ((status = plan_dual_cached(state, &settings, contract, o)) != DV_OK)
+        if ((status = plan_dual_cached(state, &settings, contract, el_method, o)) != DV_OK)
             return status;
     }
     /* The tables are a function of the route and its cache entry: the same

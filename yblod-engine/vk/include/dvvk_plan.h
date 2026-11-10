@@ -17,12 +17,28 @@ enum {
 };
 enum { DVVK_CHROMA_POLY = 0, DVVK_CHROMA_MMR128 = 1, DVVK_CHROMA_MMR96 = 2, DVVK_CHROMA_MMR64_LUT = 3 };
 enum { DVVK_PACK_SITED = 0, DVVK_PACK_422 = 1, DVVK_PACK_RESIZED = 2 };
+/* dvvk_plan_in.el_scaler (ABI 3): how a half-resolution enhancement layer is
+ * upsampled to the base layer's size. Both use the stream's EL sample phase
+ * (luma co-sited horizontally, rows a quarter of an EL row above and below;
+ * the EL chroma through the frame's chroma phase filter, then 64/192):
+ *   DVVK_EL_ANNEXB    the ETSI GS CCM 001 Annex B filters (8-tap horizontal,
+ *                     4-tap vertical luma); CB1's Master Reference. The
+ *                     contract (cb1_contract) always uses it.
+ *   DVVK_EL_BILINEAR  2-tap linear interpolation at the same phases: odd
+ *                     columns the rounded mean of their two neighbours, luma
+ *                     rows (3 * near + far + 2) / 4. CPU reference:
+ *                     dv_bilinear_scale2x (yblod-engine/src/pixel_spatial.c).
+ * Anything else (0 was nearest neighbour until ABI 2): DV_INVALID, for every
+ * route. Pictures without a half-size EL ignore the method. */
+enum { DVVK_EL_ANNEXB = 1, DVVK_EL_BILINEAR = 2 };
+/* dvvk_plan.el_method, as the shaders take it (push constant el_method). */
+enum { DVVK_EL_METHOD_ANNEXB = 0, DVVK_EL_METHOD_BILINEAR = 1 };
 
 typedef struct {
     uint32_t width, height;             /* decoded */
     uint32_t x, y, dw, dh;              /* destination in the canvas; dw/dh 0: no resize */
     uint32_t chroma_top_left, has_el, nv12;
-    uint32_t el_scaler, fel;            /* 0 nearest / 1 Annex B; 0 FEL off */
+    uint32_t el_scaler, fel;            /* DVVK_EL_ANNEXB / DVVK_EL_BILINEAR; 0 FEL off */
     uint32_t packet_id, refresh, overlay, overlay_visible_before;
     int64_t pts;
     double rgb_to_lms[9];               /* overlay: linear GUI RGB -> the source's LMS */
@@ -74,7 +90,7 @@ typedef struct {
     unsigned char reshape[4544];        /* dv_single_reshape, the GPU struct as is */
     int32_t residual[3][1024];          /* luma, Cb, Cr residual tables */
     uint32_t mmr_params[2][96];
-    uint32_t route, width, height, el_scale, nearest, chroma_phase;
+    uint32_t route, width, height, el_scale, el_method, chroma_phase;   /* el_method: DVVK_EL_METHOD_* */
     uint32_t chroma_kind[2], dual, horizontal_fused, equal;
     uint32_t row_first, row_last;       /* letterbox window (8-aligned), 0,0 = all rows */
     uint32_t layout, sampling, depth, order2, narrow_mask[4];

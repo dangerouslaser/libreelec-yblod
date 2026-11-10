@@ -309,6 +309,67 @@ pub unsafe extern "C" fn dvvk_output_signal(e: *mut Engine, out: *mut crate::map
     })
 }
 
+/// dvvk_hdr10plus_packet (optional symbol, YBLOD 0.4.0): HDR10+ frame
+/// `ticket`'s 31-byte InfoFrame and report (include/dv_engine_vk.h).
+///
+/// # Safety
+/// `e` from dvvk_create (or NULL); `out` valid.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_hdr10plus_packet(
+    e: *mut Engine,
+    ticket: u64,
+    flags: u32,
+    out: *mut crate::hdr10plus::Packet,
+) -> i32 {
+    let Some(out) = out.as_mut() else { return DVVK_INVALID };
+    with_engine(e, "hdr10plus_packet", DVVK_INVALID, DVVK_BACKEND, |e| {
+        let mut p = crate::hdr10plus::Packet::default();
+        match e.hdr10plus_packet(ticket, flags, &mut p) {
+            Ok(status) => {
+                if status == 0 || status == -3 {
+                    *out = p;
+                }
+                status
+            }
+            Err(err) => {
+                log_error("hdr10plus_packet", err);
+                DVVK_BACKEND
+            }
+        }
+    })
+}
+
+/// dvvk_hdr10plus_to_dovi (optional symbol, YBLOD 0.4.0): an HDR10+
+/// picture's metadata as Profile 8.1 Dolby Vision metadata (include/dv_engine_vk.h).
+///
+/// # Safety
+/// The pointers as the header documents them.
+#[no_mangle]
+#[allow(clippy::too_many_arguments)]
+pub unsafe extern "C" fn dvvk_hdr10plus_to_dovi(
+    hdr10plus: *const c_void,
+    size: usize,
+    hdr10: *const crate::hdr10plus::Hdr10Static,
+    previous: *const c_void,
+    out: *mut c_void,
+    capacity: usize,
+    out_size: *mut usize,
+    info: *mut crate::hdr10plus::DoviInfo,
+) -> i32 {
+    guarded("hdr10plus_to_dovi", DVVK_BACKEND, || {
+        crate::hdr10plus::to_dovi(
+            hdr10plus as *const u8,
+            size,
+            hdr10,
+            previous as *const u8,
+            out as *mut u8,
+            capacity,
+            out_size,
+            info,
+        )
+    })
+}
+
 /// The CM4 / L2 result of the last frame planned (dvvk_plan.dm_status:
 /// DVVK_CM4_STATUS_* | L2 blocks removed << 8; dv-engine-vk 0.1.0-18, an
 /// optional symbol). UINT32_MAX for NULL or a panic.

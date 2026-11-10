@@ -213,8 +213,9 @@ impl Pipeline {
     }
 }
 
-/// The most bindings a pipeline has (the pack: 21).
-pub const MAX_BINDINGS: usize = 24;
+/// The most bindings a pipeline has (the pack: 25). VK_KHR_push_descriptor
+/// guarantees maxPushDescriptors >= 32.
+pub const MAX_BINDINGS: usize = 32;
 
 /// One resource bound with push descriptors.
 pub enum Bind {

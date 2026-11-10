@@ -12,6 +12,12 @@
  *     --ref-stride BYTES   the reference's row stride
  *     --flip               the reference's rows bottom first
  *     --rows A,B           compare rows A..B-1 only (the active area)
+ *     --stats X0,Y0,X1,Y1  HDR10+ statistics of the dump's area [X0,X1) x
+ *                          [Y0,Y1) (even X), the CPU reference of the engine's
+ *                          (pack.comp STATS, DVVK_HDR10PLUS_TRACE=1): each
+ *                          pixel's Y with its pair's Cb/Cr to PQ R'G'B'
+ *                          (clamped 0..1), maxRGB light, 16-nit histogram,
+ *                          channel maxima, sum of light; a JSON line, in double
  *   The comparison is in 12-bit codes of what the HDMI link would carry: the
  *   reference's R'G'B' converted to BT.2020 Y'CbCr, limited range, luma per
  *   pixel and chroma per pair (the even pixel's, as the engine does).
@@ -96,7 +102,7 @@ static void ref_rgb(const unsigned char *ref, int x, int y, double rgb[3])
 int main(int argc, char **argv)
 {
     const char *preview = NULL, *refpath = NULL, *ours = NULL;
-    int row0 = 0, row1 = H;
+    int row0 = 0, row1 = H, sx0 = -1, sy0 = 0, sx1 = 0, sy1 = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--preview") && i + 1 < argc)
             preview = argv[++i];
@@ -111,6 +117,8 @@ int main(int argc, char **argv)
             ref_stride = strtoul(argv[++i], NULL, 0);
         else if (!strcmp(argv[i], "--flip"))
             ref_flip = 1;
+        else if (!strcmp(argv[i], "--stats") && i + 1 < argc)
+            sscanf(argv[++i], "%d,%d,%d,%d", &sx0, &sy0, &sx1, &sy1);
         else if (!strcmp(argv[i], "--rows") && i + 1 < argc)
             sscanf(argv[++i], "%d,%d", &row0, &row1);
         else
@@ -140,6 +148,37 @@ int main(int argc, char **argv)
         ymax--;
     printf("%s: Y codes %d..%d mean %.1f; peak %.1f nits\n", ours, ymin, ymax, ysum / ((double)W * H),
            pq_eotf((ymax - 256) / 3504.0));
+    if (sx0 >= 0) {
+        unsigned long hist[256] = {0};
+        double maxq[3] = {0}, sum = 0;
+        unsigned long count = 0;
+        for (int y = sy0; y < sy1; y++)
+            for (int x = sx0 & ~1; x + 1 < sx1; x += 2) {
+                int y0, cb, y1, cr;
+                unpack(d, stride, x, y, &y0, &cb);
+                unpack(d, stride, x + 1, y, &y1, &cr);
+                for (int k = 0; k < 2; k++) {
+                    double Y = ((k ? y1 : y0) - 256) / 3504.0, Cb = (cb - 2048) / 3584.0, Cr = (cr - 2048) / 3584.0;
+                    double R = Y + 1.4746 * Cr, B = Y + 1.8814 * Cb, G = (Y - 0.2627 * R - 0.0593 * B) / 0.6780;
+                    double rgb[3] = {fmin(fmax(R, 0), 1), fmin(fmax(G, 0), 1), fmin(fmax(B, 0), 1)};
+                    double m = 0;
+                    for (int c = 0; c < 3; c++) {
+                        maxq[c] = fmax(maxq[c], rgb[c]);
+                        m = fmax(m, rgb[c]);
+                    }
+                    double nits = pq_eotf(m);
+                    int bin = (int)floor(nits / 16.0 + 0.5);
+                    hist[bin > 255 ? 255 : bin]++;
+                    sum += nits;
+                    count++;
+                }
+            }
+        printf("{\"cpu_stats\":\"%s\",\"count\":%lu,\"average_maxrgb\":%.4f,\"maxscl\":[%.4f,%.4f,%.4f],\"histogram\":[",
+               ours, count, count ? sum / count : 0.0, pq_eotf(maxq[0]), pq_eotf(maxq[1]), pq_eotf(maxq[2]));
+        for (int i = 0; i < 256; i++)
+            printf(i ? ",%lu" : "%lu", hist[i]);
+        printf("]}\n");
+    }
     if (preview) {
         FILE *f = fopen(preview, "wb");
         fprintf(f, "P6\n960 540\n255\n");
