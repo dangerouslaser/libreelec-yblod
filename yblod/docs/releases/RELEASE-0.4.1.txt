@@ -1,0 +1,19 @@
+YBLOD 0.4.1 plays Dolby Vision films whose picture is cropped to a height such as 3840x1746, and makes the first Dolby Vision film after an update start straight away.
+
+What changed
+- Cropped Dolby Vision encodes: Profile 8 and 5 files cropped to a height that isn't a multiple of 4 (3840x1746 for 2.20:1, 3840x1606, 1920x1038 and similar) showed a black or frozen picture, with "picture not supported by the Vulkan engine" in the log. They now play as Dolby Vision. The picture sits one row higher than exact centre, which can't be seen. Pictures Kodi scales up (cropped 1080p such as 1920x1038, or a width just under 3840) leave out their last one to three rows or columns, also invisible.
+- Dolby Vision pictures the engine can't take (wider than 3840, for example 4096-wide DCI video) now play as the HDR10 base layer instead of a black screen. Kodi decides this when the video opens and logs "the Vulkan engine does not take WxH Dolby Vision pictures".
+- First Dolby Vision film after an update: the Vulkan engine compiles its shaders the first time it starts, which took about 50 seconds on Tiger Lake (longer on an N150) and showed as a black screen with the Dolby Vision badge. A boot service (yblod-dv-prepare) now builds them in the background, at idle priority, on the first boot after an update or a GPU change. The menu isn't delayed, and the first film starts at once once it's done. If the engine can't start, nothing changes: Kodi builds them on first use as before.
+- Dolby Vision output is unchanged for every other picture size (byte-identical to 0.4.0 on the reference clips). Kodi, the kernel and the add-ons are otherwise unchanged from 0.4.0.
+
+Known issues
+- Dolby Vision is sent at 3840x2160 only. If your resolution whitelist (Settings > System > Display > Whitelist) has 1920x1080 or 1280x720 modes, 1080p and 720p Dolby Vision films switch the TV to that mode and play without Dolby Vision. Keep only 3840x2160 modes in the whitelist to get Dolby Vision for them; the TV then upscales.
+- All 0.4.0 known issues still apply: HDR10+ output and the HDR10+ conversions are untested on an HDR10+ TV; HDR10 and HDR10+ outputs need a native HDMI port; the N150 shows 60p Dolby Vision at about 40 frames a second.
+
+If you run 0.4.0
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). Settings are unchanged.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

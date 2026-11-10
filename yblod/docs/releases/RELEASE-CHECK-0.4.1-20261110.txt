@@ -1,0 +1,65 @@
+YBLOD 0.4.1 validation
+
+Build source: main at 3d947249fb (tree d22aed1c). The images were built from a66a99ea16, the head
+of PR #35, whose tree is identical (BUILD_ID a66a99ea16a2b027c16688ef32b1939038b1bcb1). Changes
+since 0.4.0 (1d020cad):
+- PR #33: yblod-dv-prepare.service, dv-prepare and dvvk-prepare: the Vulkan engine's pipeline cache
+  is built at boot (idle priority, after Kodi) once per image and GPU.
+- PR #34: even picture sizes. Engine: source_geometry and the metadata parser take even unscaled
+  sizes (multiples of 4 kept for scaled pictures and, in plan.c, with an EL); dvvk-bench places
+  pictures on even sizes. Kodi yblod-35: placement rounded to an even row/column, SourceEligible
+  takes even unscaled single-layer sizes, and the eligibility check at file open rejects sizes the
+  engine cannot take (wider than 3840, odd, Profile 7 not a multiple of 4) so they play as the
+  base layer.
+- PR #35: the prepare service is wanted by kodi.target (under multi-user.target, After=kodi.service
+  was an ordering cycle and systemd dropped the job at boot); yblod-35 also crops a scaled
+  single-layer picture to multiples of 4 (1920x1038 -> 1920x1036 in a 3840x2072 rectangle).
+
+Images
+Both editions built in the release tree on Ollie (run-release.sh 0.4.1, incremental on 0.4.0's
+tree). SYSTEM compared with 0.4.0 file by file (standard edition): nothing removed; added
+yblod-dv-prepare.service and its kodi.target.wants link, /usr/lib/yblod/dv-prepare and
+dvvk-prepare; changed kodi.bin, libdv_engine_vk.so.1 and version stamps (os-release, issue,
+release, defs.pyc, a generated slice unit, /usr/cache/shadow). KERNEL identical to 0.4.0.
+
+Testing
+- Engine (Ollie, UHD 770): cargo test 38/38; golden.sh identical (102 hashes) and FLIP_Y twins
+  identical (18): output for the 3840x2160 reference clips (1917 FEL, Gemini Man MEL, 28 Years
+  Later P8.1) is unchanged. The geometry tests cover 3840x1746, 3840x1606, 1920x1038 and 3834x1600
+  (accepted), odd placement and odd sizes (rejected), scaled sizes not a multiple of 4 (rejected).
+- Test clips: 28 Years Later P8.1 cropped with x265 and its RPU re-injected with dovi_tool 2.3.1.
+  - 0.4.0's engine refuses 3840x1746 (12/12 pictures); 0.4.1's renders it.
+  - Lossless crops at 3840x1746 and 3840x1744 placed at row 206: identical pixels apart from the
+    metadata rows (0-1) and two rows where the clip's L5 boundary moves with the height.
+  - Picture edges (L5 set to the full frame, crops where picture reaches the edge): 3834x1438 and
+    3832x1436 (already supported) against a 3840x1440 reference both differ only in the last 4
+    rows (the vertical chroma filter at the edge); right edge and interior identical.
+- Hardware: Petunia (Tiger Lake VM, LG G5 on HDMI 1), LG edition, this release's image:
+  - 3840x1746 (7 s) Dolby Vision, 169/169 pictures presented; 1920x1038 (scaled to 4K) 169/169;
+    3834x1438 (scaled) 17/17; 28 Years Later P8.1 3840x2160 170/170; 1917 P7 FEL 30 s, 692/692.
+    No drops, skips or refused pictures; Dolby Vision signalled (dv=1) for each.
+  - The first 0.4.1 build refused 1920x1038 and 3834x1438 (scaled pictures) and its prepare
+    service was dropped by the ordering cycle; both fixed in PR #35 and re-tested above.
+  - yblod-dv-prepare at boot with the engine and Mesa caches deleted: started with Kodi, pipelines
+    ready in 54 s (52.6 s CPU at idle priority), marker written; with a valid cache 1 s. The first
+    picture of each title above took 48-83 ms.
+- NOT tested: the standard edition on a TV (same Kodi and engine as the LG edition), a real
+  cropped release file (the test clips are re-encodes of a P8.1 clip), Profile 5 at a cropped size,
+  the N150 and AMD.
+
+SHA256
+Standard update tar: 34e73be824f116f3e8673e94d4dd17b62765595e89e1f1d62de80f288d14d6e1
+Standard install img.gz: dc95e978112f440c0929b93a9b8fa4612cf5d74956f7dd81a9d0876296f4be23
+Standard SYSTEM: c57edadd59660fdefeb764cde27b0c6e3b7d0f176a08e19663d18612f13b23c0
+LG update tar: b0298c96997c7947a018b253ff64d1b6b0533fddcc368b3371a7a37df28b51fc
+LG install img.gz: fd1d332e594b66dfa839887a9d9989a5926013be98da0c9d3873166d2ca8e895
+LG SYSTEM: 55eac89c32beee89f245aeabf5212f3710b4ad52ada1c732970f7a1e95889458
+KERNEL (both): fcd4dbc7bea2e32fd48e20a28a1bcd011738d882dd7aa470a10e620d9e0fa02f
+Kodi (both): c858660b067400e412310e07ac5f32270be9518c60ec50e67ca22b960ff7288b
+Vulkan engine (both): d9a5bd585176f8331d7c25f97b74f9cdf9be7dc87585c7fff32dd0294ffb71a1
+Source bundle: d27d8925acd65499e24324f6b8fc9fe19d968e9d7005f0489fa8ed52df756940
+
+Limitations
+- A scaled cropped picture leaves out its last 1-3 rows or columns.
+- Dolby Vision is sent at 3840x2160 only: a 1080p or 720p whitelist mode turns it off.
+- All 0.4.0 limitations apply.
