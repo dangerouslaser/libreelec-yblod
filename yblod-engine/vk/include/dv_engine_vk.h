@@ -12,8 +12,12 @@ extern "C" {
 /* The library to dlopen (also its soname: build.rs reads it from here). A
  * layout change of any struct below is a new soname and DVVK_ABI_VERSION. */
 #define DVVK_LIBRARY "libdv_engine_vk.so.1"
-/* 1: libdv_engine_vk.so.0 (until 0.1.0-8); 2: dvvk_plan_in.cb1_contract. */
-#define DVVK_ABI_VERSION 2u
+/* 1: libdv_engine_vk.so.0 (until 0.1.0-8); 2: dvvk_plan_in.cb1_contract;
+ * 3 (YBLOD 0.4.0): dvvk_plan_in.el_scaler is DVVK_EL_ANNEXB (1) or
+ * DVVK_EL_BILINEAR (2), nearest neighbour (0) is gone and refused. The
+ * layouts are unchanged (the soname stays .so.1); a caller built for ABI 2
+ * must not use this library, as its 0 would mean something else. */
+#define DVVK_ABI_VERSION 3u
 /* The ABI the loaded library was built with: a caller compares it with its
  * own DVVK_ABI_VERSION before using anything else. */
 uint32_t dvvk_abi_version(void);
@@ -128,7 +132,18 @@ void dvvk_reset(dvvk_engine *);
  *                      dvvk_output_signal()'s HDR static metadata.
  * The mode applies from the next frame submitted; peak_nits/min_nits are
  * for target-display modes (reserved, 0). */
-enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1 };
+/*   DVVK_OUTPUT_HDR10PLUS (YBLOD 0.4.0) HDR10+: CroqueMr's CB1 Dolby Vision
+ *                      -> HDR10+. The picture is the Master Reference
+ *                      reconstruction in BT.2020 PQ WITHOUT tone mapping (the
+ *                      receiver applies the HDR10+ curve once), in the same
+ *                      byte layout as DVVK_OUTPUT_HDR10, with the same static
+ *                      metadata (dvvk_output_signal, mode 2), plus per-frame
+ *                      dynamic metadata from dvvk_hdr10plus_packet().
+ * Statistics: the engine measures the active film area of every HDR10+
+ * frame before the overlay (each channel's linear maximum, the average
+ * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin) in the pack
+ * (shaders/pack.comp STATS), read back once the frame is done. */
+enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2 };
 typedef struct {
     uint32_t mode;
     uint32_t flags;               /* 0 */
@@ -149,6 +164,109 @@ typedef struct {
 } dvvk_hdr_signal;
 int dvvk_set_output_mode(dvvk_engine *, const dvvk_output_mode *);
 int dvvk_output_signal(dvvk_engine *, dvvk_hdr_signal *);
+
+/* HDR10+ dynamic metadata of an HDR10+ output frame (YBLOD 0.4.0; optional
+ * symbol, look it up with dlsym). CB1's cb1_dv_hdr10plus_metadata (pinned
+ * CB1 commit in yblod-engine/src/cb1_dv_hdr10plus.c): the statistics plus the
+ * frame's L1 (with L3 folded once), and L2 or L8 where their luminous
+ * response can be represented, fitted as ONE HDR10+ curve for a 992-nit
+ * reference (the largest the HDMI field carries; not the TV's peak), the
+ * quantized curve checked on grey and coloured probes (max normalized PQ
+ * error 2/1023), else descriptive statistics only (no curve). No pixel is
+ * changed by it.
+ *   vsif   the complete 31-byte HDR10+ Vendor-Specific InfoFrame (CTA-861
+ *          header 0x81 0x01 0x1b, checksum, the 27-byte payload: OUI
+ *          0x90848B LSB first, application version in bits 7-6 of byte 7,
+ *          ...), exactly what the kernel's HDR10PLUS_METADATA connector
+ *          property takes as its blob (linux-9940 / YBLOD linux-9932):
+ *          create a blob of these 31 bytes and set it in the same atomic
+ *          commit as the frame's framebuffer.
+ * Statistics: the ticket's own when that frame is done; otherwise the latest
+ * finished HDR10+ frame's before it (one frame late at most in steady
+ * playback, across a cut too), with statistics_ticket saying which. Never
+ * blocks.
+ * flags: DVVK_HDR10PLUS_V1 the sink's HDR10+ application version 1 (its
+ * EDID VSVDB says so; else version 0), DVVK_HDR10PLUS_NO_DELAY the packet is
+ * latched with its picture (the kernel's presentation contract). The
+ * overlay flag (graphics_overlay_flag) is the ticket's: set when the frame
+ * had an overlay.
+ * Returns 0: *out filled, send vsif. 1: no finished frame's statistics yet
+ * (the first frames after the mode is set): send no HDR10+ packet for this
+ * frame. DVVK_HDR10PLUS_FALLBACK (-3): the metadata can't be represented
+ * (out->reason, out->coverage say why): HDR10 only, clear the property.
+ * -1: not a live HDR10+ frame's ticket (unknown, reused or a DV/HDR10
+ * frame), or NULL arguments. */
+enum { DVVK_HDR10PLUS_V1 = 1u, DVVK_HDR10PLUS_NO_DELAY = 2u };
+#define DVVK_HDR10PLUS_FALLBACK (-3)
+/* coverage: what the curve represents. 0 statistics only (no curve), 1 L1,
+ * 2 L2 trims, 3 L8 (CM4) trims (CB1's enum cb1_dv_hdr10plus_coverage).
+ * reason: 0 OK, 1 no usable L1 (statistics only), 2 trims not resolved,
+ * 3 trims not representable (L1 curve sent instead), 4 the curve not
+ * representable (statistics only) (enum cb1_dv_hdr10plus_reason). */
+typedef struct {
+    uint8_t vsif[31];
+    uint8_t application_version;  /* 0 or 1, as in vsif */
+    uint64_t statistics_ticket;   /* the frame whose statistics it carries */
+    uint32_t coverage, reason;
+    uint16_t effective_l1[3];     /* L1 min, max, avg (12-bit PQ) with L3 applied */
+    uint16_t l3_used;
+    double maximum_curve_pq_error, maximum_color_pq_error;
+    /* the statistics sent: maxRGB average and channel maxima (cd/m2), pixels */
+    double average_maxrgb, maxscl[3];
+    uint64_t pixels;
+    uint32_t reserved[4];
+} dvvk_hdr10plus_metadata;
+int dvvk_hdr10plus_packet(dvvk_engine *, uint64_t ticket, uint32_t flags, dvvk_hdr10plus_metadata *out);
+
+/* HDR10+ -> Dolby Vision (YBLOD 0.4.0; optional symbol, no engine needed):
+ * CroqueMr's CB1 cb1_hdr10plus_dovi_describe (pinned commit in
+ * yblod-engine/src/cb1_hdr10plus_dovi.c) turned into the per-picture Dolby
+ * Vision metadata an HDR10 base layer plays with as Profile 8.1 through the
+ * tunnel: give it to dvvk_submit as dvvk_frame.metadata/metadata_size with
+ * the decoded HDR10 picture as bl_surface, el_surface 0xffffffff, has_el 0.
+ *   hdr10plus  the picture's AVDynamicHDRPlus (FFmpeg side data
+ *              AV_FRAME_DATA_DYNAMIC_HDR_PLUS, as the FFmpeg the engine is
+ *              built with lays it out), size its size. One window only.
+ *   hdr10      the stream's static HDR10 metadata (NULL: unknown).
+ *   previous   the previous picture's AVDynamicHDRPlus (NULL: none): a
+ *              different scene (cb1_hdr10plus_dovi_same_scene) sets the
+ *              scene refresh flag.
+ *   out        an 8-aligned buffer of capacity bytes: an AVDOVIMetadata
+ *              with its header, mapping, colour and extension blocks after
+ *              it (av_dovi_metadata_alloc's layout, offsets from out).
+ * The metadata: a Profile 8.1-style RPU (BL 10-bit, VDR 12-bit, no
+ * residual) with an identity composer (each component one first-order
+ * polynomial y = x over pivots 0..1023), BT.2020 PQ limited-range Y'CbCr to
+ * RGB and RGB to LMS as Profile 8.1 streams carry them, the mastering
+ * display's minimum and maximum as source_min_pq/source_max_pq (unknown:
+ * 0.005 and 1000 cd/m2), and two extension blocks: L1 (min, max, avg: the
+ * validated single-window MaxSCL as the peak, mean PQ from the percentiles'
+ * weighted PQ trapezoids, else PQ(average maxRGB) as a labelled estimate;
+ * min 0) and L6 (the static metadata: mastering max/min, MaxCLL, MaxFALL).
+ * No L2/L8 trims are invented and HDR10+'s Bezier curve and saturation
+ * weight are not translated (info says when the source had them); L3 is
+ * neutral, i.e. absent (CM2.9): dvvk_plan_in.dm_options' CM4.0 modes can
+ * still append the neutral CM4 blocks. The pixels are the decoded ones.
+ * Returns 0 and *out_size; -1 invalid input (malformed HDR10+, NULL); -2 not
+ * representable (several windows, no usable peak): play it as HDR10+/HDR10;
+ * -3 capacity too small (*out_size: the size needed; DVVK_HDR10PLUS_DOVI_BYTES
+ * always suffices). */
+typedef struct {
+    float max_luminance, min_luminance;   /* mastering display, cd/m2; 0: unknown */
+    uint16_t max_cll, max_fall;           /* cd/m2; 0: unknown */
+    uint32_t reserved[2];
+} dvvk_hdr10_static;
+typedef struct {
+    uint16_t l1_min, l1_max, l1_avg;      /* the L1 written (12-bit PQ) */
+    uint16_t source_min_pq, source_max_pq;
+    uint8_t source_fields, estimated_fields;   /* 1 min, 2 max, 4 avg: from HDR10+ / estimated */
+    uint8_t untranslated_curve, untranslated_saturation, scene_refresh;
+    uint8_t pad[3];
+    uint32_t reserved[4];
+} dvvk_hdr10plus_dovi_info;
+#define DVVK_HDR10PLUS_DOVI_BYTES 8192u
+int dvvk_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_static *hdr10, const void *previous,
+                           void *out, size_t capacity, size_t *out_size, dvvk_hdr10plus_dovi_info *info);
 
 /* Decoded surfaces are imported once and then known by their VASurfaceID
  * until a reset: reset whenever the decoder's surface pool changes (a new
@@ -176,6 +294,11 @@ DVVK_STATIC_ASSERT(sizeof(dvvk_dmabuf) == 80, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_output_mode) == 32, "dvvk_output_mode layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_hdr_signal) == 48, "dvvk_hdr_signal layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_hdr_signal, max_luminance) == 24, "dvvk_hdr_signal layout");
+DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10plus_metadata) == 128, "dvvk_hdr10plus_metadata layout");
+DVVK_STATIC_ASSERT(offsetof(dvvk_hdr10plus_metadata, statistics_ticket) == 32, "dvvk_hdr10plus_metadata layout");
+DVVK_STATIC_ASSERT(offsetof(dvvk_hdr10plus_metadata, average_maxrgb) == 72, "dvvk_hdr10plus_metadata layout");
+DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10_static) == 20, "dvvk_hdr10_static layout");
+DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10plus_dovi_info) == 36, "dvvk_hdr10plus_dovi_info layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, modifier) == 16, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, num_planes) == 24, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, fd) == 28, "dvvk_dmabuf layout");

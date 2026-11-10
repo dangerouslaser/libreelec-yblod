@@ -7,6 +7,7 @@ pub mod damage;
 pub mod device;
 pub mod engine;
 pub mod gpu;
+pub mod hdr10plus;
 pub mod interop;
 pub mod map;
 pub mod options;

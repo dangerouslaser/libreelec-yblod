@@ -1,20 +1,44 @@
-# Experimental YBLOD Kodi adapter
+# YBLOD Kodi adapter
 
-This patch targets Kodi `63063c8e67b1f162761763c0cbdb1a5dcfc3a47e` after
-YBLOD's common and Generic patches on the LibreELEC resync commit
-`2efc53dffbdc4b2fb05e1a2e6b74f33b2479c4c5`.
+The Kodi side of YBLOD's Dolby Vision output is the patch series in
+`yblod-engine/patches/kodi/` (Kodi `e6192109`, linked into
+`projects/Generic/patches/kodi/`). Since 0.4.0 it drives one renderer, the
+Vulkan engine (`yblod-engine/vk`): `kodi-9999-yblod-29` (the Vulkan engine
+without the OpenCL library, behaviour-neutral), `-30` (Vulkan only: the
+OpenCL engine path and the libplacebo compatibility renderer removed), `-31`
+(Dolby Vision -> HDR10 through the tunnel) and `-32` (the Dolby Vision menu).
+The engine's adapter is `CDVPrivateSource` / `CDVPrivateVulkan`; the window
+(`WinSystemGbmGLESContext`) commits its scanout buffers with the tunnel's
+signal.
 
-It ports the previously qualified native adapter to YBLOD's own bridge. It
-does not require replacing that bridge with the newer CB1 integration.
-The standalone reconstruction engine is unchanged from the source published
-in `dangerouslaser/intel-dv-libreelec` at
-`4e0ffc4c0f4f351f44de9c02a67a39c628558f6e`.
+## Build and runtime
 
-The adapter keeps decoded VAAPI surfaces on the GPU, manages asynchronous
-reconstruction and two output buffers, and composes video controls in the
-source colour representation. The existing DV menu path is retained; the
-legacy QSV VPP scaling option is disabled. Native movie-overlay processing and GUI reuse exclude the
-standalone menu, which keeps its existing packing and appearance controls.
+Use YBLOD's normal Generic x86-64 image build. Kodi's recipe depends on
+`yblod-engine-vk` (the engine library, built with cargo and glslc), which also
+installs `runtime.env` as `/usr/lib/kodi/native-dv.env`, the Kodi service
+drop-in `20-native-dv.conf` and `dv-diagnostics`. Optional
+`/storage/.config/native-dv.env` entries override the packaged values.
+`runtime.env` holds only what the Vulkan path reads (audited from the code at
+0.4.0); its comments name each variable's reader.
+
+Kodi's Settings > Player > Dolby Vision applies its settings as environment
+overrides at start and whenever a setting changes (`DVEngineSettings.h`); for
+those the setting wins over `native-dv.env`. See
+[OUTPUT-MODES.md](../docs/intel-dv/OUTPUT-MODES.md) for the menu and what
+each entry sets. The hidden setting `yblod.build` (always true) lets skins
+detect YBLOD with `System.GetBool(yblod.build)`; `dvbridge.settingsversion`
+records the settings migrations done.
+
+If the Vulkan engine cannot start (no library, another ABI, no Vulkan
+device), Dolby Vision titles play as plain base-layer video until Kodi
+restarts, with one notification and one log line; there is no second
+renderer.
+
+## History (0.2-0.3)
+
+The sections below record the OpenCL engine's port and
+qualification (Kodi `63063c8e`, 2026-10). They describe that engine, which
+0.4.0 removed; the reports stay for reference.
 
 ## Current status
 
@@ -47,57 +71,6 @@ Match Dolby hardware levels from the settings UI. Both legacy behaviors are
 forced off, including for profiles with old saved values. This does not change
 native reconstruction or disable hardware video decoding.
 
-## Build and runtime
-
-Use YBLOD's normal Generic x86-64 image build. The package recipes select the
-GBM/GLES adapter, matching modified FFmpeg and libplacebo, the native renderer,
-the OpenCL loader, and pinned Intel runtime/compiler dependencies. Stock
-FFmpeg headers are not interchangeable with the matching metadata extension.
-
-The native package installs `runtime.env` as `/usr/lib/kodi/native-dv.env`
-and a Kodi service drop-in. Startup creates the writable cache directory.
-Optional `/storage/.config/native-dv.env` entries override the packaged values.
-For a legacy-renderer diagnostic, disable `DV_PRIVATE_SOURCE`,
-`DV_PRIVATE_OVERLAY` and `DV_PRIVATE_DRAIN_EOF` together, then restart Kodi.
-Disabling the source alone leaves native-only composition/drain hooks active.
-Use the separate base image for a strict before/after integration comparison.
-VAAPI driver selection is left to the system; qualification must verify the
-actual Intel driver and OpenCL libraries loaded, not just environment values.
-
-Per-frame engine diagnostics (MMR table cache, dual-MMR eligibility, direct
-P010 and GPU timing lines) are off by default because they reach the Kodi
-journal on every frame; set `DV_ENGINE_FRAME_TRACE=1` to enable them for a
-diagnostic run. Startup configuration lines and errors are always logged.
-
-Kodi's Settings > Player > Dolby Vision (Expert level) controls a curated set of these
-switches and applies them as environment overrides at start and whenever a setting
-changes (patch `kodi-9999-yblod-21-dv-engine-settings.patch`, mapping in
-`DVEngineSettings.h`). For those switches the setting wins over `native-dv.env`:
-`dvbridge.engine` (DV_PRIVATE_SOURCE, DV_PRIVATE_OVERLAY, DV_PRIVATE_DRAIN_EOF),
-`dvbridge.letterboxskip` (DV_RECON_ACTIVE_ROWS), `dvbridge.inlineoverlay`
-(DV_OVERLAY_INLINE), `dvbridge.tablecache` (DV_SINGLE/DUAL_TABLE_CACHE),
-`dvbridge.guicache` (DV_PRIVATE_GUI_CACHE), `dvbridge.homecache`
-(DV_PRIVATE_GUI_CACHE_HOME), `dvbridge.packahead` (DV_PRIVATE_ASYNC_PACK),
-`dvbridge.halfgui` (DV_PRIVATE_GUI_HALF), `dvbridge.verify` (the verify switches below and
-DV_PRIVATE_VERIFY), `dvbridge.frametrace` (DV_ENGINE_FRAME_TRACE, DV_PRIVATE_FRAME_TIMING)
-and `dvbridge.gputiming` (DV_SOURCE_PROFILE_ASYNC, DV_OVERLAY_PROFILE). The hidden setting
-`yblod.build` (always true) lets skins detect YBLOD with `System.GetBool(yblod.build)`.
-
-Byte-exact performance switches (all on in `runtime.env`; set to 0 to disable):
-`DV_RECON_ACTIVE_ROWS` reconstructs only the RPU L5 active rows plus a filter
-margin; `DV_OVERLAY_INLINE` lets the overlay pack check the GUI pixel cache
-itself instead of running a separate colour pass; `DV_SINGLE_TABLE_CACHE` and
-`DV_DUAL_TABLE_CACHE` reuse reshaping tables while the composer config is
-unchanged. Their diagnostics compare against the uncached/full-frame path:
-`DV_VERIFY_ACTIVE_ROWS=N`, `DV_OVERLAY_INLINE_VERIFY=N`,
-`DV_SINGLE_TABLE_CACHE_VERIFY=1` and `DV_DUAL_TABLE_CACHE_VERIFY=1`.
-Kodi's per-frame startup timing lines (including the first-480-frame
-`Private source async pack` line) likewise require `DV_PRIVATE_FRAME_TIMING=1`.
-
-Legacy `DV_PRIVATE_*` names and the library SONAME are retained for ABI
-compatibility. Readback, half-resolution GUI and rejected GUI-tile experiments
-are disabled. Keep Kodi's resources and executable from the same build.
-
 ## Qualification boundaries
 
 The report above records packaged-image profile, timing, reference, cold-cache,
@@ -116,5 +89,6 @@ The existing engine tests are not independent Dolby conformance tests.
 `MEASUREMENTS.md` is historical context comparing the prior and newer CB1
 adapters. It is **not** a measurement of this YBLOD port.
 
-The new adapter code uses GPL-3.0-or-later; existing Kodi and bridge notices
-remain applicable. See the renderer's LICENSE and SOURCES.md.
+The adapter code uses GPL-3.0-or-later; existing Kodi and bridge notices
+remain applicable. See yblod-engine's LICENSE and SOURCES.md, installed with
+the engine package.

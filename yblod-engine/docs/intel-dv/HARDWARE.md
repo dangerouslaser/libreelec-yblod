@@ -20,15 +20,16 @@ sold with the same CPU.
    switching must be on. On by default only for allowlisted boards (DMI board
    NUC7i7BNB) with an MC2800 on FW 1.77; `i915.dv_lspcon=1` for other gen9/10
    LSPCON boards (experimental), `i915.dv_lspcon=0` turns it off. Other
-   LSPCONs (Parade) stay excluded and fall back to Dolby Vision converted to
-   HDR10.
+   LSPCONs (Parade) stay excluded: Dolby Vision titles play as Kodi's plain
+   base layer there (0.3's GL conversion to HDR10 is gone in 0.4.0).
    Exception (0.3.4, `linux-9930-dp-pcon-dv`): gen11+ boards whose HDMI
    sockets are an onboard DP-to-HDMI protocol converter (not LSPCON). The
    Dolby VSIF goes to the converter as a DP InfoFrame SDP in the GMP DIP, as
    HDR10 does. On by default only for allowlisted boards (DMI): the INUSUAL
    INUC 11i5FL (board CM11EBV58W), verified (see VALIDATION.md). Other boards:
    `i915.dv_pcon=1`, experimental. `i915.dv_pcon=0` turns it off. Kodi's
-   "Dolby Vision to HDR10" output mode is not offered on these DP ports.
+   "Convert to HDR10" output mode is not offered on these DP ports, nor on
+   the LSPCON route above (Dolby Vision only, plan decision 3).
 3. A valid Dolby EDID v0, v1 or v2 block advertising Standard DV. Both Kodi and
    the driver use the same validation. V0 and applicable v1 sinks use legacy
    Standard-DV HDMI signaling; modern sinks retain the Dolby-OUI packet.
@@ -38,6 +39,35 @@ sold with the same CPU.
    output and the required texture/rendering precision.
 5. Hardware decoding and import of the actual stream format. FEL additionally
    requires enhancement-layer decoding and matched surfaces.
+6. A Vulkan device for the display's GPU (Mesa ANV on Intel, RADV on AMD):
+   since 0.4.0 the Vulkan engine is the only Dolby Vision renderer. Without
+   one, Dolby Vision titles play as plain base-layer video, with one
+   notification per Kodi run (OUTPUT-MODES.md).
+
+## Conditions for HDR10 output (Convert to HDR10)
+
+An HDR10 display (EDID) on a native HDMI connector whose driver exposes
+`DVBRIDGE_TUNNEL_FORMAT` with `hdr10` (linux-9928: Intel display gen12 and
+later, amdgpu), progressive 3840 × 2160, and the Vulkan engine with HDR10
+output. A Dolby Vision EDID is not needed. Not on the converter routes
+(condition 2).
+
+## Conditions for HDR10+ output (Convert to HDR10+)
+
+Everything Convert to HDR10 needs, plus: the connector's `HDR10PLUS_METADATA`
+property (linux-9932: i915 HDMI connectors on display version 10 and later
+and amdgpu HDMI-A connectors; never the DP connectors of the converter
+routes), an HDR10+ Vendor-Specific Video Data Block in the TV's EDID (Kodi
+reads its application version and sends packets of that version), and the
+Vulkan engine with HDR10+ output. LG TVs have no HDR10+; Samsung, and
+Panasonic/Philips models with HDR10+, do. Untested on hardware so far.
+
+## HDR10+ videos as Dolby Vision
+
+The Dolby Vision output's conditions above (a Standard Dolby Vision TV,
+3840 × 2160, hardware decoding through VAAPI), an engine with
+`dvvk_hdr10plus_to_dovi`, and an HDR10+ video with one processing window per
+picture. No HDR10+ support is needed in the TV.
 
 The driver policy accepts CTA 24/25/30/50/60 Hz timings and their fractional
 variants, including 23.976 Hz. Acceptance is not a performance certification at

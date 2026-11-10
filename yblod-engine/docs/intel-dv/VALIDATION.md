@@ -8,6 +8,9 @@ LibreELEC settings addon contains no DV helper or custom DV settings. Standard
 DV Profile 7 FEL and Avatar Profile 8 playback supplied the release screenshots.
 The final 31-patch series applies to fresh pinned sources with zero fuzz.
 
+(0.3, historical: YBLOD 0.4.0 replaced this libplacebo HDR10 conversion with
+the Vulkan engine's Master Reference conversion through the tunnel; see
+OUTPUT-MODES.md. Its validation is 0.4.0 workstream C.)
 The HDR10 conversion adds L1-guided libplacebo mapping. Sanitized software
 tests cover metadata-driven output changes, unchanged native DV, FEL reference
 agreement, target selection and output quantization. Kodi compilation passes.

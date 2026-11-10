@@ -3,12 +3,12 @@
 # Copyright (C) 2017-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="kodi"
-PKG_VERSION="e4b62810b1f38662ee343b4966ea0c44a05fbf2d"
-PKG_SHA256="1bc14e62c68cd31d7a90b29313826105e9a7ed6d533be3a2ee64d6a502f79968"
+PKG_VERSION="e6192109e1c883cea927fbcb4c223c0f6f3a2b6b"
+PKG_SHA256="a9a1cfae4ed28d57b8b22b3fecad4952f3e2622aef7fe8ff369dba842980686f"
 PKG_LICENSE="GPL-3.0-or-later"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain libplacebo JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre2 swig:host libass curl exiv2 fontconfig fribidi tinyxml tinyxml2 libjpeg-turbo freetype libcdio taglib libxml2 libxslt nlohmann-json sqlite ffmpeg crossguid libdvdnav libfmt libfstrcmp flatbuffers:host flatbuffers libudfread spdlog libxkbcommon"
+PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre2 swig:host libass curl exiv2 fontconfig fribidi tinyxml tinyxml2 libjpeg-turbo freetype libcdio taglib libxml2 libxslt nlohmann-json sqlite ffmpeg crossguid libdvdnav libfmt libfstrcmp flatbuffers:host flatbuffers libudfread spdlog libxkbcommon"
 PKG_DEPENDS_UNPACK="commons-lang3 commons-text groovy"
 PKG_DEPENDS_HOST="toolchain"
 PKG_LONGDESC="A free and open source cross-platform media player."
@@ -46,7 +46,8 @@ configure_package() {
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     PKG_DEPENDS_TARGET+=" pciutils"
     if [ "${PROJECT}" = "Generic" ]; then
-      PKG_DEPENDS_TARGET+=" yblod-engine yblod-engine-vk"
+      # The Vulkan Dolby Vision engine (yblod-engine/vk), the only one since 0.4.0.
+      PKG_DEPENDS_TARGET+=" yblod-engine-vk"
     fi
   fi
 

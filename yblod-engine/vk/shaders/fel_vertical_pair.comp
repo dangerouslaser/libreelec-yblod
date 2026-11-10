@@ -1,5 +1,5 @@
 // vertical_pair (DV_INPUT_P010): the EL luma (w x h, half size) upsampled
-// vertically, 4-tap {-3,29,111,-9}/128 (or rows repeated, nearest) -> w x 2h.
+// vertically, 4-tap {-3,29,111,-9}/128 (or 2-tap 1:3, bilinear) -> w x 2h.
 #version 460
 #define ERROR_OR(v) atomicOr(error, v)
 layout(binding = 2, std430) buffer Error { uint error; };
@@ -7,17 +7,19 @@ layout(binding = 2, std430) buffer Error { uint error; };
 layout(local_size_x = 16, local_size_y = 8) in;
 layout(binding = 0) uniform sampler2D src;
 layout(binding = 1, std430) writeonly buffer Dst { uint16_t dst[]; };
-layout(push_constant) uniform Push { uint w, h, channel, nearest, row_offset; };
+layout(push_constant) uniform Push { uint w, h, channel, method, row_offset; };
 
 void main()
 {
     uint x = gl_GlobalInvocationID.x, y = gl_GlobalInvocationID.y + row_offset;
     if (x >= w || y >= h)
         return;
-    if (nearest != 0u) {
-        uint16_t v = uint16_t(input_sample(src, x, y, channel));
-        dst[y * 2 * w + x] = v;
-        dst[(y * 2 + 1) * w + x] = v;
+    if (method == EL_BILINEAR) {
+        int a = int(input_sample(src, x, uint(edge(int(y) - 1, h)), channel));
+        int b = int(input_sample(src, x, y, channel));
+        int c = int(input_sample(src, x, uint(edge(int(y) + 1, h)), channel));
+        dst[y * 2 * w + x] = uint16_t(el_bilinear_quarter(b, a));
+        dst[(y * 2 + 1) * w + x] = uint16_t(el_bilinear_quarter(b, c));
         return;
     }
     int s0 = int(input_sample(src, x, uint(edge(int(y) - 2, h)), channel));

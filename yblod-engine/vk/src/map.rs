@@ -5,6 +5,7 @@ use std::mem::{offset_of, size_of};
 
 pub const DVVK_OUTPUT_DV: u32 = 0;
 pub const DVVK_OUTPUT_HDR10: u32 = 1;
+pub const DVVK_OUTPUT_HDR10PLUS: u32 = 2;
 /// The 3D LUT's points per axis (dvvk_map_gpu.lut_n; dv_map.c sets it).
 pub const LUT_N: u32 = 65;
 /// map_bake's threshold: cells interpolating worse than this (12-bit codes)
