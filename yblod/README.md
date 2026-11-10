@@ -6,7 +6,7 @@ changes to other projects) only has to deal with a short list of glue files.
 
 | Folder | Contents |
 |---|---|
-| `yblod-engine/` | The Dolby Vision pipeline: the native engine (`src/`, `tests/`, `integration/`), its Kodi, FFmpeg, libplacebo and kernel patches (`patches/<package>/`), tools, docs and licences. |
+| `yblod-engine/` | The Dolby Vision pipeline: the Vulkan engine (`vk/`) and the host C it compiles (`src/`, `tests/`), Kodi's runtime environment (`integration/`), its Kodi, FFmpeg, libplacebo and kernel patches (`patches/<package>/`), tools, docs and licences. |
 | `yblod/` | The distribution: patches that are not Dolby Vision (`patches/`), the LG edition (`editions/lg/`), build and release tools (`tools/`), release notes and validation (`docs/releases/`). |
 | `releases/` | Update channel files. Installed systems fetch `releases/releases.json` from `main` by URL, so this folder stays at the repository root. |
 
@@ -16,15 +16,16 @@ LibreELEC only finds package recipes under `packages/` and only applies patches 
 package's `patches/` folder or `projects/<project>/patches/<package>/`. So:
 
 - **Package recipes** we add stay under `packages/` as thin recipes that read their files
-  from `yblod-engine/` or `yblod/` (`packages/graphics/yblod-engine`, the Intel OpenCL
-  runtime packages, the LG edition packages). `PKG_NEED_UNPACK` points at the owning folder,
+  from `yblod-engine/` or `yblod/` (`packages/graphics/yblod-engine-vk`, shaderc, the LG
+  edition packages; the OpenCL engine and its runtime packages were removed in 0.4.0). `PKG_NEED_UNPACK` points at the owning folder,
   so changes there trigger a rebuild.
 - **Patches** are stored in `yblod-engine/patches/<package>/` or `yblod/patches/<package>/`
   and linked into the LibreELEC patch folder by relative symlinks. LibreELEC follows them
   for both patching and change detection, and applies them in file-name order exactly as if
   they were stored there. After adding, renaming or removing a patch, run
   `yblod/tools/link-patches.sh --fix`; without arguments it only checks.
-- **Upstream files we modify** are kept to a few lines: the Kodi and libplacebo recipes, the
+- **Upstream files we modify** are kept to a few lines: the Kodi recipe (Kodi no longer
+  depends on libplacebo since 0.4.0) and the libplacebo patches for the mpv add-on, the
   `mediacenter` meta package (LG edition), `README.md` and `.gitignore`.
 
 `yblod/tools/footprint.sh` lists everything outside the two folders that differs from the
@@ -32,10 +33,10 @@ LibreELEC commit of the last resync. Review that list when resyncing.
 
 ## Names that stay the same on installed systems
 
-The engine package is `yblod-engine`, but installed paths keep their names so existing
+The engine package is `yblod-engine-vk`, but installed paths keep their names so existing
 settings keep working: `/usr/lib/kodi/native-dv.env`, the user overrides in
-`/storage/.config/native-dv.env`, shaders in `/usr/share/native-dv`, the shader cache in
-`/storage/.cache/native-dv`, `DV_*` settings and `libdv_source_private.so`.
+`/storage/.config/native-dv.env` and the `DV_*` settings (0.4.0 dropped the OpenCL
+engine's `libdv_source_private.so`, `/usr/share/native-dv` and `/storage/.cache/native-dv`).
 
 ## Building
 

@@ -1,0 +1,672 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 244a4ab..9c9afb6 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26308,3 +26308,8 @@ msgstr ""
+ msgctxt "#40900"
+ msgid "The Dolby Vision engine (Vulkan) could not start. Dolby Vision videos play without Dolby Vision until Kodi restarts."
+ msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40901"
++msgid "This connection does not take HDR10 from Dolby Vision. Videos play without conversion until Kodi restarts."
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index a2547fe..dcb5413 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -337,11 +337,7 @@
+           <level>0</level>
+           <default>0</default>
+           <constraints>
+-            <options>
+-              <option label="40812">0</option>
+-              <option label="40813">1</option>
+-              <option label="40814">2</option>
+-            </options>
++            <options>dvbridgeoutputmodes</options>
+           </constraints>
+           <control type="spinner" format="string" />
+         </setting>
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index eb64763..d1a874a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -4,7 +4,10 @@
+ #include "ServiceBroker.h"
+ #include "settings/Settings.h"
+ #include "settings/SettingsComponent.h"
++#include "settings/lib/SettingDefinitions.h"
+ #include <atomic>
++#include <cstdint>
++#include <mutex>
+ 
+ namespace DVBRIDGE
+ {
+@@ -14,6 +17,56 @@ enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2 };
+ // change the output encoding of an already running playback session.
+ inline std::atomic<OutputMode> playbackMode{OutputMode::Standard};
+ 
++// HDR10 output through the tunnel: the Vulkan engine's HDR10 (the Master
++// Reference conversion, dvvk_set_output_mode) sent as the tunnel's 12-bit
++// YCbCr 4:2:2 with DVBRIDGE_TUNNEL_FORMAT hdr10 (linux-9928). The window sets
++// it for the output it begins (OutputMode HDR10 where the connector has it)
++// and clears it at the end; the engine reads it for every frame.
++inline std::atomic<bool> playbackTunnelHDR10{false};
++
++// The HDR static metadata (CTA-861.3 type 1 units) of the last tunnel picture
++// the engine made in HDR10, for the HDR_OUTPUT_METADATA the tunnel's link
++// carries. The film's (L6 or its source peak, L9's primaries), so it changes
++// with the film, not the scene.
++struct TunnelHDR10Signal
++{
++  uint16_t primaries[3][2]{}; // R, G, B x, y in 0.00002
++  uint16_t white[2]{};
++  uint16_t maxLuminance{0};   // cd/m2
++  uint16_t minLuminance{0};   // 0.0001 cd/m2
++  uint16_t maxCll{0}, maxFall{0};
++  bool operator==(const TunnelHDR10Signal&) const = default;
++};
++
++namespace detail
++{
++inline std::mutex tunnelSignalLock;
++inline TunnelHDR10Signal tunnelSignal;
++inline bool tunnelSignalValid{false};
++} // namespace detail
++
++// The engine, after each frame: the picture's signal, or nullptr (a Dolby Vision picture).
++inline void PublishTunnelHDR10(const TunnelHDR10Signal* signal)
++{
++  std::lock_guard lock(detail::tunnelSignalLock);
++  detail::tunnelSignalValid = signal != nullptr;
++  detail::tunnelSignal = signal ? *signal : TunnelHDR10Signal{};
++}
++
++// The window, at the flip: whether the last picture is HDR10, and its signal.
++inline bool CurrentTunnelHDR10(TunnelHDR10Signal& signal)
++{
++  std::lock_guard lock(detail::tunnelSignalLock);
++  signal = detail::tunnelSignal;
++  return detail::tunnelSignalValid;
++}
++
++// Settings > Player > Dolby Vision > Output mode: the values this connection
++// has (settings.xml's "dvbridgeoutputmodes" filler, WinSystemGbmGLESContext).
++void OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
++                       IntegerSettingOptions& list,
++                       int& current);
++
+ inline void SelectOutputSettings()
+ {
+   const auto component = CServiceBroker::GetSettingsComponent();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 3d1f0c3..bdeef3b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -5,6 +5,7 @@
+ #include "DVPrivateVulkan.h"
+ #include "DVPrivateOverlay.h"
+ #include "DVBridgeShaders.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
+ #include "utils/log.h"
+ extern "C"
+@@ -147,7 +148,10 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& base, const AVFrame* enhancemen
+       m_sourceFrame = m_wasSource = m_prepared = true;
+       m_packed = false;
+       const bool fel = enhancement && dvbridge_fel_active(metadata.Data(), metadata.Size());
+-      m_pendingInfo = CDVPlaybackInfo::HDMI | (fel ? CDVPlaybackInfo::FEL : 0u);
++      // The engine's HDR10 through the tunnel (DV -> HDR10), or Dolby Vision.
++      m_pendingInfo = (DVBRIDGE::playbackTunnelHDR10.load() ? CDVPlaybackInfo::HDR10
++                                                             : CDVPlaybackInfo::HDMI) |
++                      (fel ? CDVPlaybackInfo::FEL : 0u);
+       const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
+       if (entering && trace && std::strcmp(trace, "1") == 0)
+         CLog::Log(LOGINFO, "Private source composition: pts={} enhancement={} fel={} prepared=true",
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 7bba89e..8e8aa5f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -1,6 +1,7 @@
+ /* SPDX-License-Identifier: GPL-3.0-or-later */
+ #include "DVPrivateVulkan.h"
+ #include "ServiceBroker.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "dialogs/GUIDialogKaiToast.h"
+ #include "messaging/ApplicationMessenger.h"
+ #include "resources/LocalizeStrings.h"
+@@ -131,6 +132,86 @@ void CDVPrivateVulkan::StartFailed()
+     CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
+ }
+ 
++bool CDVPrivateVulkan::HasHDR10()
++{
++  static std::once_flag probed;
++  static bool has = false;
++  if (!Usable())
++    return false;
++  std::call_once(probed, [] {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0]) library = DVVK_LIBRARY;
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    if (!handle)
++      return;
++    has = dlsym(handle, "dvvk_set_output_mode") && dlsym(handle, "dvvk_output_signal");
++    dlclose(handle);
++    CLog::Log(LOGINFO, "Vulkan engine {}: HDR10 output {}", library, has ? "available" : "not available");
++  });
++  return has;
++}
++
++void CDVPrivateVulkan::SelectOutputMode()
++{
++  // HDR10 when the window asks for it (the tunnel's format follows the
++  // signal this publishes); otherwise Dolby Vision.
++  const uint32_t want = DVBRIDGE::playbackTunnelHDR10.load() ? DVVK_OUTPUT_HDR10 : DVVK_OUTPUT_DV;
++  if (want == m_outputMode)
++    return;
++  if (!m_setOutputMode)
++  {
++    if (want == DVVK_OUTPUT_HDR10 && m_reports < 16)
++    {
++      ++m_reports;
++      CLog::Log(LOGERROR, "Vulkan engine: no HDR10 output in this library; Dolby Vision pictures");
++    }
++    return;
++  }
++  dvvk_output_mode mode{};
++  mode.mode = want;
++  const int result = m_setOutputMode(m_engine, &mode);
++  if (result != 0)
++  {
++    CLog::Log(LOGERROR, "Vulkan engine refused output mode {} ({})", want, result);
++    return;
++  }
++  m_outputMode = want;
++  CLog::Log(LOGINFO, "Vulkan engine output: {}", want == DVVK_OUTPUT_HDR10
++            ? "HDR10, the Master Reference conversion (BT.2020 PQ, 12-bit 4:2:2 through the tunnel)"
++            : "Dolby Vision");
++}
++
++void CDVPrivateVulkan::PublishSignal(int64_t pts)
++{
++  dvvk_hdr_signal signal{};
++  if (m_outputMode != DVVK_OUTPUT_HDR10 || !m_outputSignal || m_outputSignal(m_engine, &signal) != 0 ||
++      signal.mode != DVVK_OUTPUT_HDR10)
++  {
++    DVBRIDGE::PublishTunnelHDR10(nullptr);
++    return;
++  }
++  DVBRIDGE::TunnelHDR10Signal out;
++  std::memcpy(out.primaries, signal.primaries, sizeof(out.primaries));
++  out.white[0] = signal.white[0];
++  out.white[1] = signal.white[1];
++  out.maxLuminance = signal.max_luminance;
++  out.minLuminance = signal.min_luminance;
++  out.maxCll = signal.max_cll;
++  out.maxFall = signal.max_fall;
++  DVBRIDGE::PublishTunnelHDR10(&out);
++  if (std::memcmp(&signal, &m_loggedSignal, sizeof(signal)) != 0)
++  {
++    m_loggedSignal = signal;
++    CLog::Log(LOGINFO, "Vulkan engine HDR10 pts={}: mastering {} / {:.4f} cd/m2, MaxCLL {}, MaxFALL {}, "
++              "primaries {:.4f},{:.4f} {:.4f},{:.4f} {:.4f},{:.4f} white {:.4f},{:.4f}",
++              pts, signal.max_luminance, signal.min_luminance / 10000.0, signal.max_cll, signal.max_fall,
++              signal.primaries[0][0] / 50000.0, signal.primaries[0][1] / 50000.0,
++              signal.primaries[1][0] / 50000.0, signal.primaries[1][1] / 50000.0,
++              signal.primaries[2][0] / 50000.0, signal.primaries[2][1] / 50000.0,
++              signal.white[0] / 50000.0, signal.white[1] / 50000.0);
++  }
++}
++
+ bool CDVPrivateVulkan::MasterReference()
+ {
+   // dvbridge.elupscaler: annexb (the default) or bilinear (DVEngineSettings).
+@@ -170,6 +251,10 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_drain = reinterpret_cast<decltype(m_drain)>(dlsym(m_library, "dvvk_drain"));
+   m_resetChecked = reinterpret_cast<decltype(m_resetChecked)>(dlsym(m_library, "dvvk_reset_checked"));
+   m_dmStatus = reinterpret_cast<decltype(m_dmStatus)>(dlsym(m_library, "dvvk_dm_status"));
++  m_setOutputMode = reinterpret_cast<decltype(m_setOutputMode)>(dlsym(m_library, "dvvk_set_output_mode"));
++  m_outputSignal = reinterpret_cast<decltype(m_outputSignal)>(dlsym(m_library, "dvvk_output_signal"));
++  if (!m_setOutputMode || !m_outputSignal)
++    m_setOutputMode = nullptr, m_outputSignal = nullptr;
+   // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
+   m_setOverlayEx = reinterpret_cast<decltype(m_setOverlayEx)>(dlsym(m_library, "dvvk_set_overlay_ex"));
+   m_implicitFailed = reinterpret_cast<decltype(m_implicitFailed)>(dlsym(m_library, "dvvk_implicit_failed"));
+@@ -385,7 +470,10 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   frame.output = slot;
+   frame.flags = DVVK_FRAME_AUTO_OVERLAY;
+   uint64_t ticket = 0;
++  SelectOutputMode();
+   const int result = m_submit(m_engine, &frame, &ticket);
++  if (result == 0)
++    PublishSignal(pts);
+   if (result != 0)
+   {
+     if (m_reports < 16)
+@@ -533,6 +621,9 @@ bool CDVPrivateVulkan::Close()
+       return false;
+     m_destroy(m_engine);
+     m_engine = nullptr;
++    // an engine made again starts in Dolby Vision
++    m_outputMode = DVVK_OUTPUT_DV;
++    DVBRIDGE::PublishTunnelHDR10(nullptr);
+   }
+   for (Gui& gui : m_guis)
+   {
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 619115e..9e3874f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -32,6 +32,9 @@ public:
+   static constexpr uint32_t kElScalerBilinear = kElScalerAnnexB; // TODO: engine bilinear value
+   /* The engine library loads with Kodi's ABI and has not failed to start. */
+   static bool Usable();
++  /* The engine library has HDR10 output (dvvk_set_output_mode and
++   * dvvk_output_signal, optional symbols): checked once, by loading it. */
++  static bool HasHDR10();
+   /* Enhancement layer upscaling Annex B (Master Reference), not Bilinear. */
+   static bool MasterReference();
+   /* The engine did not start: once per Kodi run a notification and a log
+@@ -72,6 +75,14 @@ private:
+   decltype(&dvvk_drain) m_drain{nullptr};                     // optional
+   decltype(&dvvk_reset_checked) m_resetChecked{nullptr};      // optional
+   decltype(&dvvk_dm_status) m_dmStatus{nullptr};              // optional
++  decltype(&dvvk_set_output_mode) m_setOutputMode{nullptr};    // optional (HDR10 output)
++  decltype(&dvvk_output_signal) m_outputSignal{nullptr};       // optional (HDR10 output)
++  // The output mode the engine has (DVVK_OUTPUT_*): DVBRIDGE::playbackTunnelHDR10
++  // for each frame, and the last HDR10 signal logged.
++  uint32_t m_outputMode{DVVK_OUTPUT_DV};
++  void SelectOutputMode();
++  void PublishSignal(int64_t pts);
++  dvvk_hdr_signal m_loggedSignal{};
+   // Kodi's GUI revision against the pixels the engine found changed: a
+   // revision that stays while pixels change would make it unsafe to skip
+   // the GUI on an unchanged revision (the 0.2.1 controls flicker).
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+index 155b32f..5eeb07c 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+@@ -98,10 +98,10 @@ void CGUIDialogPlayerProcessInfo::Process(unsigned int currentTime, CDirtyRegion
+     SetProperty("DV.BL", data.profile ? yesno(data.bl) : "N/A");
+     SetProperty("DV.EL", data.profile ? yesno(data.el) : "N/A");
+     SetProperty("DV.FEL", active ? yesno(active & CDVPlaybackInfo::FEL) : "N/A");
+-    SetProperty("DV.Mode", active & CDVPlaybackInfo::HDR10 ? "HDR10 conversion" :
++    SetProperty("DV.Mode", active & CDVPlaybackInfo::HDR10 ? "HDR10 conversion (Master Reference)" :
+         active & CDVPlaybackInfo::HDMI ? "Dolby Vision (TV-Led)" : "Kodi default");
+     SetProperty("DV.Transport", active & CDVPlaybackInfo::HDMI ? "RGB 8-bit (DV tunnel)" :
+-        active & CDVPlaybackInfo::HDR10 ? "PQ / BT.2020" : "N/A");
++        active & CDVPlaybackInfo::HDR10 ? "PQ / BT.2020, YCbCr 4:2:2 12-bit (tunnel)" : "N/A");
+     SetProperty("DV.Precision", metadata ? StringUtils::Format("{}-bit framebuffer", data.framebufferBits) : "N/A");
+     SetProperty("DV.L1PQ", metadata && data.l1 ? StringUtils::Format("{} | {} | {}", data.pq[0], data.pq[1], data.pq[2]) : "N/A");
+     const auto nits = [](unsigned pq) {
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index d26cd00..60474b3 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -15,6 +15,9 @@
+ #include "addons/Skin.h"
+ #include "application/AppParams.h"
+ #include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#endif
+ #include "filesystem/File.h"
+ #include "guilib/GUIFontManager.h"
+ #include "guilib/StereoscopicsManager.h"
+@@ -376,6 +379,10 @@ void CSettings::InitializeOptionFillers()
+       "audiocdactions", MEDIA_DETECT::CAutorun::SettingOptionAudioCdActionsFiller);
+   GetSettingsManager()->RegisterSettingOptionsFiller(
+       "videodiscactions", MEDIA_DETECT::CAutorun::SettingOptionVideoDiscActionsFiller);
++#endif
++#ifdef HAVE_DVBRIDGE
++  GetSettingsManager()->RegisterSettingOptionsFiller("dvbridgeoutputmodes",
++                                                     DVBRIDGE::OutputModeOptions);
+ #endif
+   GetSettingsManager()->RegisterSettingOptionsFiller("charsets", CCharsetConverter::SettingOptionsCharsetsFiller);
+   GetSettingsManager()->RegisterSettingOptionsFiller("fonts", GUIFontManager::SettingOptionsFontsFiller);
+@@ -460,6 +467,9 @@ void CSettings::UninitializeOptionFillers()
+   GetSettingsManager()->UnregisterSettingOptionsFiller("audiocdactions");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("videodiscactions");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("audiocdencoders");
++#ifdef HAVE_DVBRIDGE
++  GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgeoutputmodes");
++#endif
+   GetSettingsManager()->UnregisterSettingOptionsFiller("charsets");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("fontheights");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("fonts");
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index ceed2cb..b30d751 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -53,6 +53,10 @@ extern "C"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
+ #include "cores/VideoPlayer/DVDStreamInfo.h"
+ #include "drm/DRMAtomic.h"
++#include "dialogs/GUIDialogKaiToast.h"
++#include "messaging/ApplicationMessenger.h"
++#include "resources/LocalizeStrings.h"
++#include "resources/ResourcesComponent.h"
+ #include "settings/DisplaySettings.h"
+ #include "settings/Settings.h"
+ #include "settings/SettingsComponent.h"
+@@ -239,8 +243,22 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+     bool presented = false;
+     // EGL's window framebuffer has a bottom-left GL origin, while transport
+     // metadata is indexed from the top-left of the HDMI raster.
++    auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
+     if (m_dvFrame && m_dvBridge && m_dvBridge->GetPrivateScanout())
+-      presented = FlipDVBridgePage(m_dvState, false, m_dvBridge->GetPrivateScanout());
++    {
++      // The engine's picture: HDR10 when it made one (its signal), else Dolby Vision.
++      DVBRIDGE::TunnelHDR10Signal signal;
++      const bool hdr10 = DVBRIDGE::playbackTunnelHDR10.load() && DVBRIDGE::CurrentTunnelHDR10(signal);
++      if (DVBRIDGE::playbackTunnelHDR10.load() && !hdr10 && !m_dvTunnelHDR10Warned)
++      {
++        m_dvTunnelHDR10Warned = true;
++        CLog::Log(LOGWARNING, "DVBridge: HDR10 asked for, but the engine made a Dolby Vision picture; sent as Dolby Vision");
++      }
++      presented = drm && m_dvState.SetSignal(*drm, hdr10 ? &signal : nullptr) &&
++                  FlipDVBridgePage(m_dvState, false, m_dvBridge->GetPrivateScanout());
++      if (hdr10)
++        TunnelHDR10Presented(presented);
++    }
+     if (m_dvBridge)
+       m_dvBridge->Presented(presented);
+     m_dvFrame = false;
+@@ -841,8 +859,19 @@ bool NativeDVEligible(bool source, bool software, bool interlaced, bool stereo)
+   const auto mode = DVBRIDGE::playbackMode.load();
+   // The Vulkan engine is the only Dolby Vision renderer: without it (its library missing, or it
+   // did not start), Dolby Vision titles play as plain base-layer video.
+-  const bool available = window && mode == DVBRIDGE::OutputMode::Standard &&
+-                         window->SupportsNativeDVOutput() && CDVPrivateVulkan::Usable();
++  bool available = false;
++  switch (mode)
++  {
++    case DVBRIDGE::OutputMode::Standard:
++      available = window && window->SupportsNativeDVOutput();
++      break;
++    case DVBRIDGE::OutputMode::HDR10:
++      available = window && window->SupportsTunnelHDR10();
++      break;
++    default:
++      break;
++  }
++  available = available && CDVPrivateVulkan::Usable();
+   return DVBRIDGE::Eligible(available, available, source, software, interlaced, stereo);
+ }
+ } // namespace
+@@ -917,6 +946,69 @@ int CWinSystemGbmGLESContext::VideoOutputBitDepth(const VideoPicture* picture) c
+   return 8;
+ }
+ 
++namespace
++{
++// Whether an HDR10 tunnel commit ever worked on this connection (1), or the
++// kernel refused every one (2: an LSPCON in level-shifter mode offers the
++// format but takes only Dolby Vision, linux-9931).
++std::atomic<int> tunnelHDR10Verdict{0};
++} // namespace
++
++bool CWinSystemGbmGLESContext::SupportsTunnelHDR10()
++{
++  if (tunnelHDR10Verdict.load() == 2 || !IsHDRDisplay() ||
++      !GetDisplayHDRCapabilities().SupportsHDR10())
++    return false;
++  // linux-9928's DVBRIDGE_TUNNEL_FORMAT with an hdr10 value: native HDMI connectors (gen12+
++  // Intel, amdgpu). The converter routes (linux-9930's DP connectors) have no such property.
++  auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  const auto* mode = m_DRM ? m_DRM->GetSelectedMode() : nullptr;
++  auto* connector = m_DRM ? m_DRM->GetConnector() : nullptr;
++  return drm && connector && connector->IsConnected() && CDVBridgeState::SupportsHDR10(*connector) &&
++         mode && mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
++         !(mode->flags & DRM_MODE_FLAG_INTERLACE) && CDVPrivateVulkan::HasHDR10();
++}
++
++bool CWinSystemGbmGLESContext::TunnelHDR10Selected()
++{
++  return DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::HDR10 && SupportsTunnelHDR10();
++}
++
++void CWinSystemGbmGLESContext::TunnelHDR10Presented(bool presented)
++{
++  if (presented)
++  {
++    tunnelHDR10Verdict = 1;
++    m_dvTunnelHDR10Failures = 0;
++    return;
++  }
++  // A connection that never took one: the kernel refuses the format here. Give the title back
++  // to plain playback (the option is hidden from now on). Ten attempted commits, so that a
++  // few failures while the link settles do not count (frames held back by the HDMI recovery
++  // are not attempted).
++  if (tunnelHDR10Verdict.load() != 0 || ++m_dvTunnelHDR10Failures < 10)
++    return;
++  tunnelHDR10Verdict = 2;
++  CLog::Log(LOGERROR, "DVBridge: this connection refuses HDR10 through the tunnel; Convert Dolby "
++            "Vision to HDR10 is unavailable until Kodi restarts, the title plays without conversion");
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(40810),
++                                        strings.Get(40901));
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++}
++
++void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
++                                 IntegerSettingOptions& list, int& current)
++{
++  // Dolby Vision and Off always; the conversions only where this connection has them.
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  list.emplace_back(strings.Get(40812), static_cast<int>(OutputMode::Standard));
++  if (window && window->SupportsTunnelHDR10())
++    list.emplace_back(strings.Get(40813), static_cast<int>(OutputMode::HDR10));
++  list.emplace_back(strings.Get(40814), static_cast<int>(OutputMode::Disabled));
++}
++
+ bool CWinSystemGbmGLESContext::BeginDVBridge()
+ {
+   const auto failure = [this](const char* stage) {
+@@ -941,6 +1033,12 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+     return failure("renderer-init");
+   if (!m_dvState.Captured() && !m_dvState.Capture(*drm))
+     return failure("drm-state-capture");
++  // HDR10 through the tunnel is the tunnel's output with the engine in HDR10.
++  const bool tunnelHDR10 = TunnelHDR10Selected();
++  if (DVBRIDGE::playbackTunnelHDR10.exchange(tunnelHDR10) != tunnelHDR10 || tunnelHDR10)
++    CLog::Log(LOGINFO, "DVBridge output: {}", tunnelHDR10
++              ? "HDR10 through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10)"
++              : "Dolby Vision");
+   m_compositeShader.reset();
+   return SetGuiCompositing(AVCOL_TRC_SMPTE2084);
+ }
+@@ -1037,6 +1135,10 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+ 
+ bool CWinSystemGbmGLESContext::EndDVBridge()
+ {
++  DVBRIDGE::playbackTunnelHDR10.store(false);
++  DVBRIDGE::PublishTunnelHDR10(nullptr);
++  m_dvTunnelHDR10Warned = false;
++  m_dvTunnelHDR10Failures = 0;
+   m_dvStartup = false;
+   m_dvExitPending = false;
+   m_dvMenu = false;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 2faecbb..8bba469 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -62,7 +62,11 @@ public:
+ #ifdef HAVE_DVBRIDGE
+   static bool DVBridgeRequested(const VideoPicture* picture);
+   bool BeginDVBridge();
+-  void SetDVBridgeOverlays(bool visible, bool hdr, bool debug)
++  /* HDR10 through the tunnel (OutputMode HDR10): the Vulkan engine's HDR10
++   * output and DVBRIDGE_TUNNEL_FORMAT hdr10 (linux-9928), on an HDR10 display.
++   * Not on the converter routes (no such property there). */
++  bool SupportsTunnelHDR10();
++  bool TunnelHDR10Selected();  void SetDVBridgeOverlays(bool visible, bool hdr, bool debug)
+   {
+     m_dvOverlays = visible;
+     m_dvHDROverlays = hdr;
+@@ -123,6 +127,9 @@ private:
+ #ifdef HAVE_DVBRIDGE
+   std::unique_ptr<CDVBridgeGLES> m_dvBridge;
+   CDVBridgeState m_dvState;
++  void TunnelHDR10Presented(bool presented);
++  bool m_dvTunnelHDR10Warned{false};
++  unsigned m_dvTunnelHDR10Failures{0};
+   DVBRIDGE::DiagnosticFailures m_dvSetupFailures;
+   bool m_dvFrame = false;
+   bool m_dvOverlays = true;
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.cpp b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+index da02d82..712437b 100644
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.cpp
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+@@ -1,6 +1,10 @@
+ /* SPDX-License-Identifier: GPL-3.0-or-later */
+ #include "DVBridgeState.h"
+ #include "DRMAtomic.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "utils/log.h"
++
++#include <cstring>
+ 
+ using namespace KODI::WINDOWING::GBM;
+ 
+@@ -45,6 +49,9 @@ bool CDVBridgeState::Capture(CDRMAtomic& drm)
+     return true;
+   };
+ 
++  // linux-9928: what the tunnel's pictures are (Dolby Vision until SetSignal)
++  if (!save(connector, "DVBRIDGE_TUNNEL_FORMAT", 0, false, false, "dolby-vision"))
++    return false;
+   if (!save(connector, "DVBRIDGE_DV_STANDARD_LAB", 1, true, false) ||
+       !save(connector, "HDR_OUTPUT_METADATA", 0, true, true) ||
+       !save(connector, "max bpc", 8, true, false) ||
+@@ -81,6 +88,65 @@ bool CDVBridgeState::Capture(CDRMAtomic& drm)
+     return false;
+   m_saved = std::move(saved);
+   m_owner = &drm;
++  m_hdr10.reset();
++  m_hdr10Blob = CDRMPropertyBlob();
++  return true;
++}
++
++CDVBridgeState::Property* CDVBridgeState::Find(const char* name)
++{
++  for (auto& property : m_saved)
++    if (property.name == name)
++      return &property;
++  return nullptr;
++}
++
++bool CDVBridgeState::SupportsHDR10(CDRMObject& connector)
++{
++  return connector.SupportsProperty("DVBRIDGE_DV_STANDARD_LAB") &&
++         connector.GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT", "hdr10").has_value();
++}
++
++bool CDVBridgeState::SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10)
++{
++  if (!Captured() || m_owner != &drm)
++    return false;
++  auto* format = Find("DVBRIDGE_TUNNEL_FORMAT");
++  auto* metadata = Find("HDR_OUTPUT_METADATA");
++  if (!format)
++    return !hdr10; // a kernel before linux-9928: Dolby Vision only
++  const auto value = format->object->GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT",
++                                                          hdr10 ? "hdr10" : "dolby-vision");
++  if (!value || !metadata)
++    return false;
++  format->transport = *value;
++  if (!hdr10)
++  {
++    metadata->transport = 0;
++    return true;
++  }
++  const std::array<uint16_t, 12> key{hdr10->primaries[0][0], hdr10->primaries[0][1],
++      hdr10->primaries[1][0], hdr10->primaries[1][1], hdr10->primaries[2][0], hdr10->primaries[2][1],
++      hdr10->white[0], hdr10->white[1], hdr10->maxLuminance, hdr10->minLuminance, hdr10->maxCll,
++      hdr10->maxFall};
++  if (!m_hdr10 || *m_hdr10 != key || !m_hdr10Blob.IsValid())
++  {
++    // struct hdr_output_metadata: a u32 metadata_type (0, static type 1), then
++    // hdr_metadata_infoframe (eotf 2 PQ, its metadata_type 0, then the u16s
++    // in the order above: primaries, white point, max/min mastering, MaxCLL,
++    // MaxFALL), native byte order, padded to its 32 bytes (the kernel takes
++    // exactly sizeof(struct hdr_output_metadata)).
++    uint8_t blob[32]{};
++    blob[4] = 2;
++    std::memcpy(blob + 6, key.data(), sizeof(key[0]) * key.size());
++    m_hdr10Blob = CDRMPropertyBlob(drm.GetFileDescriptor(), blob, sizeof(blob));
++    if (!m_hdr10Blob.IsValid())
++      return false;
++    m_hdr10 = key;
++    CLog::Log(LOGINFO, "DVBridge tunnel HDR10 metadata: mastering {} / {:.4f} cd/m2, MaxCLL {}, MaxFALL {}",
++              hdr10->maxLuminance, hdr10->minLuminance / 10000.0, hdr10->maxCll, hdr10->maxFall);
++  }
++  metadata->transport = m_hdr10Blob.Get();
+   return true;
+ }
+ 
+@@ -89,7 +155,10 @@ void CDVBridgeState::RestoreSDR()
+   // Renderer teardown invalidates the previous video's HDR/colorimetry snapshot.
+   for (auto& property : m_saved)
+   {
+-    if (property.name == "HDR_OUTPUT_METADATA" || property.name == "Colorspace")
++    // no HDR metadata (an HDR10 tunnel's transport is its blob, not SDR's 0)
++    if (property.name == "HDR_OUTPUT_METADATA")
++      property.original = 0;
++    else if (property.name == "Colorspace")
+       property.original = property.transport;
+   }
+ }
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.h b/xbmc/windowing/gbm/drm/DVBridgeState.h
+index 98e2f52..a7758ce 100644
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.h
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.h
+@@ -2,9 +2,17 @@
+ #pragma once
+ 
+ #include "DRMObject.h"
++#include <array>
++#include <cstdint>
++#include <optional>
+ #include <string>
+ #include <vector>
+ 
++namespace DVBRIDGE
++{
++struct TunnelHDR10Signal;
++}
++
+ namespace KODI::WINDOWING::GBM
+ {
+ class CDRMAtomic;
+@@ -17,6 +25,13 @@ public:
+   void RestoreSDR();
+   void Restored() { m_saved.clear(); m_owner = nullptr; }
+   bool Captured() const { return !m_saved.empty(); }
++  /* What the tunnel's pictures are, from the next Stage: Dolby Vision
++   * (nullptr), or HDR10 with its static metadata (DVBRIDGE_TUNNEL_FORMAT
++   * hdr10 and an HDR_OUTPUT_METADATA blob, linux-9928). False when the
++   * connector has no such format. */
++  bool SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10);
++  /* The connector takes HDR10 tunnel pictures (DVBRIDGE_TUNNEL_FORMAT's hdr10). */
++  static bool SupportsHDR10(CDRMObject& connector);
+ 
+ private:
+   struct Property
+@@ -27,7 +42,12 @@ private:
+     uint64_t transport;
+     CDRMPropertyBlob blob;
+   };
++  Property* Find(const char* name);
+   std::vector<Property> m_saved;
+   CDRMAtomic* m_owner = nullptr;
++  // the HDR10 signal staged, and its blob (kept until the next one: the
++  // kernel holds its own reference once a commit uses it)
++  std::optional<std::array<uint16_t, 12>> m_hdr10;
++  CDRMPropertyBlob m_hdr10Blob;
+ };
+ }

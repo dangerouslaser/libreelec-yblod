@@ -1,20 +1,76 @@
 # Video output
 
-Settings are in **Kodi > Settings > Player > Videos**, available at **Basic** level. Playback preferences apply to the next file.
+Settings are in **Kodi > Settings > Player > Dolby Vision**. Playback
+preferences apply to the next video. Since 0.4.0 every Dolby Vision picture
+is made by YBLOD's Vulkan engine (`yblod-engine/vk`); there is no second
+renderer.
 
-| Setting | Result |
+## Output mode
+
+| Output mode | Result |
 | --- | --- |
-| Standard Dolby Vision (TV-Led) | Default. Sends reconstructed video and frame-matched Dolby Vision metadata to a compatible display. |
-| Convert Dolby Vision to HDR10 output | Reconstructs the source, including supported FEL residuals, then applies L1-guided tone mapping to a source-derived mastering target and sends PQ/BT.2020 HDR10. |
-| Disable Dolby Vision support | Uses Kodi's ordinary playback and HDR handling without the custom Dolby Vision output path. |
+| Dolby Vision (TV-led) | Default. The engine reconstructs the picture (FEL included) and sends it with frame-matched Dolby Vision metadata through the DV tunnel (RGB 8-bit container); the TV's Dolby Vision processing maps it. |
+| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9928), with HDR static metadata from the film (L6 or its source peak, L9 primaries). |
+| Off | Kodi's ordinary playback of the base layer: HDR10 or SDR as the stream's base layer is, without the enhancement layer. Profile 5 has no compatible base layer and its colours are wrong. |
 
-HDR10 conversion uses libplacebo's spline tone mapping with frame-matched L1 maximum and average luminance. The target peak comes from valid RPU L6 mastering metadata, otherwise from RPU source maximum PQ. Missing usable target metadata rejects conversion rather than inventing a brightness target. Valid streams without usable L1 use static source luminance.
+**Convert to HDR10** is offered only where it can be had: an HDR10 display
+on a connector with linux-9928's `DVBRIDGE_TUNNEL_FORMAT` and its `hdr10`
+value (native HDMI: Intel display gen12 and later, AMD), and an engine with
+HDR10 output. It is hidden on the converter routes: the DP-to-HDMI
+converters (linux-9930) have no such property; the NUC7's LSPCON in
+level-shifter mode (linux-9931) has it but its kernel takes only Dolby
+Vision, so after ten refused HDR10 commits on a connection that never
+took one, the option is withdrawn until Kodi restarts and the title plays
+without conversion (notification). The converter routes get Dolby Vision
+or nothing (plan decision 3). The GL HDR10 conversion of 0.3 (libplacebo
+spline tone mapping in a 10-bit framebuffer) is gone with the compatibility
+renderer.
 
-No inverse tone mapping, TV calibration or HGiG setting is required. Highlights above the reference peak are compressed; dim scenes are not expanded to fill it. Processing occurs after FEL reconstruction and before interface composition. The final resolve only applies signal range and quantization.
+The HDR10 conversion is the engine's. The author's check: within one 12-bit
+code of a CPU double-precision map of the same conversion; the comparison
+against CB1 Reference Basic on the four reference titles and the TV test are
+0.4.0 workstream C validation, not yet done.
 
-The HDMI metadata declares the reference peak. MaxCLL and MaxFALL are left unknown because source measurements do not describe the transformed output. The television still applies its normal HDR10 display mapping.
+## Video
 
-This is an open L1-guided conversion, not Dolby VS10 or a complete CM2.9/CM4 display-management implementation. It does not apply creative trims or guarantee the same rendering as TV-led DV. Software regression tests pass; real-display and hardware performance qualification of this conversion remains pending.
+| Setting | What it sets |
+| --- | --- |
+| Enhancement layer upscaling | **Annex B (Master Reference)**: the filters of Dolby's published reference (ETSI CCM Annex B), with CB1 Master Reference's processing (siting, 4:2:0 reshaping, Annex B EL and 4:2:2 filters, metadata order) for pictures shown at their own size; scaled pictures use YBLOD's own processing. **Bilinear**: YBLOD's own processing with a bilinear EL upscale for every picture (`DV_EL_SCALER`). Until the engine's bilinear pass lands (0.4.0 workstream B), Bilinear is YBLOD's own processing with the Annex B EL. |
+| Dolby Vision metadata | **Original**: the film's metadata. **CM4.0 auto**: neutral CM4.0 levels (L3, L9, L11, L254) added to CM2.9 films where CroqueMr's CB1 rules call for it: L1 within the TV's peak plus 20 %, or, without a known TV peak, a mastering peak up to 1000 nits. **CM4.0 always**: added to every CM2.9 film. No trims are made up. Dolby Vision output only (`DV_VULKAN_CM4`). Off by default (plan decision 6). |
+| TV peak brightness | For CM4.0 auto: from the TV's EDID (desired content max luminance), or 400 to 4000 nits (`DV_VULKAN_TV_PEAK`). |
+| Remove L2 trims | Leaves the film's CM2.9 trims out of the metadata (`DV_VULKAN_NO_L2`). Dolby Vision output only. |
+| Enhanced player information | The player information panel below. |
+
+## Menu output
+
+**Dolby Vision for the menu** keeps the Dolby Vision output on while the menu
+is shown (graphics-only frames with static metadata, packed from Kodi's GUI
+on the GPU; not the engine), with its brightness, saturation, gamma and wide
+colour settings. Dolby Vision (TV-led) only.
+
+## Performance and diagnostics (expert)
+
+| Setting | What it sets |
+| --- | --- |
+| Reuse unchanged controls / the home screen over video | Kodi reuses its drawn GUI while it does not change (`DV_PRIVATE_GUI_CACHE`, `DV_PRIVATE_GUI_CACHE_HOME`). |
+| Half-resolution menus | Kodi draws the GUI over videos at 1920x1080 and upscales it (`DV_PRIVATE_GUI_HALF`). |
+| Verify output | Every 60th frame rendered again by the engine's reference route and compared (`DVVK_VERIFY=60`). |
+| Frame timing log | Kodi's first-frame timing lines and the engine's per-frame deadline JSON (`DV_PRIVATE_FRAME_TIMING`, `DVVK_DEADLINE_TRACE`). |
+| GPU timing log | GPU time per engine pass over 120 frames (`DVVK_PROFILE`). |
+
+Removed in 0.4.0 (they only affected the OpenCL engine or the compatibility
+renderer): Native Dolby Vision engine, Vulkan engine, Colour upscaling,
+Nearest-neighbour enhancement layer, Process only the picture area, Fast
+on-screen controls, Reuse reshaping tables, Prepare frames ahead. A one-time
+settings migration drops their saved values.
+
+## When the engine cannot start
+
+If the Vulkan engine's library is missing or of another ABI, or the engine
+does not start (no Vulkan device for the display), Dolby Vision titles play
+as plain base-layer video (as with Off) until Kodi restarts, with one
+notification and one log line. A title that was starting restarts where it
+was (plan decision 4).
 
 ## Rendering information
 
@@ -29,21 +85,18 @@ second while the enhanced panel is open; unavailable counters are hidden.
 
 ## Output precision
 
-HDR10 conversion uses a 10-bit framebuffer. Output precision is not user-selectable.
-
-Framebuffer precision and HDMI link precision are different. A connector's maximum bit-depth property is a negotiation limit, not proof of the transmitted bit depth. An RGB8 Dolby Vision tunnel is a transport representation, not an SDR8 conversion.
-
-Conversion requests a deep-color HDMI link explicitly. The driver retains its
-normal sink and bandwidth validation and can choose supported YCbCr 4:2:0 when
-RGB deep color does not fit. It rejects a conversion link below 10 bits rather
-than silently reducing precision. This opt-in does not change native Kodi HDR.
-The current conversion path targets progressive 3840x2160 output.
+Dolby Vision and HDR10 both leave Kodi through the tunnel's 8-bit RGB
+framebuffer, which is a transport container, not the picture's precision:
+Dolby Vision is the 12-bit tunnel signal, HDR10 12-bit YCbCr 4:2:2.
+Output precision is not user-selectable. A connector's maximum bit-depth
+property is a negotiation limit, not proof of the transmitted bit depth.
+The output targets progressive 3840x2160.
 
 ## Playback information
 
 **Enhanced player information** replaces the stock information panel. Press **O** to open or close it; **Esc/Back** closes it. Disable the option to restore the stock panel. The existing **Ctrl+Shift+O** diagnostic remains unchanged.
 
-The panel separates source metadata, reconstruction and output. SDR, HDR10 and HLG use a compact video/audio/rendering layout without DV sections. Static HDR metadata appears only when available. Dolby Vision sources retain their detailed panel, including during HDR10 conversion. Missing or inapplicable fields are hidden. FEL presence is not reported as successful reconstruction until a corresponding frame is presented. Drop and skip values are Kodi's own counters; pattern correction is not a dropped-frame counter.
+The panel separates source metadata, reconstruction and output. SDR, HDR10 and HLG use a compact video/audio/rendering layout without DV sections. Static HDR metadata appears only when available. Dolby Vision sources retain their detailed panel, including during the HDR10 conversion. Missing or inapplicable fields are hidden. FEL presence is not reported as successful reconstruction until a corresponding frame is presented. Drop and skip values are Kodi's own counters; pattern correction is not a dropped-frame counter.
 
 The bottom-aligned panel fits its tallest visible column, with no close-action footer. No Dolby logos or speaker diagram are included. Metadata refresh is limited to twice per second while the panel is open.
 

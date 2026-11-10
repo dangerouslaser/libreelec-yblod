@@ -1,0 +1,893 @@
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 9c9afb6..1ccf33f 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -18266,7 +18266,6 @@ msgctxt "#34118"
+ msgid "100%"
+ msgstr ""
+ 
+-
+ #empty strings from id 34114 to 34119
+ #34119 reserved for future use
+ 
+@@ -25976,27 +25975,27 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40811"
+-msgid "Dolby Vision output"
++msgid "Output mode"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40812"
+-msgid "Standard Dolby Vision (TV-Led)"
++msgid "Dolby Vision (TV-led)"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40813"
+-msgid "Convert Dolby Vision to HDR10 output"
++msgid "Convert to HDR10"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40814"
+-msgid "Disable Dolby Vision support"
++msgid "Off"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40815"
+-msgid "Select Dolby Vision output, HDR10 conversion, or standard Kodi playback. Applies to the next video."
++msgid "Dolby Vision (TV-led): the TV maps the picture with its own Dolby Vision processing. Convert to HDR10: YBLOD converts Dolby Vision to HDR10 (the Master Reference conversion), for TVs without Dolby Vision; shown only on HDMI outputs that carry it (Intel gen12 and later, AMD), not on DisplayPort or converter outputs. Off: Kodi plays the HDR10 or SDR base layer itself, without the enhancement layer (Profile 5 colours are wrong). Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+@@ -26146,7 +26145,7 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40867"
+-msgid "Dolby Vision output for videos and the menu."
++msgid "Dolby Vision output for videos and the menu, on YBLOD's Vulkan engine."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+@@ -26161,7 +26160,7 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#40870"
+-msgid "Engine"
++msgid "Performance"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+@@ -26170,146 +26169,166 @@ msgid "Diagnostics"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40872"
+-msgid "Native Dolby Vision engine"
++msgctxt "#40880"
++msgid "Reuse unchanged controls"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40873"
+-msgid "Rebuild Dolby Vision pictures on the GPU with YBLOD's engine. When off, videos use the compatibility renderer. Applies to the next video."
++msgctxt "#40881"
++msgid "Reuse the drawn playback controls and menus while they do not change instead of drawing them again for every video frame. Dolby Vision and HDR10 outputs."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40874"
+-msgid "Process only the picture area"
++msgctxt "#40882"
++msgid "Reuse the home screen over video"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40875"
+-msgid "For letterboxed films, rebuild only the area the Dolby Vision metadata marks as picture, not the black bars. The picture is identical and uses less GPU time. Applies to the next video."
++msgctxt "#40883"
++msgid "Also reuse an unchanged home screen while a video plays in the background. Dolby Vision and HDR10 outputs."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40876"
+-msgid "Fast on-screen controls"
++msgctxt "#40886"
++msgid "Half-resolution menus"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40877"
+-msgid "Convert the playback controls and menus inside the final packing step instead of in a separate full-screen pass. The picture is identical and uses less GPU time while controls are shown. Applies to the next video."
++msgctxt "#40887"
++msgid "Draw the menus and playback controls over videos at 1920x1080 and upscale them. Faster with controls open, especially for 4K 50/60 fps video, but menu text is softer. The video itself is not affected. Dolby Vision and HDR10 outputs."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40878"
+-msgid "Reuse reshaping tables"
++msgctxt "#40888"
++msgid "Verify output"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40879"
+-msgid "Reuse the Dolby Vision reshaping tables while a scene's curves stay the same instead of rebuilding them for every frame. The picture is identical and uses less CPU. Applies to the next video."
++msgctxt "#40889"
++msgid "Render every 60th frame again with the engine's reference route and compare the two; differences are written to the log. For troubleshooting: costs GPU time. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40880"
+-msgid "Reuse unchanged controls"
++msgctxt "#40890"
++msgid "Frame timing log"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40881"
+-msgid "Keep using the drawn playback controls while they do not change instead of drawing them again for every video frame."
++msgctxt "#40891"
++msgid "Write Kodi's startup timing for the first frames and the engine's per-frame timing to the log. For troubleshooting only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40882"
+-msgid "Reuse the home screen over video"
++msgctxt "#40892"
++msgid "GPU timing log"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40883"
+-msgid "Also keep using an unchanged home screen while a video plays in the background."
++msgctxt "#40893"
++msgid "Write the GPU time of each engine pass (averaged over 120 frames) to the log. For troubleshooting only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40884"
+-msgid "Prepare frames ahead"
++msgctxt "#40894"
++msgid "YBLOD build"
++msgstr ""
++
++#: xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++msgctxt "#40900"
++msgid "The Dolby Vision engine (Vulkan) could not start. Dolby Vision videos play without Dolby Vision until Kodi restarts."
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40901"
++msgid "This connection does not take HDR10 from Dolby Vision. Videos play without conversion until Kodi restarts."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40885"
+-msgid "Pack the next video frame into the other display buffer while the current one is shown. Applies to the next video."
++msgctxt "#40902"
++msgid "Enhancement layer upscaling"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40886"
+-msgid "Half-resolution menus"
++msgctxt "#40903"
++msgid "How a Profile 7 full enhancement layer is upscaled to the picture. Annex B (Master Reference): the filters of Dolby's published reference (ETSI CCM Annex B), with CB1 Master Reference's processing for pictures shown at their own size. Bilinear: YBLOD's own processing with a bilinear upscale for every picture. Dolby Vision and HDR10 outputs. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40887"
+-msgid "Draw the menus and playback controls at 1920x1080 and upscale them. Faster with controls open, especially for 4K 50/60 fps video, but menu text is softer. The video itself is not affected."
++msgctxt "#40904"
++msgid "Annex B (Master Reference)"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40888"
+-msgid "Verify output"
++msgctxt "#40905"
++msgid "Bilinear"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40889"
+-msgid "Check the engine's output against a slower reference method for the first frames of each video and write the result to the log. For troubleshooting: can cause dropped frames while checking. Applies to the next video."
++msgctxt "#40906"
++msgid "Dolby Vision metadata"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40890"
+-msgid "Frame timing log"
++msgctxt "#40907"
++msgid "What the TV's Dolby Vision processing gets with each picture. Original: the film's metadata as it is. CM4.0 auto: neutral CM4.0 levels added to CM2.9 films where CroqueMr's CB1 rules call for it: scenes within the TV's peak brightness (below), or, when the TV's peak is unknown, films mastered at up to 1000 nits. CM4.0 always: added to every CM2.9 film. No trims are made up. Dolby Vision output only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40891"
+-msgid "Write per-frame engine and timing details to the log. For troubleshooting only. Restart Kodi to apply fully."
++msgctxt "#40908"
++msgid "Original"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40892"
+-msgid "GPU timing log"
++msgctxt "#40909"
++msgid "CM4.0 auto"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40893"
+-msgid "Write the GPU time of each engine stage to the log. For troubleshooting only. Applies to the next video."
++msgctxt "#40910"
++msgid "CM4.0 always"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40894"
+-msgid "YBLOD build"
++msgctxt "#40911"
++msgid "Remove L2 trims"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40895"
+-msgid "Vulkan engine"
++msgctxt "#40912"
++msgid "Leave the film's CM2.9 trims (L2) out of the metadata, so the TV maps those scenes with its own processing. Dolby Vision output only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40896"
+-msgid "Run YBLOD's engine on Vulkan compute (the default) instead of OpenCL. The picture is the same; controls and menus may differ by one code level. The OpenCL options here do not apply to it. If Vulkan cannot start, the OpenCL engine is used. Turning this off selects the OpenCL engine on Intel graphics; on AMD graphics the Vulkan engine is always used. Applies to the next video."
++msgctxt "#40913"
++msgid "TV peak brightness"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40897"
+-msgid "Nearest-neighbour enhancement layer"
++msgctxt "#40914"
++msgid "The TV's peak brightness, for CM4.0 auto. From the TV: the peak the TV reports in its EDID; if it reports none, CM4.0 auto decides by the film's mastering instead. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40898"
+-msgid "Upscale a profile 7 full enhancement layer by repeating each sample over its 2x2 block, as decoded: sharp and the lightest on the GPU. Off: the smooth filters of Dolby's published reference (ETSI CCM Annex B). Both engines. Applies to the next video."
++msgctxt "#40915"
++msgid "From the TV"
+ msgstr ""
+ 
+-#: xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+-msgctxt "#40900"
+-msgid "The Dolby Vision engine (Vulkan) could not start. Dolby Vision videos play without Dolby Vision until Kodi restarts."
++#: system/settings/settings.xml
++msgctxt "#40916"
++msgid "1000 nits"
+ msgstr ""
+ 
+-#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+-msgctxt "#40901"
+-msgid "This connection does not take HDR10 from Dolby Vision. Videos play without conversion until Kodi restarts."
++#: system/settings/settings.xml
++msgctxt "#40917"
++msgid "1500 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40918"
++msgid "2000 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#40919"
++msgid "4000 nits"
+ msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index dcb5413..3a4a603 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -341,6 +341,64 @@
+           </constraints>
+           <control type="spinner" format="string" />
+         </setting>
++        <setting id="dvbridge.elupscaler" type="integer" label="40902" help="40903">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="40904">0</option>
++              <option label="40905">1</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.dvmetadata" type="integer" label="40906" help="40907">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="40908">0</option>
++              <option label="40909">1</option>
++              <option label="40910">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.tvpeak" type="integer" parent="dvbridge.dvmetadata" label="40913" help="40914">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="40915">0</option>
++              <option label="40843">400</option>
++              <option label="40845">600</option>
++              <option label="40846">800</option>
++              <option label="40916">1000</option>
++              <option label="40917">1500</option>
++              <option label="40918">2000</option>
++              <option label="40919">4000</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" setting="dvbridge.dvmetadata" operator="is">1</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.removel2" type="boolean" label="40911" help="40912">
++          <level>1</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
+         <setting id="dvbridge.enhancedinfo" type="boolean" label="40816" help="40817">
+           <level>0</level>
+           <default>true</default>
+@@ -418,128 +476,32 @@
+         </setting>
+       </group>
+       <group id="3" label="40870">
+-        <setting id="dvbridge.engine" type="boolean" label="40872" help="40873">
+-          <level>3</level>
+-          <default>true</default>
+-          <dependencies>
+-            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="dvbridge.vulkan" type="boolean" label="40895" help="40896">
+-          <level>3</level>
+-          <default>true</default>
+-          <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="dvbridge.elnearest" type="boolean" label="40897" help="40898">
+-          <level>3</level>
+-          <default>false</default>
+-          <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="dvbridge.letterboxskip" type="boolean" label="40874" help="40875">
+-          <level>3</level>
+-          <default>true</default>
+-          <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="dvbridge.inlineoverlay" type="boolean" label="40876" help="40877">
+-          <level>3</level>
+-          <default>true</default>
+-          <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+-        <setting id="dvbridge.tablecache" type="boolean" label="40878" help="40879">
+-          <level>3</level>
+-          <default>true</default>
+-          <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+         <setting id="dvbridge.guicache" type="boolean" label="40880" help="40881">
+           <level>3</level>
+           <default>true</default>
+           <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.homecache" type="boolean" label="40882" help="40883">
++        <setting id="dvbridge.homecache" type="boolean" parent="dvbridge.guicache" label="40882" help="40883">
+           <level>3</level>
+           <default>true</default>
+           <dependencies>
+             <dependency type="enable">
+               <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
++                <condition setting="dvbridge.outputmode" operator="!is">2</condition>
+                 <condition setting="dvbridge.guicache">true</condition>
+               </and>
+             </dependency>
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.packahead" type="boolean" label="40884" help="40885">
+-          <level>3</level>
+-          <default>true</default>
+-          <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
+-          </dependencies>
+-          <control type="toggle" />
+-        </setting>
+         <setting id="dvbridge.halfgui" type="boolean" label="40886" help="40887">
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+@@ -549,12 +511,7 @@
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+@@ -562,12 +519,7 @@
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+@@ -575,12 +527,7 @@
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+-            <dependency type="enable">
+-              <and>
+-                <condition setting="dvbridge.outputmode" operator="is">0</condition>
+-                <condition setting="dvbridge.engine">true</condition>
+-              </and>
+-            </dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+@@ -593,6 +540,13 @@
+           <visible>false</visible>
+           <control type="toggle" />
+         </setting>
++        <!-- Settings migrations done (DVEngineSettings.h kSettingsVersion). -->
++        <setting id="dvbridge.settingsversion" type="integer" label="40894">
++          <level>4</level>
++          <default>0</default>
++          <visible>false</visible>
++          <control type="edit" format="integer" />
++        </setting>
+       </group>
+     </category>
+     <category id="musicplayer" label="14216" help="38104">
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index d1a874a..5d3914d 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -11,6 +11,10 @@
+ 
+ namespace DVBRIDGE
+ {
++// Settings > Player > Dolby Vision > Output mode (dvbridge.outputmode). The values are stored in
++// guisettings.xml, so they keep their meaning: a new output takes the next free value (HDR10+ is
++// planned as 3), is offered by OutputModeOptions where the connection has it, and is accepted
++// by SelectOutputSettings below.
+ enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2 };
+ 
+ // Playback preparation latches the preferences. An open settings dialog must not
+@@ -72,7 +76,17 @@ inline void SelectOutputSettings()
+   const auto component = CServiceBroker::GetSettingsComponent();
+   const auto settings = component ? component->GetSettings() : nullptr;
+   const int mode = settings ? settings->GetInt("dvbridge.outputmode") : 0;
+-  playbackMode.store(mode >= 0 && mode <= 2 ? static_cast<OutputMode>(mode) : OutputMode::Standard);
++  switch (static_cast<OutputMode>(mode))
++  {
++    case OutputMode::Standard:
++    case OutputMode::HDR10:
++    case OutputMode::Disabled:
++      playbackMode.store(static_cast<OutputMode>(mode));
++      break;
++    default:
++      playbackMode.store(OutputMode::Standard);
++      break;
++  }
+ }
+ 
+ // GUI white in the menu output (dvbridge.menubrightness). Read live, as the setting can change while
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+index 54a9785..81b5476 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+@@ -17,71 +17,117 @@
+ #include <vector>
+ 
+ /*!
+- * Settings > Player > Dolby Vision > Engine and Diagnostics.
++ * Settings > Player > Dolby Vision: the settings the Vulkan engine path reads
++ * through the environment (normally set by native-dv.env). The values are
++ * applied once at window-system start, before any playback, and again whenever
++ * a setting changes; they take precedence over native-dv.env. Every managed
++ * variable is defined at start, so a later change only replaces an existing
++ * value and never grows the environment table that other threads may be
++ * reading. Each is read when a video starts (the engine is made per video).
+  *
+- * Each setting maps to native engine environment switches (normally set by
+- * native-dv.env). The values are applied once at window-system start, before
+- * any playback, and again whenever a setting changes; they take precedence over
+- * native-dv.env. Every managed variable is defined at start, so a later change
+- * only replaces an existing value and never grows the environment table that
+- * other threads may be reading. Most switches are read when a video starts.
++ * The other Dolby Vision settings are read by Kodi itself: dvbridge.outputmode
++ * and dvbridge.enhancedinfo (DVOutputSettings.h, per video), the menu output's
++ * (live).
+  */
+ namespace DVEngineSettings
+ {
+-using Values = std::vector<std::pair<const char*, const char*>>;
++using Values = std::vector<std::pair<const char*, std::string>>;
++using Settings = std::shared_ptr<CSettings>;
+ struct Mapping
+ {
+   const char* setting;
+-  Values on;
+-  Values off;
++  Values (*values)(const Settings& settings);
+ };
+ 
++inline Values Bool(const Settings& settings, const char* id, const Values& on, const Values& off)
++{
++  return settings->GetBool(id) ? on : off;
++}
++
+ inline const std::vector<Mapping>& Mappings()
+ {
+   static const std::vector<Mapping> mappings = {
+-      // Disabling the source alone would leave native-only composition and drain hooks active.
+-      {"dvbridge.engine",
+-       {{"DV_PRIVATE_SOURCE", "1"}, {"DV_PRIVATE_OVERLAY", "1"}, {"DV_PRIVATE_DRAIN_EOF", "1"}},
+-       {{"DV_PRIVATE_SOURCE", "0"}, {"DV_PRIVATE_OVERLAY", "0"}, {"DV_PRIVATE_DRAIN_EOF", "0"}}},
+-      {"dvbridge.vulkan", {{"DV_ENGINE_VULKAN", "1"}}, {{"DV_ENGINE_VULKAN", "0"}}},
+-      {"dvbridge.elnearest", {{"DV_EL_SCALER", "nearest"}}, {{"DV_EL_SCALER", "annexb"}}},
+-      {"dvbridge.letterboxskip", {{"DV_RECON_ACTIVE_ROWS", "1"}}, {{"DV_RECON_ACTIVE_ROWS", "0"}}},
+-      {"dvbridge.inlineoverlay", {{"DV_OVERLAY_INLINE", "1"}}, {{"DV_OVERLAY_INLINE", "0"}}},
+-      {"dvbridge.tablecache",
+-       {{"DV_SINGLE_TABLE_CACHE", "1"}, {"DV_DUAL_TABLE_CACHE", "1"}},
+-       {{"DV_SINGLE_TABLE_CACHE", "0"}, {"DV_DUAL_TABLE_CACHE", "0"}}},
+-      {"dvbridge.guicache", {{"DV_PRIVATE_GUI_CACHE", "1"}}, {{"DV_PRIVATE_GUI_CACHE", "0"}}},
+-      {"dvbridge.homecache", {{"DV_PRIVATE_GUI_CACHE_HOME", "1"}}, {{"DV_PRIVATE_GUI_CACHE_HOME", "0"}}},
+-      {"dvbridge.packahead", {{"DV_PRIVATE_ASYNC_PACK", "1"}}, {{"DV_PRIVATE_ASYNC_PACK", "0"}}},
+-      {"dvbridge.halfgui", {{"DV_PRIVATE_GUI_HALF", "1"}}, {{"DV_PRIVATE_GUI_HALF", "0"}}},
++      // Video
++      // Enhancement layer upscaling: Annex B (Master Reference) or Bilinear (DVPrivateVulkan:
++      // cb1_contract and plan.el_scaler).
++      {"dvbridge.elupscaler",
++       [](const Settings& s) -> Values {
++         return {{"DV_EL_SCALER", s->GetInt("dvbridge.elupscaler") == 1 ? "bilinear" : "annexb"}};
++       }},
++      // Dolby Vision metadata: Original, CM4.0 auto (CB1's Auto 2 with the TV's peak; Auto by
++      // the mastering peak without one), CM4.0 always (DVPrivateVulkan DmOptions).
++      {"dvbridge.dvmetadata",
++       [](const Settings& s) -> Values {
++         switch (s->GetInt("dvbridge.dvmetadata"))
++         {
++           case 1:
++             return {{"DV_VULKAN_CM4", "auto2"}};
++           case 2:
++             return {{"DV_VULKAN_CM4", "always"}};
++           default:
++             return {{"DV_VULKAN_CM4", "off"}};
++         }
++       }},
++      {"dvbridge.removel2",
++       [](const Settings& s) { return Bool(s, "dvbridge.removel2", {{"DV_VULKAN_NO_L2", "1"}},
++                                           {{"DV_VULKAN_NO_L2", "0"}}); }},
++      // 0: from the TV's EDID (DVPrivateVulkan).
++      {"dvbridge.tvpeak",
++       [](const Settings& s) -> Values {
++         const int nits = s->GetInt("dvbridge.tvpeak");
++         return {{"DV_VULKAN_TV_PEAK",
++                  std::to_string(nits > 0 && nits <= 10000 ? nits : 0)}};
++       }},
++      // Performance (Kodi's GUI composition over the video)
++      {"dvbridge.guicache",
++       [](const Settings& s) { return Bool(s, "dvbridge.guicache", {{"DV_PRIVATE_GUI_CACHE", "1"}},
++                                           {{"DV_PRIVATE_GUI_CACHE", "0"}}); }},
++      {"dvbridge.homecache",
++       [](const Settings& s) { return Bool(s, "dvbridge.homecache",
++                                           {{"DV_PRIVATE_GUI_CACHE_HOME", "1"}},
++                                           {{"DV_PRIVATE_GUI_CACHE_HOME", "0"}}); }},
++      {"dvbridge.halfgui",
++       [](const Settings& s) { return Bool(s, "dvbridge.halfgui", {{"DV_PRIVATE_GUI_HALF", "1"}},
++                                           {{"DV_PRIVATE_GUI_HALF", "0"}}); }},
++      // Diagnostics (the Vulkan engine's own, options.rs; read when an engine is made)
++      // Every 60th frame rendered again by the engine's staged reference route and compared.
+       {"dvbridge.verify",
+-       {{"DV_PRIVATE_VERIFY", "1"},
+-        {"DV_VERIFY_ACTIVE_ROWS", "100"},
+-        {"DV_OVERLAY_INLINE_VERIFY", "100"},
+-        {"DV_SINGLE_TABLE_CACHE_VERIFY", "1"},
+-        {"DV_DUAL_TABLE_CACHE_VERIFY", "1"}},
+-       {{"DV_PRIVATE_VERIFY", "0"},
+-        {"DV_VERIFY_ACTIVE_ROWS", "0"},
+-        {"DV_OVERLAY_INLINE_VERIFY", "0"},
+-        {"DV_SINGLE_TABLE_CACHE_VERIFY", "0"},
+-        {"DV_DUAL_TABLE_CACHE_VERIFY", "0"}}},
++       [](const Settings& s) { return Bool(s, "dvbridge.verify", {{"DVVK_VERIFY", "60"}},
++                                           {{"DVVK_VERIFY", "0"}}); }},
++      // Kodi's first-480-frame startup timing lines and the engine's per-frame deadline JSON.
+       {"dvbridge.frametrace",
+-       {{"DV_ENGINE_FRAME_TRACE", "1"}, {"DV_PRIVATE_FRAME_TIMING", "1"}},
+-       {{"DV_ENGINE_FRAME_TRACE", "0"}, {"DV_PRIVATE_FRAME_TIMING", "0"}}},
++       [](const Settings& s) { return Bool(s, "dvbridge.frametrace",
++                                           {{"DV_PRIVATE_FRAME_TIMING", "1"}, {"DVVK_DEADLINE_TRACE", "1"}},
++                                           {{"DV_PRIVATE_FRAME_TIMING", "0"}, {"DVVK_DEADLINE_TRACE", "0"}}); }},
++      // GPU time per pass over 120 frames.
+       {"dvbridge.gputiming",
+-       {{"DV_SOURCE_PROFILE_ASYNC", "1"}, {"DV_OVERLAY_PROFILE", "1"}},
+-       {{"DV_SOURCE_PROFILE_ASYNC", "0"}, {"DV_OVERLAY_PROFILE", "0"}}},
++       [](const Settings& s) { return Bool(s, "dvbridge.gputiming", {{"DVVK_PROFILE", "1"}},
++                                           {{"DVVK_PROFILE", "0"}}); }},
+   };
+   return mappings;
+ }
+ 
+-inline void Apply(const Mapping& mapping, bool enabled)
++/*!
++ * Settings of YBLOD 0.3 that 0.4.0 removed with the OpenCL engine and the
++ * compatibility renderer. Kodi keeps no values for settings it does not
++ * define; the migration below saves the settings once so these are dropped
++ * from guisettings.xml instead of lingering until the next change.
++ */
++inline constexpr const char* kRemovedSettings[] = {
++    "dvbridge.engine",        "dvbridge.vulkan",     "dvbridge.elnearest",
++    "dvbridge.letterboxskip", "dvbridge.inlineoverlay", "dvbridge.tablecache",
++    "dvbridge.packahead",     "dvbridge.chromaupscaler", "dvbridge.qsvmode",
++    "dvbridge.matchhardware",
++};
++inline constexpr int kSettingsVersion = 2; // 0.4.0: the Vulkan-only menu
++
++inline void Apply(const Values& values)
+ {
+-  for (const auto& [name, value] : enabled ? mapping.on : mapping.off)
++  for (const auto& [name, value] : values)
+   {
+     const char* current = std::getenv(name);
+-    if (!current || std::strcmp(current, value) != 0)
+-      setenv(name, value, 1);
++    if (!current || value != current)
++      setenv(name, value.c_str(), 1);
+   }
+ }
+ 
+@@ -96,9 +142,10 @@ public:
+     for (const auto& mapping : Mappings())
+       if (setting->GetId() == mapping.setting)
+       {
+-        Apply(mapping, settings->GetBool(mapping.setting));
+-        CLog::Log(LOGINFO, "Dolby Vision engine setting {} = {}", mapping.setting,
+-                  settings->GetBool(mapping.setting));
++        const Values values = mapping.values(settings);
++        Apply(values);
++        for (const auto& [name, value] : values)
++          CLog::Log(LOGINFO, "Dolby Vision setting {}: {}={}", mapping.setting, name, value);
+       }
+   }
+ };
+@@ -115,11 +162,21 @@ inline void Register()
+   SettingsContainer ids;
+   for (const auto& mapping : Mappings())
+   {
+-    Apply(mapping, settings->GetBool(mapping.setting));
++    Apply(mapping.values(settings));
+     ids.insert(mapping.setting);
+   }
+   static Callback callback;
+   settings->RegisterCallback(&callback, ids);
+-  CLog::Log(LOGINFO, "Dolby Vision engine settings applied ({} switches)", ids.size());
++  CLog::Log(LOGINFO, "Dolby Vision settings applied ({} settings)", ids.size());
++  if (settings->GetInt("dvbridge.settingsversion") < kSettingsVersion)
++  {
++    settings->SetInt("dvbridge.settingsversion", kSettingsVersion);
++    settings->Save();
++    std::string removed;
++    for (const char* id : kRemovedSettings)
++      removed += std::string(removed.empty() ? "" : ", ") + id;
++    CLog::Log(LOGINFO, "Dolby Vision settings migrated to version {}: removed {}", kSettingsVersion,
++              removed);
++  }
+ }
+ } // namespace DVEngineSettings
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 8e8aa5f..12cefc6 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -7,6 +7,7 @@
+ #include "resources/LocalizeStrings.h"
+ #include "resources/ResourcesComponent.h"
+ #include "utils/log.h"
++#include "windowing/gbm/WinSystemGbm.h"
+ #include <GLES3/gl3.h>
+ #include <drm_fourcc.h>
+ #include <dlfcn.h>
+@@ -59,8 +60,11 @@ unsigned EnvNumber(const char* name, unsigned fallback, unsigned limit)
+ // CroqueMr's optional CM2.9 -> CM4.0 metadata and L2 trim removal
+ // (dvvk_plan_in.dm_options): DV_VULKAN_CM4 off, no-l2, always, auto, auto2;
+ // DV_VULKAN_CM4_TRIGGER (auto) source, 1000, 2000, 4000, 10000;
+-// DV_VULKAN_CM4_HEADROOM (auto2) 0-50 %; DV_VULKAN_TV_PEAK in nits;
+-// DV_VULKAN_NO_L2=1. Metadata only: no pixel changes.
++// DV_VULKAN_CM4_HEADROOM (auto2) 0-50 %; DV_VULKAN_TV_PEAK in nits (0: the
++// TV's EDID); DV_VULKAN_NO_L2=1. Metadata only: no pixel changes.
++// Settings > Player > Dolby Vision > Dolby Vision metadata "CM4.0 auto" is
++// auto2 (L1 max within the TV's peak plus the headroom); without a known TV
++// peak it is auto with a 1000-nit trigger (mastered at up to 1000 nits).
+ uint32_t DmOptions()
+ {
+   static const char* const modes[] = {"off", "no-l2", "always", "auto", "auto2"};
+@@ -88,7 +92,21 @@ uint32_t DmOptions()
+     }
+   }
+   const unsigned headroom = EnvNumber("DV_VULKAN_CM4_HEADROOM", 20, 50);
+-  const unsigned peak = EnvNumber("DV_VULKAN_TV_PEAK", 0, 10000);
++  unsigned peak = EnvNumber("DV_VULKAN_TV_PEAK", 0, 10000);
++  if (!peak && (m == DVVK_CM4_AUTO2 || (m == DVVK_CM4_AUTO && t == 0)))
++  {
++    const auto* window = dynamic_cast<const KODI::WINDOWING::GBM::CWinSystemGbm*>(
++        CServiceBroker::GetWinSystem());
++    peak = window ? window->DisplayPeakNits() : 0;
++    if (peak)
++      CLog::Log(LOGINFO, "Vulkan engine CM4: TV peak {} nits from the TV's EDID", peak);
++    else if (m == DVVK_CM4_AUTO2)
++    {
++      m = DVVK_CM4_AUTO;
++      t = 1; // 1000 nits
++      CLog::Log(LOGINFO, "Vulkan engine CM4: no TV peak (setting or EDID); auto by the mastering peak (1000 nits)");
++    }
++  }
+   const bool noL2 = EnvIs("DV_VULKAN_NO_L2", "1");
+   if (!m && !noL2) return 0;   // the stream's metadata as is
+   return DVVK_DM_OPTIONS(m, t, headroom, noL2, peak);
+diff --git a/xbmc/utils/DisplayInfo.cpp b/xbmc/utils/DisplayInfo.cpp
+index 482f536..0880952 100644
+--- a/xbmc/utils/DisplayInfo.cpp
++++ b/xbmc/utils/DisplayInfo.cpp
+@@ -177,6 +177,11 @@ void CDisplayInfo::LogInfo() const
+   }
+ }
+ 
++float CDisplayInfo::GetDesiredMaxLuminance() const
++{
++  return m_hdr_static_metadata ? m_hdr_static_metadata->desired_content_max_luminance : 0.0f;
++}
++
+ bool CDisplayInfo::SupportsHDRStaticMetadataType1() const
+ {
+   if (!m_hdr_static_metadata)
+diff --git a/xbmc/utils/DisplayInfo.h b/xbmc/utils/DisplayInfo.h
+index d67235e..1a6d1f9 100644
+--- a/xbmc/utils/DisplayInfo.h
++++ b/xbmc/utils/DisplayInfo.h
+@@ -63,6 +63,8 @@ public:
+   ~CDisplayInfo();
+ 
+   bool SupportsHDRStaticMetadataType1() const;
++  //! The display's desired content max luminance (HDR static metadata block), cd/m2; 0 unknown.
++  float GetDesiredMaxLuminance() const;
+ 
+   bool SupportsEOTF(Eotf eotf) const;
+ 
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index 7254480..6e19691 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -709,6 +709,12 @@ bool CWinSystemGbm::IsHDRDisplay()
+          m_info->SupportsHDRStaticMetadataType1();
+ }
+ 
++unsigned CWinSystemGbm::DisplayPeakNits() const
++{
++  const float nits = m_info ? m_info->GetDesiredMaxLuminance() : 0.0f;
++  return nits >= 1.0f && nits <= 10000.0f ? static_cast<unsigned>(nits + 0.5f) : 0u;
++}
++
+ CHDRCapabilities CWinSystemGbm::GetDisplayHDRCapabilities() const
+ {
+   if (!m_info)
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm.h
+index 1a7877c..1891ab1 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.h
++++ b/xbmc/windowing/gbm/WinSystemGbm.h
+@@ -56,6 +56,8 @@ public:
+   // It must be GPU-complete and belong to this DRM device; never use for restore.
+   bool FlipDVBridgePage(CDVBridgeState& state, bool restore, gbm_bo* external = nullptr);
+   bool SupportsNativeDVOutput() const;
++  //! The display's peak brightness from its EDID (desired content max luminance), nits; 0 unknown.
++  unsigned DisplayPeakNits() const;
+ #endif
+ 
+   bool CanDoWindowed() override { return false; }
