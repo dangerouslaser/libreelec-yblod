@@ -16,7 +16,12 @@
  *     --no-dither        SDR: rounded codes in --out
  *     --frame DUMP       a Dolby Vision tunnel dump (dvvk-bench --dump, output
  *                        dv) mapped pixel by pixel: the share of its pixels
- *                        in cells the bake would mark, the LUT's error on it
+ *                        in cells the bake would mark, the LUT's error on it.
+ *                        A pair's pixels both take its chroma sample, as the
+ *                        HDR10 output carries it; for SDR the odd pixel takes
+ *                        the mean of its pair's sample and the next pair's
+ *                        (the row's last pair: its own), as the pack does
+ *                        (--pair-chroma: the pair's for both)
  *     --out FILE         with --frame: the frame mapped exactly on the CPU, in
  *                        the engine's output bytes (the reference of
  *                        dvvk-hdr10-compare / dvvk-sdr-compare)
@@ -24,6 +29,9 @@
  *                        frame as the pack blends the shell's layer (raw
  *                        3840x2160 BGRA premultiplied sRGB, rows top first:
  *                        dvvk-bench's --overlay file)
+ *     --oracle FILE      SDR: what tools/sdr-oracle (libplacebo itself)
+ *                        needs to render the same frame: the RPU's matrices,
+ *                        the source's luminance, L1, the primaries, the display
  *   The fixture's metadata changed before the plan (the research harness's
  *   titles, SDR-OUTPUT-PLAN.md 0.3):
  *     --src NITS,NITS    the source display's minimum and maximum
@@ -190,8 +198,8 @@ static int ramp(void)
 
 int main(int argc, char **argv)
 {
-    int n = 65, samples = 200000, do_ramp = 0, do_rgb = 0, no_l1 = 0, l9 = -1, no_l6 = 0;
-    const char *frame = NULL, *outpath = NULL, *src = NULL, *l1 = NULL, *overlay = NULL;
+    int n = 65, samples = 200000, do_ramp = 0, do_rgb = 0, no_l1 = 0, l9 = -1, no_l6 = 0, pair_chroma = 0;
+    const char *frame = NULL, *outpath = NULL, *src = NULL, *l1 = NULL, *overlay = NULL, *oracle = NULL;
     dvvk_output_mode mode = {.mode = DVVK_OUTPUT_HDR10};
     int i = 1, failed = 0;
     for (; i < argc && argv[i][0] == '-'; i++) {
@@ -205,6 +213,8 @@ int main(int argc, char **argv)
             outpath = argv[++i];
         else if (!strcmp(argv[i], "--overlay") && i + 1 < argc)
             overlay = argv[++i];
+        else if (!strcmp(argv[i], "--oracle") && i + 1 < argc)
+            oracle = argv[++i];
         else if (!strcmp(argv[i], "--output") && i + 1 < argc)
             mode.mode = !strcmp(argv[++i], "sdr") ? DVVK_OUTPUT_SDR : DVVK_OUTPUT_HDR10;
         else if (!strcmp(argv[i], "--white") && i + 1 < argc)
@@ -227,6 +237,8 @@ int main(int argc, char **argv)
             no_l6 = 1;
         else if (!strcmp(argv[i], "--l9") && i + 1 < argc)
             l9 = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--pair-chroma"))
+            pair_chroma = 1;
         else if (!strcmp(argv[i], "--ramp"))
             do_ramp = 1;
         else if (!strcmp(argv[i], "--rgb"))
@@ -283,6 +295,38 @@ int main(int argc, char **argv)
             printf("  display: V = pow(max(%.6g L + %.6g, 0), %.5f) - %.6g; codes %g V + %g; gamut I at %.5f I + %.5f\n",
                    g->out_trc[0], g->out_trc[1], g->out_trc[2], g->out_trc[3], g->out_code[0], g->out_code[1],
                    g->gamut_at[0], g->gamut_at[1]);
+        if (oracle && sdr) {
+            const AVDOVIMetadata *dm = md;
+            const AVDOVIColorMetadata *c = av_dovi_get_color(dm);
+            FILE *f = fopen(oracle, "w");
+            if (!f)
+                return fprintf(stderr, "%s: can't write\n", oracle), 1;
+            fprintf(f, "# sdr-oracle's parameters (dvvk-map-test --oracle) of %s\nycc_to_rgb", argv[i]);
+            for (int k = 0; k < 9; k++)
+                fprintf(f, " %.9g", av_q2d(c->ycc_to_rgb_matrix[k]));
+            fprintf(f, "\nycc_offset %.9g %.9g %.9g\nrgb_to_lms", av_q2d(c->ycc_to_rgb_offset[0]),
+                    av_q2d(c->ycc_to_rgb_offset[1]), av_q2d(c->ycc_to_rgb_offset[2]));
+            for (int k = 0; k < 9; k++)
+                fprintf(f, " %.9g", av_q2d(c->rgb_to_lms_matrix[k]));
+            fprintf(f, "\nsource_pq %u %u\n", c->source_min_pq, c->source_max_pq);
+            unsigned l1max = 0, l1avg = 0;
+            for (int k = 0; k < dm->num_ext_blocks; k++) {
+                const AVDOVIDmData *e = av_dovi_get_ext(dm, k);
+                if (e->level == 1 && e->l1.min_pq <= e->l1.avg_pq && e->l1.avg_pq <= e->l1.max_pq &&
+                    e->l1.max_pq <= 4095 && e->l1.max_pq && !l1max) {
+                    l1max = e->l1.max_pq;
+                    l1avg = e->l1.avg_pq;
+                }
+            }
+            /* the curve follows L1 only if the plan took it */
+            if (!(g->flags & DVVK_MAP_L1))
+                l1max = l1avg = 0;
+            fprintf(f, "l1 %u %u\nprimaries", l1max, l1avg);
+            for (int k = 0; k < 8; k++)
+                fprintf(f, " %.9g", map.gamut_prim[0][k]);
+            fprintf(f, "\ndisplay %.9g %.9g %d\n", shown(1.0), shown(0.0), (mode.flags & DVVK_SDR_GAMMA22) != 0);
+            fclose(f);
+        }
         if (do_ramp && sdr)
             failed |= ramp();
         if (do_rgb && sdr) {
@@ -368,12 +412,12 @@ int main(int argc, char **argv)
                 for (int k = 0; k < 3; k++)
                     lerp[k] += wgt * v[k];
             }
-            if (any_flag && !getenv("NOFLAG")) {
-                exact_samples++;
-                memcpy(lerp, exact, sizeof(lerp));
-            }
             out_codes(exact, a);
             out_codes(lerp, b);
+            if (any_flag && !getenv("NOFLAG")) {
+                exact_samples++;
+                memcpy(b, a, sizeof(b));
+            }
             for (int k = 0; k < 3; k++) {
                 double d = fabs(a[k] - b[k]);
                 if (d > worst[k] && getenv("WORST"))
@@ -397,7 +441,7 @@ int main(int argc, char **argv)
             size_t fsize;
             unsigned char *fb = load(frame, &fsize);
             size_t stride = fsize / 2160;
-            long px = 0, exact_px = 0, over[4] = {0};
+            long px = 0, exact_px = 0, exact_pairs = 0, over[4] = {0};
             double lut_worst = 0, noflag_worst = 0;
             long cell_hist[8] = {0};
             for (int y = 8; y < 2160; y++)   /* packet rows left out */
@@ -406,8 +450,13 @@ int main(int argc, char **argv)
                     int y0 = (p[1] << 4) | (p[0] & 15), cb = (p[2] << 4) | (p[0] >> 4);
                     int y1 = (p[5] << 4) | (p[4] & 15), cr = (p[6] << 4) | (p[4] >> 4);
                     int ys[2] = {y0, y1};
+                    const unsigned char *pn = x + 2 < 3840 ? p + 8 : p;
+                    const int interpolate = sdr && !pair_chroma;
+                    double cb1 = interpolate ? 0.5 * (cb + ((pn[2] << 4) | (pn[0] >> 4))) : cb;
+                    double cr1 = interpolate ? 0.5 * (cr + ((pn[6] << 4) | (pn[4] >> 4))) : cr;
+                    int pair_fl = 0;
                     for (int l = 0; l < 2; l++) {
-                        double c[3] = {ys[l], cb, cr}, nl[3], exact[3], lerp[3] = {0}, f[3], a[3], b[3];
+                        double c[3] = {ys[l], l ? cb1 : cb, l ? cr1 : cr}, nl[3], exact[3], lerp[3] = {0}, f[3], a[3], b[3];
                         int i0[3];
                         dvvk_map_nonlinear(g, c, nl);
                         dvvk_map_rgb(g, tables, nl, exact);
@@ -436,14 +485,16 @@ int main(int argc, char **argv)
                         over[3] += e > 2;
                         px++;
                         exact_px += fl;
+                        pair_fl |= fl;
                         int band = (int)fmin(7, nl[0] * 8);
                         if (fl)
                             cell_hist[band]++;
                     }
+                    exact_pairs += pair_fl;
                 }
-            printf("  frame %s: %ld px, in flagged cells %.2f%%; LUT-only error worst %.2f, >0.25 %.3f%% >0.5 %.3f%% >1 "
+            printf("  frame %s: %ld px, in flagged cells %.2f%% (pairs with one: %.2f%%); LUT-only error worst %.2f, >0.25 %.3f%% >0.5 %.3f%% >1 "
                    "%.3f%% >2 %.3f%%; worst outside flagged cells %.2f\n",
-                   frame, px, 100.0 * exact_px / px, lut_worst, 100.0 * over[0] / px, 100.0 * over[1] / px,
+                   frame, px, 100.0 * exact_px / px, 200.0 * exact_pairs / px, lut_worst, 100.0 * over[0] / px, 100.0 * over[1] / px,
                    100.0 * over[2] / px, 100.0 * over[3] / px, noflag_worst);
             printf("  flagged by R' band (eighths): %ld %ld %ld %ld %ld %ld %ld %ld\n", cell_hist[0], cell_hist[1],
                    cell_hist[2], cell_hist[3], cell_hist[4], cell_hist[5], cell_hist[6], cell_hist[7]);
@@ -461,7 +512,11 @@ int main(int argc, char **argv)
                         const unsigned char *q = fb + y * stride + 4 * x;
                         int y0 = (q[1] << 4) | (q[0] & 15), cb = (q[2] << 4) | (q[0] >> 4);
                         int y1 = (q[5] << 4) | (q[4] & 15), cr = (q[6] << 4) | (q[4] >> 4);
-                        double c0[3] = {y0, cb, cr}, c1[3] = {y1, cb, cr}, a[3], b[3], ca[3], cbb[3];
+                        const unsigned char *qn = x + 2 < 3840 ? q + 8 : q;
+                        const int interpolate = sdr && !pair_chroma;
+                        double cb1 = interpolate ? 0.5 * (cb + ((qn[2] << 4) | (qn[0] >> 4))) : cb;
+                        double cr1 = interpolate ? 0.5 * (cr + ((qn[6] << 4) | (qn[4] >> 4))) : cr;
+                        double c0[3] = {y0, cb, cr}, c1[3] = {y1, cb1, cr1}, a[3], b[3], ca[3], cbb[3];
                         dvvk_map_sample(g, tables, c0, a);
                         dvvk_map_sample(g, tables, c1, b);
                         if (sdr) {
@@ -472,8 +527,9 @@ int main(int argc, char **argv)
                             for (int l = 0; l < 2; l++) {
                                 const double *v = l ? b : a;
                                 const int yy = l ? y1 : y0;
-                                const int is_black = (uint32_t)yy == g->black_in[0] && (uint32_t)cb == g->black_in[1] &&
-                                                     (uint32_t)cr == g->black_in[2];
+                                const int is_black = (uint32_t)yy == g->black_in[0] &&
+                                                     (l ? cb1 : cb) == (double)g->black_in[1] &&
+                                                     (l ? cr1 : cr) == (double)g->black_in[2];
                                 const unsigned char *lp = layer ? layer + ((size_t)y * 3840 + x + l) * 4 : NULL;
                                 for (int k = 0; k < 3; k++) {
                                     double c = is_black ? (double)g->black_out[k] : g->out_code[0] * v[k] + g->out_code[1];
