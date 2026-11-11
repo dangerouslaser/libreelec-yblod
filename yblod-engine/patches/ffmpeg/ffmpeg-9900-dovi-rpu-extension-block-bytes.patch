@@ -1,0 +1,72 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH] avcodec/dovi_rpudec, avutil/dovi_meta: keep each DM extension
+ block's bytes
+
+The Dolby Vision tunnel sends a title's display management metadata on
+to the TV. FFmpeg parses each extension block of the RPU into
+AVDOVIDmData, and the output stage cannot rebuild every block from the
+parsed fields (CM v4.0 metadata in particular).
+
+Keep the block's original payload next to the parsed fields:
+AVDOVIDmData gains dvbridge_raw_magic (0x41424456 when the bytes are
+there), dvbridge_original_length and dvbridge_original_bytes[32]. The
+bytes are the bit-packed RPU payload of the block, read through a copy
+of the bit reader, not HDMI payload bytes. A block whose stated length
+runs past the end of the data is refused (AVERROR_INVALIDDATA) before
+anything is copied; a block longer than 32 bytes keeps its length and no
+bytes.
+
+The fields are at the end of AVDOVIDmData. They change the size of a
+public struct, so this FFmpeg and the player have to be built together
+(Kodi's Dolby Vision code reads them).
+
+Origin: the native-dv Kodi port (yblod-engine), "dvbridge".
+
+Regrouped from ffmpeg-9900-00-libavcodec__dovi_rpudec.c and
+ffmpeg-9900-02-libavutil__dovi_meta.h, one change split per source file
+(YBLOD 0.2 to 0.4.1); no code change.
+---
+ libavcodec/dovi_rpudec.c | 11 +++++++++++
+ libavutil/dovi_meta.h    |  5 +++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/libavcodec/dovi_rpudec.c b/libavcodec/dovi_rpudec.c
+index 00005049be17..f7fa9e128fcd 100644
+--- a/libavcodec/dovi_rpudec.c
++++ b/libavcodec/dovi_rpudec.c
+@@ -319,6 +319,17 @@ static int parse_ext_blocks(DOVIContext *s, GetBitContext *gb, int ver,
+ 
+         memset(dm, 0, sizeof(*dm));
+         dm->level = level;
++        /* Validate before copying from the bitreader, including non-byte-aligned
++         * block starts. Static/compressed state inherits this trailer naturally. */
++        if (ext_block_length < 0 || ext_block_length > get_bits_left(gb) / 8)
++            return AVERROR_INVALIDDATA;
++        dm->dvbridge_original_length = ext_block_length;
++        if (ext_block_length <= sizeof(dm->dvbridge_original_bytes)) {
++            GetBitContext raw = *gb;
++            for (int j = 0; j < ext_block_length; j++)
++                dm->dvbridge_original_bytes[j] = get_bits(&raw, 8);
++            dm->dvbridge_raw_magic = 0x41424456;
++        }
+         switch (ver) {
+         case 1: ret = parse_ext_v1(s, gb, dm); break;
+         case 2: ret = parse_ext_v2(s, gb, dm, ext_block_length); break;
+diff --git a/libavutil/dovi_meta.h b/libavutil/dovi_meta.h
+index c102bf384f46..598d2440f1f4 100644
+--- a/libavutil/dovi_meta.h
++++ b/libavutil/dovi_meta.h
+@@ -332,6 +332,11 @@ typedef struct AVDOVIDmData {
+         AVDOVIDmLevel254 l254; /* static */
+         AVDOVIDmLevel255 l255; /* static */
+     };
++    /* Dvbridge isolated-lab trailer. Preserve presence even when value is zero.
++     * Original RPU block bytes are bit-packed, NOT HDMI payload bytes. */
++    uint32_t dvbridge_raw_magic;
++    uint32_t dvbridge_original_length;
++    uint8_t dvbridge_original_bytes[32];
+ } AVDOVIDmData;
+ 
+ /**

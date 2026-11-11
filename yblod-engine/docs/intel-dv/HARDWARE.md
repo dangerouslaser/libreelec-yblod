@@ -13,7 +13,7 @@ sold with the same CPU.
    level shifter is not rejected merely for exposing a dual-mode identifier.
    In its normal (PCON) mode the NUC7i7BN's MegaChips MCDP2800 LSPCON (FW
    1.77) does not forward the Dolby VSIF (see VALIDATION.md). Exception (0.3.5,
-   `linux-9931-lspcon-ls-dv`): for Dolby Vision the driver switches it to
+   `linux-9931-i915-dolby-vision-lspcon-level-shifter`): for Dolby Vision the driver switches it to
    level-shifter mode and drives the port as HDMI, so the native-HDMI DV
    signalling reaches the TV; DV off switches it back. DV is 4K up to 30 Hz
    there (level-shifter and gen9 HDMI clock limits), so Kodi's refresh-rate
@@ -22,7 +22,7 @@ sold with the same CPU.
    LSPCON boards (experimental), `i915.dv_lspcon=0` turns it off. Other
    LSPCONs (Parade) stay excluded: Dolby Vision titles play as Kodi's plain
    base layer there (0.3's GL conversion to HDR10 is gone in 0.4.0).
-   Exception (0.3.4, `linux-9930-dp-pcon-dv`): gen11+ boards whose HDMI
+   Exception (0.3.4, `linux-9930-i915-dolby-vision-dp-hdmi-converter`): gen11+ boards whose HDMI
    sockets are an onboard DP-to-HDMI protocol converter (not LSPCON). The
    Dolby VSIF goes to the converter as a DP InfoFrame SDP in the GMP DIP, as
    HDR10 does. On by default only for allowlisted boards (DMI): the INUSUAL
@@ -47,7 +47,7 @@ sold with the same CPU.
 ## Conditions for HDR10 output (Convert to HDR10)
 
 An HDR10 display (EDID) on a native HDMI connector whose driver exposes
-`DVBRIDGE_TUNNEL_FORMAT` with `hdr10` (linux-9928: Intel display gen12 and
+`DVBRIDGE_TUNNEL_FORMAT` with `hdr10` (linux-9901, linux-9920: Intel display gen12 and
 later, amdgpu), progressive 3840 × 2160, and the Vulkan engine with HDR10
 output. A Dolby Vision EDID is not needed. Not on the converter routes
 (condition 2).

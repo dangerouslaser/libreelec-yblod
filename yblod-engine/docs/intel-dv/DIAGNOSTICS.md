@@ -95,9 +95,10 @@ Native Kodi and kernel logs are unaffected.
 
 The old Kodi 9991/9992 diagnostic patches and Linux 9902 diagnostics were removed.
 The replacement starts from the functional source baseline, not from those old
-logging changes. Omit `kodi-9995-diagnostics.patch` and
-`linux-9903-diagnostics.patch` (plus their manifest/index entries) to remove the
-new diagnostic implementation. Compatibility/retry patches do not depend on it.
+logging changes. Omit `kodi-9995-diagnostics.patch` (plus its manifest/index
+entry) to remove the Kodi side of the new diagnostic implementation; the
+kernel's rate-limited rejection messages are part of the tunnel patches
+(`linux-9901`, `linux-9920`). Compatibility/retry patches do not depend on it.
 
 ## Native playback information
 

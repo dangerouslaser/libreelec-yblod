@@ -1,0 +1,392 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH] drm/i915/hdmi: FreeSync over HDMI on QMS's fixed-clock rate
+ changes
+
+yblod: FreeSync over HDMI on i915, on QMS's fixed-clock rate changes.
+
+FreeSync isn't AMD hardware: a sink with an AMD VSDB (read from the EDID
+here; 7.3's drm doesn't parse the range) takes refresh rate changes on a
+fixed pixel clock while the source sends AMD's FreeSync SPD (OUI 00-00-1a,
+supported/enabled/active, the range), as amdgpu's FreeSync video modes and
+the Raspberry Pi 5's vc4 FreeSync do.
+
+It rides on linux-9910's QMS: the 60 Hz base timing, the vertical total
+stretched per rate, the LRR fastset, the frame pacer for 23.976-based rates.
+Only the signalling changes: the FreeSync SPD goes in the GMP DIP in place of
+QMS's VTEM, with the ordinary SPD off (and cleared, which the state check
+compares). The VRR timing generator is never used (on Tiger Lake, HDMI
+VRR on the generator wedged the display): intel_vrr_is_capable() is
+false for an HDMI connector, so intel_vrr_compute_config() computes
+fixed-rate timings whatever VRR_ENABLED says.
+
+As on the Pi, for Kodi's VRR support (kodi-9999-yblod-36): an HDMI connector
+whose sink has a FreeSync range reaching 60 Hz is vrr_capable; its
+1080p/2160p rates in the range below 60 Hz are listed as the 60 Hz base with
+a longer vertical front porch (47.952, 48, 50, 59.94 on a 40-120 Hz TV); and
+FreeSync is on while the CRTC's VRR_ENABLED is set. Rates below the range
+keep QMS or a mode change; Kodi plays 24p at twice its rate. Never with the
+Dolby Vision tunnel (dv_lab_standard). i915.hdmi_freesync: 0 off, 1 with
+VRR_ENABLED (default), 2 also without it. Where QMS is possible (display
+version 12 to 29).
+
+Validation: this patch has not been run on hardware. It was merged as a
+test build after YBLOD 0.4.1 and is compile-checked only. The signalling
+is that of big-fella's linux-9931, which according to its header ran on
+Tiger Lake with an LG G5: FreeSync 40-60 Hz reported by the TV; 60,
+59.94, 50, 47.99 and 47.96 switched by fastset with no resync. What is
+new here and unrun: the vrr_capable property, the added modes, the
+VRR_ENABLED switch, and Kodi's use of them.
+
+Regrouped from linux-9933-hdmi-freesync (merged after YBLOD 0.4.1, in no
+release).
+
+Changed since YBLOD 0.4.1:
+- vrr_capable and the FreeSync modes only where QMS is possible (display
+  version 12 to 29; it was 10 and later).
+- VRR_ENABLED is no longer cleared around intel_vrr_compute_config():
+  that function only uses it when the connector is VRR capable for
+  i915's own generator, which an HDMI connector never is
+  (intel_vrr_is_capable()).
+---
+ .../drm/i915/display/intel_display_types.h    |   3 +
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 243 +++++++++++++++++-
+ 2 files changed, 236 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
+index 0a5e70681f6f..c8d263d21cb6 100644
+--- a/drivers/gpu/drm/i915/display/intel_display_types.h
++++ b/drivers/gpu/drm/i915/display/intel_display_types.h
+@@ -1442,6 +1442,9 @@ struct intel_crtc_state {
+ 		u8 tfr, base_vfront;
+ 		u16 base_vtotal;
+ 		u32 lines_num, lines_den;
++		/* linux-9933: signalled as FreeSync (AMD SPD) instead of QMS */
++		bool freesync;
++		u8 fs_min, fs_max;
+ 	} qms;
+ 
+ 	/* Content Match Refresh Rate state */
+diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+index c50213893a30..08715c0743f8 100644
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -2809,6 +2809,167 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
+ 	return false;
+ }
+ 
++/*
++ * linux-9933: FreeSync over HDMI. FreeSync is not AMD hardware: a sink with an
++ * AMD VSDB (a FreeSync range) takes refresh rate changes on a fixed pixel clock
++ * while the source sends AMD's FreeSync SPD (OUI 00-00-1a, FreeSync supported,
++ * enabled and active, the range), as amdgpu's FreeSync video modes and the
++ * Raspberry Pi 5's vc4 FreeSync do. The rates go out as QMS's: the 60 Hz base
++ * timing with the vertical total stretched, changed by the LRR fastset (and the
++ * frame pacer for 23.976-based rates); only the signalling differs, the FreeSync
++ * SPD in the GMP DIP in place of QMS's VTEM, with the ordinary SPD off. The VRR
++ * timing generator is never used.
++ *
++ * As on the Pi: a connector whose sink has a FreeSync range reaching 60 Hz is
++ * vrr_capable, its 1080p/2160p rates in the range below 60 Hz are listed as the
++ * 60 Hz base with only the vertical front porch longer (modes userspace can
++ * tell it switches between without a modeset), and FreeSync is on while the
++ * CRTC's VRR_ENABLED is set. Rates below the range (24p on a 40-120 Hz TV)
++ * keep QMS or a mode change; userspace plays them at twice their rate. Never
++ * with the Dolby Vision tunnel. hdmi_freesync: 0 off, 1 with VRR_ENABLED
++ * (default), 2 also without it.
++ */
++static int hdmi_freesync = 1;
++module_param(hdmi_freesync, int, 0644);
++MODULE_PARM_DESC(hdmi_freesync,
++	"HDMI FreeSync on sinks with a FreeSync range (0 = off, 1 = with VRR_ENABLED "
++	"[default], 2 = also without it); modes and vrr_capable at the next probe");
++
++/*
++ * The FreeSync range of the AMD VSDB (OUI 00-00-1a; 7.3's drm doesn't parse
++ * it): version, feature caps (bit 0: FreeSync), min and max in Hz.
++ */
++static bool intel_hdmi_sink_freesync(const struct drm_connector *connector,
++				     u8 *min, u8 *max)
++{
++	const struct drm_property_blob *blob = connector->edid_blob_ptr;
++	size_t ext;
++
++	if (!blob || !connector->display_info.is_hdmi)
++		return false;
++
++	for (ext = 128; ext + 128 <= blob->length; ext += 128) {
++		const u8 *b = (const u8 *)blob->data + ext;
++		int i, end = b[2];
++
++		if (b[0] != 0x02 || end < 4 || end > 127)
++			continue;
++
++		for (i = 4; i < end; i += (b[i] & 0x1f) + 1) {
++			const u8 *d = b + i;
++			int len = d[0] & 0x1f;
++
++			if (i + len >= end)
++				break;
++			if ((d[0] >> 5) != 3 || len < 7 ||
++			    d[1] != 0x1a || d[2] != 0x00 || d[3] != 0x00)
++				continue;
++			if (!(d[5] & BIT(0)) || !d[6] || d[7] < d[6] + 10)
++				return false;
++			*min = d[6];
++			*max = d[7];
++			return true;
++		}
++	}
++
++	return false;
++}
++
++/* the sink's FreeSync range holds num/den Hz and the 60 Hz base */
++static bool intel_hdmi_freesync_in_range(const struct drm_connector *connector,
++					 u32 num, u32 den)
++{
++	u8 min, max;
++
++	return hdmi_freesync > 0 && intel_hdmi_sink_freesync(connector, &min, &max) &&
++	       min < QMS_BASE_REFRESH && max >= QMS_BASE_REFRESH &&
++	       num >= (u32)min * den;
++}
++
++static void intel_hdmi_freesync_add_modes(struct intel_connector *connector)
++{
++	struct intel_display *display = to_intel_display(connector);
++	struct intel_encoder *encoder = intel_attached_encoder(connector);
++	const struct drm_display_info *info = &connector->base.display_info;
++	bool capable;
++	int i, r, added = 0;
++
++	capable = qms_enable && encoder && intel_hdmi_qms_possible(display) &&
++		  intel_hdmi_freesync_in_range(&connector->base, QMS_BASE_REFRESH, 1);
++
++	for (i = 0; capable && i < ARRAY_SIZE(qms_bases); i++) {
++		const struct intel_hdmi_qms_base *b = &qms_bases[i];
++		bool base_listed = false;
++		struct drm_display_mode *m;
++
++		if (b->clock > 340000 &&
++		    (b->clock > intel_hdmi_source_max_tmds_clock(encoder) ||
++		     info->max_tmds_clock < b->clock ||
++		     !info->hdmi.scdc.scrambling.supported))
++			continue;
++
++		/* the base itself, as the EDID lists it (CTA-861 VIC 16, 97) */
++		list_for_each_entry(m, &connector->base.probed_modes, head)
++			if (m->clock == b->clock && m->hdisplay == b->hdisplay &&
++			    m->hsync_start == b->hsync_start && m->hsync_end == b->hsync_end &&
++			    m->htotal == b->htotal && m->vdisplay == b->vdisplay &&
++			    m->vsync_start == b->vsync_start && m->vsync_end == b->vsync_end &&
++			    m->vtotal == b->vtotal && !(m->flags & DRM_MODE_FLAG_3D_MASK))
++				base_listed = true;
++		if (!base_listed)
++			continue;
++
++		for (r = 0; r < ARRAY_SIZE(qms_rates); r++) {
++			u32 vtotal, extra;
++			bool dup = false;
++
++			if (qms_rates[r].num == QMS_BASE_REFRESH * qms_rates[r].den ||
++			    !intel_hdmi_freesync_in_range(&connector->base, qms_rates[r].num,
++							  qms_rates[r].den))
++				continue;
++
++			/* rounded: the 0.05% intel_hdmi_qms_prepare matches, the pacer exact */
++			vtotal = DIV_ROUND_CLOSEST_ULL((u64)b->clock * 1000 * qms_rates[r].den,
++						       (u64)b->htotal * qms_rates[r].num);
++			if (vtotal <= b->vtotal || vtotal > 8192)
++				continue;
++			extra = vtotal - b->vtotal;
++
++			list_for_each_entry(m, &connector->base.probed_modes, head)
++				if (m->clock == b->clock && m->htotal == b->htotal &&
++				    m->hdisplay == b->hdisplay && m->vdisplay == b->vdisplay &&
++				    m->vtotal == vtotal)
++					dup = true;
++			if (dup)
++				continue;
++
++			m = drm_mode_create(display->drm);
++			if (!m)
++				break;
++			m->clock = b->clock;
++			m->hdisplay = b->hdisplay;
++			m->hsync_start = b->hsync_start;
++			m->hsync_end = b->hsync_end;
++			m->htotal = b->htotal;
++			m->vdisplay = b->vdisplay;
++			m->vsync_start = b->vsync_start + extra;
++			m->vsync_end = b->vsync_end + extra;
++			m->vtotal = vtotal;
++			m->flags = DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC;
++			m->type = DRM_MODE_TYPE_DRIVER;
++			drm_mode_set_name(m);
++			drm_mode_probed_add(&connector->base, m);
++			added++;
++		}
++	}
++
++	drm_connector_set_vrr_capable_property(&connector->base, capable);
++
++	if (capable)
++		drm_dbg_kms(display->drm, "[CONNECTOR:%d:%s] FreeSync, %d modes added\n",
++			    connector->base.base.id, connector->base.name, added);
++}
++
+ /*
+  * Replace the requested timing with the 60 Hz base timing, so everything
+  * computed from the mode (TMDS clock, AVI VIC, quantization range, Dolby
+@@ -2825,6 +2986,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+ 	struct intel_display *display = to_intel_display(encoder);
+ 	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
+ 	const struct intel_hdmi_qms_base *b = NULL;
++	bool has_qms, freesync;
+ 	u64 num, den, g;
+ 	int i;
+ 
+@@ -2861,7 +3023,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+ 	     !info->hdmi.scdc.scrambling.supported))
+ 		return;
+ 
+-	if (!intel_hdmi_sink_has_qms(conn_state->connector))
++	has_qms = intel_hdmi_sink_has_qms(conn_state->connector);
++	/* linux-9933: FreeSync with VRR_ENABLED, never with the Dolby Vision tunnel */
++	freesync = !intel_conn_state->dv_lab_standard &&
++		   (crtc_state->uapi.vrr_enabled || hdmi_freesync >= 2) &&
++		   conn_state->connector->vrr_capable_property &&
++		   intel_hdmi_freesync_in_range(conn_state->connector, qms_rates[i].num,
++						 qms_rates[i].den);
++	if (!freesync && !has_qms)
+ 		return;
+ 
+ 	/*
+@@ -2929,6 +3098,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+ 	crtc_state->qms.base_vtotal = b->vtotal;
+ 	crtc_state->qms.lines_num = num;
+ 	crtc_state->qms.lines_den = den;
++
++	if (freesync) {
++		u8 fs_min = 0, fs_max = 0;
++
++		intel_hdmi_sink_freesync(conn_state->connector, &fs_min, &fs_max);
++		crtc_state->qms.freesync = true;
++		crtc_state->qms.fs_min = fs_min;
++		crtc_state->qms.fs_max = min_t(u8, fs_max, QMS_BASE_REFRESH);
++	}
+ }
+ 
+ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
+@@ -2949,6 +3127,19 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
+ 	crtc_state->infoframes.enable |=
+ 		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
+ 
++	/* linux-9933: the FreeSync SPD (in the GMP DIP) replaces the ordinary SPD */
++	if (crtc_state->qms.freesync) {
++		crtc_state->infoframes.enable &=
++			~intel_hdmi_infoframe_enable(HDMI_INFOFRAME_TYPE_SPD);
++		/* the state check compares it whether sent or not */
++		memset(&crtc_state->infoframes.spd, 0, sizeof(crtc_state->infoframes.spd));
++	}
++
++	/*
++	 * linux-9933: VRR_ENABLED means FreeSync here. It does not start the VRR
++	 * timing generator: intel_vrr_is_capable() is false for an HDMI
++	 * connector, so this computes fixed-rate timings whatever it says.
++	 */
+ 	intel_vrr_compute_config(crtc_state, conn_state);
+ }
+ 
+@@ -2990,10 +3181,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
+ 	};
+ 	int i;
+ 
+-	pkt[11] = BIT(2) | (constant ? BIT(1) : 0);	/* QMS_EN, M_CONST */
+-	pkt[12] = crtc_state->qms.base_vfront;
+-	pkt[13] = crtc_state->qms.tfr << 3 | (QMS_BASE_REFRESH >> 8);
+-	pkt[14] = QMS_BASE_REFRESH & 0xff;
++	/*
++	 * linux-9933: FreeSync's SPD instead (amdgpu's v1 packet): HB0-2, the
++	 * DIP's ECC hole, then PB0 (checksum), the AMD OUI, two reserved bytes,
++	 * supported/enabled/active and the range in Hz.
++	 */
++	if (crtc_state->qms.freesync) {
++		u8 sum = 0;
++
++		memset(pkt, 0, sizeof(pkt));
++		pkt[0] = HDMI_INFOFRAME_TYPE_SPD;
++		pkt[1] = 0x01;
++		pkt[2] = 0x08;
++		pkt[5] = 0x1a;
++		pkt[10] = 0x07;
++		pkt[11] = crtc_state->qms.fs_min;
++		pkt[12] = crtc_state->qms.fs_max;
++		for (i = 0; i < 13; i++)
++			sum += pkt[i];
++		pkt[4] = 0x100 - sum;
++	} else {
++		pkt[11] = BIT(2) | (constant ? BIT(1) : 0);	/* QMS_EN, M_CONST */
++		pkt[12] = crtc_state->qms.base_vfront;
++		pkt[13] = crtc_state->qms.tfr << 3 | (QMS_BASE_REFRESH >> 8);
++		pkt[14] = QMS_BASE_REFRESH & 0xff;
++	}
+ 
+ 	/* rewritten in place: the packet must not miss a frame */
+ 	for (i = 0; i < VIDEO_DIP_GMP_DATA_SIZE / 4; i++)
+@@ -3106,7 +3318,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
+ 
+ 	intel_hdmi_qms_pacer_stop(crtc);
+ 
+-	if (modeset || !new_crtc_state->qms.active)
++	/* linux-9933: FreeSync announces nothing; its SPD stays as it is */
++	if (modeset || !new_crtc_state->qms.active || new_crtc_state->qms.freesync)
+ 		return;
+ 
+ 	/* announce the next rate for four frames at the current one */
+@@ -3129,13 +3342,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
+ 	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
+ 		return;
+ 
+-	if (!modeset)
++	if (!modeset && !new_crtc_state->qms.freesync)
+ 		intel_hdmi_qms_update_vtem(crtc, new_crtc_state, true);
+ 
+ 	intel_hdmi_qms_pacer_start(crtc, new_crtc_state);
+ 
+-	drm_dbg_kms(display->drm, "[CRTC:%d:%s] QMS: target frame rate %u, %u/%u lines per frame\n",
+-		    crtc->base.base.id, crtc->base.name, new_crtc_state->qms.tfr,
++	drm_dbg_kms(display->drm, "[CRTC:%d:%s] %s: target frame rate %u, %u/%u lines per frame\n",
++		    crtc->base.base.id, crtc->base.name,
++		    new_crtc_state->qms.freesync ? "FreeSync" : "QMS", new_crtc_state->qms.tfr,
+ 		    new_crtc_state->qms.lines_num, new_crtc_state->qms.lines_den);
+ }
+ 
+@@ -3555,8 +3769,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
+ {
+ 	struct intel_connector *connector = to_intel_connector(_connector);
+ 
++	int count;
++
+ 	/* drm_edid_connector_update() done in ->detect() or ->force() */
+-	return drm_edid_connector_add_modes(&connector->base);
++	count = drm_edid_connector_add_modes(&connector->base);
++	/* linux-9933: vrr_capable and the FreeSync modes */
++	intel_hdmi_freesync_add_modes(connector);
++	return count;
+ }
+ 
+ static int
+@@ -3649,6 +3868,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+ 
+ 	if (!HAS_GMCH(display))
+ 		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);
++
++	/* linux-9933: FreeSync (intel_hdmi_freesync_add_modes) */
++	if (intel_hdmi_qms_possible(display))
++		drm_connector_attach_vrr_capable_property(&connector->base);
+ }
+ 
+ /*

@@ -1,0 +1,602 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH] drm/i915/lspcon: Standard Dolby Vision in level-shifter mode
+ (MCDP2800)
+
+Standard Dolby Vision through the NUC7's MegaChips MCDP2800 LSPCON, switched.
+
+to level-shifter mode (gen9/10).
+
+In PCON mode the MCDP2800 (FW 1.77) forwards the HDR10 SDP but drops the
+Dolby VSIF. In level-shifter mode it repeats the GPU's own TMDS, so the
+native-HDMI DV path (DV AVI, Dolby VSIF) reaches the TV. With
+DVBRIDGE_DV_STANDARD_LAB set, the DP connector's DDI computes an HDMI-mode
+output (intel_ddi_compute_output_type()); the HDMI enable path switches the
+LSPCON to level-shifter mode through the standard dual-mode register and the
+disable path switches it back to PCON mode. Without DV the port is the usual
+PCON-mode DP connector (4K60, HDR10). Level-shifter mode stops at 340 Mchar/s
+and gen9 HDMI at 300 MHz: DV is 4K up to 30 Hz.
+
+The switch runs right after the previous output stopped, when HPD can be
+low (LG sets drop it when the signal stops, and the mode change itself can
+glitch it); i915 refuses AUX on a port whose HPD is low (-ENXIO). Each step
+waits for HPD (2 s first, then 0.2 s) and is retried, and success is the mode
+read back from the chip. From the HDMI enable on, the port counts as the
+HDMI output (lspcon.ls_dv) even if the switch fails, so PCON-mode paths stay
+away. During readout the InfoFrame hooks follow the enabled transcoder's mode
+(TRANS_DDI_FUNC_CTL), not the switch result. (0.3.5 shipped without both:
+an LG C3 user got "switch to level-shifter mode failed (-6)" and a pipe state
+mismatch.)
+
+While in level-shifter mode the LSPCON does not answer native AUX: DP
+detect reports HPD only and keeps the EDID, short HPD pulses and DP link
+checks are skipped, and intel_lspcon_resume() leaves the chip alone. QMS is
+off on this route (the VTEM does not fit gen9's 32-byte GMP DIP), and only
+the Dolby VSIF tunnel format is allowed (no DRM InfoFrame DIP on gen9).
+
+Eligibility: i915.dv_lspcon (-1 = DMI-allowlisted boards [NUC7i7BNB], 0 = off,
+1 = any gen9/10 LSPCON port), and at modeset a MegaChips MC2800 with an
+allowlisted firmware (1.77).
+
+Verified with the NUC Display Lab (nuc-hardware-lab v0.3.1/v0.4.0-dvlab,
+reports #15 and #17): NUC7i7BNB, MCDP2800 HW 2.2 FW 1.77, LG OLED55C3,
+4K23.976 RGB8; DV picture modes, test bars from the RGB8 tunnel, no-VSIF
+control shows noise, and a metadata-only A/B pair renders darker/brighter.
+That lab switched modes by rebinding i915. The in-modeset switch was
+played in Kodi on the same NUC7 and TV in its first form (YBLOD 0.3.5,
+without the HPD wait and the retries): Dolby Vision played after one
+intermittent failure to switch (the "-6" above). The form in this patch
+(0.4.0, with the wait and the retries) has not been run on hardware, nor
+have TV off/on and suspend/resume during Dolby Vision.
+
+Regrouped from linux-9931-lspcon-ls-dv (YBLOD 0.3.5 to 0.4.1); no code
+change.
+---
+ drivers/gpu/drm/i915/display/intel_ddi.c      |  19 ++-
+ .../drm/i915/display/intel_display_params.c   |   5 +
+ .../drm/i915/display/intel_display_params.h   |   1 +
+ .../drm/i915/display/intel_display_types.h    |   2 +
+ drivers/gpu/drm/i915/display/intel_dp.c       |  87 ++++++++++++
+ drivers/gpu/drm/i915/display/intel_dp.h       |   2 +
+ .../drm/i915/display/intel_dp_link_training.c |   7 +-
+ drivers/gpu/drm/i915/display/intel_hdmi.c     |  78 ++++++++++-
+ drivers/gpu/drm/i915/display/intel_lspcon.c   | 129 ++++++++++++++++++
+ drivers/gpu/drm/i915/display/intel_lspcon.h   |   2 +
+ 10 files changed, 328 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_ddi.c b/drivers/gpu/drm/i915/display/intel_ddi.c
+index 7cd3b5dad423..3e9ef0fe63f7 100644
+--- a/drivers/gpu/drm/i915/display/intel_ddi.c
++++ b/drivers/gpu/drm/i915/display/intel_ddi.c
+@@ -777,7 +777,11 @@ bool intel_ddi_connector_get_hw_state(struct intel_connector *intel_connector)
+ 
+ 	if (ddi_mode == TRANS_DDI_MODE_SELECT_HDMI ||
+ 	    ddi_mode == TRANS_DDI_MODE_SELECT_DVI) {
+-		ret = type == DRM_MODE_CONNECTOR_HDMIA;
++		/* linux-9931: the LSPCON level-shifter DV output is an HDMI-mode
++		 * DDI behind the DP connector. */
++		ret = type == DRM_MODE_CONNECTOR_HDMIA ||
++			(type == DRM_MODE_CONNECTOR_DisplayPort &&
++			 intel_dp_lspcon_dv_allowed(enc_to_dig_port(encoder)));
+ 	} else if (ddi_mode == TRANS_DDI_MODE_SELECT_FDI_OR_128B132B && !HAS_DP20(display)) {
+ 		ret = type == DRM_MODE_CONNECTOR_VGA;
+ 	} else if (ddi_mode == TRANS_DDI_MODE_SELECT_DP_SST) {
+@@ -2999,6 +3003,10 @@ static void intel_ddi_pre_enable_hdmi(struct intel_atomic_state *state,
+ 	struct intel_digital_port *dig_port = enc_to_dig_port(encoder);
+ 	struct intel_hdmi *intel_hdmi = &dig_port->hdmi;
+ 
++	/* linux-9931: Dolby Vision through the LSPCON in level-shifter mode. */
++	if (intel_dp_lspcon_dv_allowed(dig_port))
++		intel_lspcon_set_ls_dv(dig_port, true);
++
+ 	intel_dp_dual_mode_set_tmds_output(intel_hdmi, true);
+ 	intel_ddi_enable_clock(encoder, crtc_state);
+ 
+@@ -3229,6 +3237,10 @@ static void intel_ddi_post_disable_hdmi(struct intel_atomic_state *state,
+ 	intel_ddi_disable_clock(encoder);
+ 
+ 	intel_dp_dual_mode_set_tmds_output(intel_hdmi, false);
++
++	/* linux-9931: back to PCON mode for the DP connector's usual output. */
++	if (intel_dp_lspcon_dv_allowed(dig_port))
++		intel_lspcon_set_ls_dv(dig_port, false);
+ }
+ 
+ static void intel_ddi_post_disable_hdmi_or_sst(struct intel_atomic_state *state,
+@@ -4491,6 +4503,11 @@ intel_ddi_compute_output_type(struct intel_encoder *encoder,
+ 	case DRM_MODE_CONNECTOR_eDP:
+ 		return INTEL_OUTPUT_EDP;
+ 	case DRM_MODE_CONNECTOR_DisplayPort:
++		/* linux-9931: Dolby Vision on an LSPCON port is an HDMI-mode
++		 * output with the LSPCON in level-shifter mode. */
++		if (to_intel_digital_connector_state(conn_state)->dv_lab_standard &&
++		    intel_dp_lspcon_dv_allowed(enc_to_dig_port(encoder)))
++			return INTEL_OUTPUT_HDMI;
+ 		return INTEL_OUTPUT_DP;
+ 	default:
+ 		MISSING_CASE(conn_state->connector->connector_type);
+diff --git a/drivers/gpu/drm/i915/display/intel_display_params.c b/drivers/gpu/drm/i915/display/intel_display_params.c
+index 122c211d93fe..64562c86f1a5 100644
+--- a/drivers/gpu/drm/i915/display/intel_display_params.c
++++ b/drivers/gpu/drm/i915/display/intel_display_params.c
+@@ -41,6 +41,11 @@ intel_display_param_named(dv_pcon, int, 0400,
+ 	"on gen11+ (-1=verified boards only [default], 0=off, 1=any converter; "
+ 	"1 is experimental: an unverified converter may show no picture).");
+ 
++intel_display_param_named(dv_lspcon, int, 0400,
++	"Standard Dolby Vision through a MegaChips MCDP2800 LSPCON switched to "
++	"level-shifter mode, gen9/10, 4K up to 30 Hz (-1=verified boards only "
++	"[default], 0=off, 1=any board; firmware is checked in both cases).");
++
+ intel_display_param_named(enable_dv_lab, bool, 0400,
+ 	"Standard Dolby Vision RGB 8 bpc tunnel: the DVBRIDGE_DV_STANDARD_LAB and "
+ 	"DVBRIDGE_TUNNEL_FORMAT connector properties on HDMI outputs that can "
+diff --git a/drivers/gpu/drm/i915/display/intel_display_params.h b/drivers/gpu/drm/i915/display/intel_display_params.h
+index 0c65e964df96..b80de9ae709c 100644
+--- a/drivers/gpu/drm/i915/display/intel_display_params.h
++++ b/drivers/gpu/drm/i915/display/intel_display_params.h
+@@ -25,6 +25,7 @@ struct drm_printer;
+ #define INTEL_DISPLAY_PARAMS_FOR_EACH(param) \
+ 	param(bool, enable_dv_lab, true, 0) \
+ 	param(int, dv_pcon, -1, 0400) \
++	param(int, dv_lspcon, -1, 0400) \
+ 	param(char *, dmc_firmware_path, NULL, 0400) \
+ 	param(char *, vbt_firmware, NULL, 0400) \
+ 	param(int, lvds_channel_mode, 0, 0400) \
+diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
+index 94b12321eb19..79016feb5815 100644
+--- a/drivers/gpu/drm/i915/display/intel_display_types.h
++++ b/drivers/gpu/drm/i915/display/intel_display_types.h
+@@ -2013,6 +2013,8 @@ struct intel_lspcon {
+ 	bool hdr_supported;
+ 	enum drm_lspcon_mode mode;
+ 	enum lspcon_vendor vendor;
++	/* Level-shifter mode for a Dolby Vision HDMI output (linux-9931). */
++	bool ls_dv;
+ };
+ 
+ struct intel_digital_port {
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.c b/drivers/gpu/drm/i915/display/intel_dp.c
+index 633385523562..7cfd24b6e03e 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.c
++++ b/drivers/gpu/drm/i915/display/intel_dp.c
+@@ -3582,6 +3582,61 @@ bool intel_dp_pcon_dv_allowed(const struct intel_digital_port *dig_port)
+ 	return display->params.dv_pcon > 0 || dmi_check_system(intel_dp_pcon_dv_dmi);
+ }
+ 
++/*
++ * linux-9931: Standard Dolby Vision through a MegaChips MCDP2800 LSPCON in
++ * level-shifter mode (gen9/10). With DV requested, the DP connector's DDI is
++ * driven in HDMI mode (intel_ddi_compute_output_type()) and the LSPCON
++ * repeats its TMDS, so the native-HDMI DV path applies; otherwise the port is
++ * the usual PCON-mode DP connector. Level-shifter mode stops at 340 Mchar/s
++ * and gen9 HDMI at 300 MHz, so DV is 4K up to 30 Hz. Verified with the NUC
++ * Display Lab (nuc-hardware-lab v0.3.1/v0.4.0-dvlab, reports #15 and #17):
++ * NUC7i7BNB, MCDP2800 FW 1.77, LG OLED55C3, 4K23.976.
++ */
++static const struct dmi_system_id intel_dp_lspcon_dv_dmi[] = {
++	{
++		/* Intel NUC7i7BNH/BNK (Kaby Lake GT3): MCDP2800 on port B. */
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "Intel Corporation"),
++			DMI_EXACT_MATCH(DMI_BOARD_NAME, "NUC7i7BNB"),
++		},
++	},
++	{ }
++};
++
++/* Port-level checks, at connector init. */
++bool intel_dp_lspcon_dv_allowed(const struct intel_digital_port *dig_port)
++{
++	struct intel_display *display = to_intel_display(&dig_port->base);
++	const struct intel_bios_encoder_data *devdata = dig_port->base.devdata;
++
++	if (!display->params.enable_dv_lab || !display->params.dv_lspcon ||
++	    DISPLAY_VER(display) < 9 || DISPLAY_VER(display) > 10 ||
++	    !intel_bios_encoder_is_lspcon(devdata))
++		return false;
++	return display->params.dv_lspcon > 0 || dmi_check_system(intel_dp_lspcon_dv_dmi);
++}
++
++/* The chip itself, at modeset: an active MegaChips MCDP2800 LSPCON with a
++ * verified firmware (DPCD branch descriptor, read in PCON mode). */
++bool intel_dp_lspcon_dv_route(struct intel_dp *intel_dp)
++{
++	static const struct { u8 major, minor; } fw[] = {
++		{ 1, 77 },
++	};
++	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
++	const struct drm_dp_dpcd_ident *id = &intel_dp->desc.ident;
++	int i;
++
++	if (!intel_dp_lspcon_dv_allowed(dig_port) || !intel_lspcon_active(dig_port) ||
++	    dig_port->lspcon.vendor != LSPCON_VENDOR_MCA ||
++	    memcmp(id->device_id, "MC2800", 6))
++		return false;
++	for (i = 0; i < ARRAY_SIZE(fw); i++)
++		if (id->sw_major_rev == fw[i].major && id->sw_minor_rev == fw[i].minor)
++			return true;
++	return false;
++}
++
+ /* The sink behind this port is HDMI through a protocol converter. */
+ static bool intel_dp_pcon_dv_route(struct intel_dp *intel_dp)
+ {
+@@ -6513,6 +6568,13 @@ intel_dp_detect(struct drm_connector *_connector,
+ 
+ 	intel_dp_flush_connector_commits(connector);
+ 
++	/* linux-9931: in level-shifter mode the LSPCON does not answer native
++	 * AUX, and detect must not switch it back (intel_lspcon_resume()). HPD
++	 * follows the TV; keep the EDID and caps read in PCON mode. */
++	if (intel_lspcon_ls_dv_active(dig_port))
++		return intel_digital_port_connected(encoder) ?
++			connector_status_connected : connector_status_disconnected;
++
+ 	intel_pps_vdd_on(intel_dp);
+ 
+ 	/* Can't disconnect eDP */
+@@ -7027,6 +7089,11 @@ intel_dp_hpd_pulse(struct intel_digital_port *dig_port, bool long_hpd)
+ 		    dig_port->base.base.name,
+ 		    long_hpd ? "long" : "short");
+ 
++	/* linux-9931: no native AUX in level-shifter mode. A long pulse gets a
++	 * full detect (HPD live state only, see intel_dp_detect()). */
++	if (intel_lspcon_ls_dv_active(dig_port))
++		return long_hpd ? IRQ_NONE : IRQ_HANDLED;
++
+ 	/*
+ 	 * TBT DP tunnels require the GFX driver to read out the DPRX caps in
+ 	 * response to long HPD pulses. The DP hotplug handler does that,
+@@ -7140,6 +7207,26 @@ intel_dp_add_properties(struct intel_dp *intel_dp, struct drm_connector *_connec
+ 						   connector->dv_lab_property, 0);
+ 	}
+ 
++	/* linux-9931: Standard DV through the LSPCON in level-shifter mode.
++	 * The DV output is an HDMI-mode DDI behind this DP connector: the
++	 * port's intel_hdmi takes this connector (its DDC is the LSPCON's
++	 * I2C-over-AUX bridge, which carries the dual-mode registers and the
++	 * TV's DDC in both modes) and the adaptor's limits. The chip itself is
++	 * checked at modeset (intel_dp_lspcon_dv_route()). */
++	if (!intel_dp_is_edp(intel_dp) && intel_dp_lspcon_dv_allowed(dp_to_dig_port(intel_dp))) {
++		struct intel_hdmi *hdmi = &dp_to_dig_port(intel_dp)->hdmi;
++
++		hdmi->attached_connector = connector;
++		hdmi->dp_dual_mode.type = DRM_DP_DUAL_MODE_LSPCON;
++		hdmi->dp_dual_mode.max_tmds_clock = 340000;
++		ratelimit_state_init(&connector->dv_log_limit, 30 * HZ, 1);
++		connector->dv_lab_property = drm_property_create_bool(display->drm,
++			DRM_MODE_PROP_ATOMIC, "DVBRIDGE_DV_STANDARD_LAB");
++		if (connector->dv_lab_property)
++			drm_object_attach_property(&connector->base.base,
++						   connector->dv_lab_property, 0);
++	}
++
+ 	if (intel_dp_has_gamut_metadata_dip(&dp_to_dig_port(intel_dp)->base))
+ 		drm_connector_attach_hdr_output_metadata_property(&connector->base);
+ 
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.h b/drivers/gpu/drm/i915/display/intel_dp.h
+index 40167189c726..142a59787a1a 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.h
++++ b/drivers/gpu/drm/i915/display/intel_dp.h
+@@ -131,6 +131,8 @@ bool intel_dp_has_joiner(struct intel_dp *intel_dp);
+ bool intel_dp_needs_vsc_colorimetry(const struct intel_crtc_state *crtc_state,
+ 				    const struct drm_connector_state *conn_state);
+ bool intel_dp_pcon_dv_allowed(const struct intel_digital_port *dig_port);
++bool intel_dp_lspcon_dv_allowed(const struct intel_digital_port *dig_port);
++bool intel_dp_lspcon_dv_route(struct intel_dp *intel_dp);
+ void intel_dp_set_infoframes(struct intel_encoder *encoder, bool enable,
+ 			     const struct intel_crtc_state *crtc_state,
+ 			     const struct drm_connector_state *conn_state);
+diff --git a/drivers/gpu/drm/i915/display/intel_dp_link_training.c b/drivers/gpu/drm/i915/display/intel_dp_link_training.c
+index 9a692f4fdfee..f2b4265c7c6f 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp_link_training.c
++++ b/drivers/gpu/drm/i915/display/intel_dp_link_training.c
+@@ -40,6 +40,7 @@
+ #include "intel_dp_mst.h"
+ #include "intel_encoder.h"
+ #include "intel_hdmi.h"
++#include "intel_lspcon.h"
+ #include "intel_hotplug.h"
+ #include "intel_modeset_lock.h"
+ #include "intel_panel.h"
+@@ -2621,6 +2622,10 @@ void intel_dp_link_check(struct intel_encoder *encoder)
+ 	struct drm_modeset_acquire_ctx ctx;
+ 	int ret;
+ 
++	/* linux-9931: an HDMI-mode output through the LSPCON, no DP link. */
++	if (intel_lspcon_ls_dv_active(enc_to_dig_port(encoder)))
++		return;
++
+ 	intel_modeset_lock_ctx_retry(&ctx, NULL, 0, ret)
+ 		ret = intel_dp_retrain_link(encoder, &ctx);
+ }
+@@ -2630,7 +2635,7 @@ void intel_dp_check_link_state(struct intel_dp *intel_dp)
+ 	struct intel_digital_port *dig_port = dp_to_dig_port(intel_dp);
+ 	struct intel_encoder *encoder = &dig_port->base;
+ 
+-	if (!intel_dp_is_connected(intel_dp))
++	if (!intel_dp_is_connected(intel_dp) || intel_lspcon_ls_dv_active(dig_port))
+ 		return;
+ 
+ 	/*
+diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+index fd6c204bdbaa..0884d1b037ca 100644
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -3084,9 +3084,14 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+ 		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
+ 			edid ? edid->data : NULL, edid ? edid->length : 0);
+ 		unsigned int format = to_intel_digital_connector_state(conn_state)->dv_tunnel_format;
++		/* linux-9931: an LSPCON in level-shifter mode passes the GPU's own
++		 * HDMI packets through (intel_dp_lspcon_dv_route()). */
++		bool lspcon_ls = intel_bios_encoder_is_lspcon(encoder->devdata) &&
++			intel_dp_lspcon_dv_route(&enc_to_dig_port(encoder)->dp);
+ 		struct intel_dv_lab_link link = {
+ 			.requested = true,
+-			.lab_enabled = display->params.enable_dv_lab && DISPLAY_VER(display) >= 12,
++			.lab_enabled = display->params.enable_dv_lab &&
++				(DISPLAY_VER(display) >= 12 || lspcon_ls),
+ 			/* big-fella: the sink the format needs (dvbridge_tunnel_format.h) */
+ 			.sink_standard = dvbridge_tunnel_sink(format, &caps, &connector->base),
+ 			.hdmi = pipe_config->has_hdmi_sink && pipe_config->has_infoframe &&
+@@ -3095,6 +3100,7 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+ 				enc_to_dig_port(encoder)->lspcon.active,
+ 				enc_to_intel_hdmi(encoder)->dp_dual_mode.type != DRM_DP_DUAL_MODE_NONE,
+ 				intel_bios_encoder_supports_dp_dual_mode(encoder->devdata)),
++			.verified_bridge = lspcon_ls,
+ 			.rgb = pipe_config->output_format == INTEL_OUTPUT_FORMAT_RGB &&
+ 				pipe_config->sink_format == INTEL_OUTPUT_FORMAT_RGB,
+ 			.limited_range = pipe_config->limited_color_range,
+@@ -3114,6 +3120,11 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+ 		ret = intel_dv_lab_validate(&link);
+ 		if (!ret)
+ 			ret = dvbridge_tunnel_hdr_metadata(format, conn_state->hdr_output_metadata);
++		/* Only the Dolby VSIF tunnel was verified in level-shifter mode;
++		 * gen9 HDMI has no DRM InfoFrame DIP for the HDR10 tunnel. */
++		if (!ret && intel_bios_encoder_is_lspcon(encoder->devdata) &&
++		    format != DVBRIDGE_TUNNEL_DV)
++			ret = -EOPNOTSUPP;
+ 		/* the Dolby block's 2160p60 bit is about TV-led Dolby Vision */
+ 		if (!ret && format == DVBRIDGE_TUNNEL_DV && link.width == 3840 &&
+ 		    link.rounded_refresh > 30 && !caps.supports_2160p60)
+@@ -3859,6 +3870,64 @@ static u8 intel_hdmi_ddc_pin(struct intel_encoder *encoder)
+ 	return ddc_pin;
+ }
+ 
++/*
++ * linux-9931: an LSPCON port that can also drive an HDMI-mode Dolby Vision
++ * output (level-shifter mode). The GPU's own DIPs carry the InfoFrames then;
++ * in PCON mode the LSPCON hooks apply as before. During readout the output
++ * type is not known yet when the InfoFrames are read, so the enabled
++ * transcoder's mode decides.
++ */
++static bool lspcon_dv_hdmi(struct intel_encoder *encoder,
++			   const struct intel_crtc_state *crtc_state)
++{
++	struct intel_display *display = to_intel_display(encoder);
++	u32 ctl;
++
++	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI))
++		return true;
++	ctl = intel_de_read(display, TRANS_DDI_FUNC_CTL(display, crtc_state->cpu_transcoder));
++	return (ctl & TRANS_DDI_FUNC_ENABLE) &&
++		(ctl & TRANS_DDI_MODE_SELECT_MASK) == TRANS_DDI_MODE_SELECT_HDMI;
++}
++
++static void lspcon_dv_write_infoframe(struct intel_encoder *encoder,
++				      const struct intel_crtc_state *crtc_state,
++				      unsigned int type, const void *frame, ssize_t len)
++{
++	if (lspcon_dv_hdmi(encoder, crtc_state))
++		hsw_write_infoframe(encoder, crtc_state, type, frame, len);
++	else
++		lspcon_write_infoframe(encoder, crtc_state, type, frame, len);
++}
++
++static void lspcon_dv_read_infoframe(struct intel_encoder *encoder,
++				     const struct intel_crtc_state *crtc_state,
++				     unsigned int type, void *frame, ssize_t len)
++{
++	if (lspcon_dv_hdmi(encoder, crtc_state))
++		hsw_read_infoframe(encoder, crtc_state, type, frame, len);
++	else
++		lspcon_read_infoframe(encoder, crtc_state, type, frame, len);
++}
++
++static void lspcon_dv_set_infoframes(struct intel_encoder *encoder, bool enable,
++				     const struct intel_crtc_state *crtc_state,
++				     const struct drm_connector_state *conn_state)
++{
++	if (intel_crtc_has_type(crtc_state, INTEL_OUTPUT_HDMI))
++		hsw_set_infoframes(encoder, enable, crtc_state, conn_state);
++	else
++		lspcon_set_infoframes(encoder, enable, crtc_state, conn_state);
++}
++
++static u32 lspcon_dv_infoframes_enabled(struct intel_encoder *encoder,
++					const struct intel_crtc_state *crtc_state)
++{
++	if (lspcon_dv_hdmi(encoder, crtc_state))
++		return hsw_infoframes_enabled(encoder, crtc_state);
++	return lspcon_infoframes_enabled(encoder, crtc_state);
++}
++
+ void intel_infoframe_init(struct intel_digital_port *dig_port)
+ {
+ 	struct intel_display *display = to_intel_display(dig_port);
+@@ -3874,7 +3943,12 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
+ 		dig_port->set_infoframes = g4x_set_infoframes;
+ 		dig_port->infoframes_enabled = g4x_infoframes_enabled;
+ 	} else if (HAS_DDI(display)) {
+-		if (intel_bios_encoder_is_lspcon(dig_port->base.devdata)) {
++		if (intel_dp_lspcon_dv_allowed(dig_port)) {
++			dig_port->write_infoframe = lspcon_dv_write_infoframe;
++			dig_port->read_infoframe = lspcon_dv_read_infoframe;
++			dig_port->set_infoframes = lspcon_dv_set_infoframes;
++			dig_port->infoframes_enabled = lspcon_dv_infoframes_enabled;
++		} else if (intel_bios_encoder_is_lspcon(dig_port->base.devdata)) {
+ 			dig_port->write_infoframe = lspcon_write_infoframe;
+ 			dig_port->read_infoframe = lspcon_read_infoframe;
+ 			dig_port->set_infoframes = lspcon_set_infoframes;
+diff --git a/drivers/gpu/drm/i915/display/intel_lspcon.c b/drivers/gpu/drm/i915/display/intel_lspcon.c
+index 9ceabbc981a1..76fd4771bc0f 100644
+--- a/drivers/gpu/drm/i915/display/intel_lspcon.c
++++ b/drivers/gpu/drm/i915/display/intel_lspcon.c
+@@ -722,6 +722,130 @@ u32 intel_lspcon_infoframes_enabled(struct intel_encoder *encoder,
+ 	return dig_port->infoframes_enabled(encoder, pipe_config);
+ }
+ 
++/*
++ * linux-9931: Standard Dolby Vision through the LSPCON in level-shifter mode.
++ * In PCON mode the MCDP2800 (FW 1.77) drops the Dolby VSIF; in level-shifter
++ * mode it repeats the GPU's own TMDS, so the native-HDMI DV path (AVI, VSIF)
++ * reaches the TV (NUC Display Lab v0.4.0-dvlab, report #17). The switch is
++ * the standard dual-mode register (I2C 0x40, offset 0x40) over the LSPCON's
++ * I2C-over-AUX bridge, the register lspcon_probe() uses for PCON mode.
++ *
++ * The switch runs right after the previous output stopped. HPD can be low
++ * then (LG sets drop it when the signal stops, and the chip's own mode
++ * change can glitch it), and i915 refuses AUX on a port whose HPD is low
++ * (-ENXIO). So every step waits for HPD and is retried, and the result is
++ * the mode read back from the chip, not the write's return value.
++ */
++/* At most about 4.5 s with HPD low throughout (TV off): 2 s, then 9 x 0.25 s. */
++#define LSPCON_DV_TRIES		10
++
++static bool lspcon_dv_wait_hpd(struct intel_digital_port *dig_port, int ms)
++{
++	unsigned long end = jiffies + msecs_to_jiffies(ms);
++
++	while (!intel_digital_port_connected(&dig_port->base)) {
++		if (time_after(jiffies, end))
++			return false;
++		usleep_range(10000, 15000);
++	}
++	return true;
++}
++
++static int lspcon_dv_switch(struct intel_digital_port *dig_port, enum drm_lspcon_mode mode)
++{
++	struct intel_lspcon *lspcon = &dig_port->lspcon;
++	struct intel_dp *intel_dp = &dig_port->dp;
++	struct intel_display *display = to_intel_display(dig_port);
++	struct i2c_adapter *ddc = &intel_dp->aux.ddc;
++	enum drm_lspcon_mode cur = DRM_LSPCON_MODE_INVALID;
++	int try, ret = -EIO;
++	bool hpd = true;
++	u8 rev;
++
++	for (try = 0; try < LSPCON_DV_TRIES; try++) {
++		if (try)
++			msleep(50);
++		hpd = lspcon_dv_wait_hpd(dig_port, try ? 200 : 2000);
++		/* Wake from D3; the answer does not matter. */
++		drm_dp_dpcd_readb(&intel_dp->aux, DP_DPCD_REV, &rev);
++		ret = drm_lspcon_get_mode(display->drm, ddc, &cur);
++		if (!ret && cur == mode)
++			break;
++		if (!ret)
++			ret = drm_lspcon_set_mode(display->drm, ddc, mode,
++						  lspcon_get_mode_settle_timeout(lspcon));
++		drm_dbg_kms(display->drm, "LSPCON DV: port %c try %d hpd %d mode %s: %d\n",
++			    port_name(dig_port->base.port), try + 1, hpd,
++			    lspcon_mode_name(cur), ret);
++		if (!ret) {
++			cur = mode;
++			break;
++		}
++	}
++	if (cur != mode)
++		return ret ? ret : -EIO;
++	lspcon->mode = mode;
++
++	/* TMDS output on, in both modes (it is on by default; PCON mode
++	 * expects it). A failure here is logged but not fatal. */
++	for (try = 0; try < 3; try++) {
++		if (try)
++			msleep(50);
++		lspcon_dv_wait_hpd(dig_port, 200);
++		ret = drm_dp_dual_mode_set_tmds_output(display->drm, DRM_DP_DUAL_MODE_LSPCON,
++						       ddc, true);
++		if (!ret)
++			break;
++	}
++	if (ret)
++		drm_warn(display->drm, "LSPCON DV: port %c TMDS output enable failed (%d)\n",
++			 port_name(dig_port->base.port), ret);
++	return 0;
++}
++
++bool intel_lspcon_ls_dv_active(const struct intel_digital_port *dig_port)
++{
++	return dig_port->lspcon.ls_dv;
++}
++
++/*
++ * enable: level-shifter mode for the HDMI-mode DV output. From here on the
++ * port is that HDMI output (ls_dv), even if the switch fails, so PCON-mode
++ * paths (detect, resume, link checks) stay away from it until the disable
++ * path. !enable: PCON mode, then wait for native AUX as lspcon_resume() does.
++ */
++int intel_lspcon_set_ls_dv(struct intel_digital_port *dig_port, bool enable)
++{
++	struct intel_lspcon *lspcon = &dig_port->lspcon;
++	struct intel_display *display = to_intel_display(dig_port);
++	int ret;
++
++	if (!lspcon->active)
++		return -ENODEV;
++
++	if (enable)
++		lspcon->ls_dv = true;
++
++	ret = lspcon_dv_switch(dig_port, enable ? DRM_LSPCON_MODE_LS : DRM_LSPCON_MODE_PCON);
++
++	if (!enable) {
++		lspcon->ls_dv = false;
++		if (!ret && lspcon_wait_mode(lspcon, DRM_LSPCON_MODE_PCON) != DRM_LSPCON_MODE_PCON)
++			ret = -ETIMEDOUT;
++		if (!ret)
++			lspcon_resume_in_pcon_wa(lspcon);
++	}
++
++	drm_dbg_kms(display->drm, "LSPCON DV: port %c %s mode %s (%d)\n",
++		    port_name(dig_port->base.port), enable ? "level-shifter" : "PCON",
++		    ret ? "FAILED" : "set", ret);
++	if (ret)
++		drm_err(display->drm, "LSPCON DV: port %c switch to %s mode failed (%d)\n",
++			port_name(dig_port->base.port),
++			enable ? "level-shifter" : "PCON", ret);
++	return ret;
++}
++
+ void intel_lspcon_resume(struct intel_digital_port *dig_port)
+ {
+ 	struct intel_display *display = to_intel_display(dig_port);
+@@ -731,6 +855,11 @@ void intel_lspcon_resume(struct intel_digital_port *dig_port)
+ 	if (!intel_bios_encoder_is_lspcon(dig_port->base.devdata))
+ 		return;
+ 
++	/* linux-9931: the chip is in level-shifter mode on purpose for a Dolby
++	 * Vision output; the HDMI disable path puts it back in PCON mode. */
++	if (lspcon->ls_dv)
++		return;
++
+ 	if (!lspcon->active) {
+ 		if (!intel_lspcon_init(dig_port)) {
+ 			drm_err(display->drm, "LSPCON init failed on port %c\n",
+diff --git a/drivers/gpu/drm/i915/display/intel_lspcon.h b/drivers/gpu/drm/i915/display/intel_lspcon.h
+index 41d142a5c440..6d6080cbf6ec 100644
+--- a/drivers/gpu/drm/i915/display/intel_lspcon.h
++++ b/drivers/gpu/drm/i915/display/intel_lspcon.h
+@@ -20,6 +20,8 @@ void intel_lspcon_resume(struct intel_digital_port *dig_port);
+ void intel_lspcon_wait_pcon_mode(struct intel_digital_port *dig_port);
+ u32 intel_lspcon_infoframes_enabled(struct intel_encoder *encoder,
+ 				    const struct intel_crtc_state *pipe_config);
++int intel_lspcon_set_ls_dv(struct intel_digital_port *dig_port, bool enable);
++bool intel_lspcon_ls_dv_active(const struct intel_digital_port *dig_port);
+ 
+ /* digital port infoframes hooks */
+ void lspcon_write_infoframe(struct intel_encoder *encoder,
