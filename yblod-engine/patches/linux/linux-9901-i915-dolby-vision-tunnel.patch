@@ -213,7 +213,7 @@ index 000000000000..36b5d4b3536b
 +				result.version = data[4] >> 5;
 +				switch (result.version) {
 +				case 0:
-+					if (len != 21)
++					if (len != 25)
 +						return result;
 +					result.legacy_vsif = true;
 +					result.supports_2160p60 = (data[4] & 2) != 0;
