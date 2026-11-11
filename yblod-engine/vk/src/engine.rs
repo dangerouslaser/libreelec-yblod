@@ -16,10 +16,17 @@ extern "C" {
     fn dvvk_cb1_luts(degamma: *mut f32, pq: *mut f32);
 }
 
-pub const CANVAS_W: u32 = 3840;
-pub const CANVAS_H: u32 = 2160;
+/// dvvk_create's canvas (dvvk_create_canvas gives another): the size of the
+/// output buffers, the overlay and the destination rectangles.
+pub const DEFAULT_CANVAS: [u32; 2] = [3840, 2160];
 const MAX_W: u32 = 4096;
 const MAX_H: u32 = 4096;
+
+/// A canvas the engine takes: the pack writes blocks of 4 pixels and yblod's
+/// geometry (dv_source_geometry_valid) wants both sides in fours, up to 4096.
+pub fn canvas_valid(canvas: [u32; 2]) -> bool {
+    canvas.iter().all(|&v| (64..=4096).contains(&v) && v % 4 == 0)
+}
 
 pub struct FrameIn<'a> {
     pub plan: PlanIn,
@@ -174,11 +181,11 @@ fn select_pack(r: &PackRoute, overlay: u32) -> (u32, PackVariant) {
 
 /// The pack's dispatches: (first workgroup, workgroups) over the canvas, or
 /// per damage rectangle (x aligned to damage::WG_W, rows rounded out to wg_h).
-fn partition(regions: Option<&[crate::damage::Rect]>, wg_h: u32) -> Vec<([u32; 2], [u32; 2])> {
+fn partition(canvas: [u32; 2], regions: Option<&[crate::damage::Rect]>, wg_h: u32) -> Vec<([u32; 2], [u32; 2])> {
     use crate::damage::WG_W;
-    let rows = CANVAS_H.div_ceil(wg_h);
+    let rows = canvas[1].div_ceil(wg_h);
     match regions {
-        None => vec![([0, 0], [(CANVAS_W / 4).div_ceil(32), rows])],
+        None => vec![([0, 0], [(canvas[0] / 4).div_ceil(32), rows])],
         Some(rects) => rects
             .iter()
             .map(|r| {
@@ -511,13 +518,19 @@ mod pack_tests {
 
     #[test]
     fn partitions() {
-        assert_eq!(partition(None, 4), vec![([0, 0], [30, 540])]);
-        assert_eq!(partition(None, 16), vec![([0, 0], [30, 135])]);
+        let c = DEFAULT_CANVAS;
+        assert_eq!(partition(c, None, 4), vec![([0, 0], [30, 540])]);
+        assert_eq!(partition(c, None, 16), vec![([0, 0], [30, 135])]);
         assert_eq!(
-            partition(Some(&[[128, 6, 384, 21], [0, 2156, 3840, 2160]]), 16),
+            partition(c, Some(&[[128, 6, 384, 21], [0, 2156, 3840, 2160]]), 16),
             vec![([1, 0], [2, 2]), ([0, 134], [30, 1])]
         );
-        assert!(partition(Some(&[]), 4).is_empty());
+        assert!(partition(c, Some(&[]), 4).is_empty());
+        // 1920x1080: 15 workgroups of 128 pixels, the last row group partial
+        assert_eq!(partition([1920, 1080], None, 4), vec![([0, 0], [15, 270])]);
+        assert_eq!(partition([1920, 1080], None, 16), vec![([0, 0], [15, 68])]);
+        assert!(canvas_valid(c) && canvas_valid([1920, 1080]) && canvas_valid([4096, 2160]));
+        assert!(!canvas_valid([1680, 1050]) && !canvas_valid([8192, 4320]) && !canvas_valid([0, 0]));
     }
 }
 
@@ -809,7 +822,9 @@ const PROFILE_TOTAL_POINTS: u32 = 11; // 7: reconstruction entry, 8: overlay ent
 const PROFILE_WINDOW: usize = 120;
 // cb1_tiles.comp: CB1's overlay occupancy per 32x32 tile.
 const CB1_TILE: u32 = 32;
-const CB1_TILES: (u32, u32) = (CANVAS_W.div_ceil(CB1_TILE), CANVAS_H.div_ceil(CB1_TILE));
+fn cb1_tiles(canvas: [u32; 2]) -> (u32, u32) {
+    (canvas[0].div_ceil(CB1_TILE), canvas[1].div_ceil(CB1_TILE))
+}
 
 /// Per-stage GPU time over a window of frames (DVVK_PROFILE=1).
 #[derive(Default)]
@@ -869,6 +884,9 @@ pub const RING: usize = 4;
 type Trace = (u32, u32, u32, [u32; 2], u32, u32, u32, u32);
 
 pub struct Engine {
+    /// The size of the output buffers, the overlay and the destination
+    /// rectangles (dvvk_create: 3840x2160).
+    canvas: [u32; 2],
     /// AMD: the COMPUTE power profile while frames come (power.rs).
     boost: Option<crate::power::Boost>,
     pub d: Device,
@@ -986,9 +1004,19 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(drm_fd: i32, va_display: va::VADisplay) -> Result<Self> {
+        Self::new_canvas(drm_fd, va_display, DEFAULT_CANVAS)
+    }
+
+    /// dvvk_create_canvas: an engine whose canvas is `canvas`.
+    pub fn new_canvas(drm_fd: i32, va_display: va::VADisplay, canvas: [u32; 2]) -> Result<Self> {
         if !plan::layout_matches() {
             return Err(Error::Unsupported("plan.h and plan.rs disagree".into()));
         }
+        if !canvas_valid(canvas) {
+            return Err(Error::Unsupported(format!("canvas {}x{}", canvas[0], canvas[1])));
+        }
+        let (canvas_w, canvas_h) = (canvas[0], canvas[1]);
+        let cb1_grid = cb1_tiles(canvas);
         let options = crate::options::EngineOptions::from_env();
         let d = Device::new(drm_fd, options)?;
         let o = d.options.clone();
@@ -1181,7 +1209,7 @@ impl Engine {
         // Allocated in full on the first frame that needs them (submit).
         let gui_colours = construction.keep(DeviceBuffer::new(&d, 16)?);
         let gui_tiles =
-            construction.keep(DeviceBuffer::new(&d, (CANVAS_W.div_ceil(16) * CANVAS_H.div_ceil(16) * 4) as u64)?);
+            construction.keep(DeviceBuffer::new(&d, (canvas_w.div_ceil(16) * canvas_h.div_ceil(16) * 4) as u64)?);
         let prepare_bindings =
             [storage, storage, storage, storage, sampled, storage, storage, storage, storage, storage];
         let overlay_prepare = [
@@ -1232,7 +1260,7 @@ impl Engine {
         if crate::fault::hit("construct-uploaded") {
             return Err(Error::Vk(vk::Result::ERROR_UNKNOWN));
         }
-        let cb1_tiles = construction.keep(DeviceBuffer::new(&d, 16 + 4 * (CB1_TILES.0 * CB1_TILES.1) as u64)?);
+        let cb1_tiles = construction.keep(DeviceBuffer::new(&d, 16 + 4 * (cb1_grid.0 * cb1_grid.1) as u64)?);
         let cb1_tiles_pipe = construction.keep(Pipeline::new(&d, "cb1_tiles", &[sampled, storage], 32, &[])?);
         let deadline_trace = o.deadline_trace && d.timestamp_period > 0.0;
         let profile = o.profile && d.timestamp_period > 0.0;
@@ -1265,7 +1293,7 @@ impl Engine {
         // the marked cells' bits, then (256-aligned) map_fixup's list: its
         // header and an entry per pack invocation at most
         let map_list = ((n - 1).pow(3).div_ceil(32) * 4).next_multiple_of(256) / 4;
-        let entries = (CANVAS_W / 4) * CANVAS_H.div_ceil(2);
+        let entries = (canvas_w / 4) * canvas_h.div_ceil(2);
         let map_cells = construction.keep(DeviceBuffer::new(&d, u64::from(map_list + 4 + entries) * 4)?);
         // dvvk-prepare (DVVK_PREPARE_MAP=1): the HDR10 and HDR10+ pack variants
         // as well, so the pipeline cache holds them and a frame's first use
@@ -1386,9 +1414,11 @@ impl Engine {
             return Err(Error::Vk(vk::Result::ERROR_UNKNOWN));
         }
         // Before the commit: a failure after it would roll nothing back.
-        let plan_state = plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?;
+        let mut plan_state = plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?;
+        plan_state.set_canvas(canvas);
         construction.commit();
         Ok(Engine {
+            canvas,
             ring,
             next: 0,
             timeline,
@@ -1450,7 +1480,7 @@ impl Engine {
             verify,
             fel_query: std::cell::Cell::new(None),
             reference_pass: std::cell::Cell::new(false),
-            damage: crate::damage::Damage::new((CANVAS_W, CANVAS_H), o.damage),
+            damage: crate::damage::Damage::new((canvas_w, canvas_h), o.damage),
             last_shell: None,
             map_mode: crate::map::OutputMode {
                 mode: o.output_mode,
@@ -1480,9 +1510,10 @@ impl Engine {
         })
     }
 
-    /// A linear XRGB8888 3840x2160 dmabuf as output `slot`.
+    /// A linear XRGB8888 dmabuf of the canvas's size as output `slot`.
     pub fn set_output(&mut self, slot: u32, fd: i32, stride: u32) -> Result<()> {
-        if stride < CANVAS_W * 4 || !stride.is_multiple_of(16) {
+        let [canvas_w, canvas_h] = self.canvas;
+        if stride < canvas_w * 4 || !stride.is_multiple_of(16) {
             return Err(Error::Unsupported("output stride".into()));
         }
         // Acquire the retained fence fd before replacing a working output.
@@ -1491,7 +1522,7 @@ impl Engine {
         if retained_fd < 0 {
             return Err(Error::Unsupported("dup of output dmabuf failed".into()));
         }
-        let buffer = match dmabuf::import_buffer(&self.d, fd, stride as u64 * CANVAS_H as u64) {
+        let buffer = match dmabuf::import_buffer(&self.d, fd, stride as u64 * canvas_h as u64) {
             Ok(buffer) => buffer,
             Err(e) => {
                 unsafe {
@@ -1520,12 +1551,18 @@ impl Engine {
         Ok(())
     }
 
-    /// The overlay picture (RGBA8 premultiplied sRGB, 3840x2160, rows top
-    /// first) used by frames with `overlay` set. Phase 1: copied in.
+    /// The canvas (width, height).
+    pub fn canvas(&self) -> [u32; 2] {
+        self.canvas
+    }
+
+    /// The overlay picture (RGBA8 premultiplied sRGB, the canvas's size, rows
+    /// top first) used by frames with `overlay` set. Phase 1: copied in.
     pub fn set_overlay_rgba(&mut self, rgba: &[u8], stride: usize) -> Result<()> {
+        let [canvas_w, canvas_h] = self.canvas;
         let dst = self.overlay_rgba()?.bytes_mut();
-        let row = (CANVAS_W * 4) as usize;
-        for y in 0..CANVAS_H as usize {
+        let row = (canvas_w * 4) as usize;
+        for y in 0..canvas_h as usize {
             dst[y * row..(y + 1) * row].copy_from_slice(&rgba[y * stride..y * stride + row]);
         }
         self.overlay_dirty = true;
@@ -1536,7 +1573,7 @@ impl Engine {
     /// The test RGBA picture's buffer, made on first use.
     fn overlay_rgba(&mut self) -> Result<&mut HostBuffer> {
         if self.overlay.is_none() {
-            let bytes = (CANVAS_W * CANVAS_H * 4) as u64;
+            let bytes = (self.canvas[0] * self.canvas[1] * 4) as u64;
             self.overlay = Some(HostBuffer::new(&self.d, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)?);
         }
         Ok(self.overlay.as_mut().unwrap())
@@ -1564,7 +1601,7 @@ impl Engine {
             Ok(())
         };
         let old = self.sources.subs_bbox;
-        let r = self.sources.set_subtitles(d, parts, (CANVAS_W, CANVAS_H), wait);
+        let r = self.sources.set_subtitles(d, parts, (self.canvas[0], self.canvas[1]), wait);
         let new = self.sources.subs_bbox;
         match (old, new) {
             (None, None) => {}
@@ -1615,7 +1652,7 @@ impl Engine {
             }
             Ok(())
         };
-        self.sources.set_shell(d, buf, id, flip, idle)?;
+        self.sources.set_shell(d, buf, id, flip, self.canvas, idle)?;
         // A flipped buffer's damage would be in its own rows (bottom first):
         // it counts as changed everywhere.
         if flip {
@@ -1986,7 +2023,7 @@ impl Engine {
             self.d.save_pipeline_cache();
         }
         // map_fixup's list with an entry a pair (HDR10's has one a 4x2 block)
-        let cells = u64::from(self.map_list + 4 + (CANVAS_W / 2) * CANVAS_H) * 4;
+        let cells = u64::from(self.map_list + 4 + (self.canvas[0] / 2) * self.canvas[1]) * 4;
         if self.map_cells.size < cells {
             self.idle_checked()?;
             let larger = DeviceBuffer::new(&self.d, cells)?;
@@ -2149,8 +2186,8 @@ impl Engine {
                     "dvvk verify: frame {} differs from the reference in {} pixels (first at {},{})",
                     c.ticket,
                     differing,
-                    first % CANVAS_W,
-                    first / CANVAS_W
+                    first % self.canvas[0],
+                    first / self.canvas[0]
                 );
             }
             if v.checked % 120 == 0 {
@@ -2381,8 +2418,8 @@ impl Engine {
             // commands may still reference their descriptors, even though unused.
             // No GPU drain on the first subtitle or legacy overlay.
             for (buffer, bytes) in [
-                (&mut self.gui_colours, (CANVAS_W * CANVAS_H * 16) as u64),
-                (&mut self.gui_keys, (CANVAS_W * CANVAS_H * 4) as u64),
+                (&mut self.gui_colours, (self.canvas[0] * self.canvas[1] * 16) as u64),
+                (&mut self.gui_keys, (self.canvas[0] * self.canvas[1] * 4) as u64),
             ] {
                 if buffer.size < bytes {
                     let full = DeviceBuffer::new(&self.d, bytes)?;
@@ -2478,7 +2515,7 @@ impl Engine {
         };
         if allocate {
             self.idle_checked()?;
-            let out = DeviceBuffer::new(&self.d, stride as u64 * CANVAS_H as u64)?;
+            let out = DeviceBuffer::new(&self.d, stride as u64 * self.canvas[1] as u64)?;
             let v = self.verify.as_mut().unwrap();
             if let Some((old, _)) = v.out.replace((out, stride)) {
                 old.destroy(&self.d);
@@ -2523,6 +2560,8 @@ impl Engine {
     }
 
     fn record_submit(&mut self, f: &FrameIn, ci: usize, waits: &[vk::Semaphore], check: bool) -> Result<u64> {
+        let [canvas_w, canvas_h] = self.canvas;
+        let cb1_grid = cb1_tiles(self.canvas);
         let slot = self.ring[ci].slot();
         let p = &*self.plan;
         let out = self.outputs.get(f.output as usize).and_then(|o| o.as_ref()).ok_or(Error::Missing("output"))?;
@@ -2596,11 +2635,11 @@ impl Engine {
         }
         // The area to prepare again: only the subtitles' old and new area when
         // nothing else changed; the whole canvas otherwise.
-        let full = [0u32, 0, CANVAS_W, CANVAS_H];
+        let full = [0u32, 0, canvas_w, canvas_h];
         let rect = if compose && !self.overlay_dirty && !coeff_changed && self.keys_valid {
             match self.sources.dirty_rect {
                 Some(r) if r[2] > r[0] && r[3] > r[1] => {
-                    [r[0] & !15, r[1] & !15, ((r[2] + 15) & !15).min(CANVAS_W), ((r[3] + 15) & !15).min(CANVAS_H)]
+                    [r[0] & !15, r[1] & !15, ((r[2] + 15) & !15).min(canvas_w), ((r[3] + 15) & !15).min(canvas_h)]
                 }
                 Some(_) => [0, 0, 0, 0],
                 None => full,
@@ -2651,7 +2690,7 @@ impl Engine {
                 [p.placement[0].max(p.active[0]), p.placement[1].max(p.active[1]),
                  (p.placement[0] + p.placement[2]).min(p.active[2]), (p.placement[1] + p.placement[3]).min(p.active[3])]
             });
-            let packet_rows = if self.map.is_some() { 0 } else { (p.packet_count * 3072).div_ceil(CANVAS_W) };
+            let packet_rows = if self.map.is_some() { 0 } else { (p.packet_count * 3072).div_ceil(canvas_w) };
             // (HDR10+: the whole picture, so the pack measures every film pixel once)
             self.damage.plan(f.output as usize, hasher.finish(), film, packet_rows, check || fused_invalidate || stats)
         };
@@ -2746,17 +2785,17 @@ impl Engine {
             let sh = self.sources.shell().unwrap();
             gpu::acquire_foreign_images(d, cmd, &[sh.image.image]);
             shell_read = Some(sh.fd);
-            let full = [[0, 0, CANVAS_W, CANVAS_H]];
+            let full = [[0, 0, canvas_w, canvas_h]];
             let dirty = match (self.cb1_tiles_valid, self.cb1_dirty.take()) {
                 (true, Some(rects)) => rects,
                 _ => full.to_vec(),
             };
-            let tiles = crate::damage::tile_rects(&dirty, CB1_TILE, CB1_TILES);
+            let tiles = crate::damage::tile_rects(&dirty, CB1_TILE, cb1_grid);
             let flip = self.sources.shell_flip as u32;
             let binds = [Bind::Sampled(sh.image.view, self.linear), Bind::Buffer(self.cb1_tiles.buffer)];
             gpu::compute_barrier(d, cmd);
             for (i, t) in tiles.iter().enumerate() {
-                let push = [CANVAS_W, CANVAS_H, CB1_TILES.0, CB1_TILES.1, t[0], t[1], 0u32, flip];
+                let push = [canvas_w, canvas_h, cb1_grid.0, cb1_grid.1, t[0], t[1], 0u32, flip];
                 if i == 0 {
                     self.dispatch(cmd, &self.cb1_tiles_pipe, &binds, &push, (t[2] - t[0], t[3] - t[1]));
                 } else {
@@ -2769,7 +2808,7 @@ impl Engine {
                 cmd,
                 &self.cb1_tiles_pipe,
                 &binds,
-                &[CANVAS_W, CANVAS_H, CB1_TILES.0, CB1_TILES.1, 0, 0, 1u32, flip],
+                &[canvas_w, canvas_h, cb1_grid.0, cb1_grid.1, 0, 0, 1u32, flip],
                 (1, 1),
             );
             gpu::compute_barrier(d, cmd);
@@ -2803,8 +2842,8 @@ impl Engine {
             };
             let (ew, eh) = (rect[2] - rect[0], rect[3] - rect[1]);
             let push = PreparePush {
-                w: CANVAS_W,
-                h: CANVAS_H,
+                w: canvas_w,
+                h: canvas_h,
                 has_shell: (from_sources && s.shell().is_some()) as u32,
                 has_subs: (from_sources && s.subs_parts > 0) as u32,
                 tiles_x: s.tiles_x.max(1),
@@ -2998,8 +3037,8 @@ impl Engine {
             active: p.active,
             black: p.black,
             placement: p.placement,
-            w: CANVAS_W,
-            h: CANVAS_H,
+            w: canvas_w,
+            h: canvas_h,
             stride_words: out_stride / 4,
             // HDR10 output carries no Dolby Vision metadata in the picture
             packet_count: if mapped { 0 } else { p.packet_count },
@@ -3041,7 +3080,7 @@ impl Engine {
                     Bind::Sampled(gamut, self.linear),
                 ],
             );
-            gpu::push_constants(d, cmd, map_fixup, &[CANVAS_W, out_stride / 4]);
+            gpu::push_constants(d, cmd, map_fixup, &[canvas_w, out_stride / 4]);
             unsafe { d.device.cmd_dispatch_indirect(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4) };
         }
         if self.d.options.map_stats {
@@ -3184,6 +3223,7 @@ impl Engine {
     ) -> Option<i32> {
         let (Some(v), Some(result)) = (self.verify.as_ref(), self.ring[ci].verify.as_ref()) else { return None };
         let (reference, _) = v.out.as_ref()?;
+        let [canvas_w, canvas_h] = self.canvas;
         let d = &self.d;
         let p = &*self.plan;
         let barrier = || gpu::compute_barrier(d, cmd);
@@ -3212,8 +3252,8 @@ impl Engine {
                 _ => bl.luma.view,
             };
             let prepare = PreparePush {
-                w: CANVAS_W,
-                h: CANVAS_H,
+                w: canvas_w,
+                h: canvas_h,
                 has_shell: (from_sources && s.shell().is_some()) as u32,
                 has_subs: (from_sources && s.subs_parts > 0) as u32,
                 tiles_x: s.tiles_x.max(1),
@@ -3238,7 +3278,7 @@ impl Engine {
                     Bind::Buffer(v.err.buffer),
                 ],
                 &prepare,
-                (CANVAS_W.div_ceil(16), CANVAS_H.div_ceil(16)),
+                (canvas_w.div_ceil(16), canvas_h.div_ceil(16)),
             );
             barrier();
         }
@@ -3298,15 +3338,15 @@ impl Engine {
                 Bind::Sampled(self.map_lut.view, self.linear),
             ],
             &reference_push,
-            ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)),
+            ((canvas_w / 4).div_ceil(32), (canvas_h / 2).div_ceil(2)),
         );
         barrier();
         self.dispatch(
             cmd,
             &v.compare,
             &[Bind::Buffer(out.0), Bind::Buffer(reference.buffer), Bind::Buffer(result.buffer)],
-            &[out.1 / 4, CANVAS_W, CANVAS_H],
-            (CANVAS_W.div_ceil(64), CANVAS_H),
+            &[out.1 / 4, canvas_w, canvas_h],
+            (canvas_w.div_ceil(64), canvas_h),
         );
         read
     }
@@ -3404,7 +3444,7 @@ impl Engine {
         wg_h: u32,
     ) {
         let d = &self.d;
-        for (origin, groups) in partition(regions, wg_h) {
+        for (origin, groups) in partition(self.canvas, regions, wg_h) {
             gpu::push_constants(d, cmd, pack, &PackPush { origin, ..*push });
             unsafe { d.device.cmd_dispatch(cmd, groups[0], groups[1], 1) };
         }

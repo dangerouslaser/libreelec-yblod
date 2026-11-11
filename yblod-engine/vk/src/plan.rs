@@ -131,6 +131,11 @@ impl PlanState {
     pub fn reset(&mut self) {
         unsafe { dvvk_plan_state_reset(self.0.as_ptr()) };
     }
+
+    /// The canvas the frames' destinations are placed in (3840x2160 unless set).
+    pub fn set_canvas(&mut self, canvas: [u32; 2]) {
+        unsafe { dvvk_plan_state_canvas(self.0.as_ptr(), canvas[0], canvas[1]) };
+    }
 }
 
 impl Drop for PlanState {
@@ -150,6 +155,7 @@ extern "C" {
     ) -> i32;
     fn dvvk_plan_state_new() -> *mut RawPlanState;
     fn dvvk_plan_state_reset(state: *mut RawPlanState);
+    fn dvvk_plan_state_canvas(state: *mut RawPlanState, width: u32, height: u32);
     fn dvvk_plan_state_free(state: *mut RawPlanState);
     fn dvvk_plan_layout(out: *mut usize);
 }

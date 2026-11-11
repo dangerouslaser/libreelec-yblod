@@ -42,7 +42,7 @@ typedef struct {
 #define DVVK_FRAME_DESKTOP 2u
 
 typedef struct {
-    int32_t x, y;                 /* destination in the 3840x2160 canvas */
+    int32_t x, y;                 /* destination in the canvas */
     uint32_t w, h, dw, dh;        /* bitmap size; destination size (BGRA may scale) */
     uint32_t stride;
     uint32_t format;              /* 1 libass A8 with color, 2 BGRA premultiplied */
@@ -79,12 +79,24 @@ int dvvk_set_overlay_damage(dvvk_engine *, const uint32_t *rects, uint32_t count
 int dvvk_implicit_failed(dvvk_engine *);
 uint64_t dvvk_overlay_ticket(dvvk_engine *, uint64_t id);
 int dvvk_create(int drm_fd, void *va_display, dvvk_engine **out);
+/* dvvk_create with another canvas than 3840x2160 (an optional symbol, with
+ * DVVK_OUTPUT_SDR; look it up with dlsym): the size of the output buffers
+ * (dvvk_set_output), of the overlay (dvvk_set_overlay: a buffer of another
+ * size is scaled; dvvk_set_overlay_rgba's picture; subtitle destinations)
+ * and of dvvk_plan_in's destination rectangle, for a display mode of that
+ * size. Width and height are multiples of 4, 64 to 4096; -2 otherwise.
+ * Every output mode renders at any canvas; a picture larger than the canvas
+ * is placed by its destination rectangle like any resized one (yblod's own
+ * processing: CB1's contract is for unscaled pictures). Whether a display
+ * takes the Dolby Vision tunnel at another size is the caller's business. */
+int dvvk_create_canvas(int drm_fd, void *va_display, uint32_t width, uint32_t height, dvvk_engine **out);
+/* dmabuf_fd: a linear XRGB8888 buffer of the canvas's size. */
 int dvvk_set_output(dvvk_engine *, uint32_t slot, int dmabuf_fd, uint32_t stride);
 /* 0: the picture is in the output; > 0 never; < 0: a dv_status (-2: not this
  * engine's frame, show an ordinary picture; -8: engine failure). */
 int dvvk_render_sync(dvvk_engine *, const dvvk_frame *, uint32_t *error_flags);
 /* Phase 1: the overlay picture for frames with plan.overlay set (RGBA8
- * premultiplied sRGB, 3840x2160, rows top first), copied in. Error flags
+ * premultiplied sRGB, the canvas's size, rows top first), copied in. Error flags
  * bit 8: an overlay colour the source can't represent. */
 void dvvk_set_overlay_rgba(dvvk_engine *, const void *rgba, size_t stride);
 /* Asynchronous: plan and submit without waiting; 0 and *ticket, or a

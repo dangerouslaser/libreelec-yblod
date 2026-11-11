@@ -94,8 +94,41 @@ pub unsafe extern "C" fn dvvk_create(drm_fd: i32, va_display: *mut c_void, out: 
     })
 }
 
+/// dvvk_create_canvas (optional symbol): dvvk_create with a canvas of
+/// `width` x `height` instead of 3840x2160.
+///
 /// # Safety
-/// `e` from dvvk_create; `fd` a linear XRGB8888 3840x2160 dmabuf (dup'd).
+/// As dvvk_create.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_create_canvas(
+    drm_fd: i32,
+    va_display: *mut c_void,
+    width: u32,
+    height: u32,
+    out: *mut *mut Engine,
+) -> i32 {
+    if out.is_null() {
+        return DVVK_INVALID;
+    }
+    *out = std::ptr::null_mut();
+    if !crate::engine::canvas_valid([width, height]) {
+        log_error("create", format_args!("canvas {width}x{height}"));
+        return DVVK_UNSUPPORTED;
+    }
+    guarded("create", DVVK_BACKEND, || match Engine::new_canvas(drm_fd, va_display, [width, height]) {
+        Ok(e) => {
+            *out = Box::into_raw(Box::new(e));
+            0
+        }
+        Err(e) => {
+            log_error("create", e);
+            DVVK_BACKEND
+        }
+    })
+}
+
+/// # Safety
+/// `e` from dvvk_create; `fd` a linear XRGB8888 dmabuf of the canvas's size (dup'd).
 #[no_mangle]
 pub unsafe extern "C" fn dvvk_set_output(e: *mut Engine, slot: u32, fd: i32, stride: u32) -> i32 {
     with_engine(e, "output", DVVK_INVALID, DVVK_BACKEND, |e| match e.set_output(slot, fd, stride) {
@@ -443,14 +476,15 @@ pub unsafe extern "C" fn dvvk_decode_waits(e: *mut Engine, fence: *mut u64, vasy
 }
 
 /// # Safety
-/// `e` from dvvk_create; `rgba` 2160 rows of `stride` bytes.
+/// `e` from dvvk_create; `rgba` as many rows of `stride` bytes as the canvas has.
 #[no_mangle]
 pub unsafe extern "C" fn dvvk_set_overlay_rgba(e: *mut Engine, rgba: *const u8, stride: usize) {
     with_engine(e, "overlay rgba", (), (), |e| {
-        if stride < crate::engine::CANVAS_W as usize * 4 {
+        let [canvas_w, canvas_h] = e.canvas();
+        if stride < canvas_w as usize * 4 {
             return log_error("overlay rgba", "stride below a row");
         }
-        match stride.checked_mul(crate::engine::CANVAS_H as usize).and_then(|n| slice(rgba, n)) {
+        match stride.checked_mul(canvas_h as usize).and_then(|n| slice(rgba, n)) {
             Some(bytes) => {
                 if let Err(err) = e.set_overlay_rgba(bytes, stride) {
                     log_error("overlay rgba", err);

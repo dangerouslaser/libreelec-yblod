@@ -298,6 +298,7 @@ impl Sources {
         buf: Option<&Dmabuf>,
         id: u64,
         flip: bool,
+        canvas: [u32; 2],
         idle: impl Fn() -> Result<()>,
     ) -> Result<()> {
         let Some(b) = buf else {
@@ -352,7 +353,7 @@ impl Sources {
                 }
             }
             let linear = matches!(b.format, 0x4834_4241 | 0x4834_4258);
-            self.shells.insert(key.clone(), Shell { image, fd, scaled: b.width != 3840 || b.height != 2160, linear });
+            self.shells.insert(key.clone(), Shell { image, fd, scaled: [b.width, b.height] != canvas, linear });
         }
         self.mark(None, true);
         self.shell = Some(key);
