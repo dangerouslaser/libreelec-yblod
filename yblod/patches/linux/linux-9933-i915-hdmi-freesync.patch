@@ -16,9 +16,10 @@ It rides on linux-9910's QMS: the 60 Hz base timing, the vertical total
 stretched per rate, the LRR fastset, the frame pacer for 23.976-based rates.
 Only the signalling changes: the FreeSync SPD goes in the GMP DIP in place of
 QMS's VTEM, with the ordinary SPD off (and cleared, which the state check
-compares). The VRR timing generator is never used: VRR_ENABLED is hidden
-from intel_vrr_compute_config (on Tiger Lake, HDMI VRR on the generator
-wedged the display).
+compares). The VRR timing generator is never used (on Tiger Lake, HDMI
+VRR on the generator wedged the display): intel_vrr_is_capable() is
+false for an HDMI connector, so intel_vrr_compute_config() computes
+fixed-rate timings whatever VRR_ENABLED says.
 
 As on the Pi, for Kodi's VRR support (kodi-9999-yblod-36): an HDMI connector
 whose sink has a FreeSync range reaching 60 Hz is vrr_capable; its
@@ -40,10 +41,14 @@ release).
 Changed since YBLOD 0.4.1:
 - vrr_capable and the FreeSync modes only where QMS is possible (display
   version 12 to 29; it was 10 and later).
+- VRR_ENABLED is no longer cleared around intel_vrr_compute_config():
+  that function only uses it when the connector is VRR capable for
+  i915's own generator, which an HDMI connector never is
+  (intel_vrr_is_capable()).
 ---
  .../drm/i915/display/intel_display_types.h    |   3 +
- drivers/gpu/drm/i915/display/intel_hdmi.c     | 250 +++++++++++++++++-
- 2 files changed, 242 insertions(+), 11 deletions(-)
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 243 +++++++++++++++++-
+ 2 files changed, 236 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
 index 0a5e70681f6f..c8d263d21cb6 100644
@@ -60,7 +65,7 @@ index 0a5e70681f6f..c8d263d21cb6 100644
  
  	/* Content Match Refresh Rate state */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index dc2fac4440c5..983cdfdac766 100644
+index dc2fac4440c5..7f6fc1831251 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -2809,6 +2809,167 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
@@ -271,11 +276,10 @@ index dc2fac4440c5..983cdfdac766 100644
  }
  
  static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
-@@ -2949,7 +3127,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
+@@ -2949,6 +3127,19 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
  	crtc_state->infoframes.enable |=
  		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
  
--	intel_vrr_compute_config(crtc_state, conn_state);
 +	/* linux-9933: the FreeSync SPD (in the GMP DIP) replaces the ordinary SPD */
 +	if (crtc_state->qms.freesync) {
 +		crtc_state->infoframes.enable &=
@@ -285,20 +289,14 @@ index dc2fac4440c5..983cdfdac766 100644
 +	}
 +
 +	/*
-+	 * linux-9933: VRR_ENABLED means FreeSync here; it must not start the VRR
-+	 * timing generator, which this HDMI path doesn't use.
++	 * linux-9933: VRR_ENABLED means FreeSync here. It does not start the VRR
++	 * timing generator: intel_vrr_is_capable() is false for an HDMI
++	 * connector, so this computes fixed-rate timings whatever it says.
 +	 */
-+	{
-+		bool vrr_enabled = crtc_state->uapi.vrr_enabled;
-+
-+		crtc_state->uapi.vrr_enabled = false;
-+		intel_vrr_compute_config(crtc_state, conn_state);
-+		crtc_state->uapi.vrr_enabled = vrr_enabled;
-+	}
+ 	intel_vrr_compute_config(crtc_state, conn_state);
  }
  
- /*
-@@ -2990,10 +3186,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
+@@ -2990,10 +3181,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
  	};
  	int i;
  
@@ -334,7 +332,7 @@ index dc2fac4440c5..983cdfdac766 100644
  
  	/* rewritten in place: the packet must not miss a frame */
  	for (i = 0; i < VIDEO_DIP_GMP_DATA_SIZE / 4; i++)
-@@ -3106,7 +3323,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
+@@ -3106,7 +3318,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
  
  	intel_hdmi_qms_pacer_stop(crtc);
  
@@ -344,7 +342,7 @@ index dc2fac4440c5..983cdfdac766 100644
  		return;
  
  	/* announce the next rate for four frames at the current one */
-@@ -3129,13 +3347,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
+@@ -3129,13 +3342,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
  	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
  		return;
  
@@ -362,7 +360,7 @@ index dc2fac4440c5..983cdfdac766 100644
  		    new_crtc_state->qms.lines_num, new_crtc_state->qms.lines_den);
  }
  
-@@ -3555,8 +3774,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
+@@ -3555,8 +3769,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
  {
  	struct intel_connector *connector = to_intel_connector(_connector);
  
@@ -377,7 +375,7 @@ index dc2fac4440c5..983cdfdac766 100644
  }
  
  static int
-@@ -3649,6 +3873,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3649,6 +3868,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  
  	if (!HAS_GMCH(display))
  		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);
