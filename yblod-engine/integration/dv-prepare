@@ -9,7 +9,10 @@
 # dvvk-prepare creates the installed engine with every pack variant built
 # eagerly (no video, no display) and exits; the engine saves its pipeline
 # cache to $XDG_CACHE_HOME/dv-engine-vk (~/.cache without it), the file Kodi's
-# engine reads. Mesa's own shader cache fills on the way.
+# engine reads. Mesa's own shader cache fills on the way. The variants of the
+# HDR10 and HDR10+ output come last (Kodi's engine makes those on first use,
+# from this cache): the Dolby Vision set is saved before them, so a run cut
+# short keeps it.
 #
 # The marker holds the image (VERSION and BUILD_ID) and the render devices; a
 # new image or GPU makes it run again. If the engine can't start (no Vulkan

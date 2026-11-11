@@ -443,7 +443,11 @@ pub unsafe extern "C" fn dvvk_set_overlay_rgba(e: *mut Engine, rgba: *const u8, 
             return log_error("overlay rgba", "stride below a row");
         }
         match stride.checked_mul(crate::engine::CANVAS_H as usize).and_then(|n| slice(rgba, n)) {
-            Some(bytes) => e.set_overlay_rgba(bytes, stride),
+            Some(bytes) => {
+                if let Err(err) = e.set_overlay_rgba(bytes, stride) {
+                    log_error("overlay rgba", err);
+                }
+            }
             None => log_error("overlay rgba", "NULL picture"),
         }
     })
