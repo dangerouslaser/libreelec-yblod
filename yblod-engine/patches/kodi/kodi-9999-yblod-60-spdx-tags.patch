@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:53:16 -0500
+Subject: [PATCH] yblod-60: SPDX tags for the scanout and source helpers
+
+Six of the fork's render files carried no licence tag, unlike the
+DVPrivate*/dv_scanout_slots.cpp/source_geometry.h files beside them.
+They are YBLOD's own Dolby Vision engine code (yblod-engine/LICENSE:
+the renderer implementation is GPL-3.0-or-later, and dv_scanout_slots.h
+is Kodi's copy of yblod-engine/src/dv_scanout_slots.h), so tag them
+GPL-3.0-or-later as their neighbours are.
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateDrain.h         | 1 +
+ xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateLayerGeometry.h | 1 +
+ xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp     | 1 +
+ xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h       | 1 +
+ xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.h       | 1 +
+ xbmc/cores/VideoPlayer/VideoRenderers/source_input.h           | 1 +
+ 6 files changed, 6 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateDrain.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateDrain.h
+index 219ed53..dc02830 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateDrain.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateDrain.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
+ #pragma once
+ 
+ #include <algorithm>
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateLayerGeometry.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateLayerGeometry.h
+index d286f87..238e380 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateLayerGeometry.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateLayerGeometry.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
+ #pragma once
+ 
+ #include <cstddef>
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
+index 0c6ed71..06b1ad0 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
+ #include "DVPrivateScanout.h"
+ 
+ bool CDVPrivateScanout::Initialize(gbm_device* device, unsigned buffers)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+index e01c090..2d063aa 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
+ #pragma once
+ #include "dv_scanout_slots.h"
+ #include <gbm.h>
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.h b/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.h
+index a103625..a428dfd 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/dv_scanout_slots.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
+ #ifndef DV_SCANOUT_SLOTS_H
+ #define DV_SCANOUT_SLOTS_H
+ #include <stdint.h>
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/source_input.h b/xbmc/cores/VideoPlayer/VideoRenderers/source_input.h
+index d1bcf55..7e2f862 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/source_input.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/source_input.h
+@@ -1,3 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
+ #ifndef DV_SOURCE_INPUT_H
+ #define DV_SOURCE_INPUT_H
+ #include <stdint.h>
+-- 
+2.50.1 (Apple Git-155)
+

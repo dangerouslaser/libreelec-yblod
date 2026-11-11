@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:53:36 -0500
+Subject: [PATCH] yblod-61: one type in the HDR10+ flags conditional
+
+DVVK_HDR10PLUS_V1 is an enumerator and 0u an unsigned int, so the
+conditional that sets playbackHDR10PlusFlags mixed an enumerated and a
+non-enumerated type, the one -Wextra warning in the fork's code. Cast
+the enumerator to the atomic's uint32_t; the value stored is the same.
+---
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 89df288..63b6c84 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -1291,7 +1291,8 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+   const bool tunnelHDR10Plus = tunnelHDR10 &&
+                                DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::HDR10Plus &&
+                                SupportsTunnelHDR10Plus();
+-  DVBRIDGE::playbackHDR10PlusFlags.store(DisplayHDR10PlusVersion() >= 1 ? DVVK_HDR10PLUS_V1 : 0u);
++  DVBRIDGE::playbackHDR10PlusFlags.store(
++      DisplayHDR10PlusVersion() >= 1 ? static_cast<uint32_t>(DVVK_HDR10PLUS_V1) : 0u);
+   const bool plusChanged = DVBRIDGE::playbackTunnelHDR10Plus.exchange(tunnelHDR10Plus) != tunnelHDR10Plus;
+   if (DVBRIDGE::playbackTunnelHDR10.exchange(tunnelHDR10) != tunnelHDR10 || plusChanged)
+     CLog::Log(LOGINFO, "DVBridge output: {}", tunnelHDR10Plus
+-- 
+2.50.1 (Apple Git-155)
+

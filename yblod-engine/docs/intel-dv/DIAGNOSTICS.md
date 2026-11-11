@@ -20,6 +20,11 @@ Kodi's debug controls, overlay behavior or logging of unrelated components.
 - Coarse direct/composed/presented counts, approximately every 30 seconds and
   on reset/closure when new work exists. These are renderer counters, not a
   replacement for Kodi's dropped-frame counters or an HDMI capture.
+- A `DVBridge playback health` line every 10 seconds of Dolby Vision playback
+  (output attempts, drops, queue, bitrate, GPU render usage), only when
+  `DVBRIDGE_DIAGNOSTICS=1` is set (at INFO) or Kodi's debug logging is on (at
+  DEBUG). Otherwise it is not sampled at all: the render usage reads the
+  fdinfo of Kodi's DRM file descriptors.
 - First output failure and bounded summaries: stage, error, connector, CRTC,
   timing and retry interval. The first failure per sink identity includes
   evaluated sink capabilities, up to 1024 raw EDID bytes and at most 48 relevant
@@ -91,6 +96,8 @@ settings, starts no network upload and restarts no service.
 Set `DVBRIDGE_DIAGNOSTICS=0` in Kodi's service environment and restart Kodi to
 disable the added Kodi supplement, including kernel copying. It is enabled by
 default; this switch is for developers, not a requirement for users reporting bugs.
+`DVBRIDGE_DIAGNOSTICS=1` additionally writes the periodic playback health line at
+INFO.
 Native Kodi and kernel logs are unaffected.
 
 The old Kodi 9991/9992 diagnostic patches and Linux 9902 diagnostics were removed.
