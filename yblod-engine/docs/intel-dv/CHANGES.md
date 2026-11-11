@@ -115,13 +115,12 @@ The table below covers the files of the Intel Dolby Vision tunnel (`linux-9900`,
 | --- | --- |
 | `drivers/gpu/drm/i915/display/intel_atomic.c` | Expose/read/write the per-connector DV property in atomic state. |
 | `drivers/gpu/drm/i915/display/intel_display.c` | Validate byte-preserving scanout and reject incompatible display processing. |
-| `drivers/gpu/drm/i915/display/intel_display_params.c` | Describe the low-level recovery control; no user-facing activation menu. |
+| `drivers/gpu/drm/i915/display/intel_display_params.c` | `i915.enable_dv_lab`: the tunnel's switch, on by default; 0 removes the connector properties. |
 | `drivers/gpu/drm/i915/display/intel_display_params.h` | Default the dedicated LE image to automatic capability detection. |
 | `drivers/gpu/drm/i915/display/intel_display_types.h` | Store DV property and transport state on the Intel connector. |
 | `drivers/gpu/drm/i915/display/intel_dv_lab_policy.h` | Validate EDID, modes and native-HDMI topology, including level shifters. |
 | `drivers/gpu/drm/i915/display/dvbridge_edid.h` | Validate complete EDIDs and Standard-DV versions using the same parser as Kodi. |
-| `drivers/gpu/drm/i915/display/intel_dvbridge_hdr_policy.h` | Retry eligible HDR10 links in deep-color 4:2:0 instead of losing precision to 8-bit RGB; exclude the DV tunnel. |
-| `drivers/gpu/drm/i915/display/intel_hdmi.c` | Connect hardware eligibility, HDMI timing, signaling and HDR precision policy. |
+| `drivers/gpu/drm/i915/display/intel_hdmi.c` | Connect hardware eligibility, HDMI timing and signaling. |
 | `drivers/video/hdmi.c` | Initialize, validate, pack and unpack the HDMI DV vendor information frame. |
 | `include/linux/hdmi.h` | Define the HDMI DV signaling fields shared by the driver helpers. |
 

@@ -46,7 +46,7 @@ index 78622b34db2a..c55a77cf56ed 100644
  		if (val && !display->params.enable_dv_lab)
  			return -EOPNOTSUPP;
 diff --git a/drivers/gpu/drm/i915/display/intel_display_params.c b/drivers/gpu/drm/i915/display/intel_display_params.c
-index 60b1c25cb2dd..f80aa6e05e62 100644
+index 40ae50e411a0..122c211d93fe 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_params.c
 +++ b/drivers/gpu/drm/i915/display/intel_display_params.c
 @@ -36,6 +36,11 @@ intel_display_param_named_unsafe(dmc_firmware_path, charp, 0400,
@@ -58,9 +58,9 @@ index 60b1c25cb2dd..f80aa6e05e62 100644
 +	"on gen11+ (-1=verified boards only [default], 0=off, 1=any converter; "
 +	"1 is experimental: an unverified converter may show no picture).");
 +
- intel_display_param_named_unsafe(enable_dv_lab, bool, 0400,
- 	"Experimental Standard-DV RGB8 tunnel lab, Lunar Lake only (default: off). "
- 	"Requires independently validated packed pixels and HDMI frame metadata.");
+ intel_display_param_named(enable_dv_lab, bool, 0400,
+ 	"Standard Dolby Vision RGB 8 bpc tunnel: the DVBRIDGE_DV_STANDARD_LAB and "
+ 	"DVBRIDGE_TUNNEL_FORMAT connector properties on HDMI outputs that can "
 diff --git a/drivers/gpu/drm/i915/display/intel_display_params.h b/drivers/gpu/drm/i915/display/intel_display_params.h
 index 5e422975aecf..0c65e964df96 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_params.h
@@ -351,10 +351,10 @@ index 04fae203bb69..40167189c726 100644
  			     const struct intel_crtc_state *crtc_state,
  			     const struct drm_connector_state *conn_state);
 diff --git a/drivers/gpu/drm/i915/display/intel_dv_lab_policy.h b/drivers/gpu/drm/i915/display/intel_dv_lab_policy.h
-index 8689fb887662..28d385a401fe 100644
+index 62636af80360..5de931619f1c 100644
 --- a/drivers/gpu/drm/i915/display/intel_dv_lab_policy.h
 +++ b/drivers/gpu/drm/i915/display/intel_dv_lab_policy.h
-@@ -28,6 +28,8 @@ static inline bool intel_dv_lab_native_hdmi(bool lspcon_active,
+@@ -23,6 +23,8 @@ static inline bool intel_dv_lab_native_hdmi(bool lspcon_active,
  
  struct intel_dv_lab_link {
  	bool requested, lab_enabled, sink_standard, hdmi, native_hdmi;
@@ -363,7 +363,7 @@ index 8689fb887662..28d385a401fe 100644
  	bool rgb, limited_range, hdr_blob, cloned, progressive;
  	unsigned int requested_bpc, pipe_bpp, colorspace;
  	unsigned int width, height, rounded_refresh;
-@@ -52,7 +54,8 @@ static inline int intel_dv_lab_validate(const struct intel_dv_lab_link *s)
+@@ -47,7 +49,8 @@ static inline int intel_dv_lab_validate(const struct intel_dv_lab_link *s)
  {
  	if (!s->requested)
  		return 0;
@@ -374,10 +374,10 @@ index 8689fb887662..28d385a401fe 100644
  	if (!s->hdmi || !s->rgb || s->limited_range || s->hdr_blob || s->cloned ||
  	    !s->progressive || s->requested_bpc != 8 || s->pipe_bpp != 24 ||
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index c10e32b4030e..4350a1cbed61 100644
+index 14ce54e67b65..90112f7632a6 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -603,6 +603,71 @@ static u32 hsw_infoframes_enabled(struct intel_encoder *encoder,
+@@ -602,6 +602,71 @@ static u32 hsw_infoframes_enabled(struct intel_encoder *encoder,
  	return val & mask;
  }
  
@@ -449,7 +449,7 @@ index c10e32b4030e..4350a1cbed61 100644
  static const u8 infoframe_type_to_idx[] = {
  	HDMI_PACKET_TYPE_GENERAL_CONTROL,
  	HDMI_PACKET_TYPE_GAMUT_METADATA,
-@@ -3840,6 +3905,11 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
+@@ -3807,6 +3872,11 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
  			dig_port->read_infoframe = lspcon_read_infoframe;
  			dig_port->set_infoframes = lspcon_set_infoframes;
  			dig_port->infoframes_enabled = lspcon_infoframes_enabled;

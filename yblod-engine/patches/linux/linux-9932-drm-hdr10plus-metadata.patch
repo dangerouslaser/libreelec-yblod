@@ -812,10 +812,10 @@ index 4eb3d6c3623b..d232092a0332 100644
  	/* FIXME deal with everything */
  	new_crtc_state->use_flipq =
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index af4898612ecf..0f978335cb2f 100644
+index ecf5f09d11b6..0c9df5243193 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -658,6 +658,8 @@ struct dpll {
+@@ -660,6 +660,8 @@ struct dpll {
  
  struct intel_atomic_state {
  	struct drm_atomic_commit base;
@@ -825,10 +825,10 @@ index af4898612ecf..0f978335cb2f 100644
  	struct ref_tracker *wakeref;
  
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 668cb8337351..0267ffc33514 100644
+index 2a72be7122ca..d5ac34fc69aa 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -796,6 +796,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
+@@ -795,6 +795,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
  			    frame->any.type, type);
  }
  
@@ -844,7 +844,7 @@ index 668cb8337351..0267ffc33514 100644
  static bool
  intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
  				 struct intel_crtc_state *crtc_state,
-@@ -844,6 +853,25 @@ intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
+@@ -843,6 +852,25 @@ intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
  
  	drm_hdmi_avi_infoframe_content_type(frame, conn_state);
  
@@ -870,7 +870,7 @@ index 668cb8337351..0267ffc33514 100644
  	if (to_intel_digital_connector_state(conn_state)->dv_lab_standard) {
  		const struct drm_property_blob *edid = conn_state->connector->edid_blob_ptr;
  		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
-@@ -949,6 +977,15 @@ intel_hdmi_compute_hdmi_infoframe(struct intel_encoder *encoder,
+@@ -948,6 +976,15 @@ intel_hdmi_compute_hdmi_infoframe(struct intel_encoder *encoder,
  	crtc_state->infoframes.enable |=
  		intel_hdmi_infoframe_enable(HDMI_INFOFRAME_TYPE_VENDOR);
  
@@ -886,7 +886,7 @@ index 668cb8337351..0267ffc33514 100644
  	if (to_intel_digital_connector_state(conn_state)->dv_lab_standard) {
  		struct hdmi_dolby_vendor_infoframe *dv =
  			&crtc_state->infoframes.hdmi.vendor.dolby;
-@@ -1387,6 +1424,83 @@ static void vlv_set_infoframes(struct intel_encoder *encoder,
+@@ -1386,6 +1423,83 @@ static void vlv_set_infoframes(struct intel_encoder *encoder,
  			      &crtc_state->infoframes.hdmi);
  }
  
@@ -970,7 +970,7 @@ index 668cb8337351..0267ffc33514 100644
  void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
  				   const struct intel_crtc_state *crtc_state,
  				   const struct drm_connector_state *conn_state)
-@@ -3544,8 +3658,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3511,8 +3625,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  	intel_attach_hdmi_colorspace_property(&connector->base);
  	drm_connector_attach_content_type_property(&connector->base);
  

@@ -19,10 +19,10 @@ no code change.
  1 file changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 053fc926834f..6fa994869fa2 100644
+index 2a715118fc9e..6842419cac38 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -814,6 +814,17 @@ intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
+@@ -813,6 +813,17 @@ intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
  	return true;
  }
  
@@ -40,7 +40,7 @@ index 053fc926834f..6fa994869fa2 100644
  static bool
  intel_hdmi_compute_spd_infoframe(struct intel_encoder *encoder,
  				 struct intel_crtc_state *crtc_state,
-@@ -837,7 +848,8 @@ intel_hdmi_compute_spd_infoframe(struct intel_encoder *encoder,
+@@ -836,7 +847,8 @@ intel_hdmi_compute_spd_infoframe(struct intel_encoder *encoder,
  	if (drm_WARN_ON(encoder->base.dev, ret))
  		return false;
  

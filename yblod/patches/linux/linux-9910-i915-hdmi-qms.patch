@@ -100,10 +100,10 @@ index 82b1218fe585..4eb3d6c3623b 100644
  } while (0)
  
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 49dd54cdbfa3..fcb71fb2bd46 100644
+index 83a519bb9431..596e01bfc4a8 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -1423,6 +1423,14 @@ struct intel_crtc_state {
+@@ -1425,6 +1425,14 @@ struct intel_crtc_state {
  		} dc_balance;
  	} vrr;
  
@@ -119,7 +119,7 @@ index 49dd54cdbfa3..fcb71fb2bd46 100644
  	struct {
  		bool enable;
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 105db8f83651..053fc926834f 100644
+index 093762d9e97f..2a715118fc9e 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -27,11 +27,15 @@
@@ -146,15 +146,15 @@ index 105db8f83651..053fc926834f 100644
  #include <drm/intel/intel_lpe_audio.h>
  #include <media/cec-notifier.h>
  
-@@ -51,6 +56,7 @@
- #include "intel_dvbridge_hdr_policy.h"
+@@ -50,6 +55,7 @@
+ #include "dvbridge_tunnel_format.h"
  #include "intel_audio.h"
  #include "intel_connector.h"
 +#include "intel_crtc.h"
  #include "intel_cx0_phy.h"
  #include "intel_ddi.h"
  #include "intel_de.h"
-@@ -1328,6 +1334,10 @@ void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
+@@ -1327,6 +1333,10 @@ void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
  			      &crtc_state->infoframes.drm);
  }
  
@@ -165,7 +165,7 @@ index 105db8f83651..053fc926834f 100644
  static void hsw_set_infoframes(struct intel_encoder *encoder,
  			       bool enable,
  			       const struct intel_crtc_state *crtc_state,
-@@ -1370,6 +1380,9 @@ static void hsw_set_infoframes(struct intel_encoder *encoder,
+@@ -1369,6 +1379,9 @@ static void hsw_set_infoframes(struct intel_encoder *encoder,
  	intel_write_infoframe(encoder, crtc_state,
  			      HDMI_INFOFRAME_TYPE_DRM,
  			      &crtc_state->infoframes.drm);
@@ -175,7 +175,7 @@ index 105db8f83651..053fc926834f 100644
  }
  
  void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable)
-@@ -2481,6 +2494,426 @@ bool intel_hdmi_compute_has_hdmi_sink(struct intel_encoder *encoder,
+@@ -2448,6 +2461,426 @@ bool intel_hdmi_compute_has_hdmi_sink(struct intel_encoder *encoder,
  		!intel_hdmi_is_cloned(crtc_state);
  }
  
@@ -602,7 +602,7 @@ index 105db8f83651..053fc926834f 100644
  int intel_hdmi_compute_config(struct intel_encoder *encoder,
  			      struct intel_crtc_state *pipe_config,
  			      struct drm_connector_state *conn_state)
-@@ -2506,6 +2939,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -2473,6 +2906,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
  		pipe_config->pixel_multiplier = 2;
  
@@ -611,7 +611,7 @@ index 105db8f83651..053fc926834f 100644
  	if (!intel_link_bw_compute_pipe_bpp(pipe_config))
  		return -EINVAL;
  
-@@ -2644,6 +3079,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -2610,6 +3045,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  		return -EINVAL;
  	}
  

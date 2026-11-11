@@ -42,10 +42,10 @@ release); no code change.
  2 files changed, 243 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 0f978335cb2f..feffbfcc66a2 100644
+index 0c9df5243193..dac3cd4a1c09 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -1440,6 +1440,9 @@ struct intel_crtc_state {
+@@ -1442,6 +1442,9 @@ struct intel_crtc_state {
  		u8 tfr, base_vfront;
  		u16 base_vtotal;
  		u32 lines_num, lines_den;
@@ -56,10 +56,10 @@ index 0f978335cb2f..feffbfcc66a2 100644
  
  	/* Content Match Refresh Rate state */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 0267ffc33514..6581cbc98888 100644
+index d5ac34fc69aa..1c9f9abecab9 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -2816,6 +2816,168 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
+@@ -2784,6 +2784,168 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
  	return false;
  }
  
@@ -228,7 +228,7 @@ index 0267ffc33514..6581cbc98888 100644
  /*
   * Replace the requested timing with the 60 Hz base timing, so everything
   * computed from the mode (TMDS clock, AVI VIC, quantization range, Dolby
-@@ -2831,6 +2993,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2799,6 +2961,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	const struct drm_display_info *info = &conn_state->connector->display_info;
  	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
  	const struct intel_hdmi_qms_base *b = NULL;
@@ -236,7 +236,7 @@ index 0267ffc33514..6581cbc98888 100644
  	u64 num, den, g;
  	int i;
  
-@@ -2867,7 +3030,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2835,7 +2998,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	     !info->hdmi.scdc.scrambling.supported))
  		return;
  
@@ -252,7 +252,7 @@ index 0267ffc33514..6581cbc98888 100644
  		return;
  
  	/*
-@@ -2935,6 +3105,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2903,6 +3073,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	crtc_state->qms.base_vtotal = b->vtotal;
  	crtc_state->qms.lines_num = num;
  	crtc_state->qms.lines_den = den;
@@ -268,7 +268,7 @@ index 0267ffc33514..6581cbc98888 100644
  }
  
  static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
-@@ -2955,7 +3134,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
+@@ -2923,7 +3102,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
  	crtc_state->infoframes.enable |=
  		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
  
@@ -295,7 +295,7 @@ index 0267ffc33514..6581cbc98888 100644
  }
  
  /*
-@@ -2996,10 +3193,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
+@@ -2964,10 +3161,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
  	};
  	int i;
  
@@ -331,7 +331,7 @@ index 0267ffc33514..6581cbc98888 100644
  
  	/* rewritten in place: the packet must not miss a frame */
  	for (i = 0; i < VIDEO_DIP_GMP_DATA_SIZE / 4; i++)
-@@ -3124,7 +3342,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
+@@ -3092,7 +3310,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
  
  	intel_hdmi_qms_pacer_stop(crtc);
  
@@ -341,7 +341,7 @@ index 0267ffc33514..6581cbc98888 100644
  		return;
  
  	/* announce the next rate for four frames at the current one */
-@@ -3147,13 +3366,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
+@@ -3115,13 +3334,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
  	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
  		return;
  
@@ -359,7 +359,7 @@ index 0267ffc33514..6581cbc98888 100644
  		    new_crtc_state->qms.lines_num, new_crtc_state->qms.lines_den);
  }
  
-@@ -3574,8 +3794,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
+@@ -3541,8 +3761,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
  {
  	struct intel_connector *connector = to_intel_connector(_connector);
  
@@ -374,7 +374,7 @@ index 0267ffc33514..6581cbc98888 100644
  }
  
  static int
-@@ -3668,6 +3893,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3635,6 +3860,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  
  	if (!HAS_GMCH(display))
  		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);
