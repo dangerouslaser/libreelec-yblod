@@ -77,13 +77,19 @@ layout(binding = 21) uniform sampler3D map_lut;
 // sum of maxRGB light (1/64 nit units, 64-bit) and the count. Reduced in
 // shared memory per workgroup, then added to the frame's record (host
 // visible, zeroed by the engine; gui_flags bit 6 counts: not the reference
-// pass). Layout: hist[256], max[3], sum lo, sum hi, count.
+// pass). Layout: hist[256], max[3], sum lo, sum hi, count. An invocation
+// keeps its own maxima, sum and count (inv_*) and adds them to the
+// workgroup's once: an atomic on shared memory per sample and value costs
+// more than the arithmetic (integer max and wrapping sums: the same numbers
+// in any order).
 layout(constant_id = 9) const uint STATS = 0;
 layout(binding = 24, std430) buffer Stats { uint stats[]; };
 const uint STATS_BINS = STATS != 0u ? 256u : 1u;
 shared uint st_hist[STATS_BINS];
 shared uint st_max[3];
 shared uint st_sum, st_count;
+uvec3 inv_max = uvec3(0u);
+uint inv_sum = 0u, inv_count = 0u;
 layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
     uint w, h, stride_words, packet_count, top_left, source_w, source_h, el_method;   // EL_ANNEXB / EL_BILINEAR
@@ -564,13 +570,11 @@ void stats_sample(uvec3 c)
           cr = (float(c.z) - 2048.0) * (1.0 / 3584.0);
     float r = y + 1.4746 * cr, b = y + 1.8814 * cb;
     vec3 rgb = clamp(vec3(r, (y - 0.2627 * r - 0.0593 * b) * (1.0 / 0.6780), b), 0.0, 1.0);
-    atomicMax(st_max[0], floatBitsToUint(rgb.r));
-    atomicMax(st_max[1], floatBitsToUint(rgb.g));
-    atomicMax(st_max[2], floatBitsToUint(rgb.b));
+    inv_max = max(inv_max, floatBitsToUint(rgb));
     float nits = 10000.0 * map_pq_eotf(vec3(max(rgb.r, max(rgb.g, rgb.b)))).x;
     atomicAdd(st_hist[min(255u, uint(floor(nits / 16.0 + 0.5)))], 1u);
-    atomicAdd(st_sum, uint(floor(nits * 64.0 + 0.5)));
-    atomicAdd(st_count, 1u);
+    inv_sum += uint(floor(nits * 64.0 + 0.5));
+    inv_count++;
 }
 
 // One invocation: 4 pixels x 2 rows (x0 % 4 == 0, y0 even), stored 16 bytes a row.
@@ -726,6 +730,7 @@ void pack_main()
             lv4[pair * 2u + 1u] = lv[1];
         }
         bool raw[2] = bool[2](false, false);
+        vec3 m4[4];
         if (MAP != 0u) {
             // The row's four samples: the lookups issued together (their
             // latency overlaps), then used. A pair's chroma is the even
@@ -734,7 +739,6 @@ void pack_main()
             // (map_pair). MAP 1: a pair with a marked sample keeps its input
             // codes for the fix-up.
             uvec3 bi = mp.black_in.xyz;
-            vec3 m4[4];
             bool marked[4];
             for (uint i = 0u; i < 4u; i++) {
                 uint e = i & ~1u;
@@ -760,20 +764,28 @@ void pack_main()
         if (STATS != 0u && MAP != 0u && (gui_flags & 64u) != 0u && y >= active_area.y && y < active_area.w &&
             y >= placement.y && y < placement.y + placement.w) {
             // the film's samples as the output carries them (the overlay's:
-            // mapped again without it); pairs wholly in the film's area
+            // mapped again without it); pairs wholly in the film's area.
+            // Without an overlay the film is what was mapped above: m4 are
+            // its lookups and lv4 its pairs' codes, but for a pair left as
+            // its input codes for the fix-up, mapped here (from the lookups,
+            // as with an overlay).
             vec3 sm[4];
-            for (uint i = 0u; i < 4u; i++) {
-                uint e = i & ~1u;
-                bool marked;
-                sm[i] = map_lane(film4[i].x, film4[e].y, film4[e + 1u].y,
-                                 map_coord(film4[i].x, map_base(film4[e].y, film4[e + 1u].y)), marked);
-            }
+            if (OVERLAY != 0u)
+                for (uint i = 0u; i < 4u; i++) {
+                    uint e = i & ~1u;
+                    bool marked;
+                    sm[i] = map_lane(film4[i].x, film4[e].y, film4[e + 1u].y,
+                                     map_coord(film4[i].x, map_base(film4[e].y, film4[e + 1u].y)), marked);
+                }
             for (uint pair = 0u; pair < 2u; pair++) {
                 uint xp = x0 + 2u * pair;
                 if (xp < active_area.x || xp + 1u >= active_area.z || xp < placement.x || xp + 1u >= placement.x + placement.z)
                     continue;
-                uvec2 qa, qb;
-                map_pair(film4[2u * pair], film4[2u * pair + 1u], sm[2u * pair], sm[2u * pair + 1u], qa, qb);
+                uvec2 qa = lv4[2u * pair], qb = lv4[2u * pair + 1u];
+                if (OVERLAY != 0u)
+                    map_pair(film4[2u * pair], film4[2u * pair + 1u], sm[2u * pair], sm[2u * pair + 1u], qa, qb);
+                else if (raw[pair])
+                    map_pair(film4[2u * pair], film4[2u * pair + 1u], m4[2u * pair], m4[2u * pair + 1u], qa, qb);
                 stats_sample(uvec3(qa.x, qa.y, qb.y));
                 stats_sample(uvec3(qb.x, qa.y, qb.y));
             }
@@ -804,6 +816,13 @@ void main()
     }
     pack_main();
     if (STATS != 0u) {
+        if (inv_count != 0u) {
+            atomicMax(st_max[0], inv_max.x);
+            atomicMax(st_max[1], inv_max.y);
+            atomicMax(st_max[2], inv_max.z);
+            atomicAdd(st_sum, inv_sum);
+            atomicAdd(st_count, inv_count);
+        }
         barrier();
         if (st_count == 0u)
             return;
