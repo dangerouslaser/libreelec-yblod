@@ -1,0 +1,307 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:41 -0500
+Subject: [PATCH] Dolby Vision: GUI composite hooks
+
+Under native Dolby Vision the window composites Kodi's GUI itself: the
+GUI is drawn into its own framebuffer and handed to the engine as an
+sRGB layer, and an unchanged GUI can be reused instead of drawn again.
+Two CWinSystemBase hooks, both false outside that window, let the rest
+of Kodi take part:
+
+- UsesNativeGuiCoverage(): GUI textures, fonts and quads blend for an
+  sRGB layer with coverage alpha, not with the HDR composite's
+  compensated alpha; PGS and other HDR subtitle overlays are
+  drawn into the GUI layer with their palette converted to sRGB instead
+  of being composited as HDR; the window manager does not trust the
+  swapchain's buffer age for that separate framebuffer.
+- CanReuseGuiComposite(): fullscreen video (and, with
+  DV_PRIVATE_GUI_CACHE_HOME=1, the home screen) skips the GUI pass when
+  nothing is dirty. The window manager counts every dirty mark
+  (GetDirtyGeneration), so a mark made after the decision, by subtitle
+  preparation for instance, still renders. The video controls no longer
+  mark themselves dirty every frame there, as the video does not pass
+  through the GUI.
+
+OverlayRenderer also reports whether a buffer holds an HDR overlay
+(HasHDROverlay) for the window. Kodi without the Dolby Vision window is
+unchanged.
+
+Formerly the GUI parts of yblod-03, with yblod-12 (GUI redraw), -13
+(home screen cache) and -22 (PGS subtitles).
+---
+ xbmc/application/Application.cpp              | 18 +++++++++++++++
+ .../VideoRenderers/OverlayRenderer.cpp        | 22 ++++++++++++++++---
+ .../VideoRenderers/OverlayRenderer.h          |  1 +
+ .../VideoRenderers/OverlayRendererGLES.cpp    |  1 +
+ .../VideoRenderers/OverlayRendererUtil.cpp    |  5 ++++-
+ xbmc/guilib/GUIFontTTFGLES.cpp                |  3 ++-
+ xbmc/guilib/GUITextureGLES.cpp                |  8 +++++--
+ xbmc/guilib/GUIVideoControl.cpp               |  3 ++-
+ xbmc/guilib/GUIWindowManager.cpp              |  5 +++++
+ xbmc/guilib/GUIWindowManager.h                |  4 ++++
+ xbmc/video/windows/GUIWindowFullScreen.cpp    |  3 ++-
+ xbmc/windowing/WinSystem.h                    |  2 ++
+ 12 files changed, 66 insertions(+), 9 deletions(-)
+
+diff --git a/xbmc/application/Application.cpp b/xbmc/application/Application.cpp
+index fde4e79..87dd40d 100644
+--- a/xbmc/application/Application.cpp
++++ b/xbmc/application/Application.cpp
+@@ -1547,6 +1547,8 @@ void CApplication::UnlockFrameMoveGuard()
+ void CApplication::FrameMove(bool processEvents, bool processGUI)
+ {
+   const auto appPlayer = GetComponent<CApplicationPlayer>();
++  bool nativeGuiSkip = false;
++  uint64_t nativeGuiGeneration = 0;
+   bool renderGUI = GetComponent<CApplicationPowerHandling>()->GetRenderGUI();
+   if (processEvents)
+   {
+@@ -1640,10 +1642,26 @@ void CApplication::FrameMove(bool processEvents, bool processGUI)
+     if (!m_skipGuiRender && appPlayer->IsRenderingVideoLayer() &&
+         !CServiceBroker::GetGUI()->GetWindowManager().HasDirtyRegions())
+       m_skipGuiRender = true;
++    const char* homeCache = std::getenv("DV_PRIVATE_GUI_CACHE_HOME");
++    if (!m_skipGuiRender &&
++        (CServiceBroker::GetWinSystem()->GetGfxContext().IsFullScreenVideo() ||
++         (homeCache && std::strcmp(homeCache, "1") == 0)) &&
++        CServiceBroker::GetWinSystem()->CanReuseGuiComposite() &&
++        !CServiceBroker::GetGUI()->GetWindowManager().HasDirtyRegions())
++    {
++      nativeGuiSkip = true;
++      m_skipGuiRender = true;
++      nativeGuiGeneration = CServiceBroker::GetGUI()->GetWindowManager().GetDirtyGeneration();
++    }
+     CServiceBroker::GetGUI()->GetWindowManager().FrameMove();
+   }
+ 
+   appPlayer->FrameMove();
++  // Subtitle preparation can invalidate the GUI after its Process pass.
++  if (nativeGuiSkip &&
++      (!CServiceBroker::GetWinSystem()->CanReuseGuiComposite() ||
++       nativeGuiGeneration != CServiceBroker::GetGUI()->GetWindowManager().GetDirtyGeneration()))
++    m_skipGuiRender = false;
+ 
+   // this will go away when render systems gets its own thread
+   CServiceBroker::GetWinSystem()->DriveRenderLoop();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp
+index f3d63e0..797be00 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.cpp
+@@ -152,8 +152,11 @@ void CRenderer::Render(int idx, float depth)
+   std::unique_lock lock(m_section);
+ 
+   // during HDR composite the m_isHDROverlay overlays render via
+-  // RenderHDROverlays instead
+-  const bool hdrComposite = CServiceBroker::GetWinSystem()->IsHdrComposite();
++  // RenderHDROverlays instead, except with native Dolby Vision GUI coverage:
++  // there the GUI layer is composited by the engine, so PGS subtitles are drawn
++  // into it like other subtitles (palette converted to sRGB)
++  const bool hdrComposite = CServiceBroker::GetWinSystem()->IsHdrComposite() &&
++                            !CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage();
+   const RenderStereoView stereoView =
+       CServiceBroker::GetWinSystem()->GetGfxContext().GetStereoView();
+ 
+@@ -182,7 +185,8 @@ void CRenderer::Render(int idx, float depth)
+ // FBO's sRGB->HDR conversion
+ void CRenderer::RenderHDROverlays(int idx)
+ {
+-  if (!CServiceBroker::GetWinSystem()->IsHdrComposite())
++  if (!CServiceBroker::GetWinSystem()->IsHdrComposite() ||
++      CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
+     return;
+ 
+   std::unique_lock lock(m_section);
+@@ -299,6 +303,18 @@ void CRenderer::Render(COverlay* o)
+   o->Render(state);
+ }
+ 
++bool CRenderer::HasHDROverlay(int idx) const
++{
++  std::unique_lock lock(m_section);
++  if (idx < 0 || idx >= NUM_BUFFERS)
++    return false;
++  for (const auto& e : m_buffers[idx])
++    if (e.overlay_dvd && e.overlay_dvd->IsOverlayType(DVDOVERLAY_TYPE_IMAGE) &&
++        static_cast<const CDVDOverlayImage&>(*e.overlay_dvd).m_isHDROverlay)
++      return true;
++  return false;
++}
++
+ bool CRenderer::HasVisibleOverlay(int idx) const
+ {
+   std::unique_lock lock(m_section);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.h b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.h
+index 8977a27..90936c1 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRenderer.h
+@@ -115,6 +115,7 @@ namespace OVERLAY {
+ 
+     // render overlays already in HDR (not sRGB)
+     void RenderHDROverlays(int idx);
++    bool HasHDROverlay(int idx) const;
+ 
+     /*!
+      * \brief Pre-walk hook: render libass output for the present slot.
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp
+index 68a7673..c67a7bf 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererGLES.cpp
+@@ -182,6 +182,7 @@ COverlayTextureGLES::COverlayTextureGLES(const CDVDOverlayImage& o, CRect& rSour
+     //! full-range GUI shader variants are kept compiled in parallel and
+     //! selectable per draw; then this draw selects the limited variant.
+     if (m_isHDROverlay && CServiceBroker::GetWinSystem()->IsHdrComposite() &&
++        !CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage() &&
+         CServiceBroker::GetWinSystem()->UseLimitedColor())
+     {
+       for (uint32_t& px : rgba)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp
+index bb48ad4..bb34cb9 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/OverlayRendererUtil.cpp
+@@ -287,8 +287,11 @@ bool ShouldConvertPQPaletteToSRGB(bool isHDROverlay)
+     return false;
+ 
+   // Convert to sRGB unless the overlay is going to a PQ destination: the HDR
+-  // composite, or a GUI layer that is output as an HDR signal.
++  // composite, or a GUI layer that is output as an HDR signal. The native Dolby
++  // Vision engine converts its sRGB GUI layer itself, so it always gets sRGB.
+   const CWinSystemBase* winSystem = CServiceBroker::GetWinSystem();
++  if (winSystem->UsesNativeGuiCoverage())
++    return true;
+   const bool destinationIsPQ =
+       winSystem->IsHdrComposite() || winSystem->GetEotf() != KODI::UTILS::Eotf::TRADITIONAL_SDR;
+   return !destinationIsPQ;
+diff --git a/xbmc/guilib/GUIFontTTFGLES.cpp b/xbmc/guilib/GUIFontTTFGLES.cpp
+index 6554740..9cd729d 100644
+--- a/xbmc/guilib/GUIFontTTFGLES.cpp
++++ b/xbmc/guilib/GUIFontTTFGLES.cpp
+@@ -135,7 +135,8 @@ bool CGUIFontTTFGLES::FirstBegin()
+   // alpha blend that approximately matches SDR perceived translucency. It
+   // is a "close enough" compromise; a mathematically correct fix would
+   // require linear-light compositing (too expensive on typical ARM GPUs).
+-  if (CServiceBroker::GetWinSystem()->IsHdrComposite())
++  if (CServiceBroker::GetWinSystem()->IsHdrComposite() &&
++      !CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
+     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+   else
+     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ONE);
+diff --git a/xbmc/guilib/GUITextureGLES.cpp b/xbmc/guilib/GUITextureGLES.cpp
+index a55365e..34ef705 100644
+--- a/xbmc/guilib/GUITextureGLES.cpp
++++ b/xbmc/guilib/GUITextureGLES.cpp
+@@ -123,7 +123,8 @@ void CGUITextureGLES::Begin(KODI::UTILS::COLOR::Color color)
+     // coverage alpha; HDR FBO composite uses a compensated squared-alpha
+     // blend because the FBO is color-transformed to PQ/HLG before composite,
+     // and alpha blending in non-linear space is mathematically wrong.
+-    if (CServiceBroker::GetWinSystem()->IsHdrComposite())
++    if (CServiceBroker::GetWinSystem()->IsHdrComposite() &&
++        !CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
+       glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_SRC_ALPHA,
+                           GL_ONE_MINUS_SRC_ALPHA);
+     else
+@@ -295,7 +296,10 @@ void CGUITextureGLES::DrawQuad(const CRect& rect,
+ 
+   if (blending)
+   {
+-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
++    if (CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
++      glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
++    else
++      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+     glEnable(GL_BLEND);
+   }
+   else
+diff --git a/xbmc/guilib/GUIVideoControl.cpp b/xbmc/guilib/GUIVideoControl.cpp
+index 88bc119..b919fec 100644
+--- a/xbmc/guilib/GUIVideoControl.cpp
++++ b/xbmc/guilib/GUIVideoControl.cpp
+@@ -38,7 +38,8 @@ void CGUIVideoControl::Process(unsigned int currentTime, CDirtyRegionList &dirty
+   const auto appPlayer = components.GetComponent<CApplicationPlayer>();
+   // Only fire for single-plane renderers where video draws via the GUI walk.
+   // See CGUIWindowFullScreen::Process for full rationale.
+-  if (!appPlayer->IsRenderingVideoLayer())
++  if (!appPlayer->IsRenderingVideoLayer() &&
++      !CServiceBroker::GetWinSystem()->CanReuseGuiComposite())
+     MarkDirtyRegion();
+ 
+   CGUIControl::Process(currentTime, dirtyregions);
+diff --git a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
+index 137a7dd..e4bf98d 100644
+--- a/xbmc/guilib/GUIWindowManager.cpp
++++ b/xbmc/guilib/GUIWindowManager.cpp
+@@ -1332,6 +1332,7 @@ void CGUIWindowManager::MarkDirty()
+ 
+ void CGUIWindowManager::MarkDirty(const CRect& rect)
+ {
++  ++m_dirtyGeneration;
+   m_tracker.MarkDirtyRegion(CDirtyRegion(rect));
+ 
+   CGUIWindow* pWindow = GetWindow(GetActiveWindow());
+@@ -1431,6 +1432,10 @@ bool CGUIWindowManager::Render()
+   CSingleExit lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+ 
+   int bufferAge = CServiceBroker::GetWinSystem()->GetBufferAge();
++  // Native DV clears its GUI FBO before this pass; swapchain age cannot
++  // preserve unchanged controls in that separate target.
++  if (CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
++    bufferAge = 0;
+   bool visualizeDirtyRegions =
+       CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiVisualizeDirtyRegions;
+   if (visualizeDirtyRegions)
+diff --git a/xbmc/guilib/GUIWindowManager.h b/xbmc/guilib/GUIWindowManager.h
+index 4c5f70f..c0b6b72 100644
+--- a/xbmc/guilib/GUIWindowManager.h
++++ b/xbmc/guilib/GUIWindowManager.h
+@@ -16,6 +16,8 @@
+ #include "messaging/IMessageTarget.h"
+ 
+ #include <list>
++#include <atomic>
++#include <cstdint>
+ #include <memory>
+ #include <unordered_map>
+ #include <utility>
+@@ -106,6 +108,7 @@ public:
+    *   (currently gated to D2P plane and HDR GUI compositing FBO contexts).
+    */
+   bool HasDirtyRegions() const { return !m_dirtyregions.empty(); }
++  uint64_t GetDirtyGeneration() const { return m_dirtyGeneration.load(); }
+ 
+   /*! \brief Rendering of the current window and any dialogs
+    Render is called every frame to draw the current window and any dialogs.
+@@ -305,6 +308,7 @@ private:
+   mutable bool m_inhibitTouchGestureEvents{false};
+ 
+   CDirtyRegionList m_dirtyregions;
++  std::atomic<uint64_t> m_dirtyGeneration{0};
+   CDirtyRegionTracker m_tracker;
+   bool m_presentedFrame{false};
+ };
+diff --git a/xbmc/video/windows/GUIWindowFullScreen.cpp b/xbmc/video/windows/GUIWindowFullScreen.cpp
+index 5f5a555..d972fd6 100644
+--- a/xbmc/video/windows/GUIWindowFullScreen.cpp
++++ b/xbmc/video/windows/GUIWindowFullScreen.cpp
+@@ -382,7 +382,8 @@ void CGUIWindowFullScreen::Process(unsigned int currentTime, CDirtyRegionList &d
+   // Single-plane: MarkDirtyRegion every frame so the render pass keeps
+   // running and draws the next video frame. D2P video plane updates
+   // independently.
+-  if (!appPlayer->IsRenderingVideoLayer())
++  if (!appPlayer->IsRenderingVideoLayer() &&
++      !CServiceBroker::GetWinSystem()->CanReuseGuiComposite())
+     MarkDirtyRegion();
+ 
+   m_controlStats->Reset();
+diff --git a/xbmc/windowing/WinSystem.h b/xbmc/windowing/WinSystem.h
+index ebd9ef1..2815b34 100644
+--- a/xbmc/windowing/WinSystem.h
++++ b/xbmc/windowing/WinSystem.h
+@@ -281,6 +281,8 @@ public:
+   // yields wrong transparency. When true, GUI draws select a compensated
+   // alpha blend (see CGUIFontTTFGLES::FirstBegin).
+   virtual bool IsHdrComposite() const { return false; }
++  virtual bool UsesNativeGuiCoverage() const { return false; }
++  virtual bool CanReuseGuiComposite() const { return false; }
+ 
+   /*!
+    * \brief Gets debug info from video renderer for use in "Debug Info OSD" (Alt + O)

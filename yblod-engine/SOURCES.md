@@ -31,7 +31,7 @@ Implementation references and boundaries:
   current source domain. The movie does not take an extra RGB round trip.
 - `dv_scanout_slots.c` and the geometry helpers implement this project's
   buffer ownership and validation. Kodi carries its own copy of the scanout
-  slots (yblod-29, `dv_scanout_slots.cpp`); the CPU test here checks the C.
+  slots (`dv_scanout_slots.cpp`, Kodi patch kodi-9956); the CPU test here checks the C.
 
 - YBLOD 0.4.0: `pixel_spatial.c` also has the bilinear EL upsampling
   (`dv_bilinear_scale2x`, the Vulkan engine's `DVVK_EL_BILINEAR` reference;

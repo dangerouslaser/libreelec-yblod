@@ -1,0 +1,886 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:40 -0500
+Subject: [PATCH] Dolby Vision: decode both layers and the metadata in the
+ FFmpeg decoder
+
+For a stream that takes the native Dolby Vision path
+(DVBRIDGE::WantsNativeOutput), CDVDVideoCodecFFmpeg:
+
+- gives FFmpeg the stream's DOVI configuration record, so it exports
+  each picture's RPU, and keeps that metadata with the picture;
+- decodes a Profile 7 FEL's enhancement layer with dvbridge_fel on a
+  second VAAPI decoder (VAAPI.cpp initialises the shared device's
+  format table for it) and hands out a base picture only together with
+  its enhancement picture. After a seek the demuxer starts from the
+  enhancement layer's random-access point (a bounded probe; Kodi keeps
+  the requested start time and discards the preroll as usual);
+- does not decode a Profile 7 MEL's enhancement layer, which carries no
+  residual (decided on the first RPU);
+- resynchronises after a pairing fault: the first fault of a title is
+  logged with its reason, the pairing restarts (at the next common key
+  frame, as after a seek) and base pictures are shown with their
+  metadata meanwhile, as for a MEL. After DV_FEL_RESYNCS (3) restarts
+  the enhancement layer is not decoded until the next seek. Base
+  pictures left without a partner at the end of the stream are shown
+  instead of an error. An enhancement decoder that cannot be created
+  leaves the title on the base layer and metadata;
+- keeps a native stream's last in-band static HDR10 metadata until a
+  new SEI replaces it: on streams that carry it only on the first
+  IRAP, the next IRAP otherwise read as a format change, the
+  renderer was rebuilt and Dolby Vision output restarted (two modesets
+  and an HDMI audio reset about one GOP into playback);
+- turns a picture's HDR10+ metadata into Profile 8.1 Dolby Vision
+  metadata when Convert HDR10+ to Dolby Vision is on, with the engine
+  library's optional dvvk_hdr10plus_to_dovi (DVHDR10PlusToDovi.h,
+  header dv-engine-vk/dv_engine_vk.h from the yblod-engine-vk package);
+- reuses up to four enhancement-layer pictures and shares each frame's
+  metadata side-data buffer instead of allocating per picture.
+
+DVDFactoryCodec opens this decoder for native streams and falls through
+to the usual decoder chain when it cannot open.
+
+Depends on kodi-9950 (the metadata fields) and kodi-9951 (dvbridge_fel).
+Formerly the decoder and demuxer parts of kodi-9990-native-dv,
+kodi-9993-fel-presentation-pairing, kodi-9997-dv-static-metadata-latch,
+yblod-03, -24 (MEL), -34 (HDR10+), -50 (FEL resync), -51 (decoder
+fallback) and -58 (decode allocations).
+---
+ .../VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp |  14 +-
+ .../DVDCodecs/Video/CMakeLists.txt            |   3 +
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp   | 429 +++++++++++++++++-
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.h     |  58 +++
+ .../DVDCodecs/Video/DVHDR10PlusToDovi.h       |  53 +++
+ .../VideoPlayer/DVDCodecs/Video/VAAPI.cpp     |  17 +
+ .../VideoPlayer/DVDDemuxers/CMakeLists.txt    |   3 +
+ .../DVDDemuxers/DVDDemuxFFmpeg.cpp            |  43 ++
+ 8 files changed, 618 insertions(+), 2 deletions(-)
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVHDR10PlusToDovi.h
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
+index 99285d6..5d6e3f2 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
+@@ -29,6 +29,9 @@
+ 
+ #include <mutex>
+ #include <utility>
++#ifdef HAVE_DVBRIDGE
++#include "Video/DVPlaybackPolicy.h"
++#endif
+ 
+ //------------------------------------------------------------------------------
+ // Video
+@@ -68,6 +71,16 @@ std::unique_ptr<CDVDVideoCodec> CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInf
+     return nullptr;
+   }
+ 
++  // DVBridge carries metadata and paired hardware surfaces through the VAAPI adapter.
++#ifdef HAVE_DVBRIDGE
++  if (DVBRIDGE::WantsNativeOutput(hint))
++  {
++    pCodec = std::make_unique<CDVDVideoCodecFFmpeg>(processInfo);
++    if (pCodec->Open(hint, options))
++      return pCodec;
++    CLog::Log(LOGWARNING, "Dolby Vision: the native decoder could not open; trying the others");
++  }
++#endif
+   // platform specific video decoders
+   if (!(hint.codecOptions & CODEC_FORCE_SOFTWARE))
+   {
+@@ -287,4 +300,3 @@ std::unique_ptr<CDVDOverlayCodec> CDVDFactoryCodec::CreateOverlayCodec(CDVDStrea
+ 
+   return nullptr;
+ }
+-
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/CMakeLists.txt b/xbmc/cores/VideoPlayer/DVDCodecs/Video/CMakeLists.txt
+index 07a0b78..955f40d 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/CMakeLists.txt
+@@ -44,3 +44,6 @@ if(("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_
+ endif()
+ 
+ core_add_library(dvdvideocodecs)
++if(ENABLE_DVBRIDGE)
++  target_link_libraries(${CORE_LIBRARY} PRIVATE dvbridge_core)
++endif()
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 62faf20..9cf6f1b 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -31,6 +31,43 @@
+ #include <iterator>
+ #include <memory>
+ #include <mutex>
++#ifdef HAVE_DVBRIDGE
++#include "DVPlaybackPolicy.h"
++#include "DVOutputSettings.h"
++#include "DVHDR10PlusToDovi.h"
++#include <algorithm>
++#include <cstdlib>
++#include <cstring>
++#include <cmath>
++extern "C"
++{
++#include "dvbridge_fel.h"
++#include <libavutil/dovi_meta.h>
++#include <libavutil/hwcontext.h>
++}
++
++namespace
++{
++// yblod-engine's dv_metadata_no_residual() (dv_nlq_metadata.h): the RPU adds no
++// residual (disable_residual_flag, or the MEL values of Dolby's Profile 7 Annex II
++// on all three channels), so the engine never reads the enhancement layer.
++bool DVNoResidual(const AVDOVIRpuDataHeader* h, const AVDOVIDataMapping* m)
++{
++  if (h->disable_residual_flag == 1)
++    return true;
++  if (h->disable_residual_flag || h->coef_data_type || h->coef_log2_denom > 32 ||
++      h->bl_bit_depth != 10 || h->el_bit_depth != 10 || h->vdr_bit_depth != 12 ||
++      m->nlq_method_idc != AV_DOVI_NLQ_LINEAR_DZ)
++    return false;
++  const uint64_t maximum = UINT64_C(1) << h->coef_log2_denom;
++  for (const auto& n : m->nlq)
++    if (n.nlq_offset || n.vdr_in_max != maximum || n.linear_deadzone_slope ||
++        n.linear_deadzone_threshold)
++      return false;
++  return true;
++}
++} // namespace
++#endif
+ 
+ extern "C" {
+ #include <libavcodec/defs.h>
+@@ -337,6 +374,29 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+ 
+   m_hints = hints;
+   m_options = options;
++#ifdef HAVE_DVBRIDGE
++  m_dvNativeOutput = DVBRIDGE::WantsNativeOutput(hints);
++  m_dvLayerChecked = false;
++  m_dvMel = false;
++  m_dvFelFaults = 0;
++  m_dvFelResyncing = false;
++  m_dvFelBypass = false;
++  m_dvFelWarned = false;
++  m_dvFelUnavailable = false;
++  m_dvHasStreamDisplayMetadata = false;
++  m_dvHasStreamLightMetadata = false;
++  // HDR10+ -> Dolby Vision: an HDR10 stream (no Dolby Vision of its own) whose pictures carry
++  // HDR10+, with the setting on, the Dolby Vision output and the engine's converter. Whether a
++  // picture is shown as Dolby Vision is then decided as for any Dolby Vision picture.
++  m_dvHDR10Plus = DVBRIDGE::playbackHDR10PlusToDV.load() &&
++                          DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard &&
++                          hints.dovi.dv_profile == 0 && DVHDR10PlusToDovi::Available()
++                      ? HDR10PlusToDV::Untried
++                      : HDR10PlusToDV::Off;
++  m_dvHDR10PlusPreviousSize = 0;
++  m_dvHDR10PlusLast.Reset();
++  m_dvHDR10PlusReported = false;
++#endif
+ 
+   const int doviProfile = hints.dovi.dv_profile;
+   m_exportDoviRpu =
+@@ -428,6 +488,26 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+     }
+   }
+ 
++  if (hints.hdrType == StreamHdrType::HDR_TYPE_DOLBYVISION)
++  {
++    size_t configSize = 0;
++    AVDOVIDecoderConfigurationRecord* config = av_dovi_alloc(&configSize);
++    if (!config)
++    {
++      avcodec_free_context(&m_pCodecContext);
++      return false;
++    }
++    *config = hints.dovi;
++    if (!av_packet_side_data_add(&m_pCodecContext->coded_side_data,
++                                 &m_pCodecContext->nb_coded_side_data, AV_PKT_DATA_DOVI_CONF,
++                                 config, configSize, 0))
++    {
++      av_free(config);
++      avcodec_free_context(&m_pCodecContext);
++      return false;
++    }
++  }
++
+   // advanced setting override for skip loop filter (see avcodec.h for valid options)
+   //! @todo allow per video setting?
+   int iSkipLoopFilter = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_iSkipLoopFilter;
+@@ -480,11 +560,49 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+ 
+   m_dropCtrl.Reset(true);
+   m_eof = false;
++#ifdef HAVE_DVBRIDGE
++  if (NeedsDVEnhancement())
++  {
++    AVCodecParameters* parameters = avcodec_parameters_alloc();
++    int result = parameters ? avcodec_parameters_from_context(parameters, m_pCodecContext)
++                            : AVERROR(ENOMEM);
++    if (result >= 0 && hints.doviELConfig)
++    {
++      AVPacketSideData* side = av_packet_side_data_new(&parameters->coded_side_data,
++          &parameters->nb_coded_side_data, AV_PKT_DATA_HEVC_CONF, hints.doviELConfig.GetSize(), 0);
++      if (side)
++        std::memcpy(side->data, hints.doviELConfig.GetData(), hints.doviELConfig.GetSize());
++      else
++        result = AVERROR(ENOMEM);
++    }
++    if (result >= 0)
++      m_dvFel = {dvbridge_fel_create(parameters, AVRational{1, AV_TIME_BASE}), dvbridge_fel_destroy};
++    avcodec_parameters_free(&parameters);
++    // The base layer and its metadata still play, as a MEL's do.
++    if (!m_dvFel)
++    {
++      CLog::Log(LOGWARNING, "Dolby Vision FEL: the enhancement-layer decoder could not be created; "
++                            "showing the base layer and metadata");
++      m_dvFelUnavailable = true;
++    }
++  }
++#endif
+   return true;
+ }
+ 
+ void CDVDVideoCodecFFmpeg::Dispose()
+ {
++#ifdef HAVE_DVBRIDGE
++  m_dvPending.clear();
++  m_dvFel.reset();
++  m_dvFelFaults = 0;
++  m_dvFelResyncing = false;
++  m_dvFelBypass = false;
++  m_dvFelUnavailable = false;
++  m_dvNativeOutput = false;
++  m_dvLayerChecked = false;
++  m_dvMel = false;
++#endif
+   av_frame_free(&m_pFrame);
+   av_frame_free(&m_pDecodedFrame);
+   av_frame_free(&m_pFilterFrame);
+@@ -639,6 +757,11 @@ bool CDVDVideoCodecFFmpeg::AddData(const DemuxPacket &packet)
+   }
+ 
+   int ret = avcodec_send_packet(m_pCodecContext, avpkt);
++#ifdef HAVE_DVBRIDGE
++  // Submit once, only after BL accepted the packet (Kodi retries EAGAIN).
++  if (ret == 0 && m_dvFel && !m_dvFelBypass && !dvbridge_fel_submit(m_dvFel.get(), avpkt))
++    DVFelFault(dvbridge_fel_error(m_dvFel.get()));
++#endif
+ 
+   //! @todo: properly handle avpkt side_data. this works around our improper use of the side_data
+   // as we pass pointers to ffmpeg allocated memory for the side_data. we should really be allocating
+@@ -675,7 +798,188 @@ bool CDVDVideoCodecFFmpeg::AddData(const DemuxPacket &packet)
+   return true;
+ }
+ 
++#ifdef HAVE_DVBRIDGE
++void CDVDVideoCodecFFmpeg::DVFelFault(const char* reason)
++{
++  ++m_dvFelFaults;
++  if (!m_dvFelWarned)
++  {
++    m_dvFelWarned = true;
++    CLog::Log(LOGWARNING,
++              "Dolby Vision FEL: the enhancement layer lost its pairing ({}); showing the base "
++              "layer and metadata until the next common key frame (logged once per title)",
++              reason);
++  }
++  else
++    CLog::Log(LOGDEBUG, "Dolby Vision FEL: pairing fault {} since the last seek: {}",
++              m_dvFelFaults, reason);
++  dvbridge_fel_reset(m_dvFel.get());
++  m_dvFelResyncing = true;
++  if (m_dvFelFaults > DV_FEL_RESYNCS && !m_dvFelBypass)
++  {
++    m_dvFelBypass = true;
++    CLog::Log(LOGWARNING,
++              "Dolby Vision FEL: {} pairing faults since the last seek; the enhancement layer is "
++              "not decoded until the next seek",
++              m_dvFelFaults);
++  }
++}
++
++CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::DVEmitUnpaired(VideoPicture* picture)
++{
++  m_dvPending.front()->doviElSkipped = true;
++  picture->CopyRef(*m_dvPending.front());
++  DVPopPending();
++  return VC_PICTURE;
++}
++
++std::shared_ptr<VideoPicture> CDVDVideoCodecFFmpeg::DVTakePicture()
++{
++  if (m_dvSpare.empty())
++  {
++    auto picture = std::make_shared<VideoPicture>();
++    picture->Reset();
++    return picture;
++  }
++  auto picture = std::move(m_dvSpare.back());
++  m_dvSpare.pop_back();
++  return picture;
++}
++
++void CDVDVideoCodecFFmpeg::DVRecycle(std::shared_ptr<VideoPicture> picture)
++{
++  // Releases its surface and enhancement picture, as destroying it would.
++  picture->Reset();
++  if (m_dvSpare.size() < 4)
++    m_dvSpare.push_back(std::move(picture));
++}
++
++void CDVDVideoCodecFFmpeg::DVPopPending()
++{
++  auto picture = std::move(m_dvPending.front());
++  m_dvPending.pop_front();
++  DVRecycle(std::move(picture));
++}
++#endif
++
+ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPicture)
++{
++#ifdef HAVE_DVBRIDGE
++  if (m_dvFel && !m_dvFelBypass && dvbridge_fel_failed(m_dvFel.get()))
++    DVFelFault(dvbridge_fel_error(m_dvFel.get()));
++  if (m_dvFel && !m_dvFelBypass)
++  {
++    auto emit = [&]() -> VCReturn
++    {
++      if (m_dvPending.empty())
++        return VC_NONE;
++      if (m_dvFelBypass)
++        return DVEmitUnpaired(pVideoPicture);
++      auto& base = m_dvPending.front();
++      if (base->doviSourcePts == AV_NOPTS_VALUE)
++      {
++        DVFelFault("a base picture has no time");
++        return DVEmitUnpaired(pVideoPicture);
++      }
++      AVFrame* enhancement = nullptr;
++      int result = dvbridge_fel_take(m_dvFel.get(), base->doviSourcePts,
++                                     &enhancement);
++      if (result == 2)
++      {
++        // Before the first common key frame: Kodi's preroll after a seek, but shown while the
++        // pairing restarts after a fault.
++        if (m_dvFelResyncing)
++          return DVEmitUnpaired(pVideoPicture);
++        DVPopPending();
++        return VC_BUFFER;
++      }
++      if (result < 0)
++      {
++        if (dvbridge_fel_exhausted(m_dvFel.get()))
++        {
++          CLog::Log(LOGWARNING, "DV FEL: enhancement EOF with {} unpaired base pictures; "
++                               "ending video without substituting enhancement frames",
++                    m_dvPending.size());
++          m_dvPending.clear();
++          return VC_EOF;
++        }
++        DVFelFault(dvbridge_fel_failed(m_dvFel.get()) ? dvbridge_fel_error(m_dvFel.get())
++                                                     : "an enhancement picture is missing");
++        return DVEmitUnpaired(pVideoPicture);
++      }
++      if (!result)
++        return VC_NONE;
++      if (m_dvFelResyncing)
++      {
++        m_dvFelResyncing = false;
++        CLog::Log(LOGDEBUG, "Dolby Vision FEL: the enhancement layer is paired again");
++      }
++      base->doviEnhancement = {enhancement, [](AVFrame* f) { av_frame_free(&f); }};
++      pVideoPicture->CopyRef(*base);
++      DVPopPending();
++      return VC_PICTURE;
++    };
++    VCReturn paired = emit();
++    if (paired != VC_NONE)
++      return paired;
++    if (m_dvPending.size() >= 16)
++    {
++      DVFelFault("16 base pictures wait for their enhancement pictures");
++      return DVEmitUnpaired(pVideoPicture);
++    }
++    auto base = DVTakePicture();
++    VCReturn result = GetBasePicture(base.get());
++    if (m_dvMel)
++    {
++      // Decided on this picture: stop decoding and feeding the EL.
++      CLog::Log(LOGINFO, "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it");
++      m_dvFel.reset();
++      if (result == VC_PICTURE)
++        m_dvPending.push_back(std::move(base));
++      for (auto& picture : m_dvPending)
++        picture->doviElSkipped = true;
++      if (m_dvPending.empty())
++        return result;
++      pVideoPicture->CopyRef(*m_dvPending.front());
++      DVPopPending();
++      return VC_PICTURE;
++    }
++    if (result == VC_PICTURE)
++      m_dvPending.push_back(std::move(base));
++    else
++      DVRecycle(std::move(base));
++    if (m_pCodecContext->hw_frames_ctx)
++    {
++      auto* frames = reinterpret_cast<AVHWFramesContext*>(m_pCodecContext->hw_frames_ctx->data);
++      if (!dvbridge_fel_device(m_dvFel.get(), frames->device_ref))
++        DVFelFault(dvbridge_fel_error(m_dvFel.get()));
++    }
++    // While the pairing restarts there is nothing to drain: its pictures are shown unpaired.
++    if ((result == VC_EOF || (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN)) && !m_dvFelResyncing &&
++        !dvbridge_fel_drain(m_dvFel.get()))
++      DVFelFault(dvbridge_fel_error(m_dvFel.get()));
++    paired = emit();
++    if (paired != VC_NONE)
++      return paired;
++    // The base layer ended: nothing is left to pair the rest with.
++    if (result == VC_EOF && !m_dvPending.empty())
++      return DVEmitUnpaired(pVideoPicture);
++    return result == VC_PICTURE ? VC_BUFFER : result;
++  }
++  // Pictures that waited for an EL partner before the stream turned out a MEL, or before the
++  // pairing was given up.
++  if (!m_dvPending.empty())
++    return DVEmitUnpaired(pVideoPicture);
++  VCReturn result = GetBasePicture(pVideoPicture);
++  if (result == VC_PICTURE && (m_dvMel || m_dvFelBypass || m_dvFelUnavailable))
++    pVideoPicture->doviElSkipped = true;
++  return result;
++#else
++  return GetBasePicture(pVideoPicture);
++#endif
++}
++
++CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetBasePicture(VideoPicture* pVideoPicture)
+ {
+   if (!m_startedInput)
+   {
+@@ -976,8 +1280,82 @@ bool CDVDVideoCodecFFmpeg::SetPictureParams(VideoPicture* pVideoPicture)
+   return true;
+ }
+ 
++#ifdef HAVE_DVBRIDGE
++void CDVDVideoCodecFFmpeg::ConvertHDR10Plus(VideoPicture* picture,
++                                           const AVFrameSideData* hdr10plus)
++{
++  const auto convert = DVHDR10PlusToDovi::Function();
++  if (!convert || !hdr10plus->data || !hdr10plus->size)
++    return;
++  // The stream's static HDR10 metadata (L6, and the source range), as the picture has it.
++  dvvk_hdr10_static hdr10{};
++  if (picture->hasDisplayMetadata && picture->displayMetadata.has_luminance)
++  {
++    hdr10.max_luminance = static_cast<float>(av_q2d(picture->displayMetadata.max_luminance));
++    hdr10.min_luminance = static_cast<float>(av_q2d(picture->displayMetadata.min_luminance));
++  }
++  if (picture->hasLightMetadata)
++  {
++    hdr10.max_cll = static_cast<uint16_t>(std::min(picture->lightMetadata.MaxCLL, 65535u));
++    hdr10.max_fall = static_cast<uint16_t>(std::min(picture->lightMetadata.MaxFALL, 65535u));
++  }
++  if (m_dvHDR10PlusDovi.empty())
++    m_dvHDR10PlusDovi.resize(DVVK_HDR10PLUS_DOVI_BYTES / sizeof(uint64_t));
++  size_t size = 0;
++  dvvk_hdr10plus_dovi_info info{};
++  const int result = convert(hdr10plus->data, hdr10plus->size, &hdr10,
++                             m_dvHDR10PlusPreviousSize ? m_dvHDR10PlusPrevious.data() : nullptr,
++                             m_dvHDR10PlusDovi.data(), DVVK_HDR10PLUS_DOVI_BYTES, &size, &info);
++  // The next picture's scene comparison is against this one.
++  m_dvHDR10PlusPrevious.resize((hdr10plus->size + sizeof(uint64_t) - 1) / sizeof(uint64_t));
++  std::memcpy(m_dvHDR10PlusPrevious.data(), hdr10plus->data, hdr10plus->size);
++  m_dvHDR10PlusPreviousSize = hdr10plus->size;
++  if (result == 0 && picture->doviMetadata.Assign(
++                         reinterpret_cast<const uint8_t*>(m_dvHDR10PlusDovi.data()), size))
++  {
++    if (m_dvHDR10Plus == HDR10PlusToDV::Untried)
++      CLog::Log(LOGINFO, "HDR10+ to Dolby Vision: the title plays as Dolby Vision Profile 8.1 "
++                "(L1 {}/{}/{}, source {}..{} PQ{}{})", info.l1_min, info.l1_max, info.l1_avg,
++                info.source_min_pq, info.source_max_pq,
++                info.estimated_fields ? ", L1 partly estimated" : "",
++                info.untranslated_curve || info.untranslated_saturation
++                    ? ", the HDR10+ curve/saturation are not translated" : "");
++    m_dvHDR10Plus = HDR10PlusToDV::Converting;
++    m_dvHDR10PlusLast = picture->doviMetadata;
++    return;
++  }
++  if (m_dvHDR10Plus == HDR10PlusToDV::Untried)
++  {
++    // Not representable (several windows, no usable peak) or malformed: plain HDR10 for the title.
++    m_dvHDR10Plus = HDR10PlusToDV::Plain;
++    picture->doviMetadata.Reset();
++    CLog::Log(LOGWARNING, "HDR10+ to Dolby Vision: not possible for this title ({}); it plays as HDR10",
++              result == -2 ? "not representable" : "invalid HDR10+");
++    return;
++  }
++  // Already shown as Dolby Vision: switching outputs mid-title would blank the screen, so this
++  // picture keeps the previous picture's metadata.
++  picture->doviMetadata = m_dvHDR10PlusLast;
++  if (!m_dvHDR10PlusReported)
++  {
++    m_dvHDR10PlusReported = true;
++    CLog::Log(LOGWARNING, "HDR10+ to Dolby Vision: a picture could not be converted ({}); it keeps "
++              "the previous picture's metadata (logged once)", result);
++  }
++}
++#endif
++
+ void CDVDVideoCodecFFmpeg::Reset()
+ {
++#ifdef HAVE_DVBRIDGE
++  m_dvPending.clear();
++  dvbridge_fel_reset(m_dvFel.get());
++  m_dvFelFaults = 0;
++  m_dvFelResyncing = false;
++  m_dvFelBypass = false;
++  // After a seek the next HDR10+ picture starts a scene.
++  m_dvHDR10PlusPreviousSize = 0;
++#endif
+   m_started = false;
+   m_startedInput = false;
+   m_interlaced = false;
+@@ -1192,7 +1570,23 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+   {
+     pVideoPicture->displayMetadata = *(AVMasteringDisplayMetadata *)sd->data;
+     pVideoPicture->hasDisplayMetadata = true;
++#ifdef HAVE_DVBRIDGE
++    m_dvStreamDisplayMetadata = pVideoPicture->displayMetadata;
++    m_dvHasStreamDisplayMetadata = true;
++#endif
++  }
++#ifdef HAVE_DVBRIDGE
++  // HDR10 static metadata describes the whole stream, but encoders may carry
++  // its SEI only on the first IRAP. Without it a later frame compares as a
++  // format change, the renderer is rebuilt and native DV output is restarted
++  // (two full HDMI modesets mid-playback). Keep the last in-band values for
++  // the rest of this DV stream; a new SEI still replaces them.
++  else if (m_dvNativeOutput && m_dvHasStreamDisplayMetadata)
++  {
++    pVideoPicture->displayMetadata = m_dvStreamDisplayMetadata;
++    pVideoPicture->hasDisplayMetadata = true;
+   }
++#endif
+   else if (m_hints.masteringMetadata)
+   {
+     pVideoPicture->displayMetadata = *m_hints.masteringMetadata.get();
+@@ -1203,7 +1597,18 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+   {
+     pVideoPicture->lightMetadata = *(AVContentLightMetadata *)sd->data;
+     pVideoPicture->hasLightMetadata = true;
++#ifdef HAVE_DVBRIDGE
++    m_dvStreamLightMetadata = pVideoPicture->lightMetadata;
++    m_dvHasStreamLightMetadata = true;
++#endif
++  }
++#ifdef HAVE_DVBRIDGE
++  else if (m_dvNativeOutput && m_dvHasStreamLightMetadata)
++  {
++    pVideoPicture->lightMetadata = m_dvStreamLightMetadata;
++    pVideoPicture->hasLightMetadata = true;
+   }
++#endif
+   else if (m_hints.contentLightMetadata)
+   {
+     pVideoPicture->lightMetadata = *m_hints.contentLightMetadata.get();
+@@ -1235,14 +1640,26 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+           m_hints.dovi.dv_profile, m_hints.dovi.dv_bl_signal_compatibility_id, std::move(rpu)});
+   }
+ 
++  pVideoPicture->doviMetadata.Reset();
++  pVideoPicture->doviSourcePts = m_pFrame->best_effort_timestamp;
+   if (pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_DOLBYVISION)
+   {
+     sd = av_frame_get_side_data(m_pFrame, AV_FRAME_DATA_DOVI_METADATA);
+     if (sd)
+     {
++      if (!pVideoPicture->doviMetadata.Share(sd->buf, sd->data, sd->size))
++        CLog::Log(LOGWARNING, "Unable to retain Dolby Vision picture metadata");
+       AVDOVIMetadata* dovi = (AVDOVIMetadata*)sd->data;
+       const AVDOVIRpuDataHeader* hdr = av_dovi_get_header(dovi);
+       const AVDOVIDataMapping* mapping = av_dovi_get_mapping(dovi);
++#ifdef HAVE_DVBRIDGE
++      if (m_dvFel && !m_dvLayerChecked && hdr && mapping)
++      {
++        m_dvLayerChecked = true;
++        const char* el = std::getenv("DV_MEL_EL");
++        m_dvMel = DVNoResidual(hdr, mapping) && !(el && std::strcmp(el, "decode") == 0);
++      }
++#endif
+ 
+       if (hdr != nullptr && hdr->el_spatial_resampling_filter_flag == 1 &&
+           hdr->disable_residual_flag == 0)
+@@ -1273,8 +1690,19 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+         pVideoPicture->hdrType = StreamHdrType::HDR_TYPE_HDR10PLUS;
+       else
+         pVideoPicture->hdrTypeAlt = StreamHdrType::HDR_TYPE_HDR10PLUS;
++#ifdef HAVE_DVBRIDGE
++      if (pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HDR10PLUS &&
++          m_dvHDR10Plus != HDR10PlusToDV::Off && m_dvHDR10Plus != HDR10PlusToDV::Plain)
++        ConvertHDR10Plus(pVideoPicture, sd);
++#endif
+     }
+   }
++#ifdef HAVE_DVBRIDGE
++  // A picture of a converted title without HDR10+ of its own keeps the last picture's metadata.
++  if (m_dvHDR10Plus == HDR10PlusToDV::Converting && !pVideoPicture->doviMetadata.Data() &&
++      pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HDR10)
++    pVideoPicture->doviMetadata = m_dvHDR10PlusLast;
++#endif
+ 
+   if (pVideoPicture->iRepeatPicture)
+     pVideoPicture->dts = DVD_NOPTS_VALUE;
+@@ -1580,4 +2008,3 @@ IHardwareDecoder* CDVDVideoCodecFFmpeg::GetHWAccel()
+ {
+   return m_pHardware;
+ }
+-
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index b84fee9..95f3e4c 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -17,6 +17,10 @@
+ #include <memory>
+ #include <string>
+ #include <vector>
++#ifdef HAVE_DVBRIDGE
++#include <deque>
++struct dvbridge_fel;
++#endif
+ 
+ extern "C"
+ {
+@@ -47,8 +51,62 @@ public:
+ 
+   IHardwareDecoder* GetHWAccel() override;
+   bool GetPictureCommon(VideoPicture* pVideoPicture) override;
++#ifdef HAVE_DVBRIDGE
++  bool NeedsDVEnhancement() const
++  {
++    return m_dvNativeOutput && m_hints.dovi.dv_profile == 7 && m_hints.dovi.el_present_flag;
++  }
++#endif
+ 
+ protected:
++  CDVDVideoCodec::VCReturn GetBasePicture(VideoPicture* picture);
++#ifdef HAVE_DVBRIDGE
++  std::shared_ptr<dvbridge_fel> m_dvFel;
++  std::deque<std::shared_ptr<VideoPicture>> m_dvPending;
++  // A pairing fault (a packet without a time, a parser miss, a missing enhancement picture...)
++  // restarts the pairing at the next common key frame; meanwhile the pictures play as a MEL's do,
++  // base layer and metadata. After DV_FEL_RESYNCS restarts the enhancement layer is not decoded
++  // until the next seek.
++  static constexpr unsigned DV_FEL_RESYNCS = 3;
++  void DVFelFault(const char* reason);
++  VCReturn DVEmitUnpaired(VideoPicture* picture);
++  // Pending pictures are reused rather than allocated per frame.
++  std::vector<std::shared_ptr<VideoPicture>> m_dvSpare;
++  std::shared_ptr<VideoPicture> DVTakePicture();
++  void DVRecycle(std::shared_ptr<VideoPicture> picture);
++  void DVPopPending();
++  unsigned m_dvFelFaults{0};
++  bool m_dvFelResyncing{false};
++  bool m_dvFelBypass{false};
++  bool m_dvFelWarned{false};
++  bool m_dvFelUnavailable{false}; // the enhancement-layer decoder could not be created
++  // Profile 7: the first RPU decides whether the stream is a MEL (Dolby: a
++  // bitstream is MEL or non-MEL throughout); a MEL's EL is not decoded.
++  bool m_dvLayerChecked{false};
++  bool m_dvMel{false};
++  bool m_dvNativeOutput{false};
++  // Last in-band HDR10 static metadata of this stream (see GetPictureCommon).
++  bool m_dvHasStreamDisplayMetadata{false};
++  AVMasteringDisplayMetadata m_dvStreamDisplayMetadata{};
++  bool m_dvHasStreamLightMetadata{false};
++  AVContentLightMetadata m_dvStreamLightMetadata{};
++  // HDR10+ -> Dolby Vision (dvbridge.hdr10plussources): each HDR10+ picture
++  // gets Profile 8.1 metadata made from its HDR10+ (DVHDR10PlusToDovi.h).
++  enum class HDR10PlusToDV
++  {
++    Off,        // not asked for, or not possible here
++    Untried,    // no HDR10+ picture yet
++    Converting, // the title plays as Dolby Vision
++    Plain,      // its first HDR10+ picture could not be represented: plain HDR10
++  };
++  HDR10PlusToDV m_dvHDR10Plus{HDR10PlusToDV::Off};
++  std::vector<uint64_t> m_dvHDR10PlusPrevious; // the previous picture's AVDynamicHDRPlus
++  size_t m_dvHDR10PlusPreviousSize{0};
++  std::vector<uint64_t> m_dvHDR10PlusDovi;     // the conversion's output (8-aligned)
++  CDVMetadataBuffer m_dvHDR10PlusLast;         // the last picture's metadata
++  bool m_dvHDR10PlusReported{false};
++  void ConvertHDR10Plus(VideoPicture* picture, const AVFrameSideData* hdr10plus);
++#endif
+   void Dispose();
+   CDVDVideoCodec::VCReturn HandleHwFatal();
+   static enum AVPixelFormat GetFormat(struct AVCodecContext * avctx, const AVPixelFormat * fmt);
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVHDR10PlusToDovi.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVHDR10PlusToDovi.h
+new file mode 100644
+index 0000000..5da577a
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVHDR10PlusToDovi.h
+@@ -0,0 +1,53 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++
++#include "utils/log.h"
++
++#include <dlfcn.h>
++
++#include <cstdlib>
++#include <mutex>
++
++#include <dv-engine-vk/dv_engine_vk.h>
++
++/*!
++ * HDR10+ -> Dolby Vision (YBLOD 0.4.0 F): the Vulkan engine library's
++ * dvvk_hdr10plus_to_dovi (optional symbol, no engine instance needed) turns a
++ * picture's HDR10+ (AV_FRAME_DATA_DYNAMIC_HDR_PLUS) into the Profile 8.1
++ * AVDOVIMetadata the engine takes with an HDR10 base layer. The decoder calls
++ * it for each picture, so the result travels with the picture exactly as a
++ * Dolby Vision picture's AVDOVIMetadata does (VideoPicture::doviMetadata).
++ */
++namespace DVHDR10PlusToDovi
++{
++using Convert = decltype(&dvvk_hdr10plus_to_dovi);
++
++//! The library's converter, or nullptr (no library, another ABI, or an engine without it).
++inline Convert Function()
++{
++  static std::once_flag probed;
++  static Convert convert = nullptr;
++  std::call_once(probed, [] {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0])
++      library = DVVK_LIBRARY;
++    // Kept loaded for the life of Kodi (the engine instances dlopen it again).
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    if (!handle)
++      return;
++    auto abi = reinterpret_cast<uint32_t (*)()>(dlsym(handle, "dvvk_abi_version"));
++    if (abi && abi() == DVVK_ABI_VERSION)
++      convert = reinterpret_cast<Convert>(dlsym(handle, "dvvk_hdr10plus_to_dovi"));
++    if (!convert)
++      dlclose(handle);
++    CLog::Log(LOGINFO, "Vulkan engine {}: HDR10+ to Dolby Vision {}", library,
++              convert ? "available" : "not available");
++  });
++  return convert;
++}
++
++inline bool Available()
++{
++  return Function() != nullptr;
++}
++} // namespace DVHDR10PlusToDovi
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
+index 659e2ec..2aa21c8 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/VAAPI.cpp
+@@ -26,6 +26,9 @@
+ #include <array>
+ #include <mutex>
+ #include <optional>
++#ifdef HAVE_DVBRIDGE
++#include "DVDVideoCodecFFmpeg.h"
++#endif
+ 
+ #include <drm_fourcc.h>
+ #include <va/va_drm.h>
+@@ -780,6 +783,20 @@ bool CDecoder::Open(AVCodecContext* avctx, AVCodecContext* mainctx, const enum A
+ 
+   vaapiDeviceCtx->display = m_vaapiConfig.dpy;
+   vaapiDeviceCtx->driver_quirks = AV_VAAPI_DRIVER_QUIRK_RENDER_PARAM_BUFFERS;
++#ifdef HAVE_DVBRIDGE
++  const auto* dvDecoder = dynamic_cast<CDVDVideoCodecFFmpeg*>(
++      static_cast<ICallbackHWAccel*>(avctx->opaque));
++  if (dvDecoder && dvDecoder->NeedsDVEnhancement())
++  {
++    // A second FFmpeg-managed decoder needs the device's format table initialized.
++    vaapiDeviceCtx->driver_quirks |= AV_VAAPI_DRIVER_QUIRK_USER_SET;
++    if (av_hwdevice_ctx_init(m_deviceRef.get()) < 0)
++    {
++      av_buffer_unref(&framesRef);
++      return false;
++    }
++  }
++#endif
+   vaapiFramesCtx->nb_attributes = 0;
+   vaapiFramesCtx->nb_surfaces = m_videoSurfaces.Size();
+   VASurfaceID *surfaceIds = (VASurfaceID*)av_malloc(vaapiFramesCtx->nb_surfaces *  sizeof(VASurfaceID));
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/CMakeLists.txt b/xbmc/cores/VideoPlayer/DVDDemuxers/CMakeLists.txt
+index 9a16cd3..2ee71f9 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/CMakeLists.txt
+@@ -34,3 +34,6 @@ set(HEADERS DemuxMultiSource.h
+             DVDFactoryDemuxer.h)
+ 
+ core_add_library(dvddemuxers)
++if(ENABLE_DVBRIDGE)
++  target_include_directories(dvddemuxers PRIVATE ${CMAKE_SOURCE_DIR}/tools/dvbridge)
++endif()
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 1f298af..d795ab7 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -9,6 +9,14 @@
+ #include "DVDDemuxFFmpeg.h"
+ 
+ #include "DVDDemuxUtils.h"
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDStreamInfo.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h"
++extern "C"
++{
++#include "dvbridge_fel_seek.h"
++}
++#endif
+ #include "DVDInputStreams/DVDInputStream.h"
+ #ifdef HAVE_LIBBLURAY
+ #include "DVDInputStreams/DVDInputStreamBluray.h"
+@@ -1417,8 +1425,43 @@ bool CDVDDemuxFFmpeg::SeekTime(double time, bool backwards, double* startpts)
+       ret = -1;
+     }
+     else
++    {
++      // The FEL preroll runs only when a seek actually happens: skipSeek and beyondEof above
++      // are decided on the requested target, so a seek past the end still skips the scan and
++      // forces EOF instead of probing for an enhancement-layer anchor.
++#ifdef HAVE_DVBRIDGE
++      // Only the native dual-layer DV path needs enhancement preroll. Keep the
++      // requested startpts below unchanged so Kodi discards preroll normally.
++      if (!m_checkTransportStream && m_seekStream == -1)
++      {
++        for (const auto& [id, stream] : m_streams)
++        {
++          if (stream->type != StreamType::VIDEO || id < 0 ||
++              static_cast<unsigned>(id) >= m_pFormatContext->nb_streams)
++            continue;
++          CDVDStreamInfo hints(*stream);
++          if (hints.dovi.dv_profile != 7 || !hints.dovi.el_present_flag ||
++              !DVBRIDGE::WantsNativeOutput(hints))
++            continue;
++          AVStream* video = m_pFormatContext->streams[id];
++          const int64_t target = av_rescale_q(seek_pts, AV_TIME_BASE_Q, video->time_base);
++          const int64_t anchor = dvbridge_fel_seek_point(m_pFormatContext, id, target);
++          if (anchor != AV_NOPTS_VALUE)
++          {
++            seek_pts = av_rescale_q(anchor, video->time_base, AV_TIME_BASE_Q);
++            backwards = true;
++            CLog::Log(LOGDEBUG, "DV FEL: random-access preroll begins at {} us for {} ms seek",
++                      seek_pts, time);
++          }
++          else
++            CLog::Log(LOGWARNING, "DV FEL: no common random-access point in bounded seek probe");
++          break;
++        }
++      }
++#endif
+       ret = av_seek_frame(m_pFormatContext, m_seekStream, seek_pts,
+                           backwards ? AVSEEK_FLAG_BACKWARD : 0);
++    }
+ 
+     if (ret < 0)
+     {

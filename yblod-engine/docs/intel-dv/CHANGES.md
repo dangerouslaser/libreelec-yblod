@@ -163,17 +163,22 @@ The table below covers the files of the Intel Dolby Vision tunnel (`linux-9900`,
 
 ## kodi
 
-Kodi 9994 holds compatibility/retry changes. The independently removable 9995
-holds lightweight diagnostics; its counters never drive playback decisions.
-`DVBridgeState.cpp` has no added diagnostic changes. Shared shaders, metadata
-helpers and the existing native overlay/composition policy are unchanged.
+Since 0.5.0 the Kodi patches are the series `kodi-9950` to `kodi-9957`
+described in [KODI-PATCHES.md](../../../yblod/docs/KODI-PATCHES.md), which also
+says where the patches named in this file went. The HDMI retry changes and the
+diagnostics are in kodi-9953; the diagnostics' counters never drive playback
+decisions.
 
 | Patch | Purpose |
 | --- | --- |
-| [kodi-9990-native-dv.patch](../../patches/kodi/kodi-9990-native-dv.patch) | Integrate automatic native Dolby Vision playback and exact GPU transport. |
-| [kodi-9993-fel-presentation-pairing.patch](../../patches/kodi/kodi-9993-fel-presentation-pairing.patch) | Correct FEL picture pairing and recover accurate playback after seeks. |
-| [kodi-9994-hdmi-recovery.patch](../../patches/kodi/kodi-9994-hdmi-recovery.patch) | Align sink validation and pace persistent HDMI failures. |
-| [kodi-9995-diagnostics.patch](../../patches/kodi/kodi-9995-diagnostics.patch) | Record automatic compact diagnostics and kernel rejection reasons. |
+| [kodi-9950-dv-stream-and-picture-metadata.patch](../../patches/kodi/kodi-9950-dv-stream-and-picture-metadata.patch) | Carry stream and picture metadata through VideoPlayer. |
+| [kodi-9951-dv-dvbridge-library.patch](../../patches/kodi/kodi-9951-dv-dvbridge-library.patch) | The tools/dvbridge library: menu metadata and packing, FEL pairing. |
+| [kodi-9952-dv-decoder.patch](../../patches/kodi/kodi-9952-dv-decoder.patch) | Decode both layers and the metadata; FEL seeks and resynchronisation. |
+| [kodi-9953-dv-display-drm-and-diagnostics.patch](../../patches/kodi/kodi-9953-dv-display-drm-and-diagnostics.patch) | Sink validation, DRM output state, paced HDMI retries, diagnostics. |
+| [kodi-9954-dv-gui-composite-hooks.patch](../../patches/kodi/kodi-9954-dv-gui-composite-hooks.patch) | GUI composite hooks. |
+| [kodi-9955-dv-settings-strings-and-player-info.patch](../../patches/kodi/kodi-9955-dv-settings-strings-and-player-info.patch) | Settings, strings and player information. |
+| [kodi-9956-dv-vulkan-engine-adapter.patch](../../patches/kodi/kodi-9956-dv-vulkan-engine-adapter.patch) | The Vulkan engine adapter. |
+| [kodi-9957-dv-renderer-window-and-build.patch](../../patches/kodi/kodi-9957-dv-renderer-window-and-build.patch) | Renderer, window and the ENABLE_DVBRIDGE build switch. |
 
 | Changed source file | High-level change |
 | --- | --- |
@@ -266,7 +271,7 @@ The separate HDR10 precision retry is not a DV metadata or tone-mapping change.
 
 ## Kernel diagnostics in Kodi
 
-`kodi-9995-diagnostics.patch` includes the removable background logging hook:
+`kodi-9953-dv-display-drm-and-diagnostics.patch` includes the background logging hook:
 
 - `DRMAtomic.cpp`: request kernel evidence only after a bounded DV output failure.
 - `DVBridgeKernelLog.h`: parse kernel records; exclude userspace, stale, duplicate and unrelated messages.

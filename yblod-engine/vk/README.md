@@ -36,7 +36,7 @@ removal (`dvvk_plan_in.dm_options`; Kodi: `DV_VULKAN_CM4`, off by default).
 byte for byte on the five titles below, `cargo test`.
 
 Kodi uses it when Settings > Player > Dolby Vision > Engine is Vulkan
-(packages/graphics/yblod-engine-vk; Kodi patches yblod-23, -25 and -27). The OpenCL engine
+(packages/graphics/yblod-engine-vk; Kodi patch kodi-9956-dv-vulkan-engine-adapter). The OpenCL engine
 stays installed as the fallback.
 
 **CB1 Master Reference's processing** (`dvvk_plan_in.cb1_contract`): the
@@ -46,7 +46,7 @@ reshaping, no chroma phase pre-filter, the ETSI GS CCM 001 Annex B EL and
 4:2:2 filters, and CB1's metadata serializer (block order, L5 always, packet
 id on a payload change). Checked byte for byte against CB1's own code with
 `dvvk-mr-compare` in that tree (P7 FEL, P7 MEL, P8.1, letterboxed P8.1, P5;
-Intel and AMD). Kodi's adapter (patch yblod-25) asks for it for unscaled
+Intel and AMD). Kodi's adapter (patch kodi-9956) asks for it for unscaled
 pictures when `DV_VULKAN_CB1=1` (on in runtime.env); scaled pictures, and the
 OpenCL engine, stay yblod's own. The code forks on `cb1_contract` in
 `yblod/plan.c` and on `chroma_filter` / `ANNEXB` in `shaders/pack.comp`.
