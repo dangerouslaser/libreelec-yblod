@@ -21,7 +21,7 @@ VRR on the generator wedged the display): intel_vrr_is_capable() is
 false for an HDMI connector, so intel_vrr_compute_config() computes
 fixed-rate timings whatever VRR_ENABLED says.
 
-As on the Pi, for Kodi's VRR support (kodi-9999-yblod-36): an HDMI connector
+As on the Pi, for Kodi's VRR support (kodi-9990-variable-refresh-rate): an HDMI connector
 whose sink has a FreeSync range reaching 60 Hz is vrr_capable; its
 1080p/2160p rates in the range below 60 Hz are listed as the 60 Hz base with
 a longer vertical front porch (47.952, 48, 50, 59.94 on a 40-120 Hz TV); and
