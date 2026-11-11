@@ -84,23 +84,33 @@ For per-file details and removal boundaries, see [patches/README.md](../../patch
 
 ## linux
 
-The new diagnostics are separate from sink compatibility and HDMI serialization.
+One series, applied in file name order through the links in
+`projects/Generic/patches/linux/`. The files live in `yblod-engine/patches/linux/`
+(Dolby Vision, HDR10+ and the HDMI link fixes the tunnel needs) and
+`yblod/patches/linux/` (QMS, FreeSync and general HDMI changes). Each is `git
+format-patch` output; its header says what it does, where it came from and what
+it was tested on. Until 0.4.1 the series was 30 files (`linux-9900-00` to
+`linux-9933`); the regrouping changed no code.
 
 | Patch | Purpose |
 | --- | --- |
-| [linux-9900-00-drivers__gpu__drm__i915__display__intel_atomic.c.patch](../../patches/linux/linux-9900-00-drivers__gpu__drm__i915__display__intel_atomic.c.patch) | Expose the validated Dolby Vision connector control. |
-| [linux-9900-01-drivers__gpu__drm__i915__display__intel_display.c.patch](../../patches/linux/linux-9900-01-drivers__gpu__drm__i915__display__intel_display.c.patch) | Protect Dolby Vision transport from display processing. |
-| [linux-9900-02-drivers__gpu__drm__i915__display__intel_display_params.c.patch](../../patches/linux/linux-9900-02-drivers__gpu__drm__i915__display__intel_display_params.c.patch) | Retain the low-level Dolby Vision recovery parameter. |
-| [linux-9900-03-drivers__gpu__drm__i915__display__intel_display_params.h.patch](../../patches/linux/linux-9900-03-drivers__gpu__drm__i915__display__intel_display_params.h.patch) | Enable automatic eligible Dolby Vision in this image. |
-| [linux-9900-04-drivers__gpu__drm__i915__display__intel_display_types.h.patch](../../patches/linux/linux-9900-04-drivers__gpu__drm__i915__display__intel_display_types.h.patch) | Track Dolby Vision state on Intel HDMI connectors. |
-| [linux-9900-05-drivers__gpu__drm__i915__display__intel_dv_lab_policy.h.patch](../../patches/linux/linux-9900-05-drivers__gpu__drm__i915__display__intel_dv_lab_policy.h.patch) | Validate TV capabilities and supported Dolby Vision modes. |
-| [linux-9900-06-drivers__gpu__drm__i915__display__intel_dvbridge_hdr_policy.h.patch](../../patches/linux/linux-9900-06-drivers__gpu__drm__i915__display__intel_dvbridge_hdr_policy.h.patch) | Preserve HDR10 precision when HDMI bandwidth is limited. |
-| [linux-9900-07-drivers__gpu__drm__i915__display__intel_hdmi.c.patch](../../patches/linux/linux-9900-07-drivers__gpu__drm__i915__display__intel_hdmi.c.patch) | Connect Intel HDMI negotiation to Dolby Vision output. |
-| [linux-9900-08-drivers__video__hdmi.c.patch](../../patches/linux/linux-9900-08-drivers__video__hdmi.c.patch) | Encode and validate Dolby Vision HDMI signaling. |
-| [linux-9900-09-include__linux__hdmi.h.patch](../../patches/linux/linux-9900-09-include__linux__hdmi.h.patch) | Define shared Dolby Vision HDMI signaling structures. |
-| [linux-9901-native-hdmi-level-shifter.patch](../../patches/linux/linux-9901-native-hdmi-level-shifter.patch) | Recognize native HDMI level shifters without allowing active DP conversion. |
-| [linux-9902-hdmi-compatibility.patch](../../patches/linux/linux-9902-hdmi-compatibility.patch) | Share validated v0/v1/v2 sink capabilities and select matching HDMI signaling. |
-| [linux-9903-diagnostics.patch](../../patches/linux/linux-9903-diagnostics.patch) | Retain bounded kernel rejection reasons without verbose DRM logging. |
+| [linux-9900-video-hdmi-dolby-vendor-infoframes.patch](../../patches/linux/linux-9900-video-hdmi-dolby-vendor-infoframes.patch) | Dolby vendor InfoFrames in the HDMI helpers: the Dolby-OUI form and the HDMI 1.4b form. |
+| [linux-9901-i915-dolby-vision-tunnel.patch](../../patches/linux/linux-9901-i915-dolby-vision-tunnel.patch) | i915: the Dolby Vision tunnel on native HDMI (connector properties, link and scanout policy, EDID parser, tunnel formats, rejection messages). |
+| [linux-9904-i915-dvbridge-hdr10-deep-color.patch](../../patches/linux/linux-9904-i915-dvbridge-hdr10-deep-color.patch) | i915: `DVBRIDGE_HDR10_DEEP_COLOR`, 10 bpc or nothing for HDR10 converted from Dolby Vision. |
+| [linux-9910-i915-hdmi-qms.patch](../../../yblod/patches/linux/linux-9910-i915-hdmi-qms.patch) | i915: HDMI 2.1 Quick Media Switching (refresh rate changes without a blank). |
+| [linux-9912-i915-hdmi-spd-source-type.patch](../../../yblod/patches/linux/linux-9912-i915-hdmi-spd-source-type.patch) | i915: the SPD InfoFrame says "Digital STB", so TVs do not treat the input as a PC. |
+| [linux-9913-hdmi-link-robustness.patch](../../patches/linux/linux-9913-hdmi-link-robustness.patch) | i915, amdgpu: a short HPD drop is not an unplug; the sink's SCDC is checked again after a hotplug. |
+| [linux-9920-amdgpu-dolby-vision-tunnel.patch](../../patches/linux/linux-9920-amdgpu-dolby-vision-tunnel.patch) | amdgpu: the Dolby Vision tunnel on native HDMI, with i915's properties and policies. |
+| [linux-9922-amdgpu-avi-itc-no-data.patch](../../../yblod/patches/linux/linux-9922-amdgpu-avi-itc-no-data.patch) | amdgpu: AVI InfoFrame ITC=0 for content type No Data. |
+| [linux-9923-hdr-10bpc-ycbcr420.patch](../../../yblod/patches/linux/linux-9923-hdr-10bpc-ycbcr420.patch) | amdgpu, i915: HDR at 4K50/60 as 10 bpc YCbCr 4:2:0 instead of 8 bpc RGB. |
+| [linux-9924-amdgpu-dcn10-black-background.patch](../../../yblod/patches/linux/linux-9924-amdgpu-dcn10-black-background.patch) | amdgpu: DCN 1.x blends against black, not green, on YCbCr links. |
+| [linux-9930-i915-dolby-vision-dp-hdmi-converter.patch](../../patches/linux/linux-9930-i915-dolby-vision-dp-hdmi-converter.patch) | i915: Dolby Vision through an onboard DP-to-HDMI converter (INUC 11). |
+| [linux-9931-i915-dolby-vision-lspcon-level-shifter.patch](../../patches/linux/linux-9931-i915-dolby-vision-lspcon-level-shifter.patch) | i915: Dolby Vision through the NUC7's MCDP2800 LSPCON in level-shifter mode. |
+| [linux-9932-drm-hdr10plus-metadata.patch](../../patches/linux/linux-9932-drm-hdr10plus-metadata.patch) | DRM core, HDMI helpers, i915, amdgpu: HDR10+ dynamic metadata (`HDR10PLUS_METADATA`). |
+| [linux-9933-i915-hdmi-freesync.patch](../../../yblod/patches/linux/linux-9933-i915-hdmi-freesync.patch) | i915: FreeSync over HDMI on QMS's rate changes. |
+
+The table below covers the files of the Intel Dolby Vision tunnel (`linux-9900`,
+`linux-9901`).
 
 | Changed source file | High-level change |
 | --- | --- |

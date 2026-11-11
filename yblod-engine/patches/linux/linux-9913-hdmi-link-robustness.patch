@@ -1,0 +1,315 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH] drm/i915, drm/amdgpu: HDMI sinks that drop HPD or reset SCDC
+ on a mode change
+
+TVs drop HPD for a moment when they change picture mode: an LG G5 for
+about 0.4 s, about 0.4 s after Dolby Vision engages or stops, or after a
+refresh rate change. Two things go wrong then.
+
+1. The sink can reset its SCDC TMDS_Config after intel_hdmi_reset_link
+read it as matching: it then expects a 1/10 TMDS bit clock ratio while
+the source sends 1/40 at 594 MHz, a valid signal the TV shows as "No
+signal" until the next modeset (petunia, 2026-10-29: TMDS_Config 0x01
+against hdmi_high_tmds_clock_ratio).
+
+i915: after any hotplug of a connected HDMI sink, intel_ddi_hotplug
+looks at the sink's SCDC again once a second for 4 s (the
+INTEL_HOTPLUG_RETRY path, also when the hotplug changed the connector's
+status). intel_hdmi_reset_link does nothing unless the link scrambles or
+runs at 1/40, and a modeset only if the sink disagrees; at most 3 such
+modesets in 20 s, so a sink that resets again after each one ends with a
+wrong link, not an endless blank.
+
+2. Reported as a disconnect, the drop makes the compositor remove the
+output and add it back: windows recreated over the video, the saved
+configuration applied again (undoing a temporary refresh rate,
+resolution and HDR), a blank.
+
+i915: intel_hdmi_detect reports a connected HDMI sink with a CRTC as
+still connected (EDID kept) while HPD is low, for up to i915.hpd_hold_ms
+(3000; 0 off), and intel_ddi_hotplug looks again every second meanwhile,
+so a real unplug is reported when the time is up. Display version 11 and
+later (where detect reads the live HPD state).
+
+amdgpu: upstream's HDMI HPD debounce
+(amdgpu.hdmi_hpd_debounce_delay_ms, off by default upstream) is on by
+default at 3000 ms. A sink that comes back with the same EDID gets no
+hotplug event; DC re-enables the stream itself.
+
+Together: no SCDC recheck while HPD is held low. The sink does not
+answer then, its TMDS_Config read as 0x00 and intel_hdmi_reset_link made
+up to three modesets, 3.5 to 4 s of black after every Dolby Vision stop
+on the G5 (petunia, 2026-11-03: 28 drops, 47 "Sink's TMDS config 0x00
+doesn't match the link ... modeset", 21 "still wrong after 3 modesets").
+HPD coming back is a new hotplug (hotplug_retries from 0), so the 4 s
+recheck starts from then, which is when a sink that came back with the
+wrong TMDS_Config is fixed.
+
+From big-fella (linux-yblod 7.3-7 and 7.3-8), where kwin-big-fella had
+held such an output for 3 s itself (kwin-big-fella-hotplug-hold.patch).
+
+Validation as recorded with the original patches: the HPD hold was "not
+yet tested with a sink that drops HPD (the LG B4 on ryzen-fella and the
+N150 doesn't); there, boots, forced detects and EDID changes neither
+hold nor remove the output".
+
+Regrouped from linux-9913-big-fella-hdmi-scdc-recheck,
+linux-9925-big-fella-hdmi-hpd-hold and
+linux-9927-big-fella-hdmi-scdc-after-hold (YBLOD 0.3.3 to 0.4.1); no
+code change.
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c       | 14 ++++-
+ drivers/gpu/drm/i915/display/intel_ddi.c      | 62 ++++++++++++++++++-
+ .../drm/i915/display/intel_display_types.h    |  9 +++
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 56 ++++++++++++++++-
+ drivers/gpu/drm/i915/display/intel_hotplug.c  |  7 ++-
+ 5 files changed, 142 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index d9d794a7db96..dac2f895b5e2 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -245,7 +245,8 @@ int amdgpu_damage_clips = -1; /* auto */
+ int amdgpu_umsch_mm_fwlog;
+ int amdgpu_rebar = -1; /* auto */
+ int amdgpu_user_queue = -1;
+-uint amdgpu_hdmi_hpd_debounce_delay_ms;
++/* big-fella: 3000, not 0 (off); see hdmi_hpd_debounce_delay_ms below */
++uint amdgpu_hdmi_hpd_debounce_delay_ms = 3000;
+ int amdgpu_ptl = -1; /* auto */
+ 
+ DECLARE_DYNDBG_CLASSMAP(drm_debug_classes, DD_CLASS_TYPE_DISJOINT_BITS, 0,
+@@ -1109,8 +1110,15 @@ module_param_named(user_queue, amdgpu_user_queue, int, 0444);
+  *
+  * Used to filter short disconnect->reconnect HPD toggles some HDMI sinks
+  * generate while entering/leaving power save. Set to 0 to disable by default.
+- */
+-MODULE_PARM_DESC(hdmi_hpd_debounce_delay_ms, "HDMI HPD disconnect debounce delay in milliseconds (0 to disable (by default), 1500 is common)");
++ *
++ * big-fella: 3000 by default. TVs drop HPD for a moment as they change picture
++ * mode (an LG G5 for ~0.4 s, ~0.4 s after Dolby Vision engages); reported, the
++ * compositor removed the output and added it back (windows recreated, the
++ * saved configuration applied again). Until linux-yblod 7.3-7 KWin held the
++ * output 3 s itself (kwin-big-fella-hotplug-hold.patch); i915 has
++ * i915.hpd_hold_ms. A real unplug is reported after the delay.
++ */
++MODULE_PARM_DESC(hdmi_hpd_debounce_delay_ms, "HDMI HPD disconnect debounce delay in milliseconds (0 to disable, 1500 is common; big-fella: 3000 by default)");
+ module_param_named(hdmi_hpd_debounce_delay_ms, amdgpu_hdmi_hpd_debounce_delay_ms, uint, 0644);
+ 
+ /**
+diff --git a/drivers/gpu/drm/i915/display/intel_ddi.c b/drivers/gpu/drm/i915/display/intel_ddi.c
+index 02a53c9848e1..7cd3b5dad423 100644
+--- a/drivers/gpu/drm/i915/display/intel_ddi.c
++++ b/drivers/gpu/drm/i915/display/intel_ddi.c
+@@ -4842,6 +4842,27 @@ static int intel_hdmi_reset_link(struct intel_encoder *encoder,
+ 	 * would be perfectly happy if were to just reconfigure
+ 	 * the SCDC settings on the fly.
+ 	 */
++	/*
++	 * big-fella: at most 3 of these in 20 s, in case the sink drops HPD
++	 * and resets its SCDC again after each (intel_ddi_hotplug looks again
++	 * after every hotplug): a link left wrong beats a screen that blanks
++	 * for ever.
++	 */
++	if (!connector->hdmi_scdc_fixes ||
++	    time_after(jiffies, connector->hdmi_scdc_fix_since + 20 * HZ)) {
++		connector->hdmi_scdc_fixes = 0;
++		connector->hdmi_scdc_fix_since = jiffies;
++	}
++	if (connector->hdmi_scdc_fixes >= 3) {
++		drm_err(display->drm, "[CONNECTOR:%d:%s] Sink's TMDS config 0x%02x still wrong after 3 modesets, leaving it\n",
++			connector->base.base.id, connector->base.name, config);
++		return 0;
++	}
++	connector->hdmi_scdc_fixes++;
++	drm_info(display->drm, "[CONNECTOR:%d:%s] Sink's TMDS config 0x%02x doesn't match the link (scrambling %s, 1/%d), modeset\n",
++		 connector->base.base.id, connector->base.name, config,
++		 str_yes_no(crtc_state->hdmi_scrambling),
++		 crtc_state->hdmi_high_tmds_clock_ratio ? 40 : 10);
+ 	return intel_modeset_commit_pipes(display, BIT(crtc->pipe), ctx);
+ }
+ 
+@@ -4873,7 +4894,20 @@ intel_ddi_hotplug(struct intel_encoder *encoder,
+ 	state = intel_encoder_hotplug(encoder, connector);
+ 
+ 	if (!intel_tc_port_link_reset(dig_port)) {
+-		if (connector->base.connector_type == DRM_MODE_CONNECTOR_HDMIA) {
++		/*
++		 * big-fella: not while HPD is held low (intel_hdmi_detect,
++		 * i915.hpd_hold_ms): the sink isn't answering then, and its SCDC
++		 * read as 0x00 forced up to three modesets, 3.5-4 s of black after
++		 * every Dolby Vision stop on an LG G5. HPD coming back is a new
++		 * hotplug (hotplug_retries from 0), so linux-9913's recheck still
++		 * looks at the sink for 4 s from then.
++		 */
++		if (connector->base.connector_type == DRM_MODE_CONNECTOR_HDMIA &&
++		    connector->hpd_held) {
++			drm_dbg_kms(encoder->base.dev,
++				    "[CONNECTOR:%d:%s] HPD held low, SCDC not checked\n",
++				    connector->base.base.id, connector->base.name);
++		} else if (connector->base.connector_type == DRM_MODE_CONNECTOR_HDMIA) {
+ 			intel_modeset_lock_ctx_retry(&ctx, NULL, 0, ret)
+ 				ret = intel_hdmi_reset_link(encoder, &ctx);
+ 			drm_WARN_ON(encoder->base.dev, ret);
+@@ -4909,6 +4943,32 @@ intel_ddi_hotplug(struct intel_encoder *encoder,
+ 	    !dig_port->dp.is_mst)
+ 		state = INTEL_HOTPLUG_RETRY;
+ 
++	/*
++	 * big-fella: a TV that drops HPD for a moment as it changes picture
++	 * mode (an LG G5 does, ~0.4 s after a Dolby Vision or refresh rate
++	 * change) can reset its SCDC TMDS_Config *after* intel_hdmi_reset_link
++	 * above read it as matching: it then expects a 1/10 TMDS bit clock
++	 * ratio while we send 1/40 at 594 MHz, a valid signal it shows as "No
++	 * signal" until the next modeset. Seen on petunia 2026-10-29
++	 * (TMDS_Config 0x01 against hdmi_high_tmds_clock_ratio). So after any
++	 * hotplug of a connected HDMI sink, look again once a second for 4 s,
++	 * also when the hotplug changed the connector's status (which the
++	 * retry above doesn't cover); intel_hdmi_reset_link does nothing
++	 * unless the link scrambles or runs at 1/40, and a full modeset only
++	 * if the sink's SCDC disagrees.
++	 */
++	connector->hdmi_scdc_recheck =
++		connector->base.connector_type == DRM_MODE_CONNECTOR_HDMIA &&
++		connector->base.status == connector_status_connected &&
++		connector->hotplug_retries < 4;
++	if (state == INTEL_HOTPLUG_UNCHANGED && connector->hdmi_scdc_recheck)
++		state = INTEL_HOTPLUG_RETRY;
++
++	/* big-fella: HPD held low (intel_hdmi_detect): look again until it's
++	 * back or the hold is up */
++	if (state == INTEL_HOTPLUG_UNCHANGED && connector->hpd_held)
++		state = INTEL_HOTPLUG_RETRY;
++
+ 	return state;
+ }
+ 
+diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
+index 30f068982b67..b10963555774 100644
+--- a/drivers/gpu/drm/i915/display/intel_display_types.h
++++ b/drivers/gpu/drm/i915/display/intel_display_types.h
+@@ -557,6 +557,15 @@ struct intel_connector {
+ 
+ 	/* Number of times hotplug detection was tried after an HPD interrupt */
+ 	int hotplug_retries;
++	/* big-fella: look at an HDMI sink's SCDC again after this hotplug (intel_ddi_hotplug) */
++	bool hdmi_scdc_recheck;
++	/* big-fella: modesets intel_hdmi_reset_link made since hdmi_scdc_fix_since (at most 3 in 20 s) */
++	int hdmi_scdc_fixes;
++	unsigned long hdmi_scdc_fix_since;
++	/* big-fella: HPD low on a connected HDMI sink with a CRTC, reported as
++	 * connected since hpd_low_since (intel_hdmi_detect, i915.hpd_hold_ms) */
++	bool hpd_held;
++	unsigned long hpd_low_since;
+ 
+ 	/* since POLL and HPD connectors may use the same HPD line keep the native
+ 	   state of connector->polled in case hotplug storm detection changes it */
+diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+index df8901c02974..e86209bf4cad 100644
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -3236,6 +3236,50 @@ intel_hdmi_set_edid(struct drm_connector *_connector)
+ 	return connected;
+ }
+ 
++/*
++ * big-fella: TVs drop HPD for a moment when they change picture mode (an LG
++ * G5 for ~0.4 s, ~0.4 s after Dolby Vision engages). Reported as is, the
++ * compositor removes the output and adds it again: windows recreated, the
++ * saved configuration applied again, a blank. While a connected HDMI sink has
++ * a CRTC, HPD low is reported as still connected (the EDID kept) for up to
++ * hpd_hold_ms; intel_ddi_hotplug looks again every second meanwhile, so a real
++ * unplug is reported once the time is up. Until linux-yblod 7.3-7 KWin did
++ * this itself (kwin-big-fella-hotplug-hold.patch, 3 s). 0 turns it off.
++ */
++static unsigned int hpd_hold_ms = 3000;
++module_param(hpd_hold_ms, uint, 0644);
++MODULE_PARM_DESC(hpd_hold_ms,
++	"HDMI: ms an HPD drop of a sink with an active output is reported as still "
++	"connected (big-fella; default 3000, 0 off)");
++
++static bool intel_hdmi_hpd_hold(struct intel_connector *connector)
++{
++	struct intel_display *display = to_intel_display(connector);
++
++	if (!hpd_hold_ms || connector->base.status != connector_status_connected ||
++	    !connector->base.state || !connector->base.state->crtc) {
++		connector->hpd_held = false;
++		return false;
++	}
++
++	if (!connector->hpd_held) {
++		connector->hpd_held = true;
++		connector->hpd_low_since = jiffies;
++		drm_info(display->drm, "[CONNECTOR:%d:%s] HPD low with an active output, still connected for up to %u ms\n",
++			 connector->base.base.id, connector->base.name, hpd_hold_ms);
++		return true;
++	}
++
++	if (time_before(jiffies, connector->hpd_low_since + msecs_to_jiffies(hpd_hold_ms)))
++		return true;
++
++	connector->hpd_held = false;
++	drm_info(display->drm, "[CONNECTOR:%d:%s] HPD still low after %u ms, disconnected\n",
++		 connector->base.base.id, connector->base.name,
++		 jiffies_to_msecs(jiffies - connector->hpd_low_since));
++	return false;
++}
++
+ static enum drm_connector_status
+ intel_hdmi_detect(struct drm_connector *_connector, bool force)
+ {
+@@ -3258,8 +3302,18 @@ intel_hdmi_detect(struct drm_connector *_connector, bool force)
+ 	wakeref = intel_display_power_get(display, POWER_DOMAIN_GMBUS);
+ 
+ 	if (DISPLAY_VER(display) >= 11 &&
+-	    !intel_digital_port_connected(encoder))
++	    !intel_digital_port_connected(encoder)) {
++		/* big-fella: a short HPD drop isn't an unplug (hpd_hold_ms) */
++		if (intel_hdmi_hpd_hold(connector))
++			status = connector_status_connected;
+ 		goto out;
++	}
++
++	if (connector->hpd_held)
++		drm_info(display->drm, "[CONNECTOR:%d:%s] HPD back after %u ms\n",
++			 connector->base.base.id, connector->base.name,
++			 jiffies_to_msecs(jiffies - connector->hpd_low_since));
++	connector->hpd_held = false;
+ 
+ 	intel_hdmi_unset_edid(&connector->base);
+ 
+diff --git a/drivers/gpu/drm/i915/display/intel_hotplug.c b/drivers/gpu/drm/i915/display/intel_hotplug.c
+index 970aa95ee344..267fc6b122cc 100644
+--- a/drivers/gpu/drm/i915/display/intel_hotplug.c
++++ b/drivers/gpu/drm/i915/display/intel_hotplug.c
+@@ -472,7 +472,7 @@ static void i915_hotplug_work_func(struct work_struct *work)
+ 	struct intel_hotplug *hotplug = &display->hotplug;
+ 	struct drm_connector_list_iter conn_iter;
+ 	struct intel_connector *connector;
+-	u32 changed = 0, retry = 0;
++	u32 changed = 0, retry = 0, recheck = 0;
+ 	u32 hpd_event_bits;
+ 	u32 hpd_retry_bits;
+ 	struct drm_connector *first_changed_connector = NULL;
+@@ -536,6 +536,9 @@ static void i915_hotplug_work_func(struct work_struct *work)
+ 					drm_connector_get(&connector->base);
+ 					first_changed_connector = &connector->base;
+ 				}
++				/* big-fella: and look again (intel_ddi_hotplug) */
++				if (connector->hdmi_scdc_recheck)
++					recheck |= hpd_bit;
+ 				break;
+ 			case INTEL_HOTPLUG_RETRY:
+ 				retry |= hpd_bit;
+@@ -556,6 +559,8 @@ static void i915_hotplug_work_func(struct work_struct *work)
+ 
+ 	/* Remove shared HPD pins that have changed */
+ 	retry &= ~changed;
++	/* big-fella: but not an HDMI sink's SCDC recheck (intel_ddi_hotplug) */
++	retry |= recheck;
+ 	if (retry) {
+ 		spin_lock_irq(&display->irq.lock);
+ 		display->hotplug.retry_bits |= retry;
