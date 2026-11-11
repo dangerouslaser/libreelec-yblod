@@ -20,10 +20,20 @@ package's `patches/` folder or `projects/<project>/patches/<package>/`. So:
   edition packages; the OpenCL engine and its runtime packages were removed in 0.4.0). `PKG_NEED_UNPACK` points at the owning folder,
   so changes there trigger a rebuild.
 - **Patches** are stored in `yblod-engine/patches/<package>/` or `yblod/patches/<package>/`
-  and linked into the LibreELEC patch folder by relative symlinks. LibreELEC follows them
-  for both patching and change detection, and applies them in file-name order exactly as if
-  they were stored there. After adding, renaming or removing a patch, run
-  `yblod/tools/link-patches.sh --fix`; without arguments it only checks.
+  (the owner folders) and linked into the LibreELEC patch folder, `projects/Generic/patches/
+  <package>/` (`packages/mediacenter/LibreELEC-settings/patches/` for that package), by
+  relative symlinks. LibreELEC follows them for both patching and change detection, and
+  applies them in file-name order exactly as if they were stored there. A file is named
+  `<package>-<number>-<subject>.patch` (`kodi-9999-yblod-NN-subject.patch` for Kodi's
+  series, `linux-99NN-subject.patch`, `ffmpeg-99NN-...`) with a number above LibreELEC's
+  own, so it applies after them, and holds a plain unified diff (`diff -u`, or
+  `git diff`); the folders hold no `git format-patch` output. After adding, renaming or
+  removing a patch, run `yblod/tools/link-patches.sh --fix`. Without arguments it only
+  checks, and exits non-zero when an owner patch has no link or the wrong one, when a link
+  has no owner patch or points at nothing, when a regular `.patch` file sits in a folder
+  that owner folders feed (move it into its owner folder; `--fix` never touches a regular
+  file), and when two owner folders hold the same file name. `yblod/tools/build.sh` runs
+  the check first and stops on a failure.
 - **Upstream files we modify** are kept to a few lines: the Kodi recipe (Kodi does not
   link libplacebo since 0.4.0, and the libplacebo recipe is stock LibreELEC again; the
   engine vendors the part it needs), the `mediacenter` meta package (LG edition),
@@ -42,6 +52,12 @@ engine's `libdv_source_private.so`, `/usr/share/native-dv` and `/storage/.cache/
 ## Building
 
 `yblod/tools/build.sh <version>` builds the standard edition in the LibreELEC build
-container; `YBLOD_EDITION=lg yblod/tools/build.sh <version>` builds the LG edition.
+container; `YBLOD_EDITION=lg yblod/tools/build.sh <version>` builds the LG edition. Both
+check the patch links first (`yblod/tools/link-patches.sh`) and stop if they are broken.
+The image is built for `PROJECT=Generic DEVICE=Generic ARCH=x86_64` (Generic is a link to
+OpenGLES's options: GBM, OpenGL ES and Vulkan). The Dolby Vision build of Kodi
+(`-DENABLE_DVBRIDGE`, the engine package and the YBLOD skin and iPhone remote) is only
+selected for x86_64 Generic with GBM, OpenGL ES and Vulkan; any other Generic device (the
+OpenGL, x11 and Wayland ones) or project builds the recipes as LibreELEC does.
 `yblod/tools/release.py` adds a built image to `releases/releases.json`. See
 `docs/BRANCHES.md` for branches and updates.
