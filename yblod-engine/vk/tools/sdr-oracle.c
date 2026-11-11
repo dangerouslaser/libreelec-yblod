@@ -28,6 +28,7 @@
  *                  to libplacebo as they are, upscaled by its bilinear
  *                  filter or by its own default: what a renderer that owns
  *                  the chroma would show.
+ *     --size W,H   the dump's size (default 3840,2160)
  *     --node PATH  render node (default /dev/dri/renderD128)
  */
 #define _GNU_SOURCE
@@ -44,8 +45,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define W 3840
-#define H 2160
+static int W = 3840, H = 2160;
 
 static double val[64][16];
 static char key[64][32];
@@ -89,6 +89,8 @@ int main(int argc, char **argv)
             chroma = argv[++i];
         else if (!strcmp(argv[i], "--node") && i + 1 < argc)
             node = argv[++i];
+        else if (!strcmp(argv[i], "--size") && i + 1 < argc)
+            sscanf(argv[++i], "%d,%d", &W, &H);
         else if (nargs < 3)
             args[nargs++] = argv[i];
     }
@@ -104,12 +106,12 @@ int main(int argc, char **argv)
     size_t size = (size_t)ftell(in), stride = size / H;
     fseek(in, 0, SEEK_SET);
     unsigned char *dump = malloc(size);
-    if (!dump || stride < W * 4 || fread(dump, 1, size, in) != size)
-        return fprintf(stderr, "%s: not a 3840x2160 dump\n", args[1]), 1;
+    if (!dump || stride < (size_t)W * 4 || fread(dump, 1, size, in) != size)
+        return fprintf(stderr, "%s: not a %dx%d dump\n", args[1], W, H), 1;
     fclose(in);
     const int full = !strcmp(chroma, "pair") || !strcmp(chroma, "linear"), linear = !strcmp(chroma, "linear");
     const int cw = full ? W : W / 2;
-    float *luma = malloc(sizeof(float) * W * H), *cbcr = malloc(sizeof(float) * 2 * cw * H);
+    float *luma = malloc(sizeof(float) * (size_t)W * H), *cbcr = malloc(sizeof(float) * 2 * (size_t)cw * H);
     for (int y = 0; y < H; y++)
         for (int x = 0; x < W; x += 2) {
             const unsigned char *p = dump + (size_t)y * stride + 4 * (size_t)x;
@@ -244,7 +246,7 @@ int main(int argc, char **argv)
     if (pl_renderer_get_errors(rr).errors)
         return fprintf(stderr, "libplacebo fell back (renderer errors %#x): not the reference\n",
                        pl_renderer_get_errors(rr).errors), 1;
-    float *rgba = malloc(sizeof(float) * 4 * W * H);
+    float *rgba = malloc(sizeof(float) * 4 * (size_t)W * H);
     if (!rgba || !pl_tex_download(gpu, pl_tex_transfer_params(.tex = out, .ptr = rgba)))
         return fprintf(stderr, "download failed\n"), 1;
     FILE *of = fopen(args[2], "wb");

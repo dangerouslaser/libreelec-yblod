@@ -15,7 +15,9 @@
 #      there, so on another GPU a different hash with check 1 passing is
 #      expected (reported, not an error; SDR_STRICT=1 makes it one).
 # and the overlay stored bottom first (DVVK_OVERLAY_FLIP_Y) must give its
-# twin's bytes. `update` rewrites sdr.sha256 from this run.
+# twin's bytes. `update` rewrites sdr.sha256 from this run. The canvas is
+# 3840x2160, then 1920x1080, 1280x720 and 4096x2160 (dvvk_create_canvas: the
+# film fitted into it, i.e. resized in the smaller two).
 #
 # BENCH, MAPTEST, COMPARE: dvvk-bench, dvvk-map-test, dvvk-sdr-compare
 # (default: next to this script, else PATH). WORK: scratch directory (default
@@ -40,33 +42,47 @@ FRAMES=${FRAMES:-12}
 AT=${AT:-0,11}
 mkdir -p "$WORK"
 
-# golden.sh's overlay: a bottom bar with a soft top edge, a clock box, a dim strip
-OV=$WORK/overlay.bgra
-if [ ! -s "$OV" ]; then
-  python3 -I - "$OV" <<'PY'
+# golden.sh's overlay (a bottom bar with a soft top edge, a clock box, a dim
+# strip), in a canvas of $1 x $2: its place and size scaled, at 3840x2160 the
+# same bytes.
+overlay() {
+  OV=$WORK/overlay-$1x$2.bgra
+  [ -s "$OV" ] && return 0
+  python3 -I - "$OV" "$1" "$2" <<'PY'
 import sys
-W, H = 3840, 2160
+W, H = int(sys.argv[2]), int(sys.argv[3])
+def sy(v): return v * H // 2160
+def sx(v): return v * W // 3840
 rows = []
 clear = bytes(W * 4)
+step = max(4, sx(16))
 for y in range(H):
-    if 1700 <= y < 2000:
-        a = min(255, (y - 1700) * 4)
+    if sy(1700) <= y < sy(2000):
+        a = min(255, (y - sy(1700)) * 4 * 2160 // H)
         px = bytearray()
-        for x in range(0, W, 16):
+        for x in range(0, W, step):
             c = (x * 255 // W) * a // 255
-            px += bytes((c, a // 2, (a * 3) // 4, a)) * 16
-        rows.append(bytes(px))
-    elif 100 <= y < 220:
+            px += bytes((c, a // 2, (a * 3) // 4, a)) * step
+        rows.append(bytes(px[:W * 4]))
+    elif sy(100) <= y < sy(220):
         row = bytearray(clear)
-        row[3300 * 4:3700 * 4] = bytes((200, 200, 200, 230)) * 400
+        row[sx(3300) * 4:sx(3700) * 4] = bytes((200, 200, 200, 230)) * (sx(3700) - sx(3300))
         rows.append(bytes(row))
-    elif 900 <= y < 960:
+    elif sy(900) <= y < sy(960):
         rows.append(bytes((10, 10, 10, 96)) * W)
     else:
         rows.append(clear)
 open(sys.argv[1], 'wb').write(b''.join(rows))
 PY
-fi
+}
+# the canvas of the runs that follow
+canvas() {
+  CW=$1 CH=$2
+  overlay "$1" "$2"
+  S="--mode static --overlay $OV"
+  SIZE=
+  [ "$1x$2" = 3840x2160 ] || SIZE="--canvas $1,$2"
+}
 
 OUT=$WORK/run.sha256
 : > "$OUT"
@@ -89,10 +105,10 @@ run() {
   done
   # shellcheck disable=SC2086
   "$BENCH" --frames "$FRAMES" --rate 0 --dump "$WORK/$name.dv" --dump-at "$AT" --metadata "$WORK/$name.md" \
-    --metadata-frames "$FRAMES" $recon "$clip" > "$WORK/$name.dv.log" 2>&1 \
+    --metadata-frames "$FRAMES" $SIZE $recon "$clip" > "$WORK/$name.dv.log" 2>&1 \
     || { echo "FAIL $name: the tunnel run exited $?" >&2; bad=1; return 0; }
   # shellcheck disable=SC2086
-  "$BENCH" --frames "$FRAMES" --rate 0 --dump "$WORK/$name.sdr" --dump-at "$AT" --output sdr $recon $sdr $ov "$clip" \
+  "$BENCH" --frames "$FRAMES" --rate 0 --dump "$WORK/$name.sdr" --dump-at "$AT" --output sdr $SIZE $recon $sdr $ov "$clip" \
     > "$WORK/$name.sdr.log" 2>&1 || { echo "FAIL $name: the SDR run exited $?" >&2; bad=1; return 0; }
   for f in $(echo "$AT" | tr , ' '); do
     if [ ! -s "$WORK/$name.sdr.$f" ] || [ ! -s "$WORK/$name.dv.$f" ]; then
@@ -104,11 +120,12 @@ run() {
     layer=
     case "$ov" in *--overlay*) layer="--overlay $OV" ;; esac
     # shellcheck disable=SC2086
-    "$MAPTEST" --output sdr $cpu $layer --samples 1 --frame "$WORK/$name.dv.$f" --out "$WORK/$name.cpu.$f" \
+    "$MAPTEST" --output sdr --size "$CW,$CH" $cpu $layer --samples 1 --frame "$WORK/$name.dv.$f" --out "$WORK/$name.cpu.$f" \
       "$WORK/$name.md.$f.bin" > "$WORK/$name.cpu.$f.log" 2>&1 \
       || { echo "FAIL $name.$f: dvvk-map-test exited $?" >&2; bad=1; continue; }
-    # the tunnel picture's first rows carry its metadata packets in the chroma's low bit
-    r=$("$COMPARE" --rows 8,2160 --ref "$WORK/$name.cpu.$f" "$WORK/$name.sdr.$f") \
+    # the tunnel picture's first rows carry its metadata packets in the
+    # chroma's low bit (5 packets of 3072 pixels at most: 24 rows at 640)
+    r=$("$COMPARE" --size "$CW,$CH" --rows "24,$CH" --ref "$WORK/$name.cpu.$f" "$WORK/$name.sdr.$f") \
       || { echo "FAIL $name.$f: dvvk-sdr-compare exited $?" >&2; bad=1; continue; }
     m=$(echo "$r" | sed -n 's/.*max \([0-9]*\) at.*/\1/p' | sort -n | tail -1)
     eq=$(echo "$r" | sed -n 's/.*equal \([0-9.]*\)%.*/\1/p' | sort -n | head -1)
@@ -120,8 +137,8 @@ run() {
   done
 }
 
-S="--mode static --overlay $OV"
 B="--el-scaler bilinear"
+canvas 3840 2160
 run fel-cb1           "$FEL" "--cb1" "" ""
 run fel-bl            "$FEL" "$B" "" ""
 run fel-off           "$FEL" "--fel 0" "" ""
@@ -149,11 +166,31 @@ if [ -n "$P5" ]; then
   run p5-cb1-100      "$P5" "--cb1 --start $P" "--white 100" "--white 100"
 fi
 
+# Other canvases: the film fitted (a 3840 wide one resized into the smaller
+# two, unscaled and pillarboxed in 4096x2160)
+canvas 1920 1080
+run fel-1080          "$FEL" "$B" "" ""
+run fel-1080-cb1      "$FEL" "--cb1" "" ""
+run fel-1080-100      "$FEL" "$B" "--white 100" "--white 100"
+run fel-1080-static   "$FEL" "$B" "" "" "$S"
+[ -z "$MEL" ] || run mel-1080 "$MEL" "$B" "" ""
+[ -z "$P81" ] || run p81-1080 "$P81" "$B" "" ""
+[ -z "$P81" ] || run p81-1080-static "$P81" "$B" "--limited" "--limited" "$S"
+[ -z "$P5" ] || run p5-1080 "$P5" "--cb1 --start ${P5_START:-34.6}" "" ""
+canvas 1280 720
+run fel-720           "$FEL" "$B" "" ""
+[ -z "$P81" ] || run p81-720-static "$P81" "$B" "" "" "$S"
+canvas 4096 2160
+run fel-4096-cb1      "$FEL" "--cb1" "" ""
+[ -z "$P81" ] || run p81-4096-static "$P81" "--cb1" "" "" "$S"
+
 # DVVK_OVERLAY_FLIP_Y: the overlay stored bottom first gives its twin's bytes
+canvas 3840 2160
 twin() {
   name=$1 clip=$2
   shift 2
-  "$BENCH" --frames "$FRAMES" --rate 0 --dump "$WORK/$name.flip" --dump-at "$AT" --output sdr --flip "$@" "$clip" \
+  # shellcheck disable=SC2086
+  "$BENCH" --frames "$FRAMES" --rate 0 --dump "$WORK/$name.flip" --dump-at "$AT" --output sdr $SIZE --flip "$@" "$clip" \
     > "$WORK/$name.flip.log" 2>&1 || { echo "FAIL $name~flip: dvvk-bench exited $?" >&2; bad=1; return 0; }
   for f in $(echo "$AT" | tr , ' '); do
     h=$(sha256sum < "$WORK/$name.flip.$f" | cut -c1-64)
@@ -168,6 +205,9 @@ twin() {
 twin fel-cb1-static "$FEL" --cb1 $S
 # shellcheck disable=SC2086
 twin fel-bl-static "$FEL" $B $S
+canvas 1920 1080
+# shellcheck disable=SC2086
+twin fel-1080-static "$FEL" $B $S
 
 n=$(grep -vc '^#' "$OUT")
 if [ "$bad" != 0 ]; then

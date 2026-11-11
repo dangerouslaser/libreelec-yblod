@@ -22,12 +22,14 @@
  *                        the mean of its pair's sample and the next pair's
  *                        (the row's last pair: its own), as the pack does
  *                        (--pair-chroma: the pair's for both)
+ *     --size W,H         the dump's (the engine's canvas's) size (default
+ *                        3840,2160)
  *     --out FILE         with --frame: the frame mapped exactly on the CPU, in
  *                        the engine's output bytes (the reference of
  *                        dvvk-hdr10-compare / dvvk-sdr-compare)
  *     --overlay FILE     SDR, with --out: an overlay blended over the mapped
  *                        frame as the pack blends the shell's layer (raw
- *                        3840x2160 BGRA premultiplied sRGB, rows top first:
+ *                        BGRA of the frame's size, premultiplied sRGB, rows top first:
  *                        dvvk-bench's --overlay file)
  *     --oracle FILE      SDR: what tools/sdr-oracle (libplacebo itself)
  *                        needs to render the same frame: the RPU's matrices,
@@ -77,6 +79,7 @@ static void *load(const char *path, size_t *size)
     return p;
 }
 
+static int W = 3840, H = 2160;   /* --frame's size */
 static const dvvk_map_gpu *g;
 static const uint32_t *tables;
 
@@ -209,6 +212,8 @@ int main(int argc, char **argv)
             samples = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--frame") && i + 1 < argc)
             frame = argv[++i];
+        else if (!strcmp(argv[i], "--size") && i + 1 < argc)
+            sscanf(argv[++i], "%d,%d", &W, &H);
         else if (!strcmp(argv[i], "--out") && i + 1 < argc)
             outpath = argv[++i];
         else if (!strcmp(argv[i], "--overlay") && i + 1 < argc)
@@ -440,17 +445,19 @@ int main(int argc, char **argv)
              * 4:2:2 codes, each pixel with its pair's chroma */
             size_t fsize;
             unsigned char *fb = load(frame, &fsize);
-            size_t stride = fsize / 2160;
+            if (!fb || fsize < (size_t)W * 4 * H)
+                return fprintf(stderr, "%s: can't read a %dx%d dump\n", frame, W, H), 1;
+            size_t stride = fsize / H;
             long px = 0, exact_px = 0, exact_pairs = 0, over[4] = {0};
             double lut_worst = 0, noflag_worst = 0;
             long cell_hist[8] = {0};
-            for (int y = 8; y < 2160; y++)   /* packet rows left out */
-                for (int x = 0; x < 3840; x += 2) {
+            for (int y = 8; y < H; y++)   /* packet rows left out (more of them in a narrower canvas) */
+                for (int x = 0; x < W; x += 2) {
                     const unsigned char *p = fb + y * stride + 4 * x;
                     int y0 = (p[1] << 4) | (p[0] & 15), cb = (p[2] << 4) | (p[0] >> 4);
                     int y1 = (p[5] << 4) | (p[4] & 15), cr = (p[6] << 4) | (p[4] >> 4);
                     int ys[2] = {y0, y1};
-                    const unsigned char *pn = x + 2 < 3840 ? p + 8 : p;
+                    const unsigned char *pn = x + 2 < W ? p + 8 : p;
                     const int interpolate = sdr && !pair_chroma;
                     double cb1 = interpolate ? 0.5 * (cb + ((pn[2] << 4) | (pn[0] >> 4))) : cb;
                     double cr1 = interpolate ? 0.5 * (cr + ((pn[6] << 4) | (pn[4] >> 4))) : cr;
@@ -504,15 +511,15 @@ int main(int argc, char **argv)
                 memcpy(o, fb, fsize);
                 size_t lsize = 0;
                 unsigned char *layer = overlay ? load(overlay, &lsize) : NULL;
-                if (overlay && (!layer || lsize < (size_t)3840 * 2160 * 4))
-                    return fprintf(stderr, "%s: can't read a 3840x2160 BGRA overlay\n", overlay), 1;
-                for (int y = 0; y < 2160; y++)
-                    for (int x = 0; x < 3840; x += 2) {
+                if (overlay && (!layer || lsize < (size_t)W * H * 4))
+                    return fprintf(stderr, "%s: can't read a %dx%d BGRA overlay\n", overlay, W, H), 1;
+                for (int y = 0; y < H; y++)
+                    for (int x = 0; x < W; x += 2) {
                         unsigned char *p = o + y * stride + 4 * x;
                         const unsigned char *q = fb + y * stride + 4 * x;
                         int y0 = (q[1] << 4) | (q[0] & 15), cb = (q[2] << 4) | (q[0] >> 4);
                         int y1 = (q[5] << 4) | (q[4] & 15), cr = (q[6] << 4) | (q[4] >> 4);
-                        const unsigned char *qn = x + 2 < 3840 ? q + 8 : q;
+                        const unsigned char *qn = x + 2 < W ? q + 8 : q;
                         const int interpolate = sdr && !pair_chroma;
                         double cb1 = interpolate ? 0.5 * (cb + ((qn[2] << 4) | (qn[0] >> 4))) : cb;
                         double cr1 = interpolate ? 0.5 * (cr + ((qn[6] << 4) | (qn[4] >> 4))) : cr;
@@ -530,7 +537,7 @@ int main(int argc, char **argv)
                                 const int is_black = (uint32_t)yy == g->black_in[0] &&
                                                      (l ? cb1 : cb) == (double)g->black_in[1] &&
                                                      (l ? cr1 : cr) == (double)g->black_in[2];
-                                const unsigned char *lp = layer ? layer + ((size_t)y * 3840 + x + l) * 4 : NULL;
+                                const unsigned char *lp = layer ? layer + ((size_t)y * W + x + l) * 4 : NULL;
                                 for (int k = 0; k < 3; k++) {
                                     double c = is_black ? (double)g->black_out[k] : g->out_code[0] * v[k] + g->out_code[1];
                                     if (lp && lp[3]) {

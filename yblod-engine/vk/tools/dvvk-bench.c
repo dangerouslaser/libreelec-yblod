@@ -10,11 +10,14 @@
  *     --frames N         pictures (default 240)
  *     --start S          seconds into the file
  *     --rate HZ          submit rate (default 23.976; 0: as fast as possible)
+ *     --canvas W,H       the engine's canvas (dvvk_create_canvas; default
+ *                        3840,2160): the output buffers', the overlay
+ *                        file's and the dumps' size
  *     --dest X,Y,W,H     the film's rectangle (default: aspect-fit full screen)
  *     --fel 0|1          FEL off/on (default 1)
  *     --el-scaler M      annexb (1, the default) or bilinear (2): the FEL's
  *                        EL upsampling (dvvk_plan_in.el_scaler); --cb1 is Annex B
- *     --overlay FILE     the overlay: raw 3840x2160 BGRA (ARGB8888 bytes, as
+ *     --overlay FILE     the overlay: raw BGRA of the canvas's size (ARGB8888 bytes, as
  *                        `ffmpeg -i shot.png -vf scale=3840:2160 -pix_fmt bgra
  *                        -f rawvideo FILE`), premultiplied; pixels inside
  *                        --dest are made transparent (the hole)
@@ -81,8 +84,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define W 3840
-#define H 2160
+static int W = 3840, H = 2160;   /* the canvas */
 #define SLOTS 4
 
 /* One dvvk_hdr10plus_packet as a JSON line. */
@@ -250,6 +252,10 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc)
             frames = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--canvas") && i + 1 < argc) {
+            if (sscanf(argv[++i], "%d,%d", &W, &H) != 2 || W <= 0 || H <= 0)
+                return fprintf(stderr, "--canvas W,H\n"), 2;
+        }
         else if (!strcmp(argv[i], "--start") && i + 1 < argc)
             start = atof(argv[++i]);
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc)
@@ -353,7 +359,8 @@ int main(int argc, char **argv)
             return fprintf(stderr, "gbm_bo_create failed\n"), 1;
 
     dvvk_engine *e = NULL;
-    if (dvvk_create(drm, dec.display, &e))
+    if (W == 3840 && H == 2160 ? dvvk_create(drm, dec.display, &e)
+                               : dvvk_create_canvas(drm, dec.display, (uint32_t)W, (uint32_t)H, &e))
         return fprintf(stderr, "dvvk_create failed\n"), 1;
     if (output != DVVK_OUTPUT_DV) {
         dvvk_output_mode om = {.mode = output};
@@ -373,10 +380,10 @@ int main(int argc, char **argv)
         uint8_t *a = malloc((size_t)W * H * 4), *b = malloc((size_t)W * H * 4);
         FILE *f = fopen(overlay_path, "rb");
         if (!f || fread(a, 1, (size_t)W * H * 4, f) != (size_t)W * H * 4)
-            return fprintf(stderr, "can't read %s (3840x2160 BGRA)\n", overlay_path), 1;
+            return fprintf(stderr, "can't read %s (%dx%d BGRA)\n", overlay_path, W, H), 1;
         fclose(f);
         if (have_dest)
-            for (unsigned y = dy; y < dy + dhei && y < H; y++)
+            for (unsigned y = dy; y < dy + dhei && y < (unsigned)H; y++)
                 memset(a + ((size_t)y * W + dx) * 4, 0, (size_t)dwid * 4);
         /* premultiplied: colour at most alpha */
         for (size_t i = 0; i < (size_t)W * H; i++)
@@ -385,9 +392,11 @@ int main(int argc, char **argv)
                     a[i * 4 + c] = a[i * 4 + 3];
         memcpy(b, a, (size_t)W * H * 4);
         int rect = !strcmp(mode, "rect");
+        const unsigned rect_x = (unsigned)W * 15 / 32, rect_y = (unsigned)H * 5 / 54;
         for (size_t i = 0; i < (size_t)W * H; i++) {
-            unsigned x = (unsigned)(i % W), y = (unsigned)(i / W);
-            if (rect && !(x >= 1800 && x < 2056 && y >= 200 && y < 456))
+            unsigned x = (unsigned)(i % (size_t)W), y = (unsigned)(i / (size_t)W);
+            /* (1800, 200 in a 3840x2160 canvas) */
+            if (rect && !(x >= rect_x && x < rect_x + 256 && y >= rect_y && y < rect_y + 256))
                 continue;
             uint8_t *p = b + i * 4;
             if (p[3] == 0)
@@ -399,7 +408,7 @@ int main(int argc, char **argv)
             /* rows bottom first, as a GL framebuffer's texture */
             uint8_t *row = malloc((size_t)W * 4);
             for (uint8_t *p = a; p; p = p == a ? b : NULL)
-                for (unsigned y = 0; y < H / 2; y++) {
+                for (unsigned y = 0; y < (unsigned)H / 2; y++) {
                     memcpy(row, p + (size_t)y * W * 4, (size_t)W * 4);
                     memcpy(p + (size_t)y * W * 4, p + (size_t)(H - 1 - y) * W * 4, (size_t)W * 4);
                     memcpy(p + (size_t)(H - 1 - y) * W * 4, row, (size_t)W * 4);
@@ -456,9 +465,9 @@ int main(int argc, char **argv)
         unsigned w = (unsigned)p.bl->width, h = (unsigned)p.bl->height;
         unsigned x = dx, y = dy, dw = dwid, dh = dhei;
         if (!have_dest) {
-            double scale = fmin(3840.0 / w, 2160.0 / h);
-            int x0 = (int)lround((3840 - w * scale) / 2), y0 = (int)lround((2160 - h * scale) / 2);
-            int x1 = (int)lround((3840 + w * scale) / 2), y1 = (int)lround((2160 + h * scale) / 2);
+            double scale = fmin((double)W / w, (double)H / h);
+            int x0 = (int)lround((W - w * scale) / 2), y0 = (int)lround((H - h * scale) / 2);
+            int x1 = (int)lround((W + w * scale) / 2), y1 = (int)lround((H + h * scale) / 2);
             x = (unsigned)x0 & ~1u, y = (unsigned)y0 & ~1u;
             dw = (unsigned)(x1 - (int)x) & ~1u, dh = (unsigned)(y1 - (int)y) & ~1u;
         }
@@ -495,7 +504,7 @@ int main(int argc, char **argv)
             /* rect: say where it changed (KWin's damage); change: nothing said
              * (everywhere) */
             if (!strcmp(mode, "rect") && n > 0) {
-                const uint32_t r[4] = {1800, 200, 256, 256};
+                const uint32_t r[4] = {(uint32_t)W * 15 / 32, (uint32_t)H * 5 / 54, 256, 256};
                 dvvk_set_overlay_damage(e, r, 1);
             }
             dvvk_dmabuf db = {.width = W, .height = H, .format = fp16 ? DRM_FORMAT_ABGR16161616F : DRM_FORMAT_ARGB8888, .modifier = DRM_FORMAT_MOD_LINEAR,
