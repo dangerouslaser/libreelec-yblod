@@ -73,7 +73,8 @@ impl Resource for SampledImage {
 }
 impl Resource for Lut3d {
     fn rollback(&self) -> Action {
-        let copy = Self { image: self.image, memory: self.memory, view: self.view, n: self.n, ready: false };
+        let copy =
+            Self { image: self.image, memory: self.memory, view: self.view, n: self.n, size: self.size, ready: false };
         Box::new(move |d| copy.destroy(d))
     }
 }

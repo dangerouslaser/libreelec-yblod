@@ -152,8 +152,12 @@ void dvvk_reset(dvvk_engine *);
  *                      inverse EOTF. The output is ordinary 8-bit R'G'B' in
  *                      XRGB8888 (no Dolby Vision or HDR signalling), dithered
  *                      with a fixed pattern, each pixel from its own luma and
- *                      its pair's chroma; an overlay is blended after the
- *                      conversion, as sRGB over the display's R'G'B'.
+ *                      chroma (the odd pixel's between its pair's sample and
+ *                      the next pair's); an overlay is blended after the
+ *                      conversion, as sRGB over the display's R'G'B', and has
+ *                      to be the dvvk_set_overlay buffer alone, 8-bit, at the
+ *                      canvas's size (a frame with subtitle bitmaps or
+ *                      another overlay is refused, -2).
  *                      peak_nits: the display's white in cd/m2 (0: 203),
  *                      min_nits: its black (0: white / 1000). flags
  *                      DVVK_SDR_*. An engine without it refuses the mode

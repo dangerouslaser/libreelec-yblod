@@ -7,12 +7,13 @@
 // MAP_CELLS_BINDING for the cells buffer (map_bake's marked cells, then the
 // fix-up list at word mp.list: groups, 1, 1, count, the entries).
 //
-// MAP_SDR (a specialization constant, id MAP_SDR_ID: the HDR10 pipelines
-// keep their code): the output is an SDR display's R'G'B' instead (the same
-// recipe compressing to the display's white, then libplacebo's gamut LUT and
-// the display's inverse EOTF), as 8-bit codes. The includer declares
-// MAP_TABLES_BINDING: dvvk_map_tables' words (the dither pattern, the gamut
-// LUT).
+// MAP_SDR (a specialization constant, id MAP_SDR_ID, where the includer
+// defines one: the HDR10 pipelines keep their code): the output is an SDR
+// display's R'G'B' instead (the same recipe compressing to the display's
+// white, then libplacebo's gamut LUT and the display's inverse EOTF), as
+// 8-bit codes. The includer then declares MAP_TABLES_BINDING
+// (dvvk_map_tables' words: the dither pattern) and MAP_GAMUT_BINDING (the
+// gamut LUT, the tables' second part as an RGBA16 UNORM 3D texture).
 struct DvMap {
     vec4 ycc[3];
     vec4 ycc_offset;
@@ -37,9 +38,12 @@ struct DvMap {
     uvec2 pad2;
 };
 layout(binding = MAP_PARAMS_BINDING, std430) readonly buffer MapParams { DvMap mp; };
+#ifdef MAP_SDR_ID
 layout(constant_id = MAP_SDR_ID) const uint MAP_SDR = 0u;
-#ifdef MAP_TABLES_BINDING
 layout(binding = MAP_TABLES_BINDING, std430) readonly buffer MapTables { uint map_tables[]; };
+layout(binding = MAP_GAMUT_BINDING) uniform sampler3D map_gamut;
+#else
+const uint MAP_SDR = 0u;
 #endif
 #ifdef MAP_CELLS_BINDING
 layout(binding = MAP_CELLS_BINDING, std430) buffer MapCells { uint map_cells[]; };
@@ -74,31 +78,20 @@ float map_tone(float x)
     return mix(mp.tone_lut[i], mp.tone_lut[i + 1u], t - float(i));
 }
 
-#ifdef MAP_TABLES_BINDING
-// The gamut LUT's node (i, c, h): I, P, T as the 16-bit texels hold them.
-vec3 map_gamut_node(uvec3 p)
-{
-    uint at = 4096u + 2u * ((p.z * 32u + p.y) * 48u + p.x);
-    uint a = map_tables[at], b = map_tables[at + 1u];
-    return vec3(float(a & 0xffffu), float(a >> 16), float(b & 0xffffu));
-}
-
-// pl_shader_color_map_ex's gamut LUT lookup (dv_map.c gamut_map): linear
-// between the nodes, computed here rather than by a sampler: its weights
-// have 8 bits on these GPUs, and the CPU reference could not follow them.
-vec3 map_gamut(vec3 ipt)
+#ifdef MAP_SDR_ID
+// pl_shader_color_map_ex's gamut LUT lookup (dv_map.c gamut_map), as its
+// shader does it: the texture sampled linearly at I, 2 C, h / 2 pi + 0.5
+// (texel centres at the ends of each axis), P and T stored with an offset.
+// (The sampler's weights have 8 bits on these GPUs: against the CPU's exact
+// ones that is a few hundredths of an output code at most.) A neutral colour
+// has no hue: any.
+vec3 map_gamut_lookup(vec3 ipt)
 {
     float h = ipt.y == 0.0 && ipt.z == 0.0 ? 0.0 : atan(ipt.z, ipt.y);
     vec3 idx = vec3(mp.gamut_at.x * ipt.x + mp.gamut_at.y, 2.0 * length(ipt.yz), h * 0.15915494309189535 + 0.5);
-    vec3 t = clamp(idx, 0.0, 1.0) * vec3(47.0, 31.0, 255.0);
-    vec3 i0 = min(floor(t), vec3(46.0, 30.0, 254.0)), f = t - i0;
-    uvec3 p = uvec3(i0);
-    vec3 x00 = mix(map_gamut_node(p), map_gamut_node(p + uvec3(1, 0, 0)), f.x);
-    vec3 x10 = mix(map_gamut_node(p + uvec3(0, 1, 0)), map_gamut_node(p + uvec3(1, 1, 0)), f.x);
-    vec3 x01 = mix(map_gamut_node(p + uvec3(0, 0, 1)), map_gamut_node(p + uvec3(1, 0, 1)), f.x);
-    vec3 x11 = mix(map_gamut_node(p + uvec3(0, 1, 1)), map_gamut_node(p + uvec3(1, 1, 1)), f.x);
-    vec3 v = mix(mix(x00, x10, f.y), mix(x01, x11, f.y), f.z);
-    return (v - vec3(0.0, 32768.0, 32768.0)) * (1.0 / 65535.0);
+    const vec3 n = vec3(48.0, 32.0, 256.0);
+    vec3 v = textureLod(map_gamut, clamp(idx, 0.0, 1.0) * ((n - 1.0) / n) + 0.5 / n, 0.0).rgb;
+    return v - vec3(0.0, 32768.0 / 65535.0, 32768.0 / 65535.0);
 }
 
 // SDR: linear BT.2020 light to the display's R'G'B' (0..1), always through
@@ -113,7 +106,7 @@ vec3 map_sdr(vec3 lin)
         ipt.yz *= ipt.x > 0.0 && h0 > 0.0 ? min(i0 / ipt.x, h1 / h0) : 0.0;
     }
     if ((mp.flags & 8u) != 0u)
-        ipt = map_gamut(ipt);
+        ipt = map_gamut_lookup(ipt);
     lin = map_m3(mp.lms2rgb, map_pq_eotf(map_m3(mp.ipt2lms, ipt)));
     return clamp(pow(max(mp.out_trc.x * lin + mp.out_trc.y, 0.0), vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0);
 }
@@ -128,7 +121,7 @@ uint map_rgb(vec3 nl, out vec3 rgb)
     vec3 lin = map_m3(mp.src_lms2rgb, map_pq_eotf(nl));
     regime |= uint(lin.x < 0.0) | uint(lin.y < 0.0) << 1 | uint(lin.z < 0.0) << 2;
     lin = max(lin, 0.0);
-#ifdef MAP_TABLES_BINDING
+#ifdef MAP_SDR_ID
     if (MAP_SDR != 0u) {
         rgb = map_sdr(lin);
         return regime;
@@ -174,7 +167,7 @@ vec3 map_out_codes(vec3 rgb)
         return mp.out_code.x * rgb + mp.out_code.y;
     return map_codes(map_ycc(rgb));
 }
-#ifdef MAP_TABLES_BINDING
+#ifdef MAP_SDR_ID
 // SDR: pixel (x, y)'s codes from its unrounded ones: floor(code + bias), the
 // bias the dither pattern's rank / 4096 (pl_shader_dither's blue noise), or
 // one half (rounded). dvvk_map_sdr_code.
@@ -211,6 +204,47 @@ vec3 map_exact(uint yy, uint cb, uint cr)
     return map_out_codes(rgb);
 }
 
+#ifdef MAP_SDR_ID
+// SDR: a pixel has its own chroma, the pair's sample on the even pixel and
+// the mean of it and the next pair's on the odd one (4:2:2 is sited on the
+// even pixel), so the codes are not integers: map_base and map_exact for them.
+vec3 map_base(vec2 cbcr)
+{
+    float n = float(mp.lut_n), s = (n - 1.0) / n;
+    vec2 c = cbcr * (s / 4095.0);
+    return vec3(dot(mp.ycc[0].yz, c), dot(mp.ycc[1].yz, c), dot(mp.ycc[2].yz, c)) + mp.ycc_offset.xyz * s + 0.5 / n;
+}
+vec3 map_exact(uint yy, vec2 cbcr)
+{
+    vec3 rgb;
+    map_rgb(map_nonlinear(vec3(float(yy), cbcr)), rgb);
+    return map_out_codes(rgb);
+}
+// A pixel (its luma, its chroma, its unrounded codes c, where it is) as its
+// XRGB8888 word. The stream's black (the letterbox) is its exact code,
+// undithered: bars stay one value.
+uint map_sdr_pixel(uint yy, vec2 cbcr, vec3 c, uvec2 at)
+{
+    uvec3 bi = mp.black_in.xyz;
+    if (yy == bi.x && cbcr == vec2(bi.yz))
+        return map_sdr_word(mp.black_out.xyz);
+    return map_sdr_word(map_sdr_q(c, at));
+}
+#ifdef MAP_CELLS_BINDING
+// Whether map_bake marked the cell that LUT coordinate t (map_coord) is in:
+// its bit in the cells buffer. (HDR10's pack reads the marks from the LUT's
+// alpha instead, which also takes half of every cell beside a marked one;
+// here an exactly computed sample costs more, and there are more of them.)
+bool map_marked(vec3 t)
+{
+    uint m = mp.lut_n - 1u;
+    uvec3 c = min(uvec3(max(t * float(mp.lut_n) - 0.5, 0.0)), uvec3(m - 1u));
+    uint i = (c.z * m + c.y) * m + c.x;
+    return ((map_cells[i >> 5] >> (i & 31u)) & 1u) != 0u;
+}
+#endif
+#endif
+
 // A pair's output codes from its input codes a (even: Y, Cb) and b (odd: Y,
 // Cr) and its samples' mapped codes (unrounded) e and o (the pair's chroma is e's, the
 // co-sited sample's). The stream's black (the letterbox) is exact: black_out.
@@ -222,19 +256,6 @@ void map_pair(uvec2 a, uvec2 b, vec3 e, vec3 o, out uvec2 ra, out uvec2 rb)
     ra = both ? bo.xy : uvec2(map_q(e.x), map_q(e.y));
     rb = uvec2(chroma_black && b.x == bi.x ? bo.x : map_q(o.x), both ? bo.z : map_q(e.z));
 }
-
-#ifdef MAP_TABLES_BINDING
-// SDR: the pair's two pixels (the first at `at`) from its input codes and its
-// samples' mapped codes: each pixel its own luma with the pair's chroma. The
-// stream's black is exact here too (undithered: the letterbox stays one value).
-void map_sdr_pair(uvec2 a, uvec2 b, vec3 e, vec3 o, uvec2 at, out uint wa, out uint wb)
-{
-    uvec3 bi = mp.black_in.xyz;
-    bool chroma_black = a.y == bi.y && b.y == bi.z;
-    wa = map_sdr_word(chroma_black && a.x == bi.x ? mp.black_out.xyz : map_sdr_q(e, at));
-    wb = map_sdr_word(chroma_black && b.x == bi.x ? mp.black_out.xyz : map_sdr_q(o, at + uvec2(1u, 0u)));
-}
-#endif
 
 // the tunnel's pixel word (12-bit Y and C in XRGB8888), as pack's finish()
 uint map_word(uvec2 v) { return ((v.y & 15u) << 4 | (v.x & 15u)) | (v.x >> 4) << 8 | (v.y >> 4) << 16 | 0xff000000u; }

@@ -42,7 +42,8 @@
 //!   `DVVK_MAP_N=N` the LUT's points per axis (default 65).
 //! - `DVVK_MAP_THRESH=C`: the 3D LUT's cells interpolating worse than C output
 //!   codes (default 0.5 of a 12-bit code; SDR output 0.35 of an 8-bit one) are
-//!   computed exactly; `DVVK_MAP_STATS=1` traces bakes.
+//!   computed exactly; `DVVK_MAP_STATS=1` traces bakes and how many entries
+//!   map_fixup had a frame (pairs of SDR output, 4x2 blocks of HDR10's).
 //! - `DVVK_MAP_INLINE=1`: HDR10 output's marked LUT cells computed in the
 //!   pack instead of map_fixup's pass (a comparison).
 //! - `DVVK_HDR10PLUS_TRACE=1`: each dvvk_hdr10plus_packet call prints the

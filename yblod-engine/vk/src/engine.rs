@@ -969,12 +969,19 @@ pub struct Engine {
     // with MAP_SDR; its tables (map.rs TABLE_WORDS: the dither pattern and
     // the gamut LUT) as the GPU reads them and as set_black does, and the
     // gamut they are for.
-    map_sdr: Option<([Pipeline; 3], Pipeline)>,
+    map_sdr: Option<[Pipeline; 4]>,
     map_tables: Option<HostBuffer>,
     map_table_words: Vec<u32>,
     map_tables_key: Option<u64>,
+    // the gamut LUT as the shaders sample it (the tables' words are its
+    // texels), and whether the tables changed since it was copied
+    map_gamut: Option<gpu::Lut3d>,
+    map_gamut_stale: bool,
     pub map_bakes: u64,
     map_frames: u64,
+    // DVVK_MAP_STATS: map_fixup's entries (bounds_result's second half of
+    // the frames that copied their list's count), summed until printed
+    map_fixups: (u64, u64),
 }
 
 impl Engine {
@@ -1007,7 +1014,7 @@ impl Engine {
         pack_bindings.extend([sampled, sampled, storage]); // CB1 LUTs and GPU bounds
         pack_bindings.extend([sampled, storage, storage]); // HDR10 output: the 3D LUT, its parameters and exact cells
         pack_bindings.push(storage); // HDR10+ output: the frame's statistics
-        pack_bindings.push(storage); // SDR output: its tables
+        pack_bindings.extend([storage, sampled]); // SDR output: its tables, the gamut LUT
         let pack_push = std::mem::size_of::<PackPush>() as u32;
         // The variants a frame can use (pack_eager; the rest stay None).
         let mut pack = Vec::with_capacity((PACK_SOURCES * PACK_OVERLAYS * PACK_KINDS) as usize);
@@ -1243,15 +1250,18 @@ impl Engine {
         } else {
             None
         };
+        // map_bake and map_fixup: three buffers each, then SDR output's
+        // tables and gamut LUT
+        let map_bindings = [storage, storage, storage, storage, sampled];
         let map_bake = [
-            construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 0)])?),
-            construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 1)])?),
-            construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 2)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &map_bindings, 8, &[(0, 0)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &map_bindings, 8, &[(0, 1)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &map_bindings, 8, &[(0, 2)])?),
         ];
         let n = o.map_n;
         let map_lut = construction.keep(gpu::Lut3d::new(&d, n)?);
         let map_nodes = construction.keep(DeviceBuffer::new(&d, (n * n * n) as u64 * 8)?);
-        let map_fixup = construction.keep(Pipeline::new(&d, "map_fixup", &[storage; 4], 8, &[])?);
+        let map_fixup = construction.keep(Pipeline::new(&d, "map_fixup", &map_bindings, 8, &[])?);
         // the marked cells' bits, then (256-aligned) map_fixup's list: its
         // header and an entry per pack invocation at most
         let map_list = ((n - 1).pow(3).div_ceil(32) * 4).next_multiple_of(256) / 4;
@@ -1283,14 +1293,12 @@ impl Engine {
                         pack_map.insert(Self::pack_map_key(variant, false, sdr), pipe);
                     }
                 }
-                map_sdr = Some((
-                    [
-                        construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 0), (1, 1)])?),
-                        construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 1), (1, 1)])?),
-                        construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 2), (1, 1)])?),
-                    ],
-                    construction.keep(Pipeline::new(&d, "map_fixup", &[storage; 4], 8, &[(0, 1)])?),
-                ));
+                map_sdr = Some([
+                    construction.keep(Pipeline::new(&d, "map_bake", &map_bindings, 8, &[(0, 0), (1, 1)])?),
+                    construction.keep(Pipeline::new(&d, "map_bake", &map_bindings, 8, &[(0, 1), (1, 1)])?),
+                    construction.keep(Pipeline::new(&d, "map_bake", &map_bindings, 8, &[(0, 2), (1, 1)])?),
+                    construction.keep(Pipeline::new(&d, "map_fixup", &map_bindings, 8, &[(0, 1)])?),
+                ]);
             }
         }
         gpu::prepare_end()?;
@@ -1461,8 +1469,11 @@ impl Engine {
             map_tables: None,
             map_table_words: Vec::new(),
             map_tables_key: None,
+            map_gamut: None,
+            map_gamut_stale: false,
             map_bakes: 0,
             map_frames: 0,
+            map_fixups: (0, 0),
             va: va_display,
             boost: crate::power::Boost::new(drm_fd, o.gpu_boost),
             d,
@@ -1953,7 +1964,7 @@ impl Engine {
     /// meanwhile: frames in flight read them).
     fn ensure_sdr(&mut self, map: &crate::map::Map) -> Result<()> {
         if self.map_sdr.is_none() {
-            let storage = [vk::DescriptorType::STORAGE_BUFFER; 4];
+            let storage = self.map_fixup.bindings.clone();
             let start = std::time::Instant::now();
             let mut made = Vec::new();
             let result = (|| {
@@ -1970,14 +1981,25 @@ impl Engine {
                 return Err(e);
             }
             eprintln!("dvvk SDR bake and fix-up: creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
-            let fixup = made.pop().unwrap();
-            let mut bake = made.into_iter();
-            self.map_sdr = Some(([bake.next().unwrap(), bake.next().unwrap(), bake.next().unwrap()], fixup));
+            let mut p = made.into_iter();
+            self.map_sdr = Some([p.next().unwrap(), p.next().unwrap(), p.next().unwrap(), p.next().unwrap()]);
             self.d.save_pipeline_cache();
+        }
+        // map_fixup's list with an entry a pair (HDR10's has one a 4x2 block)
+        let cells = u64::from(self.map_list + 4 + (CANVAS_W / 2) * CANVAS_H) * 4;
+        if self.map_cells.size < cells {
+            self.idle_checked()?;
+            let larger = DeviceBuffer::new(&self.d, cells)?;
+            std::mem::replace(&mut self.map_cells, larger).destroy(&self.d);
+            self.map_baked = None;
+        }
+        if self.map_gamut.is_none() {
+            self.map_gamut = Some(gpu::Lut3d::new_sized(&self.d, crate::map::GAMUT_SIZE)?);
         }
         if self.map_tables.is_none() {
             let bytes = (crate::map::TABLE_WORDS * 4) as u64;
-            self.map_tables = Some(HostBuffer::new(&self.d, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)?);
+            let usage = vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_SRC;
+            self.map_tables = Some(HostBuffer::new(&self.d, bytes, usage)?);
             self.map_table_words = vec![0; crate::map::TABLE_WORDS];
             self.map_tables_key = None;
         }
@@ -1989,6 +2011,7 @@ impl Engine {
             self.map_tables_key = Some(map.gamut_key);
             // the LUT's nodes were baked through the old tables
             self.map_baked = None;
+            self.map_gamut_stale = true;
         }
         Ok(())
     }
@@ -2132,6 +2155,14 @@ impl Engine {
             }
             if v.checked % 120 == 0 {
                 eprintln!("dvvk verify: {} frames checked, {} differed", v.checked, v.differing);
+            }
+        }
+        if self.d.options.map_stats {
+            let b = self.ring[ci].bounds_result.bytes();
+            let count = u32::from_le_bytes([b[16], b[17], b[18], b[19]]);
+            if count != u32::MAX {
+                self.map_fixups.0 += 1;
+                self.map_fixups.1 += u64::from(count);
             }
         }
         self.collect_deadline(ci);
@@ -2301,7 +2332,15 @@ impl Engine {
             }
             self.map_frames += 1;
             if self.d.options.map_stats && self.map_frames % 120 == 0 {
-                eprintln!("dvvk map: {} LUT bakes in {} frames", self.map_bakes, self.map_frames);
+                let (frames, entries) = std::mem::take(&mut self.map_fixups);
+                // an entry is a pair of SDR output, a 4x2 block of HDR10's
+                eprintln!(
+                    "dvvk map: {} LUT bakes in {} frames; map_fixup entries a frame {:.0} ({} frames)",
+                    self.map_bakes,
+                    self.map_frames,
+                    entries as f64 / frames.max(1) as f64,
+                    frames
+                );
             }
         }
         // Native CB1 GUI path: keep desktop/linear FP16, resized pictures and
@@ -2838,11 +2877,24 @@ impl Engine {
             (Some(t), true) => t.buffer,
             _ => slot.error,
         };
+        // the gamut LUT: the tables' texels copied into it when they changed
+        // (any 3D image for the pipelines that never sample it)
+        let gamut = match (self.map_gamut.as_mut(), sdr) {
+            (Some(g), true) => {
+                if self.map_gamut_stale || !g.ready {
+                    gpu::compute_barrier(d, cmd);
+                    g.record_copy(d, cmd, tables, (crate::map::GAMUT_AT * 4) as u64);
+                    self.map_gamut_stale = false;
+                }
+                g.view
+            }
+            _ => self.map_lut.view,
+        };
         let (map_bake, map_fixup) = match (&self.map_sdr, sdr) {
-            (Some((bake, fixup)), true) => (bake, fixup),
+            (Some(p), true) => (&p[..3], &p[3]),
             // submit made them (ensure_sdr) before a frame of SDR output got here
             (None, true) => return Err(Error::Missing("the SDR bake pipelines")),
-            _ => (&self.map_bake, &self.map_fixup),
+            _ => (&self.map_bake[..], &self.map_fixup),
         };
         if let Some(m) = self.map.as_ref() {
             self.ring[ci].map_params.bytes_mut()[..m.gpu.bytes.len()].copy_from_slice(&m.gpu.bytes);
@@ -2863,6 +2915,7 @@ impl Engine {
                     Bind::Buffer(self.map_nodes.buffer),
                     Bind::Buffer(self.map_cells.buffer),
                     Bind::Buffer(tables),
+                    Bind::Sampled(gamut, self.linear),
                 ];
                 // nodes, the cells they interpolate badly, the marks in the nodes' alpha
                 self.dispatch3(cmd, &map_bake[0], &binds, &push, n.div_ceil(4));
@@ -2870,7 +2923,7 @@ impl Engine {
                 self.dispatch3(cmd, &map_bake[1], &binds, &push, (n - 1).div_ceil(4));
                 gpu::compute_barrier(d, cmd);
                 self.dispatch3(cmd, &map_bake[2], &binds, &push, n.div_ceil(4));
-                self.map_lut.record_copy(d, cmd, self.map_nodes.buffer);
+                self.map_lut.record_copy(d, cmd, self.map_nodes.buffer, 0);
                 gpu::compute_barrier(d, cmd);
                 self.map_baked = Some(m.key);
                 self.map_bakes += 1;
@@ -2938,6 +2991,7 @@ impl Engine {
                 Bind::Buffer(self.map_cells.buffer),
                 Bind::Buffer(slot.stats),
                 Bind::Buffer(tables),
+                Bind::Sampled(gamut, self.linear),
             ],
         );
         let push = PackPush {
@@ -2984,10 +3038,22 @@ impl Engine {
                     Bind::Buffer(slot.map_params),
                     Bind::Buffer(self.map_cells.buffer),
                     Bind::Buffer(tables),
+                    Bind::Sampled(gamut, self.linear),
                 ],
             );
             gpu::push_constants(d, cmd, map_fixup, &[CANVAS_W, out_stride / 4]);
             unsafe { d.device.cmd_dispatch_indirect(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4) };
+        }
+        if self.d.options.map_stats {
+            // the list's count, for collect_frame (no list: none)
+            self.ring[ci].bounds_result.bytes_mut()[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
+            if fixup {
+                gpu::compute_barrier(d, cmd);
+                let region = [vk::BufferCopy { src_offset: u64::from(self.map_list) * 4 + 12, dst_offset: 16, size: 4 }];
+                unsafe {
+                    d.device.cmd_copy_buffer(cmd, self.map_cells.buffer, self.ring[ci].bounds_result.buffer, &region)
+                };
+            }
         }
         stamp(cmd, 3);
         if check {
@@ -3229,6 +3295,7 @@ impl Engine {
                 Bind::Buffer(self.map_cells.buffer),
                 Bind::Buffer(slot.stats),
                 Bind::Buffer(slot.error),
+                Bind::Sampled(self.map_lut.view, self.linear),
             ],
             &reference_push,
             ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)),
@@ -3667,13 +3734,14 @@ impl Drop for Engine {
         for p in self.pack_map.values().chain(self.map_bake.iter()).chain(std::iter::once(&self.map_fixup)) {
             p.destroy(d);
         }
-        if let Some((bake, fixup)) = &self.map_sdr {
-            for p in bake.iter().chain(std::iter::once(fixup)) {
-                p.destroy(d);
-            }
+        for p in self.map_sdr.iter().flatten() {
+            p.destroy(d);
         }
         if let Some(t) = &self.map_tables {
             t.destroy(d);
+        }
+        if let Some(g) = &self.map_gamut {
+            g.destroy(d);
         }
         self.map_lut.destroy(d);
         self.map_nodes.destroy(d);

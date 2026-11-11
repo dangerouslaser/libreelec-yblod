@@ -24,6 +24,9 @@ pub const BAKE_THRESH_SDR: f32 = 0.35;
 /// include/dvvk_map.h DVVK_MAP_TABLE_WORDS: SDR output's tables (the dither
 /// pattern, then the gamut LUT).
 pub const TABLE_WORDS: usize = 64 * 64 + 2 * 48 * 32 * 256;
+/// The gamut LUT in the tables: its first word, and its points (I, C, h).
+pub const GAMUT_AT: usize = 64 * 64;
+pub const GAMUT_SIZE: [u32; 3] = [48, 32, 256];
 /// dvvk_map_gpu.flags: DVVK_MAP_SDR.
 const MAP_SDR: u32 = 4;
 
