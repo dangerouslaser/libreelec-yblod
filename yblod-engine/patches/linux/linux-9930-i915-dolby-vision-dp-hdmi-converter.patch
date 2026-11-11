@@ -374,7 +374,7 @@ index 62636af80360..5de931619f1c 100644
  	if (!s->hdmi || !s->rgb || s->limited_range || s->hdr_blob || s->cloned ||
  	    !s->progressive || s->requested_bpc != 8 || s->pipe_bpp != 24 ||
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 14ce54e67b65..90112f7632a6 100644
+index dd01bee10fa6..fd6c204bdbaa 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -602,6 +602,71 @@ static u32 hsw_infoframes_enabled(struct intel_encoder *encoder,
@@ -449,7 +449,7 @@ index 14ce54e67b65..90112f7632a6 100644
  static const u8 infoframe_type_to_idx[] = {
  	HDMI_PACKET_TYPE_GENERAL_CONTROL,
  	HDMI_PACKET_TYPE_GAMUT_METADATA,
-@@ -3807,6 +3872,11 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
+@@ -3814,6 +3879,11 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
  			dig_port->read_infoframe = lspcon_read_infoframe;
  			dig_port->set_infoframes = lspcon_set_infoframes;
  			dig_port->infoframes_enabled = lspcon_infoframes_enabled;

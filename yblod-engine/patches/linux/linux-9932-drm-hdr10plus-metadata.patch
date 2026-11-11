@@ -812,7 +812,7 @@ index a67b07528fb6..230dbf2f24f2 100644
  	/* FIXME deal with everything */
  	new_crtc_state->use_flipq =
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index ecf5f09d11b6..0c9df5243193 100644
+index 79016feb5815..0a5e70681f6f 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
 @@ -660,6 +660,8 @@ struct dpll {
@@ -825,7 +825,7 @@ index ecf5f09d11b6..0c9df5243193 100644
  	struct ref_tracker *wakeref;
  
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 2a72be7122ca..d5ac34fc69aa 100644
+index 0884d1b037ca..1bb4a53c0ae0 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -795,6 +795,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
@@ -970,7 +970,7 @@ index 2a72be7122ca..d5ac34fc69aa 100644
  void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
  				   const struct intel_crtc_state *crtc_state,
  				   const struct drm_connector_state *conn_state)
-@@ -3511,8 +3625,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3518,8 +3632,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  	intel_attach_hdmi_colorspace_property(&connector->base);
  	drm_connector_attach_content_type_property(&connector->base);
  

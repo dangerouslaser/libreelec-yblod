@@ -187,7 +187,7 @@ index 02a53c9848e1..7cd3b5dad423 100644
  }
  
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 596e01bfc4a8..24e47f1141b9 100644
+index 0d07b81710a4..94b12321eb19 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
 @@ -558,6 +558,15 @@ struct intel_connector {
@@ -207,10 +207,10 @@ index 596e01bfc4a8..24e47f1141b9 100644
  	/* since POLL and HPD connectors may use the same HPD line keep the native
  	   state of connector->polled in case hotplug storm detection changes it */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 6842419cac38..32bf46b03c30 100644
+index 2418e1e88d1e..406f540f33e3 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -3181,6 +3181,50 @@ intel_hdmi_set_edid(struct drm_connector *_connector)
+@@ -3188,6 +3188,50 @@ intel_hdmi_set_edid(struct drm_connector *_connector)
  	return connected;
  }
  
@@ -261,7 +261,7 @@ index 6842419cac38..32bf46b03c30 100644
  static enum drm_connector_status
  intel_hdmi_detect(struct drm_connector *_connector, bool force)
  {
-@@ -3203,8 +3247,18 @@ intel_hdmi_detect(struct drm_connector *_connector, bool force)
+@@ -3210,8 +3254,18 @@ intel_hdmi_detect(struct drm_connector *_connector, bool force)
  	wakeref = intel_display_power_get(display, POWER_DOMAIN_GMBUS);
  
  	if (DISPLAY_VER(display) >= 11 &&

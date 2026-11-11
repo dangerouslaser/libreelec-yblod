@@ -18,19 +18,20 @@ announced with M_CONST cleared for four frames.
 
 The requested timing is replaced by the base timing before the link is
 computed, so the TMDS clock, the AVI VIC and the Dolby Vision checks
-describe the signal that is sent. i915.qms=0 turns it off (0644, from
-the next modeset).
+describe the signal that is sent. i915.qms=0 turns it off (xe.qms=0
+where the xe driver runs the display; 0644, from the next modeset).
 
 Limits:
+- DDI platforms of display version 12 to 29, where the mechanism exists
+  (intel_hdmi_qms_possible()); it has run on 12 (Tiger Lake) and 13
+  (Alder Lake-N) only;
 - HDR: only when the 60 Hz base gets the same bpc as the requested
   timing (intel_hdmi_compute_bpc on both clocks). 2160p50/59.94/60 and
   1080p at 10 bpc keep QMS; 2160p24/25/30 HDR at 10 bpc keeps its own
   timing. From big-fella (linux-9911): KWin's HDR desktop at 2160p60
   already runs at 8 bpc, and every rate change there was a blank.
 - the Dolby Vision tunnel in its dolby-vision format at 2160p: only if
-  the sink's Dolby block allows 2160p60 (the base timing);
-- not on LSPCON ports (gen9/10: the VTEM does not fit the 32-byte GMP
-  DIP).
+  the sink's Dolby block allows 2160p60 (the base timing).
 
 Validation carried over: Tiger Lake with an LG G5 (YBLOD 0.3.3): HDR10
 2160p59.94 as QMS on the 60 Hz base, Dolby Vision 23.976 over QMS with a
@@ -48,12 +49,22 @@ Changed since YBLOD 0.4.1:
 - the exclusion for DVBRIDGE_HDR10_DEEP_COLOR went with that property
   (linux-9904-hdr10-conversion, dropped: Kodi has not set it since 0.4.0
   and amdgpu never had it).
+- QMS only on DDI platforms of display version 12 to 29; everything else
+  behaves as upstream. Before, intel_hdmi_qms_prepare() also ran for
+  pre-DDI HDMI (g4x_hdmi.c) and for DDI platforms below 12: it forced
+  the LRR fastset that upstream limits to version 12 and later, and
+  below 11 the 36-byte VTEM went into a 32-byte GMP DIP. On 30 and later
+  the always-on VRR timing generator does not take its frame length from
+  the vertical total that the frame pacer rewrites. The separate LSPCON
+  exclusion is covered by this (LSPCON is version 9/10).
+- the frame pacer's state is in struct intel_crtc. It was a module-
+  global array indexed by pipe, shared by every device of the driver.
 ---
  drivers/gpu/drm/i915/display/intel_display.c  |  12 +-
- .../drm/i915/display/intel_display_types.h    |   8 +
- drivers/gpu/drm/i915/display/intel_hdmi.c     | 437 ++++++++++++++++++
+ .../drm/i915/display/intel_display_types.h    |  16 +
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 444 ++++++++++++++++++
  drivers/gpu/drm/i915/display/intel_hdmi.h     |   6 +
- 4 files changed, 461 insertions(+), 2 deletions(-)
+ 4 files changed, 476 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
 index 12d8b5f99614..a67b07528fb6 100644
@@ -100,7 +111,7 @@ index 12d8b5f99614..a67b07528fb6 100644
  } while (0)
  
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 83a519bb9431..596e01bfc4a8 100644
+index 83a519bb9431..0d07b81710a4 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
 @@ -1425,6 +1425,14 @@ struct intel_crtc_state {
@@ -118,8 +129,23 @@ index 83a519bb9431..596e01bfc4a8 100644
  	/* Content Match Refresh Rate state */
  	struct {
  		bool enable;
+@@ -1531,6 +1539,14 @@ struct intel_crtc {
+ 
+ 	struct intel_crtc_state *config;
+ 
++	/* HDMI QMS: the frame pacer of rates with a fractional vertical total */
++	struct {
++		struct task_struct *task;
++		enum transcoder trans;
++		u16 vdisplay, vblank_start;
++		u32 num, den;
++	} qms_pacer;
++
+ 	/* armed event for async flip */
+ 	struct drm_pending_vblank_event *flip_done_event;
+ 	/* armed event for DSB based updates */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 093762d9e97f..2a715118fc9e 100644
+index 093762d9e97f..9f4383223a56 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -27,11 +27,15 @@
@@ -175,7 +201,7 @@ index 093762d9e97f..2a715118fc9e 100644
  }
  
  void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable)
-@@ -2448,6 +2461,426 @@ bool intel_hdmi_compute_has_hdmi_sink(struct intel_encoder *encoder,
+@@ -2448,6 +2461,433 @@ bool intel_hdmi_compute_has_hdmi_sink(struct intel_encoder *encoder,
  		!intel_hdmi_is_cloned(crtc_state);
  }
  
@@ -194,10 +220,15 @@ index 093762d9e97f..2a715118fc9e 100644
 + * 1) with QMS_EN set. It announces the next rate with M_CONST cleared for
 + * four frames before the change. It is sent in the gamut metadata DIP, whose
 + * header is written by software.
++ *
++ * The parameter belongs to the module this file is built into: i915.qms, or
++ * xe.qms on a display the xe driver runs. It is one switch for every display
++ * of that driver.
 + */
 +static bool qms_enable = true;
 +module_param_named(qms, qms_enable, bool, 0644);
-+MODULE_PARM_DESC(qms, "Change HDMI refresh rates with QMS-VRR when the sink supports it (default: true)");
++MODULE_PARM_DESC(qms, "Change HDMI refresh rates with QMS-VRR when the sink supports it, "
++		 "on display versions 12 to 29 (default: true)");
 +
 +#define QMS_BASE_REFRESH	60
 +#define QMS_ANNOUNCE_FRAMES	4
@@ -223,6 +254,19 @@ index 093762d9e97f..2a715118fc9e 100644
 +	{ 30, 1, 5 }, { 48000, 1001, 6 }, { 48, 1, 7 }, { 50, 1, 8 },
 +	{ 60000, 1001, 9 }, { 60, 1, 10 },
 +};
++
++/*
++ * Where the mechanism exists: the DDI's gamut metadata DIP with room for the
++ * 36-byte VTEM (display version 11+), rate changes through the LRR fastset
++ * (12+), and a timing generator that takes its frame length from the vertical
++ * total, which the frame pacer rewrites (not the always-on VRR one of 30+).
++ * It has run on versions 12 (Tiger Lake) and 13 (Alder Lake-N).
++ */
++static bool intel_hdmi_qms_possible(struct intel_display *display)
++{
++	return HAS_DDI(display) && HAS_LRR(display) &&
++		!intel_vrr_always_use_vrr_tg(display);
++}
 +
 +/* QMS bit of the HDMI Forum VSDB or SCDB */
 +static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
@@ -271,6 +315,7 @@ index 093762d9e97f..2a715118fc9e 100644
 +	const struct intel_digital_connector_state *intel_conn_state =
 +		to_intel_digital_connector_state(conn_state);
 +	const struct drm_display_info *info = &conn_state->connector->display_info;
++	struct intel_display *display = to_intel_display(encoder);
 +	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
 +	const struct intel_hdmi_qms_base *b = NULL;
 +	u64 num, den, g;
@@ -278,10 +323,10 @@ index 093762d9e97f..2a715118fc9e 100644
 +
 +	memset(&crtc_state->qms, 0, sizeof(crtc_state->qms));
 +
-+	/* linux-9931: not on an LSPCON's level-shifter DV output (gen9/10: the
-+	 * VTEM does not fit the 32-byte GMP DIP). */
++	if (!intel_hdmi_qms_possible(display))
++		return;
++
 +	if (!qms_enable || !crtc_state->has_hdmi_sink ||
-+	    intel_bios_encoder_is_lspcon(encoder->devdata) ||
 +	    m->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN |
 +			DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK))
 +		return;
@@ -461,32 +506,23 @@ index 093762d9e97f..2a715118fc9e 100644
 +	intel_hdmi_qms_write_vtem(to_intel_display(crtc), crtc_state, constant);
 +}
 +
-+struct intel_hdmi_qms_pacer {
-+	struct task_struct *task;
-+	struct intel_crtc *crtc;
-+	enum transcoder trans;
-+	u16 vdisplay, vblank_start;
-+	u32 num, den;
-+};
-+
-+static struct intel_hdmi_qms_pacer qms_pacers[I915_MAX_PIPES];
-+
 +static int intel_hdmi_qms_pacer_fn(void *data)
 +{
-+	struct intel_hdmi_qms_pacer *p = data;
-+	struct intel_display *display = to_intel_display(p->crtc);
++	struct intel_crtc *crtc = data;
++	struct intel_display *display = to_intel_display(crtc);
++	typeof(crtc->qms_pacer) *p = &crtc->qms_pacer;
 +	u32 last = 0;
 +
 +	while (!kthread_should_stop()) {
 +		u32 k, lines;
 +
-+		if (drm_crtc_wait_one_vblank(&p->crtc->base)) {
++		if (drm_crtc_wait_one_vblank(&crtc->base)) {
 +			msleep(10);
 +			continue;
 +		}
 +
 +		/* lines for the next frame, so the running sum stays exact */
-+		k = (intel_de_read(display, PIPE_FRMCOUNT_G4X(display, p->crtc->pipe)) + 1) % p->den;
++		k = (intel_de_read(display, PIPE_FRMCOUNT_G4X(display, crtc->pipe)) + 1) % p->den;
 +		lines = div_u64((u64)(k + 1) * p->num, p->den) -
 +			div_u64((u64)k * p->num, p->den);
 +		if (lines == last)
@@ -504,11 +540,9 @@ index 093762d9e97f..2a715118fc9e 100644
 +
 +static void intel_hdmi_qms_pacer_stop(struct intel_crtc *crtc)
 +{
-+	struct intel_hdmi_qms_pacer *p = &qms_pacers[crtc->pipe];
-+
-+	if (p->task) {
-+		kthread_stop(p->task);
-+		p->task = NULL;
++	if (crtc->qms_pacer.task) {
++		kthread_stop(crtc->qms_pacer.task);
++		crtc->qms_pacer.task = NULL;
 +	}
 +}
 +
@@ -516,13 +550,12 @@ index 093762d9e97f..2a715118fc9e 100644
 +				       const struct intel_crtc_state *crtc_state)
 +{
 +	struct intel_display *display = to_intel_display(crtc);
-+	struct intel_hdmi_qms_pacer *p = &qms_pacers[crtc->pipe];
++	typeof(crtc->qms_pacer) *p = &crtc->qms_pacer;
 +	struct task_struct *task;
 +
 +	if (p->task || crtc_state->qms.lines_den <= 1)
 +		return;
 +
-+	p->crtc = crtc;
 +	p->trans = crtc_state->cpu_transcoder;
 +	p->vdisplay = crtc_state->hw.adjusted_mode.crtc_vdisplay;
 +	/* as the LRR path: on TGL VBLANK_START - VACTIVE defines the SCL */
@@ -531,7 +564,7 @@ index 093762d9e97f..2a715118fc9e 100644
 +	p->num = crtc_state->qms.lines_num;
 +	p->den = crtc_state->qms.lines_den;
 +
-+	task = kthread_run(intel_hdmi_qms_pacer_fn, p, "i915-qms-%c",
++	task = kthread_run(intel_hdmi_qms_pacer_fn, crtc, "i915-qms-%c",
 +			   pipe_name(crtc->pipe));
 +	if (IS_ERR(task)) {
 +		drm_err(display->drm, "[CRTC:%d:%s] QMS: can't start the frame pacer\n",
@@ -602,7 +635,7 @@ index 093762d9e97f..2a715118fc9e 100644
  int intel_hdmi_compute_config(struct intel_encoder *encoder,
  			      struct intel_crtc_state *pipe_config,
  			      struct drm_connector_state *conn_state)
-@@ -2473,6 +2906,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -2473,6 +2913,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
  		pipe_config->pixel_multiplier = 2;
  
@@ -611,7 +644,7 @@ index 093762d9e97f..2a715118fc9e 100644
  	if (!intel_link_bw_compute_pipe_bpp(pipe_config))
  		return -EINVAL;
  
-@@ -2610,6 +3045,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -2610,6 +3052,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  		return -EINVAL;
  	}
  

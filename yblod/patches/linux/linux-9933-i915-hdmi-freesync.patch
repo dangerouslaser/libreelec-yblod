@@ -27,22 +27,26 @@ a longer vertical front porch (47.952, 48, 50, 59.94 on a 40-120 Hz TV); and
 FreeSync is on while the CRTC's VRR_ENABLED is set. Rates below the range
 keep QMS or a mode change; Kodi plays 24p at twice its rate. Never with the
 Dolby Vision tunnel (dv_lab_standard). i915.hdmi_freesync: 0 off, 1 with
-VRR_ENABLED (default), 2 also without it. Display version 10+, not on an
-LSPCON.
+VRR_ENABLED (default), 2 also without it. Where QMS is possible (display
+version 12 to 29).
 
 Proven on Tiger Lake with an LG G5 (big-fella linux-9931, the same
 signalling): FreeSync 40-60 Hz reported by the TV; 60, 59.94, 50, 47.99
 and 47.96 switch by fastset with no resync.
 
 Regrouped from linux-9933-hdmi-freesync (merged after YBLOD 0.4.1, in no
-release); no code change.
+release).
+
+Changed since YBLOD 0.4.1:
+- vrr_capable and the FreeSync modes only where QMS is possible (display
+  version 12 to 29; it was 10 and later).
 ---
  .../drm/i915/display/intel_display_types.h    |   3 +
- drivers/gpu/drm/i915/display/intel_hdmi.c     | 251 +++++++++++++++++-
- 2 files changed, 243 insertions(+), 11 deletions(-)
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 250 +++++++++++++++++-
+ 2 files changed, 242 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 0c9df5243193..dac3cd4a1c09 100644
+index 0a5e70681f6f..c8d263d21cb6 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
 @@ -1442,6 +1442,9 @@ struct intel_crtc_state {
@@ -56,10 +60,10 @@ index 0c9df5243193..dac3cd4a1c09 100644
  
  	/* Content Match Refresh Rate state */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index d5ac34fc69aa..1c9f9abecab9 100644
+index 1bb4a53c0ae0..61fade1a792d 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -2784,6 +2784,168 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
+@@ -2802,6 +2802,167 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
  	return false;
  }
  
@@ -148,8 +152,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
 +	bool capable;
 +	int i, r, added = 0;
 +
-+	capable = qms_enable && encoder && DISPLAY_VER(display) >= 10 &&
-+		  !intel_bios_encoder_is_lspcon(encoder->devdata) &&
++	capable = qms_enable && encoder && intel_hdmi_qms_possible(display) &&
 +		  intel_hdmi_freesync_in_range(&connector->base, QMS_BASE_REFRESH, 1);
 +
 +	for (i = 0; capable && i < ARRAY_SIZE(qms_bases); i++) {
@@ -228,15 +231,15 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  /*
   * Replace the requested timing with the 60 Hz base timing, so everything
   * computed from the mode (TMDS clock, AVI VIC, quantization range, Dolby
-@@ -2799,6 +2961,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
- 	const struct drm_display_info *info = &conn_state->connector->display_info;
+@@ -2818,6 +2979,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+ 	struct intel_display *display = to_intel_display(encoder);
  	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
  	const struct intel_hdmi_qms_base *b = NULL;
 +	bool has_qms, freesync;
  	u64 num, den, g;
  	int i;
  
-@@ -2835,7 +2998,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2854,7 +3016,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	     !info->hdmi.scdc.scrambling.supported))
  		return;
  
@@ -252,7 +255,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  		return;
  
  	/*
-@@ -2903,6 +3073,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2922,6 +3091,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	crtc_state->qms.base_vtotal = b->vtotal;
  	crtc_state->qms.lines_num = num;
  	crtc_state->qms.lines_den = den;
@@ -268,7 +271,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  }
  
  static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
-@@ -2923,7 +3102,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
+@@ -2942,7 +3120,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
  	crtc_state->infoframes.enable |=
  		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
  
@@ -295,7 +298,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  }
  
  /*
-@@ -2964,10 +3161,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
+@@ -2983,10 +3179,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
  	};
  	int i;
  
@@ -331,7 +334,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  
  	/* rewritten in place: the packet must not miss a frame */
  	for (i = 0; i < VIDEO_DIP_GMP_DATA_SIZE / 4; i++)
-@@ -3092,7 +3310,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
+@@ -3099,7 +3316,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
  
  	intel_hdmi_qms_pacer_stop(crtc);
  
@@ -341,7 +344,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  		return;
  
  	/* announce the next rate for four frames at the current one */
-@@ -3115,13 +3334,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
+@@ -3122,13 +3340,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
  	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
  		return;
  
@@ -359,7 +362,7 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  		    new_crtc_state->qms.lines_num, new_crtc_state->qms.lines_den);
  }
  
-@@ -3541,8 +3761,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
+@@ -3548,8 +3767,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
  {
  	struct intel_connector *connector = to_intel_connector(_connector);
  
@@ -374,13 +377,13 @@ index d5ac34fc69aa..1c9f9abecab9 100644
  }
  
  static int
-@@ -3635,6 +3860,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3642,6 +3866,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  
  	if (!HAS_GMCH(display))
  		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);
 +
 +	/* linux-9933: FreeSync (intel_hdmi_freesync_add_modes) */
-+	if (DISPLAY_VER(display) >= 10)
++	if (intel_hdmi_qms_possible(display))
 +		drm_connector_attach_vrr_capable_property(&connector->base);
  }
  
