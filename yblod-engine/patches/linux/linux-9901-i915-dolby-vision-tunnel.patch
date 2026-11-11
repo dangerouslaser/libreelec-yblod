@@ -84,17 +84,23 @@ Changed since YBLOD 0.4.1:
   checksum, and an extension block with a bad checksum is skipped (it
   used to fail the whole EDID). Kodi's copy (DVBridgeEdid.h) has the
   same rule.
+- the scanout check reads the state of a primary plane that is not part
+  of the commit under the plane's own lock (drm_modeset_lock in the
+  commit's acquire context, -EDEADLK passed up). It read primary->state
+  under the CRTC lock only, which does not stop a commit on a disabled
+  plane from replacing and freeing it. The plane is not added to the
+  commit.
 ---
  drivers/gpu/drm/i915/display/dvbridge_edid.h  | 136 +++++++++++++++
  .../drm/i915/display/dvbridge_tunnel_format.h | 126 ++++++++++++++
  drivers/gpu/drm/i915/display/intel_atomic.c   |  39 ++++-
- drivers/gpu/drm/i915/display/intel_display.c  |  86 +++++++++-
+ drivers/gpu/drm/i915/display/intel_display.c  |  95 ++++++++++-
  .../drm/i915/display/intel_display_params.c   |   5 +
  .../drm/i915/display/intel_display_params.h   |   1 +
  .../drm/i915/display/intel_display_types.h    |  13 ++
  .../drm/i915/display/intel_dv_lab_policy.h    |  64 +++++++
  drivers/gpu/drm/i915/display/intel_hdmi.c     | 160 +++++++++++++++++-
- 9 files changed, 626 insertions(+), 4 deletions(-)
+ 9 files changed, 635 insertions(+), 4 deletions(-)
  create mode 100644 drivers/gpu/drm/i915/display/dvbridge_edid.h
  create mode 100644 drivers/gpu/drm/i915/display/dvbridge_tunnel_format.h
  create mode 100644 drivers/gpu/drm/i915/display/intel_dv_lab_policy.h
@@ -453,10 +459,10 @@ index 9d0d47c79dd1..78622b34db2a 100644
  	    new_conn_state->base.colorspace != old_conn_state->base.colorspace ||
  	    new_conn_state->base.picture_aspect_ratio != old_conn_state->base.picture_aspect_ratio ||
 diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
-index 9dfd095f325f..82b1218fe585 100644
+index 9dfd095f325f..12d8b5f99614 100644
 --- a/drivers/gpu/drm/i915/display/intel_display.c
 +++ b/drivers/gpu/drm/i915/display/intel_display.c
-@@ -4321,6 +4321,81 @@ static int hsw_compute_linetime_wm(struct intel_atomic_state *state,
+@@ -4321,6 +4321,90 @@ static int hsw_compute_linetime_wm(struct intel_atomic_state *state,
  	return 0;
  }
  
@@ -498,6 +504,7 @@ index 9dfd095f325f..82b1218fe585 100644
 +	unsigned int w = s->hw.adjusted_mode.hdisplay;
 +	unsigned int h = s->hw.adjusted_mode.vdisplay;
 +	unsigned int reasons;
++	int ret;
 +
 +	if (!s->hw.active || !intel_dv_lab_active(s))
 +		return 0;
@@ -511,8 +518,16 @@ index 9dfd095f325f..82b1218fe585 100644
 +	if (reasons)
 +		return intel_dv_lab_scanout_reject(crtc, "crtc", reasons);
 +	p = drm_atomic_get_new_plane_state(&state->base, primary);
-+	if (!p)
-+		p = primary->state; /* unchanged plane, serialized by this CRTC's lock */
++	if (!p) {
++		/* Not in this commit: its current state, which only the plane's
++		 * own lock keeps from being replaced. The plane stays out of
++		 * the commit.
++		 */
++		ret = drm_modeset_lock(&primary->mutex, state->base.acquire_ctx);
++		if (ret)
++			return ret;
++		p = primary->state;
++	}
 +	if (!p || !p->fb)
 +		return intel_dv_lab_scanout_reject(crtc, "primary-missing", 1);
 +	/* Reason bits: route/visible, format, allocation, source, destination,
@@ -538,7 +553,7 @@ index 9dfd095f325f..82b1218fe585 100644
  static int intel_crtc_atomic_check(struct intel_atomic_state *state,
  				   struct intel_crtc *crtc)
  {
-@@ -4383,7 +4458,7 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
+@@ -4383,7 +4467,7 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
  	if (ret)
  		return ret;
  
@@ -547,7 +562,7 @@ index 9dfd095f325f..82b1218fe585 100644
  }
  
  static int bpc_to_bpp(int bpc)
-@@ -5873,6 +5948,15 @@ static void intel_crtc_check_fastset(const struct intel_crtc_state *old_crtc_sta
+@@ -5873,6 +5957,15 @@ static void intel_crtc_check_fastset(const struct intel_crtc_state *old_crtc_sta
  	struct intel_display *display = to_intel_display(new_crtc_state);
  	struct intel_crtc *crtc = to_intel_crtc(new_crtc_state->uapi.crtc);
  

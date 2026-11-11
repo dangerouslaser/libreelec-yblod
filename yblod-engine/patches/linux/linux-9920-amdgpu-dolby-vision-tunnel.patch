@@ -83,19 +83,25 @@ design, Amlogic's LL packets).
 
 Regrouped from linux-9920-big-fella-amdgpu-dv-tunnel,
 linux-9921-big-fella-amdgpu-dv-crc and the amdgpu half of
-linux-9928-big-fella-tunnel-format (YBLOD 0.3.0 to 0.4.1); no code change.
+linux-9928-big-fella-tunnel-format (YBLOD 0.3.0 to 0.4.1).
+
+Changed since YBLOD 0.4.1:
+- the scanout check reads the state of a primary plane that is not part
+  of the commit under the plane's own lock (drm_modeset_lock in the
+  commit's acquire context, -EDEADLK passed up), not under the CRTC lock
+  only. The plane is not added to the commit.
 ---
  .../gpu/drm/amd/display/amdgpu_dm/Makefile    |   1 +
  .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  19 +
  .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |  11 +
  .../display/amdgpu_dm/amdgpu_dm_connector.c   |  31 +-
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c |   9 +-
- .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  | 458 ++++++++++++++++++
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  | 467 ++++++++++++++++++
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h  |  35 ++
  .../display/amdgpu_dm/amdgpu_dm_freesync.c    |   4 +-
  .../gpu/drm/amd/display/dc/core/dc_resource.c |   7 +
  drivers/gpu/drm/amd/display/dc/dc_stream.h    |   8 +
- 10 files changed, 579 insertions(+), 4 deletions(-)
+ 10 files changed, 588 insertions(+), 4 deletions(-)
  create mode 100644 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
  create mode 100644 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
 
@@ -291,10 +297,10 @@ index db546dd44b91..a8948ab3a854 100644
  					    DYN_EXPANSION_DISABLE);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
 new file mode 100644
-index 000000000000..36f2c52ea513
+index 000000000000..8684f66fa1dd
 --- /dev/null
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
-@@ -0,0 +1,458 @@
+@@ -0,0 +1,467 @@
 +// SPDX-License-Identifier: MIT
 +/*
 + * big-fella: the Standard Dolby Vision RGB8 tunnel on amdgpu DC.
@@ -689,6 +695,7 @@ index 000000000000..36f2c52ea513
 +		unsigned int w = cs->mode.hdisplay;
 +		unsigned int h = cs->mode.vdisplay;
 +		unsigned int reasons;
++		int ret;
 +
 +		if (!cs->active || !stream || !stream->dv_lab)
 +			continue;
@@ -720,8 +727,16 @@ index 000000000000..36f2c52ea513
 +			return dv_scanout_reject(crtc, "crtc", reasons);
 +
 +		p = drm_atomic_get_new_plane_state(state, primary);
-+		if (!p)
-+			p = primary->state; /* unchanged plane, serialized by this CRTC's lock */
++		if (!p) {
++			/* Not in this commit: its current state, which only the
++			 * plane's own lock keeps from being replaced. The plane
++			 * stays out of the commit.
++			 */
++			ret = drm_modeset_lock(&primary->mutex, state->acquire_ctx);
++			if (ret)
++				return ret;
++			p = primary->state;
++		}
 +		if (!p || !p->fb)
 +			return dv_scanout_reject(crtc, "primary-missing", 1);
 +		/* Reason bits: route/visible, format, allocation, source,
