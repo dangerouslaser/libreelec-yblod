@@ -12,12 +12,19 @@
 # env:   BUILD_IMAGE (default libreelec-dv-build), BUILD_MEMORY (12g), BUILD_JOBS ("7 5 3"),
 #        BUILD_THREADS (4: packages built at once; more helps a full rebuild),
 #        YBLOD_EDITION=lg for the LG edition (version suffix -lg; webOS add-on and repository)
+# It runs yblod/tools/link-patches.sh first and stops when the patch layout is broken.
 set -u
 V=${1:?usage: yblod/tools/build.sh <version>}
 EDITION=${YBLOD_EDITION:-}
 [ -z "$EDITION" ] || [ "$EDITION" = lg ] || { echo "unknown YBLOD_EDITION: $EDITION" >&2; exit 2; }
 [ -n "$EDITION" ] && V="$V-$EDITION"
 T=$(cd "$(dirname "$0")/../.." && pwd)
+# Stop before the hours-long build when the patch layout is broken: LibreELEC would apply
+# whatever the folders hold, not what the owner folders say.
+"$T/yblod/tools/link-patches.sh" || {
+  echo "patch links are wrong (see above); yblod/tools/link-patches.sh --fix repairs links" >&2
+  exit 1
+}
 IMAGE=${BUILD_IMAGE:-libreelec-dv-build}
 MEM=${BUILD_MEMORY:-12g}
 LOG="$T/build-yblod-$V.log"
