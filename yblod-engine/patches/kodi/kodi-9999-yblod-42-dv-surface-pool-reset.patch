@@ -1,0 +1,186 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:09:14 -0500
+Subject: [PATCH] kodi: reset the Dolby Vision engine when the surface pool
+ changes
+
+The Vulkan engine imports a decoded surface once and then knows it by
+its VASurfaceID until dvvk_reset(); its header asks the caller to reset
+it whenever the decoder's surface pool changes, since a new pool may
+reuse ids for other allocations. The adapter never did, so the engine
+shipped with DVVK_SURFACE_CHECK=1: a vaExportSurfaceHandle and compare
+for each layer of every frame.
+
+The adapter now tracks which allocation each layer's surfaces belong
+to. For the base layer that is the picture's buffer pool, of which
+Kodi's VAAPI decoder has one and which creates its surfaces once, in
+Open(), together with the picture's postprocessor, because a VPP
+deinterlacer owns its own surfaces and can be replaced within one
+decoder. For the enhancement layer it is the frame's AVHWFramesContext,
+whose surfaces live as long as it does.
+
+A pointer alone could name a later object allocated at the same
+address. The identities are therefore taken from objects that are held:
+the last picture submitted is kept acquired, which keeps its pool, its
+decoder and (while the decoder runs) its postprocessor allocated, and
+the frame context is kept by a reference of its own. The newest picture
+is the one held, so no decoder surface is kept back for a whole title.
+CVideoBuffer has no accessor for its pool; a derived helper names the
+protected member.
+
+On a change the frames in flight finish, the engine drops its imports
+and the stream starts again with a metadata refresh, exactly as
+Reset() does at a start; only then are the old pools let go. With this
+in place runtime.env ships DVVK_SURFACE_CHECK=0.
+---
+ .../VideoRenderers/DVPrivateSource.cpp        | 66 +++++++++++++++++++
+ .../VideoRenderers/DVPrivateSource.h          | 15 +++++
+ 2 files changed, 81 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+index 0898b31..ceb92d1 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+@@ -8,6 +8,7 @@
+ #include "ServiceBroker.h"
+ #include "windowing/gbm/WinSystemGbm.h"
+ #include "cores/VideoPlayer/Buffers/VideoBuffer.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
+ #include "utils/log.h"
+ #include <EGL/egl.h>
+ #include <GLES3/gl3.h>
+@@ -28,8 +29,58 @@ bool EnvIs(const char* name, const char* value)
+   const char* current = std::getenv(name);
+   return current && std::strcmp(current, value) == 0;
+ }
++
++// CVideoBuffer has no accessor for its pool; a derived class may name the
++// protected member, and the pointer to it applies to any video buffer.
++struct BufferPool : CVideoBuffer
++{
++  static const void* Of(const CVideoBuffer& buffer) { return (buffer.*&BufferPool::m_pool).get(); }
++};
+ } // namespace
+ 
++bool CDVPrivateSource::PoolChanged(const CVideoBuffer* owner, const AVFrame* enhancement) const
++{
++  const auto* picture = dynamic_cast<const VAAPI::CVaapiRenderPicture*>(owner);
++  if (!picture || BufferPool::Of(*picture) != m_poolBuffers ||
++      picture->procPic.source != m_poolPostproc)
++    return true;
++  // A picture without an enhancement layer leaves that layer's pool as it is (held).
++  return enhancement && (!m_poolFrames || enhancement->hw_frames_ctx->data != m_poolFrames->data);
++}
++
++bool CDVPrivateSource::HoldPool(CVideoBuffer* owner, const AVFrame* enhancement)
++{
++  const auto* picture = dynamic_cast<const VAAPI::CVaapiRenderPicture*>(owner);
++  if (!picture)
++    return false;
++  if (enhancement && (!m_poolFrames || enhancement->hw_frames_ctx->data != m_poolFrames->data))
++  {
++    AVBufferRef* frames = av_buffer_ref(enhancement->hw_frames_ctx);
++    if (!frames)
++      return false;
++    av_buffer_unref(&m_poolFrames);
++    m_poolFrames = frames;
++  }
++  // The newest picture stands for its pool: holding the first one instead
++  // would keep a decoder surface from the decoder for the whole title.
++  owner->Acquire();
++  if (m_poolPicture)
++    m_poolPicture->Release();
++  m_poolPicture = owner;
++  m_poolBuffers = BufferPool::Of(*picture);
++  m_poolPostproc = picture->procPic.source;
++  return true;
++}
++
++void CDVPrivateSource::ReleasePool()
++{
++  if (m_poolPicture)
++    m_poolPicture->Release();
++  m_poolPicture = nullptr;
++  m_poolBuffers = m_poolPostproc = nullptr;
++  av_buffer_unref(&m_poolFrames);
++}
++
+ bool CDVPrivateSource::Initialize(void* display)
+ {
+   if (eglGetCurrentContext() == EGL_NO_CONTEXT)
+@@ -137,6 +188,18 @@ int CDVPrivateSource::AcquireFrame(void* display, CVideoBuffer* owner,
+     return -1;
+   if (m_display != display)
+     return -1;
++  // Surfaces from another allocation may have the ids of the ones the engine
++  // imported: the frames reading the old ones finish, and the engine forgets
++  // its imports, before it sees a new one. With nothing held it has none.
++  if (m_poolPicture && PoolChanged(owner, enhancement))
++  {
++    CLog::Log(LOGINFO, "Private source: decoded surfaces come from a new pool; engine reset (pts={})", pts);
++    Reset();
++    if (m_unsafe)
++      return -1;
++  }
++  if (!HoldPool(owner, enhancement))
++    return -1;
+   if (enhancement)
+   {
+     auto* copy = av_frame_clone(enhancement);
+@@ -256,6 +319,8 @@ void CDVPrivateSource::Reset()
+   ReleaseInputs();
+   if (m_scanout && !m_scanout->ResetStream()) m_unsafe = true;
+   if (m_vulkan && RetireVulkan(true)) m_vulkan->Reset();
++  // The pools stay until no frame can read their surfaces any more.
++  if (!m_unsafe) ReleasePool();
+   m_ready = false;
+   m_transitionFrames = 3;
+ }
+@@ -271,6 +336,7 @@ bool CDVPrivateSource::Close()
+     m_vulkan = nullptr;
+   }
+   ReleaseInputs();
++  ReleasePool();
+   if (m_scanout)
+   {
+     if (!m_scanout->Close()) return false;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+index de7d194..c58cc2b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+@@ -13,6 +13,7 @@ class CDVPrivateScanout;
+ class CDVPrivateVulkan;
+ struct gbm_bo;
+ struct AVFrame;
++struct AVBufferRef;
+ 
+ /* The native Dolby Vision route: decoded VAAPI surfaces to the Vulkan engine
+  * (CDVPrivateVulkan, yblod-engine/vk), which writes one of two private
+@@ -40,6 +41,9 @@ private:
+   int AcquireFrame(void* display, CVideoBuffer* owner, const AVFrame* enhancement,
+                    int64_t pts, const dv_source_geometry& geometry,
+                    const void* metadata, size_t size);
++  bool PoolChanged(const CVideoBuffer* owner, const AVFrame* enhancement) const;
++  bool HoldPool(CVideoBuffer* owner, const AVFrame* enhancement);
++  void ReleasePool();
+   void* m_display{nullptr};
+   CDVPrivateScanout* m_scanout{nullptr};
+   CDVPrivateVulkan* m_vulkan{nullptr};
+@@ -55,6 +59,17 @@ private:
+     std::shared_ptr<AVFrame> enhancement;
+   };
+   std::deque<InFlight> m_inFlight;
++  // The engine knows a decoded surface by its VASurfaceID until it is reset,
++  // so its imports stand for one allocation of surfaces per layer. The base
++  // layer's is named by the buffer pool (one per decoder, which creates its
++  // surfaces once) and the postprocessor (which may own the surfaces instead)
++  // of the last picture submitted; the enhancement layer's by its frame pool.
++  // The picture and the frame pool are held: what is held cannot be freed, so
++  // nothing allocated later can have the same address and compare equal.
++  CVideoBuffer* m_poolPicture{nullptr};
++  const void* m_poolBuffers{nullptr};
++  const void* m_poolPostproc{nullptr};
++  AVBufferRef* m_poolFrames{nullptr};
+   uint64_t m_serial{0}, m_presented{0};
+   uint64_t m_processed{0};
+   double m_processingMs{0};

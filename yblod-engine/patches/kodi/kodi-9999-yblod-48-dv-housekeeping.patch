@@ -1,0 +1,441 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:28:47 -0500
+Subject: [PATCH] kodi: drop work the Dolby Vision path does for nothing
+
+Four things the native Dolby Vision path did on every video or every
+frame without any use:
+
+The adapter still carried the check of Kodi's GUI revision against the
+pixels the engine found changed (CheckRevision, LogRevisions, the
+ticket ring, DVPrivateOverlay::revisionSeen). It called
+dvvk_overlay_changes, which the engine no longer exports, so it never
+ran.
+
+Two linear 3840x2160 GUI copy buffers (33 MB each) with their EGL
+images, textures and framebuffers were made at every engine start.
+Only the fallback that copies Kodi's GUI texture uses them; with the
+GUI framebuffer read in place they are never touched. They are now
+made when that fallback first needs one.
+
+EndGuiComposite() cleared the EGL back buffer on every frame. In native
+output that buffer is never presented: the window commits the engine's
+buffers and does not swap, the GUI is drawn into its own framebuffer
+and the video goes to the engine, so nothing draws into the back buffer
+either. It is cleared once when native output begins, which keeps it
+black for anything that reads it, and EndDVBridge() clears it itself
+before the swap that ends the output. The flag is dropped at every swap
+made under the tunnel.
+
+WantsNativeOutput(stream) is asked by the player (twice), the codec
+factory, the codec and the demuxer, the last one again at seeks. Every
+call started the stream's telemetry over and logged the stream. The
+function now remembers the stream it last announced, with the playback
+it belonged to, and only a different one starts the telemetry and is
+logged; the answer itself is computed as before on every call.
+---
+ .../VideoRenderers/DVPrivateOverlay.h         |  1 -
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 79 ++++++-----------
+ .../VideoRenderers/DVPrivateVulkan.h          | 22 ++---
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 85 +++++++++++++++++--
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  2 +
+ 5 files changed, 113 insertions(+), 76 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+index 7901ca3..d3360bd 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+@@ -8,7 +8,6 @@ struct DVPrivateOverlay
+   unsigned texture{0};
+   unsigned flipY{0};
+   uint64_t revision{0};      // nonzero: trusted to name the contents (DV_PRIVATE_GUI_REVISION=1)
+-  uint64_t revisionSeen{0};  // Kodi's GUI revision, always (checked against the contents)
+   // Counts every time GL may have drawn into the texture (its framebuffer was bound for a
+   // GUI pass, cleared or not) and every replacement of its storage: an equal count is the
+   // same pixels in the same buffer. Not a judgement of what the GUI drew.
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 214bda1..e180d26 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -391,7 +391,6 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
+   m_setOverlayEx = reinterpret_cast<decltype(m_setOverlayEx)>(dlsym(m_library, "dvvk_set_overlay_ex"));
+   m_implicitFailed = reinterpret_cast<decltype(m_implicitFailed)>(dlsym(m_library, "dvvk_implicit_failed"));
+-  m_overlayChanges = reinterpret_cast<decltype(m_overlayChanges)>(dlsym(m_library, "dvvk_overlay_changes"));
+   // The engine logs its reasons on stderr (the journal).
+   if (m_create(drmFd, vaDisplay, &m_engine) != 0 || !m_engine)
+   {
+@@ -421,14 +420,23 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_fel = !EnvIs("DV_FEL", "0");
+   m_async = !EnvIs("DV_VULKAN_ASYNC", "0");
+   m_dmOptions = DmOptions();
+-  if (!InitializeGui(device, 0) || !InitializeGui(device, 1)) return false;
+-  glGenFramebuffers(1, &m_readFramebuffer);
++  m_device = device;
+   CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={} async={} cb1_reference={} dm_options={:#x}",
+             library, m_elScaler, m_fel, m_async, m_cb1, m_dmOptions);
+   return true;
+ }
+ 
+-bool CDVPrivateVulkan::InitializeGui(gbm_device* device, unsigned index)
++void CDVPrivateVulkan::ReleaseGui(Gui& gui)
++{
++  if (gui.framebuffer) glDeleteFramebuffers(1, &gui.framebuffer);
++  if (gui.texture) glDeleteTextures(1, &gui.texture);
++  if (gui.image != EGL_NO_IMAGE_KHR) m_destroyImage(m_display, gui.image);
++  if (gui.fd >= 0) close(gui.fd);
++  if (gui.bo) gbm_bo_destroy(gui.bo);
++  gui = Gui{};
++}
++
++bool CDVPrivateVulkan::InitializeGui(unsigned index)
+ {
+   // The engine reads the GUI as a dmabuf, top row first: a linear RGBA8 copy
+   // of Kodi's GUI texture (byte for byte, flipped by the blit when needed).
+@@ -439,7 +447,7 @@ bool CDVPrivateVulkan::InitializeGui(gbm_device* device, unsigned index)
+   using Target = void (*)(GLenum, void*);
+   auto target = reinterpret_cast<Target>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
+   if (!create || !m_destroyImage || !target || m_display == EGL_NO_DISPLAY) return false;
+-  gui.bo = gbm_bo_create(device, 3840, 2160, GBM_FORMAT_ABGR8888,
++  gui.bo = gbm_bo_create(m_device, 3840, 2160, GBM_FORMAT_ABGR8888,
+                          GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR);
+   if (!gui.bo) return false;
+   gui.fd = gbm_bo_get_fd(gui.bo);
+@@ -471,6 +479,7 @@ bool CDVPrivateVulkan::InitializeGui(gbm_device* device, unsigned index)
+   gui.dmabuf.fd[0] = gui.fd;
+   gui.dmabuf.fd[1] = gui.dmabuf.fd[2] = gui.dmabuf.fd[3] = -1;
+   gui.dmabuf.stride[0] = stride;
++  gui.ready = true;
+   return true;
+ }
+ 
+@@ -482,6 +491,7 @@ bool CDVPrivateVulkan::CopyGui(const DVPrivateOverlay& overlay, unsigned index)
+   const bool scissor = glIsEnabled(GL_SCISSOR_TEST), dither = glIsEnabled(GL_DITHER);
+   glDisable(GL_SCISSOR_TEST);
+   glDisable(GL_DITHER);
++  if (!m_readFramebuffer) glGenFramebuffers(1, &m_readFramebuffer);
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, m_readFramebuffer);
+   glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, overlay.texture, 0);
+   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_guis[index].framebuffer);
+@@ -578,7 +588,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+                              const dv_source_geometry& geometry, const dv_source_input& input,
+                              unsigned packet, bool refresh, const DVPrivateOverlay* overlay)
+ {
+-  if (!m_engine || m_failed || !m_guis[0].bo || !m_guis[1].bo) return DV_VULKAN_FAILED;
++  if (!m_engine || m_failed) return DV_VULKAN_FAILED;
+   m_guiDirect = overlay && overlay->dmabufFd >= 0 && m_setOverlayEx && m_implicitFailed;
+   if (m_guiDirect)
+   {
+@@ -628,6 +638,14 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+       const unsigned next = m_guiShown ? m_guiIndex ^ 1u : m_guiIndex;
+       if (m_guis[next].ticket && Done(m_guis[next].ticket, pts, true) != 1) return DV_VULKAN_FAILED;
+       m_guiDirectSet = false;
++      // The copies exist only on this path: 33 MB each that a GUI read in
++      // place never needs.
++      if (!m_guis[next].ready && !InitializeGui(next))
++      {
++        ReleaseGui(m_guis[next]);
++        m_guiShown = false;
++        return -1;
++      }
+       if (!CopyGui(*overlay, next) || m_setOverlay(m_engine, &m_guis[next].dmabuf, ++m_guiId) != 0)
+       {
+         m_guiShown = false;
+@@ -696,8 +714,6 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+     ++m_cb1Frames;
+   }
+   if (m_guiShown && !m_guiDirect) m_guis[m_guiIndex].ticket = ticket;
+-  if (m_guiDirect)
+-    m_revisions[ticket % 8] = {ticket, overlay->revisionSeen};
+   // Without implicit fences (an older kernel) nothing waits for the frame on
+   // the GPU: the commit would show an unfinished buffer, and Kodi could draw
+   // into the GUI framebuffer before the engine has read it. Each ticket is
+@@ -730,7 +746,6 @@ int CDVPrivateVulkan::Complete(uint64_t ticket, int64_t pts, bool wait, bool& ra
+   uint32_t flags = 0;
+   if (m_poll(m_engine, ticket, &done, &flags) != 0) return DV_VULKAN_FAILED;
+   if (!done) return wait ? DV_VULKAN_FAILED : 0;
+-  CheckRevision(ticket);
+   range = (flags & 3u) != 0;
+   if (range && m_rangeReports < 16)
+   {
+@@ -747,42 +762,6 @@ int CDVPrivateVulkan::Complete(uint64_t ticket, int64_t pts, bool wait, bool& ra
+   return 1;
+ }
+ 
+-void CDVPrivateVulkan::CheckRevision(uint64_t ticket)
+-{
+-  RevisionCheck& entry = m_revisions[ticket % 8];
+-  if (!m_overlayChanges || entry.ticket != ticket)
+-    return;
+-  entry.ticket = 0;
+-  const int64_t changed = m_overlayChanges(m_engine, ticket);
+-  if (changed < 0)
+-  {
+-    m_lastRevision = 0;   // no comparison across an invalidated cache
+-    return;
+-  }
+-  if (m_lastRevision && entry.revision == m_lastRevision)
+-  {
+-    ++m_sameRevision;
+-    if (changed > 0 && ++m_sameChanged <= 8)
+-      CLog::Log(LOGWARNING, "Vulkan GUI check: revision {} unchanged but {} pixels changed", entry.revision, changed);
+-  }
+-  else if (m_lastRevision)
+-  {
+-    ++m_newRevision;
+-    m_newUnchanged += changed == 0;
+-  }
+-  m_lastRevision = entry.revision;
+-  if ((m_sameRevision + m_newRevision) % 1200 == 0)
+-    LogRevisions("so far");
+-}
+-
+-void CDVPrivateVulkan::LogRevisions(const char* when) const
+-{
+-  if (m_sameRevision + m_newRevision)
+-    CLog::Log(LOGINFO, "Vulkan GUI check ({}): {} frames on the same revision ({} with changed pixels), "
+-              "{} on a new revision ({} with no changed pixel)", when, m_sameRevision, m_sameChanged,
+-              m_newRevision, m_newUnchanged);
+-}
+-
+ void CDVPrivateVulkan::Reset()
+ {
+   // Drains, then drops the surface imports; a failure leaves the engine
+@@ -811,7 +790,6 @@ void CDVPrivateVulkan::Reset()
+ 
+ bool CDVPrivateVulkan::Close()
+ {
+-  LogRevisions("at close");
+   if (m_engine)
+   {
+     // All submitted work, also a frame that failed without a ticket; until
+@@ -827,14 +805,7 @@ bool CDVPrivateVulkan::Close()
+     DVBRIDGE::PublishTunnelHDR10Plus({});
+   }
+   for (Gui& gui : m_guis)
+-  {
+-    if (gui.framebuffer) glDeleteFramebuffers(1, &gui.framebuffer);
+-    if (gui.texture) glDeleteTextures(1, &gui.texture);
+-    if (gui.image != EGL_NO_IMAGE_KHR) m_destroyImage(m_display, gui.image);
+-    if (gui.fd >= 0) close(gui.fd);
+-    if (gui.bo) gbm_bo_destroy(gui.bo);
+-    gui = Gui{};
+-  }
++    ReleaseGui(gui);
+   if (m_readFramebuffer) glDeleteFramebuffers(1, &m_readFramebuffer);
+   m_readFramebuffer = 0;
+   m_guiIndex = 0;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 5cc4140..05b8e0b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -12,7 +12,7 @@
+ #include <vector>
+ 
+ /* yblod's engine on Vulkan compute (DVVK_LIBRARY, yblod-engine/vk), YBLOD's
+- * only Dolby Vision renderer. It writes the two private scanout buffers itself
++ * only Dolby Vision renderer. It writes the private scanout buffers itself
+  * and reads the GUI in place (or from a GBM copy of Kodi's GUI texture).
+  * Frames are submitted without waiting (DV_VULKAN_ASYNC=0 waits for each):
+  * the engine puts the frame's fence on the scanout buffer as an implicit
+@@ -78,7 +78,7 @@ public:
+   bool Failed() const { return m_failed; }
+   bool Close();
+ private:
+-  bool InitializeGui(gbm_device* device, unsigned index);
++  bool InitializeGui(unsigned index);
+   bool CopyGui(const DVPrivateOverlay& overlay, unsigned index);
+   int Complete(uint64_t ticket, int64_t pts, bool wait, bool& range);
+   // The frame these inputs make (the output slot and packet id are the
+@@ -107,7 +107,6 @@ private:
+   decltype(&dvvk_destroy) m_destroy{nullptr};
+   decltype(&dvvk_set_overlay_ex) m_setOverlayEx{nullptr};     // optional
+   decltype(&dvvk_implicit_failed) m_implicitFailed{nullptr};  // optional
+-  int64_t (*m_overlayChanges)(dvvk_engine*, uint64_t){nullptr};  // optional (not in big-fella's engine)
+   decltype(&dvvk_drain) m_drain{nullptr};                     // optional
+   decltype(&dvvk_reset_checked) m_resetChecked{nullptr};      // optional
+   decltype(&dvvk_dm_status) m_dmStatus{nullptr};              // optional
+@@ -125,18 +124,8 @@ private:
+   uint32_t m_hdr10PlusCoverage{UINT32_MAX}, m_hdr10PlusReason{UINT32_MAX};
+   unsigned m_hdr10PlusReports{0};
+   dvvk_hdr_signal m_loggedSignal{};
+-  // Kodi's GUI revision against the pixels the engine found changed: a
+-  // revision that stays while pixels change would make it unsafe to skip
+-  // the GUI on an unchanged revision (the 0.2.1 controls flicker).
+-  struct RevisionCheck
+-  {
+-    uint64_t ticket{0}, revision{0};
+-  } m_revisions[8];
+-  uint64_t m_lastRevision{0};
+-  uint64_t m_sameRevision{0}, m_sameChanged{0}, m_newRevision{0}, m_newUnchanged{0};
+-  void CheckRevision(uint64_t ticket);
+-  void LogRevisions(const char* when) const;
+-  // Two GUI copies: a new GUI goes into the one no frame in flight reads.
++  // Two GUI copies, made when the GUI framebuffer cannot be read in place:
++  // a new GUI goes into the one no frame in flight reads.
+   struct Gui
+   {
+     gbm_bo* bo{nullptr};
+@@ -145,7 +134,10 @@ private:
+     int fd{-1};
+     dvvk_dmabuf dmabuf{};
+     uint64_t ticket{0}; // the last frame submitted reading it
++    bool ready{false};
+   } m_guis[2];
++  void ReleaseGui(Gui& gui);
++  gbm_device* m_device{nullptr};
+   EGLDisplay m_display{EGL_NO_DISPLAY};
+   PFNEGLDESTROYIMAGEKHRPROC m_destroyImage{nullptr};
+   unsigned m_readFramebuffer{0}, m_guiIndex{0};
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index f527e40..95f2176 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -800,6 +800,14 @@ void CWinSystemGbmGLESContext::EndGuiComposite()
+   if (isD2P && !m_guiWillRender)
+     return;
+ 
++  // Native Dolby Vision output presents the engine's buffers: the back buffer is not swapped
++  // while it lasts and nothing draws into it (the GUI goes to its framebuffer, the video to
++  // the engine). One clear when it begins keeps it black for whatever reads it; EndDVBridge()
++  // clears it again before the swap that ends the output.
++  if (m_nativeGuiCoverage && m_nativeBackBufferCleared)
++    return;
++  m_nativeBackBufferCleared = m_nativeGuiCoverage;
++
+   // Clear the backbuffer before video renders. In the FBO compositing path,
+   // video renders in the RenderEx pass with clear=false, so DrawBlackBars is
+   // never called. Without this clear, letterbox areas retain stale content
+@@ -942,19 +950,80 @@ bool SourceSizeSupported(unsigned width, unsigned height, bool enhancement)
+ }
+ } // namespace
+ 
++namespace
++{
++// The stream WantsNativeOutput() last announced, and the playback it belonged to. The
++// player, the codec factory, the codec and the demuxer each ask, and ask again at seeks: the
++// answer is a query, and only a new stream starts the telemetry over and is logged.
++struct AnnouncedStream
++{
++  uint64_t playback{0};
++  unsigned profile{0}, level{0}, major{0}, minor{0}, compatibility{0}, width{0}, height{0};
++  bool bl{false}, el{false}, rpu{false}, software{false}, interlaced{false}, stereo{false};
++  bool eligible{false}, mastering{false}, light{false};
++  int mode{0};
++  int maxLuminance[2]{}, minLuminance[2]{};
++  unsigned maxCLL{0}, maxFALL{0};
++  bool operator==(const AnnouncedStream&) const = default;
++};
++std::mutex announcedMutex;
++AnnouncedStream announced;
++bool announcedAny{false};
++// Counts the videos that have ended (SetVideoOutput without a picture).
++std::atomic<uint64_t> playbacksEnded{0};
++} // namespace
++
+ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
+ {
+-  if (!(stream.codecOptions & CODEC_FORCE_SOFTWARE))
++  const bool software = (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0;
++  const bool sized = SourceSizeSupported(stream.width, stream.height, stream.dovi.dv_profile == 7);
++  const bool eligible = sized && NativeDVEligible(stream.dovi.dv_profile != 0, software,
++                          stream.interlaced, !stream.stereo_mode.empty());
++  AnnouncedStream now;
++  now.playback = playbacksEnded.load();
++  now.profile = stream.dovi.dv_profile;
++  now.level = stream.dovi.dv_level;
++  now.major = stream.dovi.dv_version_major;
++  now.minor = stream.dovi.dv_version_minor;
++  now.compatibility = stream.dovi.dv_bl_signal_compatibility_id;
++  now.width = static_cast<unsigned>(stream.width);
++  now.height = static_cast<unsigned>(stream.height);
++  now.bl = stream.dovi.bl_present_flag;
++  now.el = stream.dovi.el_present_flag;
++  now.rpu = stream.dovi.rpu_present_flag;
++  now.software = software;
++  now.interlaced = stream.interlaced;
++  now.stereo = !stream.stereo_mode.empty();
++  now.eligible = eligible;
++  now.mode = static_cast<int>(playbackMode.load());
++  if (const auto* mastering = stream.masteringMetadata.get(); mastering && mastering->has_luminance)
++  {
++    now.mastering = true;
++    now.maxLuminance[0] = mastering->max_luminance.num;
++    now.maxLuminance[1] = mastering->max_luminance.den;
++    now.minLuminance[0] = mastering->min_luminance.num;
++    now.minLuminance[1] = mastering->min_luminance.den;
++  }
++  if (const auto* light = stream.contentLightMetadata.get())
++  {
++    now.light = true;
++    now.maxCLL = light->MaxCLL;
++    now.maxFALL = light->MaxFALL;
++  }
++  {
++    std::lock_guard<std::mutex> lock(announcedMutex);
++    if (announcedAny && now == announced)
++      return eligible;
++    announced = now;
++    announcedAny = true;
++  }
++  if (!software)
+   {
+     StreamTelemetry::Begin(stream.dovi.dv_profile, stream.dovi.dv_level,
+         stream.dovi.dv_version_major, stream.dovi.dv_version_minor,
+         stream.dovi.bl_present_flag, stream.dovi.el_present_flag, stream.dovi.rpu_present_flag);
+     StreamTelemetry::StaticMetadata(stream.masteringMetadata.get(), stream.contentLightMetadata.get());
+   }
+-  const bool sized = SourceSizeSupported(stream.width, stream.height, stream.dovi.dv_profile == 7);
+-  const bool eligible = sized && NativeDVEligible(stream.dovi.dv_profile != 0,
+-                          (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0,
+-                          stream.interlaced, !stream.stereo_mode.empty());
+   if (stream.dovi.dv_profile && !sized)
+     CLog::Log(LOGWARNING, "DVBridge: the Vulkan engine does not take {}x{} Dolby Vision pictures; playing the base layer",
+               stream.width, stream.height);
+@@ -1207,6 +1276,8 @@ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
+   m_dvVideo = picture != nullptr;
+   if (picture)
+     CDVPrivateVulkan::VideoConfigured();
++  else
++    ++playbacksEnded;
+   // A video that does not use the bridge after all (a software-decoded picture of a Dolby
+   // Vision stream): its mode goes with the next ordinary page, not with a native frame that
+   // never comes.
+@@ -1278,7 +1349,6 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+     }
+     gui.flipY = 1;
+     gui.writes = m_guiWrites;
+-    gui.revisionSeen = m_guiRevision;
+     const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
+     if (revisionCache && std::strcmp(revisionCache, "1") == 0)
+       gui.revision = m_guiRevision;
+@@ -1334,6 +1404,8 @@ bool CWinSystemGbmGLESContext::EndDVBridge()
+     glClearColor(0, 0, 0, 1);
+     glClear(GL_COLOR_BUFFER_BIT);
+     glFinish();
++    // The swap leaves another buffer of the chain as the back buffer.
++    m_nativeBackBufferCleared = false;
+     if (!m_eglContext.TrySwapBuffers() || !FlipDVBridgePage(m_dvState, true))
+     {
+       // The state flags above are cleared: without this nothing would come back here, and
+@@ -1469,6 +1541,7 @@ bool CWinSystemGbmGLESContext::BeginDVStartup()
+         m_dvBridge->PackGraphics(black.Texture(), 0, m_nWidth, m_nHeight, true, 1.0f, 0, false))
+     {
+       glFinish();
++      m_nativeBackBufferCleared = false;
+       if (m_eglContext.TrySwapBuffers())
+         presented = FlipDVBridgePage(m_dvState, false);
+     }
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index fdf115a..5808308 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -129,6 +129,8 @@ private:
+   // Whether the GUI render pass will run this frame; set by BeginGuiComposite.
+   bool m_guiWillRender{true};
+   bool m_nativeGuiCoverage{false};
++  // The EGL back buffer was cleared since native Dolby Vision output began (EndGuiComposite).
++  bool m_nativeBackBufferCleared{false};
+ 
+   std::unique_ptr<CGuiCompositeShaderGLES> m_compositeShader;
+ #ifdef HAVE_DVBRIDGE

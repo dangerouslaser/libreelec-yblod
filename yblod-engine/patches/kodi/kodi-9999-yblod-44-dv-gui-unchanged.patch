@@ -1,0 +1,202 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:17:52 -0500
+Subject: [PATCH] kodi: do not hand an untouched GUI buffer to the Dolby Vision
+ engine again
+
+While anything of the GUI was visible, CDVPrivateVulkan::Render() called
+dvvk_set_overlay_ex() with a new id on every frame. For the engine that
+means new contents in the buffer: it drops its damage, scans all
+8.3 million GUI texels for tile occupancy again and repaints the whole
+canvas, also for a subtitle line or an OSD that stands still.
+
+The window now counts every time GL can have written to the GUI
+framebuffer: each BeginGuiComposite() that binds it for a GUI pass (the
+clear, the windows, subtitles and the debug overlay drawn in that pass,
+and the half-resolution upscale that ends it), and each time its
+storage is released or made anew. That is every writer: on a frame
+whose GUI pass Kodi skips, the framebuffer is not bound at all and
+nothing draws into it, and the menu output and the coverage readback
+only read it. The count says nothing about what the GUI drew; it is
+not the GUI revision, which stays out of this decision.
+
+When the count, the texture and the buffer's description are those the
+engine was last given, the adapter leaves the engine's overlay as it
+is. The engine keeps reading the same buffer, with the tile scan and
+the damage it has, which is what its API means by not being told of a
+new buffer. A frame that bound the framebuffer counts as changed even
+if no control drew.
+
+DV_PRIVATE_GUI_UNCHANGED_SKIP=0 hands the buffer over on every frame
+as before. The fallback that copies the GUI texture is unchanged.
+---
+ .../VideoRenderers/DVPrivateOverlay.h         |  4 ++
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 57 ++++++++++++-------
+ .../VideoRenderers/DVPrivateVulkan.h          |  1 +
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp |  5 ++
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  3 +
+ 5 files changed, 49 insertions(+), 21 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+index 11cd47d..7901ca3 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h
+@@ -9,6 +9,10 @@ struct DVPrivateOverlay
+   unsigned flipY{0};
+   uint64_t revision{0};      // nonzero: trusted to name the contents (DV_PRIVATE_GUI_REVISION=1)
+   uint64_t revisionSeen{0};  // Kodi's GUI revision, always (checked against the contents)
++  // Counts every time GL may have drawn into the texture (its framebuffer was bound for a
++  // GUI pass, cleared or not) and every replacement of its storage: an equal count is the
++  // same pixels in the same buffer. Not a judgement of what the GUI drew.
++  uint64_t writes{0};
+   double rgbToLms[9]{};
+   double whiteNits{203.0};
+   // The texture's storage as a single-plane dmabuf (Kodi's GUI framebuffer
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 1365cbd..8d8c196 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -559,28 +559,42 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   m_guiDirect = overlay && overlay->dmabufFd >= 0 && m_setOverlayEx && m_implicitFailed;
+   if (m_guiDirect)
+   {
+-    // Kodi's GUI framebuffer, read in place. Every frame: the engine compares
+-    // its pixels with the last ones it prepared. Flushed, the GUI's writes
+-    // are fenced on the buffer, and the engine's read fence on it makes the
+-    // next GUI drawing wait on the GPU.
+-    glFlush();
+-    dvvk_dmabuf gui{};
+-    gui.width = 3840;
+-    gui.height = 2160;
+-    gui.format = overlay->dmabufFormat;
+-    gui.modifier = overlay->dmabufModifier;
+-    gui.num_planes = 1;
+-    gui.fd[0] = overlay->dmabufFd;
+-    gui.fd[1] = gui.fd[2] = gui.fd[3] = -1;
+-    gui.offset[0] = overlay->dmabufOffset;
+-    gui.stride[0] = overlay->dmabufStride;
+-    if (m_setOverlayEx(m_engine, &gui, ++m_guiId, DVVK_OVERLAY_FLIP_Y) != 0)
++    // Kodi's GUI framebuffer, read in place. Giving it to the engine says
++    // "new contents": the engine scans it all again and repaints the whole
++    // canvas. When GL has not touched the buffer since the engine was given
++    // it (Kodi skipped its GUI pass: no draw, no clear), the engine is not
++    // told again and keeps its scan and its damage.
++    static const bool skipUnchanged = !EnvIs("DV_PRIVATE_GUI_UNCHANGED_SKIP", "0");
++    const bool unchanged = skipUnchanged && m_guiShown && m_guiDirectSet &&
++                           overlay->writes == m_gui.writes && overlay->texture == m_gui.texture &&
++                           overlay->flipY == m_gui.flipY && overlay->dmabufFd == m_gui.dmabufFd &&
++                           overlay->dmabufFormat == m_gui.dmabufFormat &&
++                           overlay->dmabufStride == m_gui.dmabufStride &&
++                           overlay->dmabufOffset == m_gui.dmabufOffset &&
++                           overlay->dmabufModifier == m_gui.dmabufModifier;
++    if (!unchanged)
+     {
+-      m_guiShown = false;
+-      return -1;
++      // Flushed, the GUI's writes are fenced on the buffer, and the engine's
++      // read fence on it makes the next GUI drawing wait on the GPU.
++      glFlush();
++      dvvk_dmabuf gui{};
++      gui.width = 3840;
++      gui.height = 2160;
++      gui.format = overlay->dmabufFormat;
++      gui.modifier = overlay->dmabufModifier;
++      gui.num_planes = 1;
++      gui.fd[0] = overlay->dmabufFd;
++      gui.fd[1] = gui.fd[2] = gui.fd[3] = -1;
++      gui.offset[0] = overlay->dmabufOffset;
++      gui.stride[0] = overlay->dmabufStride;
++      if (m_setOverlayEx(m_engine, &gui, ++m_guiId, DVVK_OVERLAY_FLIP_Y) != 0)
++      {
++        m_guiShown = m_guiDirectSet = false;
++        return -1;
++      }
+     }
+     m_gui = *overlay;
+-    m_guiShown = true;
++    m_guiShown = m_guiDirectSet = true;
+   }
+   else if (overlay)
+   {
+@@ -590,6 +604,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+       // Into the other copy, once the last frame that read it is done.
+       const unsigned next = m_guiShown ? m_guiIndex ^ 1u : m_guiIndex;
+       if (m_guis[next].ticket && Done(m_guis[next].ticket, pts, true) != 1) return DV_VULKAN_FAILED;
++      m_guiDirectSet = false;
+       if (!CopyGui(*overlay, next) || m_setOverlay(m_engine, &m_guis[next].dmabuf, ++m_guiId) != 0)
+       {
+         m_guiShown = false;
+@@ -603,7 +618,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   else if (m_guiShown)
+   {
+     if (m_setOverlay(m_engine, nullptr, 0) != 0) return -1;
+-    m_guiShown = false;
++    m_guiShown = m_guiDirectSet = false;
+   }
+   dvvk_frame frame = Frame(blSurface, elSurface, metadata, size, pts, geometry, input, refresh, overlay);
+   frame.plan.packet_id = packet;
+@@ -795,7 +810,7 @@ bool CDVPrivateVulkan::Close()
+   m_readFramebuffer = 0;
+   m_guiIndex = 0;
+   m_ticket = 0;
+-  m_guiShown = false;
++  m_guiShown = m_guiDirectSet = false;
+   m_last = Submitted{};
+   m_failed = false;
+   if (m_library) dlclose(m_library);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index a2c9afb..912132a 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -141,6 +141,7 @@ private:
+   DVPrivateOverlay m_gui{};
+   bool m_guiShown{false}, m_async{true};
+   bool m_guiDirect{false}; // the engine reads Kodi's GUI framebuffer in place
++  bool m_guiDirectSet{false}; // ... and m_gui is the buffer it was last given
+   uint64_t m_guiId{0}, m_ticket{0};
+   unsigned m_elScaler{kElScalerAnnexB}, m_reports{0}, m_colourReports{0}, m_rangeReports{0};
+   bool m_fel{true};
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 69bf405..89fa8b5 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -512,6 +512,7 @@ bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height)
+ 
+ void CWinSystemGbmGLESContext::CleanupGuiFbo()
+ {
++  ++m_guiWrites;
+   // The texture goes first, then its storage.
+   m_guiFbo.Cleanup();
+   if (m_guiImage != EGL_NO_IMAGE_KHR)
+@@ -647,6 +648,9 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+     return true;
+   }
+ 
++  // From here GL draws into the GUI framebuffer: the clear below, the GUI pass (subtitles
++  // and the debug overlay included) and the half-resolution upscale in EndGuiComposite().
++  ++m_guiWrites;
+   m_guiRasterReady = false;
+   if (m_guiHalf && !m_guiHalfFbo.IsValid())
+   {
+@@ -1248,6 +1252,7 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+       }
+     }
+     gui.flipY = 1;
++    gui.writes = m_guiWrites;
+     gui.revisionSeen = m_guiRevision;
+     const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
+     if (revisionCache && std::strcmp(revisionCache, "1") == 0)
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index b5a41ac..a1a4728 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -116,6 +116,9 @@ private:
+   bool m_guiHalfBound{false};
+   bool m_guiRasterReady{true};
+   uint64_t m_guiRevision{0};
++  // Counts every binding of the GUI framebuffer for drawing and every replacement of its
++  // storage (DVPrivateOverlay::writes).
++  uint64_t m_guiWrites{0};
+   unsigned m_guiReusedFrames{0};
+   GLint m_guiSavedViewport[4]{};
+   GLint m_guiSavedScissor[4]{};
