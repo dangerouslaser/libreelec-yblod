@@ -1,0 +1,377 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 17:58:49 -0500
+Subject: [PATCH] Dolby Vision: the bridge at the display mode's size
+
+The Vulkan engine's canvas is a run-time size now (dvvk_create_canvas):
+the private scanout buffers, the GUI raster the engine reads (shared, or
+its copy) and the pictures' placement take the size of the output the
+bridge was begun for instead of 3840x2160. Nothing changes for the
+Dolby Vision tunnel and its HDR10 conversions, which the window only
+begins at 3840x2160; the SDR output that follows runs at any mode whose
+width and height the engine takes.
+
+An engine library without dvvk_create_canvas is asked for 3840x2160
+with dvvk_create as before, and refused for another size.
+---
+ .../VideoRenderers/DVBridgeGLES.cpp           | 15 ++++++--
+ .../VideoPlayer/VideoRenderers/DVBridgeGLES.h |  4 ++
+ .../VideoRenderers/DVPrivateScanout.cpp       | 10 +++--
+ .../VideoRenderers/DVPrivateScanout.h         |  9 +++--
+ .../VideoRenderers/DVPrivateSource.cpp        | 24 ++++++++----
+ .../VideoRenderers/DVPrivateSource.h          |  2 +-
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 37 +++++++++++++------
+ .../VideoRenderers/DVPrivateVulkan.h          |  7 +++-
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 10 ++---
+ 9 files changed, 84 insertions(+), 34 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 0b6ffd1..d6548a4 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -85,6 +85,12 @@ bool CDVBridgeGLES::Initialize()
+   return (m_packer && m_graphics) || Failure("packer-init");
+ }
+ 
++void CDVBridgeGLES::SetCanvas(int width, int height)
++{
++  m_canvasWidth = width;
++  m_canvasHeight = height;
++}
++
+ void CDVBridgeGLES::Reset()
+ {
+   if (m_source) m_source->Reset();
+@@ -113,9 +119,10 @@ bool CDVBridgeGLES::SourceEligible(const Layer& base, const AVFrame* enhancement
+       base.width % align == 0 && base.height % align == 0 &&
+       (base.format == Format::P010 || (allowNV12 && base.format == Format::NV12)) &&
+       geometry.x >= 0 && geometry.y >= 0 && geometry.x % 2 == 0 && geometry.y % 2 == 0 &&
+-      geometry.width > 0 && geometry.width <= 3840 && geometry.height > 0 && geometry.height <= 2160 &&
++      geometry.width > 0 && geometry.width <= m_canvasWidth && geometry.height > 0 &&
++      geometry.height <= m_canvasHeight &&
+       geometry.width % align == 0 && geometry.height % align == 0 &&
+-      geometry.x <= 3840 - geometry.width && geometry.y <= 2160 - geometry.height &&
++      geometry.x <= m_canvasWidth - geometry.width && geometry.y <= m_canvasHeight - geometry.height &&
+       (paired || base.chromaPosition == AVCHROMA_LOC_TOPLEFT ||
+        base.chromaPosition == AVCHROMA_LOC_LEFT) &&
+       base.vaOwner && base.vaDisplay && std::isfinite(base.pts) &&
+@@ -155,7 +162,9 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhance
+     if (!m_source) m_source = new CDVPrivateSource;
+     if (!m_wasSource) m_source->Reset();
+     const dv_source_geometry placement{static_cast<unsigned>(base.width), static_cast<unsigned>(base.height),
+-                                       3840, 2160, static_cast<unsigned>(geometry.x), static_cast<unsigned>(geometry.y),
++                                       static_cast<unsigned>(m_canvasWidth),
++                                       static_cast<unsigned>(m_canvasHeight),
++                                       static_cast<unsigned>(geometry.x), static_cast<unsigned>(geometry.y),
+                                        PlaneSiting(VulkanCB1(m_source->MasterReference(), base.width,
+                                                              base.height, geometry),
+                                                    enhancement || base.pairedSiting, base.chromaPosition),
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+index b49d859..c960c47 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -52,6 +52,9 @@ public:
+   CDVBridgeGLES& operator=(const CDVBridgeGLES&) = delete;
+ 
+   bool Initialize();
++  // The size of the output the pictures are placed in (the display mode's; 3840x2160 unless
++  // set): the Vulkan engine's canvas.
++  void SetCanvas(int width, int height);
+   void Reset();
+   // mayHold: when the picture is the one on screen already, nothing is rendered and Held()
+   // says so; the caller then presents nothing for this refresh.
+@@ -84,6 +87,7 @@ private:
+   dvbridge_context* m_graphics = nullptr;
+   dvbridge_candidate* m_graphicsCandidate = nullptr;
+   bool m_graphicsFrame = false;
++  int m_canvasWidth{3840}, m_canvasHeight{2160};
+   CDVPrivateSource* m_source{nullptr};
+   bool m_sourceFrame{false}, m_wasSource{false}, m_held{false};
+   unsigned m_unsupportedReports{0};
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
+index 06b1ad0..2a6c19c 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.cpp
+@@ -1,15 +1,19 @@
+ /* SPDX-License-Identifier: GPL-3.0-or-later */
+ #include "DVPrivateScanout.h"
+ 
+-bool CDVPrivateScanout::Initialize(gbm_device* device, unsigned buffers)
++bool CDVPrivateScanout::Initialize(gbm_device* device, unsigned width, unsigned height,
++                                   unsigned buffers)
+ {
+-  if (!device || m_initialized || buffers < 2 || buffers > kMaxBuffers) return false;
++  if (!device || m_initialized || !width || !height || buffers < 2 || buffers > kMaxBuffers)
++    return false;
+   dv_scanout_slots_init(&m_slots);
+   m_initialized = true;
+   m_buffers = buffers;
++  m_width = width;
++  m_height = height;
+   for (unsigned slot = 0; slot < m_buffers; ++slot)
+   {
+-    m_bo[slot] = gbm_bo_create(device, 3840, 2160, GBM_FORMAT_ARGB8888,
++    m_bo[slot] = gbm_bo_create(device, width, height, GBM_FORMAT_ARGB8888,
+         GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT | GBM_BO_USE_LINEAR);
+     if (!m_bo[slot]) return false;
+   }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+index 2d063aa..b05d339 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateScanout.h
+@@ -4,8 +4,8 @@
+ #include <gbm.h>
+ #include <cstddef>
+ 
+-/* The private scanout buffers the Vulkan engine writes (linear ARGB8888,
+- * 3840x2160) and their ownership (dv_scanout_slots.h): which one may be
++/* The private scanout buffers the Vulkan engine writes (linear ARGB8888, the
++ * size of the display mode: the engine's canvas) and their ownership (dv_scanout_slots.h): which one may be
+  * written, which one is ready, which one the display scans out, and which one
+  * it has taken in a flip that is still to come. Two buffers; three when flips
+  * are queued, so that a picture can be written while one is on screen and one
+@@ -14,7 +14,9 @@ class CDVPrivateScanout
+ {
+ public:
+   static constexpr unsigned kMaxBuffers = 3;
+-  bool Initialize(gbm_device* device, unsigned buffers = 2);
++  bool Initialize(gbm_device* device, unsigned width, unsigned height, unsigned buffers = 2);
++  unsigned Width() const { return m_width; }
++  unsigned Height() const { return m_height; }
+   bool Begin(uint64_t frame, int64_t pts);
+   bool Written(dv_scanout_outcome outcome);
+   bool Presented(bool success);
+@@ -45,5 +47,6 @@ private:
+   dv_scanout_lease m_lease{};
+   bool m_initialized{false};
+   unsigned m_buffers{2};
++  unsigned m_width{0}, m_height{0};
+   gbm_bo* m_bo[kMaxBuffers]{};
+ };
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+index 87e3938..1d01ec6 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+@@ -89,12 +89,21 @@ bool CDVPrivateSource::MasterReference()
+   return m_masterReference != 0;
+ }
+ 
+-bool CDVPrivateSource::Initialize(void* display)
++bool CDVPrivateSource::Initialize(void* display, unsigned width, unsigned height)
+ {
+   if (eglGetCurrentContext() == EGL_NO_CONTEXT)
+     return false;
+   auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbm*>(CServiceBroker::GetWinSystem());
+-  const auto drm = window ? window->GetDrm() : nullptr;
++  auto drm = window ? window->GetDrm() : nullptr;
++  // The scanout buffers have the size of the canvas the pictures are placed in, the display
++  // mode's. The window ends the bridge, and with it this source, before another mode, so
++  // buffers of another size mean a start that cannot work.
++  if (m_scanout && (m_scanout->Width() != width || m_scanout->Height() != height))
++  {
++    CLog::Log(LOGERROR, "Private source: the canvas is {}x{} now, the scanout buffers are {}x{}",
++              width, height, m_scanout->Width(), m_scanout->Height());
++    drm = nullptr;
++  }
+   if (drm)
+   {
+     const int fd = drm->GetRenderNodeFileDescriptor() >= 0 ? drm->GetRenderNodeFileDescriptor()
+@@ -106,7 +115,7 @@ bool CDVPrivateSource::Initialize(void* display)
+     if (!m_scanout)
+     {
+       m_scanout = new CDVPrivateScanout;
+-      if (!m_scanout->Initialize(window->GetGBMDevice().Get(),
++      if (!m_scanout->Initialize(window->GetGBMDevice().Get(), width, height,
+                                  KODI::WINDOWING::GBM::CDRMAtomic::DVNonblock() ? 3 : 2))
+       {
+         m_scanout->Close();
+@@ -124,8 +133,8 @@ bool CDVPrivateSource::Initialize(void* display)
+                                m_scanout->Buffers(), MasterReference()))
+       {
+         m_display = display;
+-        CLog::Log(LOGINFO, "Private source direct scanout initialized: {} cached buffers, Vulkan engine",
+-                  m_scanout->Buffers());
++        CLog::Log(LOGINFO, "Private source direct scanout initialized: {} cached {}x{} buffers, Vulkan engine",
++                  m_scanout->Buffers(), width, height);
+         return true;
+       }
+     }
+@@ -283,10 +292,11 @@ int CDVPrivateSource::AcquireFrame(void* display, CVideoBuffer* owner,
+     if (m_startFailed && !CDVPrivateVulkan::Usable())
+       return -1;
+     m_startFailed = false;
+-    if (!Initialize(display))
++    if (!Initialize(display, geometry.canvas_width, geometry.canvas_height))
+       return -1;
+   }
+-  if (m_display != display)
++  if (m_display != display || !m_scanout || m_scanout->Width() != geometry.canvas_width ||
++      m_scanout->Height() != geometry.canvas_height)
+     return -1;
+   // Surfaces from another allocation may have the ids of the ones the engine
+   // imported: the frames reading the old ones finish, and the engine forgets
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+index d46d65c..f997688 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+@@ -46,7 +46,7 @@ public:
+   bool MasterReference();
+   bool DisplayReplaced();
+ private:
+-  bool Initialize(void* display);
++  bool Initialize(void* display, unsigned width, unsigned height);
+   bool CloseVulkan();
+   void ReleaseInputs();
+   bool RetireVulkan(bool wait, size_t keep = 0);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index d4c0d51..dd89152 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -393,8 +393,21 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
+   m_setOverlayEx = reinterpret_cast<decltype(m_setOverlayEx)>(dlsym(m_library, "dvvk_set_overlay_ex"));
+   m_implicitFailed = reinterpret_cast<decltype(m_implicitFailed)>(dlsym(m_library, "dvvk_implicit_failed"));
++  // The canvas is the scanout buffers' size; another than 3840x2160 needs dvvk_create_canvas.
++  m_createCanvas = reinterpret_cast<decltype(m_createCanvas)>(dlsym(m_library, "dvvk_create_canvas"));
++  m_width = gbm_bo_get_width(outputs[0]);
++  m_height = gbm_bo_get_height(outputs[0]);
++  const bool standard = m_width == 3840 && m_height == 2160;
++  if (!standard && !m_createCanvas)
++  {
++    CLog::Log(LOGERROR, "Vulkan engine {}: no dvvk_create_canvas for a {}x{} output", library,
++              m_width, m_height);
++    return false;
++  }
+   // The engine logs its reasons on stderr (the journal).
+-  if (m_create(drmFd, vaDisplay, &m_engine) != 0 || !m_engine)
++  if ((standard ? m_create(drmFd, vaDisplay, &m_engine)
++                : m_createCanvas(drmFd, vaDisplay, m_width, m_height, &m_engine)) != 0 ||
++      !m_engine)
+   {
+     m_engine = nullptr;
+     CLog::Log(LOGERROR, "Vulkan engine did not start (no Vulkan device for the DRM node?)");
+@@ -422,8 +435,8 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_async = !EnvIs("DV_VULKAN_ASYNC", "0");
+   m_dmOptions = DmOptions();
+   m_device = device;
+-  CLog::Log(LOGINFO, "Vulkan engine started ({}): el_scaler={} fel={} async={} cb1_reference={} dm_options={:#x}",
+-            library, m_elScaler, m_fel, m_async, m_cb1, m_dmOptions);
++  CLog::Log(LOGINFO, "Vulkan engine started ({}): canvas={}x{} el_scaler={} fel={} async={} cb1_reference={} dm_options={:#x}",
++            library, m_width, m_height, m_elScaler, m_fel, m_async, m_cb1, m_dmOptions);
+   return true;
+ }
+ 
+@@ -448,13 +461,14 @@ bool CDVPrivateVulkan::InitializeGui(unsigned index)
+   using Target = void (*)(GLenum, void*);
+   auto target = reinterpret_cast<Target>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
+   if (!create || !m_destroyImage || !target || m_display == EGL_NO_DISPLAY) return false;
+-  gui.bo = gbm_bo_create(m_device, 3840, 2160, GBM_FORMAT_ABGR8888,
++  gui.bo = gbm_bo_create(m_device, m_width, m_height, GBM_FORMAT_ABGR8888,
+                          GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR);
+   if (!gui.bo) return false;
+   gui.fd = gbm_bo_get_fd(gui.bo);
+   if (gui.fd < 0) return false;
+   const uint32_t stride = gbm_bo_get_stride(gui.bo);
+-  const EGLint attrs[] = {EGL_WIDTH, 3840, EGL_HEIGHT, 2160, EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
++  const EGLint attrs[] = {EGL_WIDTH, static_cast<EGLint>(m_width), EGL_HEIGHT,
++      static_cast<EGLint>(m_height), EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
+       EGL_DMA_BUF_PLANE0_FD_EXT, gui.fd, EGL_DMA_BUF_PLANE0_OFFSET_EXT, 0,
+       EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(stride), EGL_NONE};
+   gui.image = create(m_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attrs);
+@@ -472,8 +486,8 @@ bool CDVPrivateVulkan::InitializeGui(unsigned index)
+   const bool complete = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
+   if (!complete || glGetError() != GL_NO_ERROR) return false;
+-  gui.dmabuf.width = 3840;
+-  gui.dmabuf.height = 2160;
++  gui.dmabuf.width = m_width;
++  gui.dmabuf.height = m_height;
+   gui.dmabuf.format = DRM_FORMAT_ABGR8888;
+   gui.dmabuf.modifier = DRM_FORMAT_MOD_LINEAR;
+   gui.dmabuf.num_planes = 1;
+@@ -496,10 +510,11 @@ bool CDVPrivateVulkan::CopyGui(const DVPrivateOverlay& overlay, unsigned index)
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, m_readFramebuffer);
+   glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, overlay.texture, 0);
+   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_guis[index].framebuffer);
++  const GLint width = static_cast<GLint>(m_width), height = static_cast<GLint>(m_height);
+   if (overlay.flipY)
+-    glBlitFramebuffer(0, 0, 3840, 2160, 0, 2160, 3840, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
++    glBlitFramebuffer(0, 0, width, height, 0, height, width, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+   else
+-    glBlitFramebuffer(0, 0, 3840, 2160, 0, 0, 3840, 2160, GL_COLOR_BUFFER_BIT, GL_NEAREST);
++    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+   glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
+   glBindFramebuffer(GL_READ_FRAMEBUFFER, read);
+   glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw);
+@@ -612,8 +627,8 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+       // read fence on it makes the next GUI drawing wait on the GPU.
+       glFlush();
+       dvvk_dmabuf gui{};
+-      gui.width = 3840;
+-      gui.height = 2160;
++      gui.width = m_width;
++      gui.height = m_height;
+       gui.format = overlay->dmabufFormat;
+       gui.modifier = overlay->dmabufModifier;
+       gui.num_planes = 1;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 8670562..4e81c25 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -13,7 +13,9 @@
+ 
+ /* yblod's engine on Vulkan compute (DVVK_LIBRARY, yblod-engine/vk), YBLOD's
+  * only Dolby Vision renderer. It writes the private scanout buffers itself
+- * and reads the GUI in place (or from a GBM copy of Kodi's GUI texture).
++ * and reads the GUI in place (or from a GBM copy of Kodi's GUI texture). Its
++ * canvas is the scanout buffers' size (3840x2160 for the tunnel; another
++ * needs an engine with dvvk_create_canvas).
+  * Frames are submitted without waiting (DV_VULKAN_ASYNC=0 waits for each):
+  * the engine puts the frame's fence on the scanout buffer as an implicit
+  * write fence, which the atomic commit waits for, and the caller keeps the
+@@ -98,6 +100,9 @@ private:
+   void* m_library{nullptr};
+   dvvk_engine* m_engine{nullptr};
+   decltype(&dvvk_create) m_create{nullptr};
++  decltype(&dvvk_create_canvas) m_createCanvas{nullptr};       // optional (another canvas)
++  // The canvas: the scanout buffers' size, the GUI's and the engine's.
++  unsigned m_width{3840}, m_height{2160};
+   decltype(&dvvk_set_output) m_setOutput{nullptr};
+   decltype(&dvvk_set_overlay) m_setOverlay{nullptr};
+   decltype(&dvvk_submit) m_submit{nullptr};
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 63b6c84..ed5c61c 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -628,11 +628,10 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+   }
+   m_guiHalf = guiHalf;
+ 
+-  // Shared with the Vulkan engine (a 4K GUI only); DV_VULKAN_GUI_COPY=1
+-  // keeps the per-frame copy (for comparison).
++  // Shared with the Vulkan engine (the GUI has its canvas's size);
++  // DV_VULKAN_GUI_COPY=1 keeps the per-frame copy (for comparison).
+   const char* copy = std::getenv("DV_VULKAN_GUI_COPY");
+-  const bool share = nativeCoverage && width == 3840 && height == 2160 &&
+-                     !(copy && std::strcmp(copy, "1") == 0) && !m_guiShareFailed;
++  const bool share = nativeCoverage && !(copy && std::strcmp(copy, "1") == 0) && !m_guiShareFailed;
+   // create or recreate FBO if size changed
+   if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height ||
+       share != (m_guiBo != nullptr))
+@@ -1283,6 +1282,7 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+     m_dvBridge = std::make_unique<CDVBridgeGLES>();
+   if (!m_dvBridge->Initialize())
+     return failure("renderer-init");
++  m_dvBridge->SetCanvas(m_nWidth, m_nHeight);
+   if (!m_dvState.Captured() && !m_dvState.Capture(*drm))
+     return failure("drm-state-capture");
+   // HDR10 through the tunnel is the tunnel's output with the engine in HDR10.
+@@ -1369,7 +1369,7 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+   if (m_nativeGuiCoverage)
+   {
+     if (!m_guiRasterReady || !m_guiFbo.IsValid() ||
+-        m_guiFboWidth != 3840 || m_guiFboHeight != 2160)
++        m_guiFboWidth != m_nWidth || m_guiFboHeight != m_nHeight)
+       return false;
+     if (!overlayFree)
+     {
