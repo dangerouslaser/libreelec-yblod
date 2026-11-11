@@ -6,7 +6,7 @@ Subject: [PATCH] drm/amd/display: Standard Dolby Vision RGB 8 bpc tunnel
 big-fella: the Standard Dolby Vision RGB8 tunnel on amdgpu DC.
 
 The DVBRIDGE_DV_STANDARD_LAB connector property of yblod's i915 patches
-(linux-9900 to 9903), with the same semantics, on native HDMI connectors of
+(linux-9900, linux-9901), with the same semantics, on native HDMI connectors of
 DCN 1.0 to 3.6 (amdgpu.enable_dv_lab, default on), so kwin-big-fella and
 dv-engine-vk work unchanged on AMD integrated graphics:
 
@@ -34,7 +34,7 @@ dv-engine-vk work unchanged on AMD integrated graphics:
   scanout rejected ... reasons=0x..." messages; the engaged stream's packets
   with drm.debug=0x4.
 
-Not ported: QMS (linux-9910/9911; a refresh change is a modeset on amdgpu),
+Not ported: QMS (linux-9910; a refresh change is a modeset on amdgpu),
 the SPD source type (linux-9912; amdgpu sends no SPD InfoFrame of its own).
 
 DC hook points adapted from CroqueMr's CB1
@@ -304,7 +304,7 @@ index db546dd44b91..a8948ab3a854 100644
  					    DYN_EXPANSION_DISABLE);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
 new file mode 100644
-index 000000000000..32bbedf95bf2
+index 000000000000..15718e97ba2a
 --- /dev/null
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
 @@ -0,0 +1,480 @@
@@ -317,7 +317,7 @@ index 000000000000..32bbedf95bf2
 + * DVBRIDGE_DV_STANDARD_LAB set, and the display engine has to send it to the
 + * TV byte for byte, with the Dolby vendor InfoFrame. Same property, link
 + * policy, scanout policy and diagnostics as yblod's i915 patches
-+ * (linux-9900 to 9903): the policy and EDID parser are theirs, shared below.
++ * (linux-9900, linux-9901): the policy and EDID parser are theirs, shared below.
 + *
 + * The DC hook points (the vendor slot, dc_info_packet's checksum layout, the
 + * dither option, qs_bit, a stream flag that DC compares, FreeSync off, the CRC
