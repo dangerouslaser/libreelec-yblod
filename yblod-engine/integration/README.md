@@ -2,12 +2,12 @@
 
 The Kodi side of YBLOD's Dolby Vision output is the patch series in
 `yblod-engine/patches/kodi/` (Kodi `e6192109`, linked into
-`projects/Generic/patches/kodi/`). Since 0.4.0 it drives one renderer, the
-Vulkan engine (`yblod-engine/vk`): `kodi-9999-yblod-29` (the Vulkan engine
-without the OpenCL library, behaviour-neutral), `-30` (Vulkan only: the
-OpenCL engine path and the libplacebo compatibility renderer removed), `-31`
-(Dolby Vision -> HDR10 through the tunnel) and `-32` (the Dolby Vision menu).
-The engine's adapter is `CDVPrivateSource` / `CDVPrivateVulkan`; the window
+`projects/Generic/patches/kodi/`), `kodi-9950` to `kodi-9957`; see
+[KODI-PATCHES.md](../../yblod/docs/KODI-PATCHES.md) for what each holds and
+where the older patch numbers below went. Since 0.4.0 it drives one renderer,
+the Vulkan engine (`yblod-engine/vk`). The engine's adapter
+(`kodi-9956-dv-vulkan-engine-adapter.patch`) is `CDVPrivateSource` /
+`CDVPrivateVulkan`; the window
 (`WinSystemGbmGLESContext`) commits its scanout buffers with the tunnel's
 signal.
 
@@ -39,8 +39,9 @@ until Kodi restarts, with the notification.
 
 ## Presentation (0.5.0)
 
-`kodi-9999-yblod-40` to `-49` rework how pictures reach the engine and the
-display. What they change, and the switch for each change that reading the
+0.5.0 reworked how pictures reach the engine and the display (formerly
+patches yblod-40 to -49, the numbers below; now in kodi-9953, kodi-9956 and
+kodi-9957). What changed, and the switch for each change that reading the
 code cannot prove (`runtime.env`):
 
 - The engine gets the decoded VAAPI surface directly (`-40`): no GL texture,
@@ -157,14 +158,16 @@ The unchanged standalone source passes all three Release-mode CPU contract
 tests with GCC 14.2 and CMake 4.4.4: specialization admission, geometry and
 output-slot ownership. These are not GPU or Kodi playback tests.
 
-The patch is `yblod-engine/patches/kodi/kodi-9999-yblod-03-native-source.patch`.
+The patch was `kodi-9999-yblod-03-native-source.patch` (now part of
+`kodi-9956-dv-vulkan-engine-adapter.patch` and
+`kodi-9957-dv-renderer-window-and-build.patch`).
 Generic builds apply it after the existing YBLOD QSV and menu patches and
 install the engine and dependencies through Kodi's package recipe. This is
 integration source; use the separately packaged pre-release for installation.
 
-The subsequent `kodi-9999-yblod-04-native-startup.patch` establishes a valid
-black DV signal before releasing playback startup. The final
-`kodi-9999-yblod-05-remove-legacy-settings.patch` removes Quick Sync scaling and
+The subsequent `kodi-9999-yblod-04-native-startup.patch` (now in kodi-9957)
+establishes a valid black DV signal before releasing playback startup. The
+final `kodi-9999-yblod-05-remove-legacy-settings.patch` removed Quick Sync scaling and
 Match Dolby hardware levels from the settings UI. Both legacy behaviors are
 forced off, including for profiles with old saved values. This does not change
 native reconstruction or disable hardware video decoding.

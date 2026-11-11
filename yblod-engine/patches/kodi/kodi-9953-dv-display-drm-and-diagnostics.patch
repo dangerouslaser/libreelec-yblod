@@ -1,0 +1,2178 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:41 -0500
+Subject: [PATCH] Dolby Vision: display capabilities, DRM output state and
+ diagnostics
+
+What the window needs from the display and the DRM layer to put the
+tunnel's signal up and take it down:
+
+- Capabilities: DVBridgeEdid.h decides from the EDID whether a sink
+  takes Standard (TV-led) Dolby Vision (v0, v1 and v2 VSVDBs; LLDV-only
+  sinks are refused). It accepts HDMI Forum EEODB EDIDs, whose blocks
+  outnumber byte 126, skips extension blocks with a bad checksum as DRM
+  does, and takes a v0 block at its real length, 25 (edid-decode's
+  "Version: 0 (26 bytes)" for the Vizio and Sharp v0 EDIDs in the
+  linuxhw/EDID collection; Amlogic's HDMI driver accepts v0 only with
+  length 0x19). It is MIT and must stay identical to the kernel's copy
+  (linux-9902, dvbridge_edid.h). CDisplayInfo also reports the desired
+  maximum luminance and the HDR10+ VSVDB's application version.
+- CDVBridgeState captures the connector and CRTC properties the tunnel
+  changes (DVBRIDGE_TUNNEL_FORMAT, HDR_OUTPUT_METADATA, Colorspace,
+  Broadcast RGB, max bpc, the colour pipeline, VRR_ENABLED, ...),
+  stages the Dolby Vision, HDR10 or HDR10+ signal and restores SDR.
+- CDRMAtomic commits a Dolby Vision page transactionally
+  (FlipPageTransactional, with the GBM surface's transactional buffers
+  in GBMUtils): a refused commit never replaces the scanout. A failing
+  HDMI output is retried twice at once, then every 250 ms for three
+  seconds and every second after that (DVBridgeOutputRetry), never
+  excluded for good; the restore is always attempted. Once a scanout
+  has been accepted its pictures commit without ALLOW_MODESET. With
+  DV_PRIVATE_NONBLOCK=1 a picture of a stable scanout is committed
+  NONBLOCK with an out-fence, one flip at a time (WaitDVFlip,
+  WaitDVRefresh); the flips are counted and logged every 600
+  (DV_PRIVATE_FLIP_TRACE=1 logs each). It ships off: it could not be
+  tested without a display.
+- CWinSystemGbm: SupportsNativeDVOutput, FlipDVBridgePage, the
+  display's peak brightness and HDR10+ version, and CompleteModeset, so
+  that the refresh change for a native stream can ride on the bridge's
+  first commit (one HDMI change instead of two).
+- The whitelist search lets a native Dolby Vision stream (and only it)
+  use a mode at its exact progressive rate (allowNativeProgressiveRates).
+- DRMUtils: the opaque framebuffer of a buffer made without modifiers
+  (amdgpu).
+- Diagnostics in kodi.log without debug logging: bounded first-failure
+  and change reports, accepted signal changes and recent kernel Dolby
+  Vision rejection reasons, copied in a background job
+  (DVBridgeDiagnosticState, DVBridgeKernelLog, DVBridgeKernelLogReader;
+  yblod-engine/docs/intel-dv/DIAGNOSTICS.md). Their counters never
+  drive playback decisions. DVBRIDGE_DIAGNOSTICS=0 turns them off; =1
+  also asks for the playback health line (kodi-9955).
+
+Used by the window in kodi-9957. DVBridgeState.cpp reads the output mode
+from DVOutputSettings.h, which kodi-9955 adds: the Dolby Vision patches
+are one unit that builds only as a whole. Formerly the DRM, GBM and
+display parts of kodi-9990-native-dv, kodi-9994-hdmi-recovery,
+kodi-9995-diagnostics, kodi-9996-output-modes-and-info,
+kodi-9999-dv-single-modeset, yblod-03, -07 (SDR restore), -26 (amdgpu
+opaque framebuffer), -28 (stable commit), -31 (HDR10 through the
+tunnel), -32, -34 (HDR10+), -43 and -49 (the DRM side of held pictures
+and queued flips), -52 (EEODB and v0 EDIDs) and -57 (diagnostics cost).
+---
+ xbmc/utils/DVBridgeDiagnosticState.h          |  88 ++++
+ xbmc/utils/DVBridgeEdid.h                     | 135 +++++
+ xbmc/utils/DVBridgeKernelLog.h                |  77 +++
+ xbmc/utils/DVBridgeOutputRetry.h              |  42 ++
+ xbmc/utils/DisplayInfo.cpp                    |  22 +
+ xbmc/utils/DisplayInfo.h                      |  11 +
+ xbmc/windowing/Resolution.cpp                 |  16 +-
+ xbmc/windowing/Resolution.h                   |   6 +-
+ xbmc/windowing/gbm/GBMUtils.cpp               |  40 ++
+ xbmc/windowing/gbm/GBMUtils.h                 |  10 +
+ xbmc/windowing/gbm/WinSystemGbm.cpp           | 110 +++-
+ xbmc/windowing/gbm/WinSystemGbm.h             |  17 +
+ xbmc/windowing/gbm/drm/CMakeLists.txt         |   4 +
+ xbmc/windowing/gbm/drm/DRMAtomic.cpp          | 498 +++++++++++++++++-
+ xbmc/windowing/gbm/drm/DRMAtomic.h            |  71 ++-
+ xbmc/windowing/gbm/drm/DRMUtils.cpp           |  58 ++
+ xbmc/windowing/gbm/drm/DRMUtils.h             |   3 +
+ .../gbm/drm/DVBridgeKernelLogReader.h         | 108 ++++
+ xbmc/windowing/gbm/drm/DVBridgeState.cpp      | 233 ++++++++
+ xbmc/windowing/gbm/drm/DVBridgeState.h        |  67 +++
+ 20 files changed, 1590 insertions(+), 26 deletions(-)
+ create mode 100644 xbmc/utils/DVBridgeDiagnosticState.h
+ create mode 100644 xbmc/utils/DVBridgeEdid.h
+ create mode 100644 xbmc/utils/DVBridgeKernelLog.h
+ create mode 100644 xbmc/utils/DVBridgeOutputRetry.h
+ create mode 100644 xbmc/windowing/gbm/drm/DVBridgeKernelLogReader.h
+ create mode 100644 xbmc/windowing/gbm/drm/DVBridgeState.cpp
+ create mode 100644 xbmc/windowing/gbm/drm/DVBridgeState.h
+
+diff --git a/xbmc/utils/DVBridgeDiagnosticState.h b/xbmc/utils/DVBridgeDiagnosticState.h
+new file mode 100644
+index 0000000..e471b46
+--- /dev/null
++++ b/xbmc/utils/DVBridgeDiagnosticState.h
+@@ -0,0 +1,88 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++#include <chrono>
++#include <cstdint>
++#include <cstdlib>
++
++namespace DVBRIDGE
++{
++// Enabled without Kodi's global debug mode. Developers can disable the entire
++// supplement in one place; it must never change output or retry decisions.
++inline bool DiagnosticsEnabled()
++{
++  static const bool enabled = [] {
++    const char* setting = std::getenv("DVBRIDGE_DIAGNOSTICS");
++    return !setting || setting[0] != '0' || setting[1] != '\0';
++  }();
++  return enabled;
++}
++
++// DVBRIDGE_DIAGNOSTICS=1 (set, not 0) also asks for the periodic playback health line at INFO;
++// otherwise it is a debug-log line.
++inline bool DiagnosticsRequested()
++{
++  static const bool requested = [] {
++    const char* setting = std::getenv("DVBRIDGE_DIAGNOSTICS");
++    return setting && setting[0] && (setting[0] != '0' || setting[1] != '\0');
++  }();
++  return requested;
++}
++
++inline uint64_t DiagnosticNowMs()
++{
++  return std::chrono::duration_cast<std::chrono::milliseconds>(
++      std::chrono::steady_clock::now().time_since_epoch()).count();
++}
++
++// A bounded first-event/change budget plus a 30-second summary. Alternating
++// failures/recoveries cannot reset the budget and turn this into per-frame IO.
++class DiagnosticFailures
++{
++public:
++  bool Record(uint64_t now, const char* stage = "failure", int error = 0)
++  {
++    ++m_count;
++    ++m_consecutive;
++    const bool changed = stage != m_stage || error != m_error;
++    m_stage = stage;
++    m_error = error;
++    if (!m_reported || now - m_window >= 30000)
++    {
++      m_window = now;
++      m_reports = 0;
++    }
++    if ((!m_reported || changed || now - m_last >= 30000) && m_reports < 4)
++    {
++      m_reported = true;
++      ++m_reports;
++      m_last = now;
++      return true;
++    }
++    return false;
++  }
++  bool Recovered(uint64_t now)
++  {
++    if (!m_consecutive)
++      return false;
++    m_consecutive = 0;
++    ++m_recoveries;
++    if (m_recoveries == 1 || now - m_lastRecovery >= 30000)
++    {
++      m_lastRecovery = now;
++      return true;
++    }
++    return false;
++  }
++  uint64_t Count() const { return m_count; }
++  uint64_t Recoveries() const { return m_recoveries; }
++  void Reset() { *this = {}; }
++
++private:
++  uint64_t m_count{0}, m_consecutive{0}, m_recoveries{0};
++  uint64_t m_window{0}, m_last{0}, m_lastRecovery{0};
++  unsigned m_reports{0};
++  const char* m_stage{nullptr}; // Callers pass static stage labels.
++  int m_error{0};
++  bool m_reported{false};
++};
++} // namespace DVBRIDGE
+diff --git a/xbmc/utils/DVBridgeEdid.h b/xbmc/utils/DVBridgeEdid.h
+new file mode 100644
+index 0000000..f7ca959
+--- /dev/null
++++ b/xbmc/utils/DVBridgeEdid.h
+@@ -0,0 +1,135 @@
++/* SPDX-License-Identifier: MIT */
++/* Shared, side-effect-free Standard-DV eligibility. The kernel and player
++ * copies must remain identical (checked by the source tests). This only
++ * parses public display capabilities; it does not alter EDID or movie data.
++ */
++#ifndef DVBRIDGE_EDID_H
++#define DVBRIDGE_EDID_H
++#ifdef __KERNEL__
++#include <linux/types.h>
++#else
++#include <stdbool.h>
++#include <stddef.h>
++#endif
++
++enum dvbridge_edid_status {
++	DV_EDID_ABSENT, DV_EDID_INVALID, DV_EDID_NO_DV, DV_EDID_DUPLICATE,
++	DV_EDID_VERSION, DV_EDID_LENGTH, DV_EDID_LLDV_ONLY, DV_EDID_STANDARD
++};
++
++struct dvbridge_sink_caps {
++	enum dvbridge_edid_status status;
++	unsigned int version, offset, length;
++	bool legacy_vsif, supports_2160p60;
++};
++
++static inline const char *dvbridge_edid_reason(enum dvbridge_edid_status status)
++{
++	switch (status) {
++	case DV_EDID_ABSENT: return "edid-unavailable";
++	case DV_EDID_INVALID: return "edid-invalid";
++	case DV_EDID_NO_DV: return "no-dv-block";
++	case DV_EDID_DUPLICATE: return "multiple-dv-blocks";
++	case DV_EDID_VERSION: return "unknown-dv-version";
++	case DV_EDID_LENGTH: return "invalid-dv-block-length";
++	case DV_EDID_LLDV_ONLY: return "no-standard-dv-interface";
++	case DV_EDID_STANDARD: return "standard-dv";
++	}
++	return "unknown";
++}
++
++static inline struct dvbridge_sink_caps
++dvbridge_parse_edid(const unsigned char *edid, size_t size)
++{
++	static const unsigned char magic[8] = {0, 255, 255, 255, 255, 255, 255, 0};
++	struct dvbridge_sink_caps result = {DV_EDID_ABSENT, 0, 0, 0, false, false};
++	unsigned int block, i, found = 0;
++	unsigned char sum;
++
++	if (!edid || !size)
++		return result;
++	result.status = DV_EDID_INVALID;
++	/* An HDMI Forum EEODB overrides byte 126: the blob can hold more
++	 * blocks than it says, never fewer. */
++	if (size < 128 || size % 128 || size < ((size_t)edid[126] + 1) * 128)
++		return result;
++	for (i = 0; i < 8; i++)
++		if (edid[i] != magic[i])
++			return result;
++	for (i = 0, sum = 0; i < 128; i++)
++		sum += edid[i];
++	if (sum)
++		return result;
++	result.status = DV_EDID_NO_DV;
++	for (block = 1; block < size / 128; block++) {
++		const unsigned char *b = edid + block * 128;
++		unsigned int end = b[2], pos;
++
++		/* A corrupt extension is skipped, as DRM drops such blocks. */
++		for (i = 0, sum = 0; i < 128; i++)
++			sum += b[i];
++		if (sum)
++			continue;
++		if (b[0] != 2 || b[1] < 3 || !end)
++			continue;
++		if (end < 4 || end > 127) {
++			result.status = DV_EDID_INVALID;
++			return result;
++		}
++		for (pos = 4; pos < end;) {
++			unsigned int len = b[pos] & 31;
++			const unsigned char *data = b + pos + 1;
++
++			if (pos + len + 1 > end) {
++				result.status = DV_EDID_INVALID;
++				return result;
++			}
++			if ((b[pos] >> 5) == 7 && len >= 4 && data[0] == 1 &&
++			    data[1] == 0x46 && data[2] == 0xd0 && data[3] == 0) {
++				if (++found != 1) {
++					result.status = DV_EDID_DUPLICATE;
++					return result;
++				}
++				result.offset = block * 128 + pos + 1;
++				result.length = len;
++				result.status = DV_EDID_LENGTH;
++				if (len < 5)
++					return result;
++				result.version = data[4] >> 5;
++				switch (result.version) {
++				case 0:
++					/* 26 bytes with the header: 0x19 */
++					if (len != 25)
++						return result;
++					result.legacy_vsif = true;
++					result.supports_2160p60 = (data[4] & 2) != 0;
++					break;
++				case 1:
++					if (len != 11 && len != 14)
++						return result;
++					/* Long V1 and short V1 without LL use HDMI-1.4b
++					 * signaling, not the modern Dolby-OUI packet. */
++					result.legacy_vsif = len == 14 || !(data[7] & 1);
++					result.supports_2160p60 = (data[4] & 2) != 0;
++					break;
++				case 2:
++					if (len < 11)
++						return result;
++					if ((data[6] & 3) < 2) {
++						result.status = DV_EDID_LLDV_ONLY;
++						return result;
++					}
++					result.supports_2160p60 = true;
++					break;
++				default:
++					result.status = DV_EDID_VERSION;
++					return result;
++				}
++				result.status = DV_EDID_STANDARD;
++			}
++			pos += len + 1;
++		}
++	}
++	return result;
++}
++#endif
+diff --git a/xbmc/utils/DVBridgeKernelLog.h b/xbmc/utils/DVBridgeKernelLog.h
+new file mode 100644
+index 0000000..d96935c
+--- /dev/null
++++ b/xbmc/utils/DVBridgeKernelLog.h
+@@ -0,0 +1,77 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++
++#include <charconv>
++#include <cstdint>
++#include <deque>
++#include <optional>
++#include <string>
++#include <string_view>
++
++namespace DVBRIDGE
++{
++// /dev/kmsg records: priority,sequence,monotonic_us,flags;message\ncontext.
++// Only kernel-origin DV/display incidents are copied, never general system logs.
++class KernelLogFilter
++{
++public:
++  std::optional<std::string> Accept(std::string_view record, uint64_t nowUs)
++  {
++    uint64_t priority, sequence, timestamp;
++    if (!Number(record, priority) || !Number(record, sequence) || !Number(record, timestamp))
++      return {};
++    const auto separator = record.find(';');
++    if (separator == record.npos || priority > 7)
++      return {};
++    if (m_seen && sequence <= m_sequence)
++      return {};
++    m_seen = true;
++    m_sequence = sequence;
++    if (timestamp > nowUs || nowUs - timestamp > 60000000)
++      return {};
++    auto message = record.substr(separator + 1);
++    message = message.substr(0, message.find('\n'));
++    // i915/xe faults can explain a failed flip without a DV-specific rejection.
++    // Restrict these additional records to warning-or-worse display incidents.
++    const bool intel = message.find("i915 ") != message.npos ||
++                       message.find("xe ") != message.npos;
++    const bool incident = priority <= 4 && intel &&
++        (message.find("GPU HANG") != message.npos ||
++         message.find("Resetting") != message.npos ||
++         message.find("reset failed") != message.npos ||
++         message.find("underrun") != message.npos ||
++         message.find("flip_done timed out") != message.npos ||
++         message.find("vblank wait timed out") != message.npos ||
++         message.find("link training failed") != message.npos ||
++         message.find("link-status BAD") != message.npos);
++    if (message.find("DVBridge:") == message.npos && !incident)
++      return {};
++    // Kernel escapes untrusted characters. Bound the copied record as well.
++    const std::string text(message.substr(0, 2048));
++    for (const auto& recent : m_recent)
++      if (recent.first == text && nowUs - recent.second < 30000000)
++        return {};
++    m_recent.emplace_back(text, nowUs);
++    if (m_recent.size() > 16)
++      m_recent.pop_front();
++    return "boot_us=" + std::to_string(timestamp) + " seq=" + std::to_string(sequence) +
++           " " + text;
++  }
++
++private:
++  static bool Number(std::string_view& input, uint64_t& value)
++  {
++    const auto comma = input.find(',');
++    if (comma == input.npos || comma == 0)
++      return false;
++    const auto result = std::from_chars(input.data(), input.data() + comma, value);
++    if (result.ec != std::errc{} || result.ptr != input.data() + comma)
++      return false;
++    input.remove_prefix(comma + 1);
++    return true;
++  }
++  uint64_t m_sequence{0};
++  bool m_seen{false};
++  std::deque<std::pair<std::string, uint64_t>> m_recent;
++};
++}
+diff --git a/xbmc/utils/DVBridgeOutputRetry.h b/xbmc/utils/DVBridgeOutputRetry.h
+new file mode 100644
+index 0000000..73bfde6
+--- /dev/null
++++ b/xbmc/utils/DVBridgeOutputRetry.h
+@@ -0,0 +1,42 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++#include <cstdint>
++
++namespace DVBRIDGE
++{
++// Output recovery only; diagnostic counters never influence this state.
++// Preserve early transient recovery, then space attempts without sleeping on
++// the GUI thread or permanently blacklisting a potentially usable display.
++class OutputRetry
++{
++public:
++  bool Ready(uint64_t now) const { return !m_failures || now >= m_next; }
++  void Failed(uint64_t now, int error)
++  {
++    if (!m_failures)
++      m_since = now;
++    ++m_failures;
++    m_error = error;
++    m_delay = m_failures <= 2 ? 0 : (now - m_since < 3000 ? 250 : 1000);
++    m_next = now + m_delay;
++  }
++  void Reset() { *this = {}; }
++  bool PollDue(uint64_t now)
++  {
++    if (!m_failures || (m_polled && now - m_poll < 1000))
++      return false;
++    m_polled = true;
++    m_poll = now;
++    return true;
++  }
++  uint64_t Count() const { return m_failures; }
++  unsigned Delay() const { return m_delay; }
++  int Error() const { return m_error; }
++
++private:
++  uint64_t m_failures{0}, m_since{0}, m_next{0}, m_poll{0};
++  unsigned m_delay{0};
++  int m_error{0};
++  bool m_polled{false};
++};
++} // namespace DVBRIDGE
+diff --git a/xbmc/utils/DisplayInfo.cpp b/xbmc/utils/DisplayInfo.cpp
+index 2627a49..21c8c57 100644
+--- a/xbmc/utils/DisplayInfo.cpp
++++ b/xbmc/utils/DisplayInfo.cpp
+@@ -41,6 +41,7 @@ std::unique_ptr<CDisplayInfo> CDisplayInfo::Create(const std::vector<uint8_t>& e
+ 
+ CDisplayInfo::CDisplayInfo(const std::vector<uint8_t>& edid)
+ {
++  m_dvCaps = dvbridge_parse_edid(edid.data(), edid.size());
+   m_info.reset(di_info_parse_edid(edid.data(), edid.size()));
+ }
+ 
+@@ -103,6 +104,22 @@ void CDisplayInfo::Parse()
+ 
+           switch (cta_tag)
+           {
++            case DI_CTA_DATA_BLOCK_DOLBY_VIDEO:
++            {
++              // Report the connected display's capability, not the current output mode.
++              const auto* dv = di_cta_data_block_get_dolby_video(block);
++              m_dolbyVision |= dv != nullptr;
++              // Native-output eligibility uses the same bounded EDID validation
++              // as the kernel. This UI capability remains libdisplay-info's.
++              break;
++            }
++            case DI_CTA_DATA_BLOCK_HDR10PLUS:
++            {
++              // HDR10+ Vendor-Specific Video Data Block: the application version the TV takes.
++              if (const auto* hdr10plus = di_cta_data_block_get_hdr10plus(block))
++                m_hdr10PlusVersion = hdr10plus->version;
++              break;
++            }
+             case DI_CTA_DATA_BLOCK_COLORIMETRY:
+             {
+               m_colorimetry = di_cta_data_block_get_colorimetry(block);
+@@ -167,6 +184,11 @@ void CDisplayInfo::LogInfo() const
+   }
+ }
+ 
++float CDisplayInfo::GetDesiredMaxLuminance() const
++{
++  return m_hdr_static_metadata ? m_hdr_static_metadata->desired_content_max_luminance : 0.0f;
++}
++
+ bool CDisplayInfo::SupportsHDRStaticMetadataType1() const
+ {
+   if (!m_hdr_static_metadata)
+diff --git a/xbmc/utils/DisplayInfo.h b/xbmc/utils/DisplayInfo.h
+index 5cf7ef5..01fb236 100644
+--- a/xbmc/utils/DisplayInfo.h
++++ b/xbmc/utils/DisplayInfo.h
+@@ -12,6 +12,7 @@
+ #include <stdint.h>
+ #include <string>
+ #include <vector>
++#include "DVBridgeEdid.h"
+ 
+ struct di_info;
+ struct di_cta_colorimetry_block;
+@@ -62,9 +63,16 @@ public:
+   ~CDisplayInfo();
+ 
+   bool SupportsHDRStaticMetadataType1() const;
++  //! The display's desired content max luminance (HDR static metadata block), cd/m2; 0 unknown.
++  float GetDesiredMaxLuminance() const;
+ 
+   bool SupportsEOTF(Eotf eotf) const;
+ 
++  bool SupportsDolbyVision() const { return m_dolbyVision; }
++  bool SupportsStandardDolbyVision() const { return m_dvCaps.status == DV_EDID_STANDARD; }
++  //! The HDR10+ application version of the display's HDR10+ VSVDB (0 or 1); -1 no HDR10+.
++  int GetHDR10PlusVersion() const { return m_hdr10PlusVersion; }
++
+   bool SupportsColorimetry(Colorimetry colorimetry) const;
+ 
+ private:
+@@ -86,6 +94,9 @@ private:
+ 
+   const di_cta_colorimetry_block* m_colorimetry = nullptr;
+   const di_cta_hdr_static_metadata_block* m_hdr_static_metadata = nullptr;
++  bool m_dolbyVision = false;
++  dvbridge_sink_caps m_dvCaps{};
++  int m_hdr10PlusVersion = -1;
+ };
+ 
+ } // namespace UTILS
+diff --git a/xbmc/windowing/Resolution.cpp b/xbmc/windowing/Resolution.cpp
+index 2aa9f23..9238a67 100644
+--- a/xbmc/windowing/Resolution.cpp
++++ b/xbmc/windowing/Resolution.cpp
+@@ -66,7 +66,8 @@ float RESOLUTION_INFO::DisplayRatio() const
+   return iWidth * fPixelRatio / iHeight;
+ }
+ 
+-RESOLUTION CResolutionUtils::ChooseBestResolution(float fps, int width, int height, bool is3D)
++RESOLUTION CResolutionUtils::ChooseBestResolution(float fps, int width, int height, bool is3D,
++                                                 bool allowNativeProgressiveRates)
+ {
+   RESOLUTION res = CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution();
+   float weight = 0.0f;
+@@ -75,7 +76,7 @@ RESOLUTION CResolutionUtils::ChooseBestResolution(float fps, int width, int heig
+   {
+     if (!FindResolutionFromOverride(fps, width, is3D, res, weight, true)) //if that fails find it from a fallback
+     {
+-      FindResolutionFromWhitelist(fps, width, height, is3D, res); //find a refreshrate from whitelist
++      FindResolutionFromWhitelist(fps, width, height, is3D, res, allowNativeProgressiveRates);
+     }
+   }
+ 
+@@ -84,7 +85,8 @@ RESOLUTION CResolutionUtils::ChooseBestResolution(float fps, int width, int heig
+   return res;
+ }
+ 
+-void CResolutionUtils::FindResolutionFromWhitelist(float fps, int width, int height, bool is3D, RESOLUTION &resolution)
++void CResolutionUtils::FindResolutionFromWhitelist(float fps, int width, int height, bool is3D,
++                                                  RESOLUTION &resolution, bool allowNativeProgressiveRates)
+ {
+   RESOLUTION_INFO curr = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo(resolution);
+   CLog::Log(LOGINFO,
+@@ -112,7 +114,13 @@ void CResolutionUtils::FindResolutionFromWhitelist(float fps, int width, int hei
+         // them on playback start. Especially interlaced content is not properly detected
+         // and this causes ugly double switching.
+         // This won't allow 25p / 30p playback on native refreshrate by default
+-        if ((info.fRefreshRate > 30) || (MathUtils::FloatEquals(info.fRefreshRate, 24.0f, 0.1f)))
++        // Only the native DV renderer opts in to exact progressive cadence.
++        // Explicit user whitelists and all ordinary HDR/SDR calls stay unchanged.
++        const bool nativeDVRate = allowNativeProgressiveRates && !is3D &&
++            !(info.dwFlags & D3DPRESENTFLAG_INTERLACED) &&
++            MathUtils::FloatEquals(info.fRefreshRate, fps, 0.01f);
++        if (nativeDVRate || (info.fRefreshRate > 30) ||
++            (MathUtils::FloatEquals(info.fRefreshRate, 24.0f, 0.1f)))
+           indexList.push_back(CDisplaySettings::GetInstance().GetStringFromRes(c));
+       }
+     }
+diff --git a/xbmc/windowing/Resolution.h b/xbmc/windowing/Resolution.h
+index 638ca1c..7ea624d 100644
+--- a/xbmc/windowing/Resolution.h
++++ b/xbmc/windowing/Resolution.h
+@@ -118,7 +118,8 @@ public:
+ class CResolutionUtils
+ {
+ public:
+-  static RESOLUTION ChooseBestResolution(float fps, int width, int height, bool is3D);
++  static RESOLUTION ChooseBestResolution(float fps, int width, int height, bool is3D,
++                                        bool allowNativeProgressiveRates = false);
+   static bool HasWhitelist();
+   static void PrintWhitelist();
+ 
+@@ -130,7 +131,8 @@ public:
+   static void GetMaxAllowedScreenResolution(unsigned int& width, unsigned int& height);
+ 
+ protected:
+-  static void FindResolutionFromWhitelist(float fps, int width, int height, bool is3D, RESOLUTION &resolution);
++  static void FindResolutionFromWhitelist(float fps, int width, int height, bool is3D,
++                                          RESOLUTION &resolution, bool allowNativeProgressiveRates);
+   static bool FindResolutionFromOverride(float fps, int width, bool is3D, RESOLUTION &resolution, float& weight, bool fallback);
+   static float RefreshWeight(float refresh, float fps);
+ };
+diff --git a/xbmc/windowing/gbm/GBMUtils.cpp b/xbmc/windowing/gbm/GBMUtils.cpp
+index c4a6aca..23b22a3 100644
+--- a/xbmc/windowing/gbm/GBMUtils.cpp
++++ b/xbmc/windowing/gbm/GBMUtils.cpp
+@@ -100,6 +100,46 @@ CGBMUtils::CGBMDevice::CGBMSurface::CGBMSurfaceBuffer::CGBMSurfaceBuffer(gbm_sur
+ {
+ }
+ 
++gbm_bo* CGBMUtils::CGBMDevice::CGBMSurface::LockTransactionalBuffer()
++{
++  if (m_pendingBuffer)
++    return nullptr;
++  auto buffer = std::make_unique<CGBMSurfaceBuffer>(m_surface);
++  if (!buffer->Get())
++    return nullptr;
++  m_pendingBuffer = std::move(buffer);
++  return m_pendingBuffer->Get();
++}
++
++void CGBMUtils::CGBMDevice::CGBMSurface::CompleteTransactionalBuffer(bool presented)
++{
++  if (!m_pendingBuffer)
++    return;
++  if (presented)
++  {
++    // The blocking commit has replaced every legacy queued scanout buffer.
++    while (!m_buffers.empty())
++      m_buffers.pop();
++    m_scanoutBuffer = std::move(m_pendingBuffer);
++  }
++  else
++    m_pendingBuffer.reset();
++}
++
++void CGBMUtils::CGBMDevice::CGBMSurface::EndTransactionalMode()
++{
++  // Transfer the restored scanout to the ordinary queue without unlocking it.
++  if (!m_pendingBuffer && m_scanoutBuffer)
++    m_buffers.push(std::move(m_scanoutBuffer));
++}
++
++void CGBMUtils::CGBMDevice::CGBMSurface::RetireTransactionalScanout()
++{
++  while (!m_buffers.empty())
++    m_buffers.pop();
++  m_scanoutBuffer.reset();
++}
++
+ CGBMUtils::CGBMDevice::CGBMSurface::CGBMSurfaceBuffer::~CGBMSurfaceBuffer()
+ {
+   if (m_surface && m_buffer)
+diff --git a/xbmc/windowing/gbm/GBMUtils.h b/xbmc/windowing/gbm/GBMUtils.h
+index 8ff2262..9cd7e28 100644
+--- a/xbmc/windowing/gbm/GBMUtils.h
++++ b/xbmc/windowing/gbm/GBMUtils.h
+@@ -127,9 +127,19 @@ public:
+        */
+       CGBMSurfaceBuffer& LockFrontBuffer();
+ 
++      // Blocking atomic presentation only: retain the current scanout on failure.
++      gbm_bo* LockTransactionalBuffer();
++      void CompleteTransactionalBuffer(bool presented);
++      void EndTransactionalMode();
++      bool HasPendingTransactionalBuffer() const { return m_pendingBuffer != nullptr; }
++      // Only after a successful blocking commit to caller-owned external storage.
++      void RetireTransactionalScanout();
++
+     private:
+       gbm_surface* m_surface{nullptr};
+       std::queue<std::unique_ptr<CGBMSurfaceBuffer>> m_buffers;
++      std::unique_ptr<CGBMSurfaceBuffer> m_scanoutBuffer;
++      std::unique_ptr<CGBMSurfaceBuffer> m_pendingBuffer;
+     };
+ 
+     /**
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index 644fd4b..c0f39a5 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -14,6 +14,9 @@
+ #include "VideoSyncGbm.h"
+ #include "cores/VideoPlayer/VideoReferenceClock.h"
+ #include "drm/DRMAtomic.h"
++#ifdef HAVE_DVBRIDGE
++#include "drm/DVBridgeState.h"
++#endif
+ #include "drm/DRMLegacy.h"
+ #include "drm/OffScreenModeSetting.h"
+ #include "messaging/ApplicationMessenger.h"
+@@ -30,6 +33,7 @@
+ #include "windowing/GraphicContext.h"
+ 
+ #include <mutex>
++#include <cmath>
+ #include <string.h>
+ 
+ #ifndef HAVE_HDR_OUTPUT_METADATA
+@@ -286,13 +290,11 @@ bool CWinSystemGbm::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+ 
+   auto result = m_DRM->SetVideoMode(res, bo);
+ 
+-  // For atomic DRM, SetVideoMode only queues the modeset (m_need_modeset).
+-  // Commit it now so the kernel CRTC matches the new surface before any
+-  // subsequent eglSwapBuffers; otherwise mesa logs a spurious
+-  // EGL_BAD_SURFACE on the next frame while userspace surface and kernel
+-  // CRTC are out of sync. Legacy DRM already committed in SetVideoMode.
++  // Complete Kodi's queued native modeset before the next EGL buffer swap.
++  // This existing GBM synchronization is required for ordinary HDR as well;
++  // it does not set DV signaling or override Kodi's HDR/SDR policy.
+   if (result && std::dynamic_pointer_cast<CDRMAtomic>(m_DRM))
+-    FlipPage(true, false, false);
++    result = CompleteModeset();
+ 
+   auto delay =
+       std::chrono::milliseconds(CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(
+@@ -304,6 +306,88 @@ bool CWinSystemGbm::SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool bl
+   return result;
+ }
+ 
++bool CWinSystemGbm::CompleteModeset()
++{
++  FlipPage(true, false, false);
++  return true;
++}
++
++#ifdef HAVE_DVBRIDGE
++bool CWinSystemGbm::SupportsNativeDVOutput() const
++{
++  if (!m_info || !m_info->SupportsStandardDolbyVision() ||
++      !std::dynamic_pointer_cast<CDRMAtomic>(m_DRM))
++    return false;
++  const auto* mode = m_DRM->GetSelectedMode();
++  auto* connector = m_DRM->GetConnector();
++  return connector && connector->IsConnected() &&
++         connector->SupportsProperty("DVBRIDGE_DV_STANDARD_LAB") && mode &&
++         mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
++         !(mode->flags & DRM_MODE_FLAG_INTERLACE);
++}
++
++bool CWinSystemGbm::FlipDVBridgePage(CDVBridgeState& state, bool restore, gbm_bo* external,
++                                     bool* queued)
++{
++  if (queued)
++    *queued = false;
++  auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  if (!drm || !m_GBM || !state.Captured())
++    return false;
++  auto& surface = m_GBM->GetDevice().GetSurface();
++  if (external && (restore || surface.HasPendingTransactionalBuffer() ||
++                   gbm_bo_get_device(external) != m_GBM->GetDevice().Get()))
++    return false;
++  auto* bo = external ? external : surface.LockTransactionalBuffer();
++  bool valid = bo != nullptr;
++  if (valid && !restore)
++  {
++    const auto mode = drm->GetSelectedMode();
++    const auto format = gbm_bo_get_format(bo);
++    valid = gbm_bo_get_width(bo) == 3840 && gbm_bo_get_height(bo) == 2160 &&
++            (format == DRM_FORMAT_XRGB8888 || format == DRM_FORMAT_ARGB8888) &&
++            mode && mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
++            !(mode->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN));
++    if (valid)
++    {
++      const double rate = mode->htotal && mode->vtotal
++                              ? mode->clock * 1000.0 / mode->htotal / mode->vtotal : 0.0;
++      valid = false;
++      for (double supported : {24000.0 / 1001, 24.0, 25.0, 30000.0 / 1001,
++                               30.0, 50.0, 60000.0 / 1001, 60.0})
++        valid |= std::abs(rate - supported) < 0.012;
++    }
++  }
++  if (valid)
++    valid = state.Stage(*drm, restore);
++  const bool accepted =
++      drm->FlipPageTransactional(valid ? bo : nullptr, restore, external ? queued : nullptr);
++  if (external)
++  {
++    // A queued flip leaves the page before it on screen until it completes. If that page
++    // is one of the surface's own (the first external picture after a menu or startup
++    // page), the surface keeps it until the next external picture, which only follows a
++    // completed flip.
++    if (accepted && (!queued || !*queued || m_dvExternalScanout))
++      surface.RetireTransactionalScanout();
++    if (accepted)
++      m_dvExternalScanout = true;
++  }
++  else
++  {
++    surface.CompleteTransactionalBuffer(accepted);
++    if (accepted)
++      m_dvExternalScanout = false;
++  }
++  if (accepted && restore)
++  {
++    surface.EndTransactionalMode();
++    state.Restored();
++  }
++  return accepted;
++}
++#endif
++
+ void CWinSystemGbm::FlipPage(bool rendered, bool videoLayer, bool async)
+ {
+   if (m_videoLayerBridge && !videoLayer)
+@@ -639,6 +723,17 @@ bool CWinSystemGbm::IsHDRDisplay()
+          m_info->SupportsHDRStaticMetadataType1();
+ }
+ 
++unsigned CWinSystemGbm::DisplayPeakNits() const
++{
++  const float nits = m_info ? m_info->GetDesiredMaxLuminance() : 0.0f;
++  return nits >= 1.0f && nits <= 10000.0f ? static_cast<unsigned>(nits + 0.5f) : 0u;
++}
++
++int CWinSystemGbm::DisplayHDR10PlusVersion() const
++{
++  return m_info ? m_info->GetHDR10PlusVersion() : -1;
++}
++
+ CHDRCapabilities CWinSystemGbm::GetDisplayHDRCapabilities() const
+ {
+   if (!m_info)
+@@ -652,5 +747,8 @@ CHDRCapabilities CWinSystemGbm::GetDisplayHDRCapabilities() const
+   if (m_info->SupportsEOTF(UTILS::Eotf::HLG))
+     caps.SetHLG();
+ 
++  if (m_info->SupportsDolbyVision())
++    caps.SetDolbyVision();
++
+   return caps;
+ }
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm.h
+index 2105a76..5ceb283 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.h
++++ b/xbmc/windowing/gbm/WinSystemGbm.h
+@@ -34,6 +34,7 @@ namespace WINDOWING
+ {
+ namespace GBM
+ {
++class CDVBridgeState;
+ 
+ class CWinSystemGbm : public CWinSystemBase
+ {
+@@ -50,6 +51,18 @@ public:
+   bool SetFullScreen(bool fullScreen, RESOLUTION_INFO& res, bool blankOtherDisplays) override;
+ 
+   void FlipPage(bool rendered, bool videoLayer, bool async);
++#ifdef HAVE_DVBRIDGE
++  // external remains caller-owned until a successful replacement/restoration.
++  // It must be GPU-complete and belong to this DRM device; never use for restore.
++  // queued: see CDRMAtomic::FlipPageTransactional (external pictures only).
++  bool FlipDVBridgePage(CDVBridgeState& state, bool restore, gbm_bo* external = nullptr,
++                        bool* queued = nullptr);
++  bool SupportsNativeDVOutput() const;
++  //! The display's peak brightness from its EDID (desired content max luminance), nits; 0 unknown.
++  unsigned DisplayPeakNits() const;
++  //! The display's HDR10+ application version (EDID HDR10+ VSVDB), -1 without HDR10+.
++  int DisplayHDR10PlusVersion() const;
++#endif
+ 
+   bool CanDoWindowed() override { return false; }
+   void UpdateResolutions() override;
+@@ -85,6 +98,8 @@ public:
+ protected:
+   void OnLostDevice();
+   void OnResetDisplay();
++  // Commits the mode SetFullScreen() just selected; a subclass may carry it in its own commit.
++  virtual bool CompleteModeset();
+ 
+   std::unique_ptr<CVideoSync> GetVideoSync(CVideoReferenceClock* clock) override;
+ 
+@@ -100,6 +115,8 @@ protected:
+   std::unique_ptr<CLibInputHandler> m_libinput;
+ 
+ private:
++  // The last Dolby Vision page committed was a caller's buffer, not one of the surface's.
++  bool m_dvExternalScanout = false;
+   CDRMPropertyBlob m_hdrBlob;
+   KODI::UTILS::Eotf m_eotf = KODI::UTILS::Eotf::TRADITIONAL_SDR;
+   KODI::UTILS::Colorimetry m_colorimetry = KODI::UTILS::Colorimetry::DEFAULT;
+diff --git a/xbmc/windowing/gbm/drm/CMakeLists.txt b/xbmc/windowing/gbm/drm/CMakeLists.txt
+index 8bd07ea..2cdfa81 100644
+--- a/xbmc/windowing/gbm/drm/CMakeLists.txt
++++ b/xbmc/windowing/gbm/drm/CMakeLists.txt
+@@ -18,4 +18,8 @@ set(HEADERS DRMAtomic.h
+             DRMUtils.h
+             OffScreenModeSetting.h)
+ 
++if(ENABLE_DVBRIDGE)
++  list(APPEND SOURCES DVBridgeState.cpp)
++  list(APPEND HEADERS DVBridgeState.h)
++endif()
+ core_add_library(windowing_gbm_drm)
+diff --git a/xbmc/windowing/gbm/drm/DRMAtomic.cpp b/xbmc/windowing/gbm/drm/DRMAtomic.cpp
+index 7a6f87c..52aff5b 100644
+--- a/xbmc/windowing/gbm/drm/DRMAtomic.cpp
++++ b/xbmc/windowing/gbm/drm/DRMAtomic.cpp
+@@ -15,21 +15,149 @@
+ #include "guilib/GUIWindowManager.h"
+ #include "settings/Settings.h"
+ #include "utils/log.h"
++#include "DVBridgeKernelLogReader.h"
++#include "jobs/JobManager.h"
++#include "utils/DVBridgeEdid.h"
+ 
+ #include <chrono>
++#include <atomic>
++#include <algorithm>
+ #include <errno.h>
+ #include <string.h>
+ #include <thread>
++#include <time.h>
+ 
+ #include <drm_fourcc.h>
+ #include <drm_mode.h>
++#include <cmath>
++#include <cstdlib>
+ #include <fcntl.h>
++#include <linux/sync_file.h>
++#include <poll.h>
++#include <sys/ioctl.h>
+ #include <unistd.h>
+ 
+ using namespace KODI::WINDOWING::GBM;
+ 
+-void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool videoLayer)
++namespace
+ {
++uint64_t DVNowMs()
++{
++  return std::chrono::duration_cast<std::chrono::milliseconds>(
++      std::chrono::steady_clock::now().time_since_epoch()).count();
++}
++
++void CollectDVKernelLog()
++{
++  // Never perform kernel IO on Kodi's render thread, nor queue unbounded jobs.
++  static std::atomic<bool> pending{false};
++  auto jobs = CServiceBroker::GetJobManager();
++  if (!jobs || pending.exchange(true))
++    return;
++  jobs->Submit([] {
++    static DVBRIDGE::KernelLogReader reader;
++    // Up to three 50-ms batches, one pending job, one shared output budget.
++    // Preserve an explicit incomplete marker if even this bounded scan truncates.
++    for (unsigned pass = 0; pass < 3 && reader.Collect(); ++pass)
++      std::this_thread::sleep_for(std::chrono::milliseconds(10));
++    pending.store(false);
++  });
++}
++}
++
++void CDRMAtomic::ReportDVFailure(const char* stage, int error)
++{
++  if (!DVBRIDGE::DiagnosticsEnabled() || !m_dvFailures.Record(DVNowMs(), stage, error))
++    return;
++  CLog::Log(LOGERROR,
++      "DVBridge output: stage={} errno={} failures={} retry_ms={} connector={} crtc={} mode={}x{} clock_khz={}",
++      stage, error, m_dvFailures.Count(), m_dvRetry.Delay(),
++      m_connector ? m_connector->GetId() : 0, m_crtc ? m_crtc->GetId() : 0,
++      m_mode ? m_mode->hdisplay : 0, m_mode ? m_mode->vdisplay : 0,
++      m_mode ? m_mode->clock : 0);
++  // One bounded snapshot per connection identity. Never dump each frame's
++  // framebuffer or synchronization objects; they obscure the actual rejection.
++  const auto blobId = m_dvLinkKnown ? m_dvLinkBlob :
++      (m_connector ? m_connector->GetPropertyValue("EDID").value_or(0) : 0);
++  const auto connectorId = m_connector ? m_connector->GetId() : 0;
++  if (!m_dvSnapshot || m_dvSnapshotBlob != blobId || m_dvSnapshotConnector != connectorId)
++  {
++    m_dvSnapshot = true;
++    m_dvSnapshotBlob = blobId;
++    m_dvSnapshotConnector = connectorId;
++    std::vector<uint8_t> edid;
++    if (auto* blob = drmModeGetPropertyBlob(m_fd, blobId))
++    {
++      if (blob->length <= 32768 && blob->data)
++        edid.assign(static_cast<uint8_t*>(blob->data),
++                    static_cast<uint8_t*>(blob->data) + blob->length);
++      drmModeFreePropertyBlob(blob);
++    }
++    const auto caps = dvbridge_parse_edid(edid.data(), edid.size());
++    CLog::Log(LOGINFO, "DVBridge sink: edid_bytes={} status={} version={} legacy_vsif={} 2160p60={}",
++        edid.size(), dvbridge_edid_reason(caps.status), caps.version,
++        caps.legacy_vsif, caps.supports_2160p60);
++    constexpr char digits[] = "0123456789abcdef";
++    std::string hex;
++    for (size_t i = 0; i < std::min<size_t>(edid.size(), 1024); ++i)
++    {
++      hex += digits[edid[i] >> 4];
++      hex += digits[edid[i] & 15];
++    }
++    CLog::Log(LOGINFO, "DVBridge sink EDID (first 1024 bytes max): {}", hex);
++    if (m_req)
++      m_req->LogDVProperties();
++  }
++  CollectDVKernelLog();
++}
++
++void CDRMAtomic::RefreshDVLink()
++{
++  if (!m_connector)
++    return;
++  // Current is a cached DRM query, not a blocking forced EDID probe. It is
++  // used only during failed output, at most once per second.
++  auto* current = drmModeGetConnectorCurrent(m_fd, m_connector->GetId());
++  if (!current)
++    return;
++  const auto property = m_connector->GetPropertyId("EDID");
++  uint32_t blob = 0;
++  for (int i = 0; i < current->count_props; ++i)
++    if (current->props[i] == property)
++      blob = current->prop_values[i];
++  if (m_dvLinkKnown && (m_dvLinkConnector != current->connector_id ||
++      m_dvLinkBlob != blob || m_dvLinkStatus != current->connection))
++    m_dvRetry.Reset();
++  m_dvLinkKnown = true;
++  m_dvLinkConnector = current->connector_id;
++  m_dvLinkBlob = blob;
++  m_dvLinkStatus = current->connection;
++  drmModeFreeConnector(current);
++}
++
++bool CDRMAtomic::DVRetryReady()
++{
++  if (!m_dvRetry.Count())
++    return true;
++  const auto now = DVNowMs();
++  if (m_dvRetry.PollDue(now))
++    RefreshDVLink();
++  return m_dvRetry.Ready(now);
++}
++
++bool CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool videoLayer, bool strict)
++{
++  CDRMCrtc* oldCrtc = m_old_crtc;
++  const auto reject = [&](const char* stage, int error) {
++    if (strict)
++    {
++      m_dvRetry.Failed(DVNowMs(), error);
++      ReportDVFailure(stage, error);
++    }
++    m_old_crtc = oldCrtc;
++    FinishRequest(false);
++    return false;
++  };
+   // Declared at function scope so the blob outlives drmModeAtomicCommit.
+   // DRM requires the blob to remain alive for the duration of the commit;
+   // destroying it before the commit returns leaves the atomic request
+@@ -75,17 +203,19 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
+   if (flags & DRM_MODE_ATOMIC_ALLOW_MODESET)
+   {
+     if (!AddProperty(m_connector, "CRTC_ID", m_crtc->GetCrtcId()))
+-      return;
++      return reject("connector-crtc", EINVAL);
+ 
+     modeBlob = CDRMPropertyBlob(m_fd, m_mode, sizeof(*m_mode));
+     if (!modeBlob.IsValid())
+-      return;
++      return reject("mode-blob", 0);
+ 
+     if (!AddProperty(m_crtc, "MODE_ID", modeBlob.Get()))
+-      return;
++      return reject("mode-property", EINVAL);
++    if (DVBRIDGE::DiagnosticsEnabled())
++      m_req->signalMode = *m_mode;
+ 
+     if (!AddProperty(m_crtc, "ACTIVE", m_active ? 1 : 0))
+-      return;
++      return reject("active-property", EINVAL);
+   }
+ 
+   // In Direct-To-Plane (dual plane) mode m_gui_plane is the output
+@@ -112,6 +242,13 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
+       AddProperty(m_crtc, "OUT_FENCE_PTR", reinterpret_cast<uint64_t>(&m_outFenceFd));
+       AddProperty(outputPlane, "IN_FENCE_FD", m_inFenceFd);
+     }
++    // A queued flip is known to have completed by its out-fence. The buffer's own fence is
++    // the engine's implicit one, which the kernel waits for as in a blocking commit.
++    if (m_dvQueue)
++    {
++      m_dvOutFence = -1;
++      AddProperty(m_crtc, "OUT_FENCE_PTR", reinterpret_cast<uint64_t>(&m_dvOutFence));
++    }
+   }
+   //! @todo Reaching out to the window manager and application player
+   //! singletons from inside the DRM layer is a layering violation. The
+@@ -133,13 +270,30 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
+   if (CServiceBroker::GetLogging().CanLogComponent(LOGWINDOWING))
+     m_req->LogAtomicRequest();
+ 
+-  auto ret = drmModeAtomicCommit(m_fd, m_req->Get(), flags | DRM_MODE_ATOMIC_TEST_ONLY, nullptr);
++  if (strict && m_propertyFailure)
++  {
++    return reject("properties", EINVAL);
++  }
++
++  // A strict commit treats a refused test and a refused commit alike (the request is
++  // dropped, the retry delay starts), and a refused commit changes nothing on the display
++  // either: with DVNonblock() the test, a second validation of every picture, is left out.
++  auto ret = strict && DVNonblock()
++                 ? 0
++                 : drmModeAtomicCommit(m_fd, m_req->Get(), flags | DRM_MODE_ATOMIC_TEST_ONLY, nullptr);
+   if (ret < 0)
+   {
++    const int testError = errno;
++    if (strict)
++    {
++      return reject("atomic-test", testError);
++    }
+     CLog::LogF(LOGERROR,
+                "test commit failed: ({}) - falling back to last successful atomic "
+                "request",
+-               strerror(errno));
++               strerror(testError));
++    if (DVBRIDGE::DiagnosticsEnabled() && m_dvFailures.Record(DVNowMs(), "native-atomic-test", testError))
++      CollectDVKernelLog();
+ 
+     auto oldRequest = m_atomicRequestQueue.front().get();
+     CDRMAtomicRequest::LogAtomicDiff(m_req, oldRequest);
+@@ -151,12 +305,42 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
+   }
+ 
+   ret = drmModeAtomicCommit(m_fd, m_req->Get(), flags, nullptr);
++  if (ret < 0 && m_dvQueue && errno == EBUSY)
++  {
++    // The flip before this one has not completed after all. The same request without
++    // NONBLOCK waits for it in the kernel: this picture is shown on return, not queued.
++    ++m_dvFlips.busy;
++    m_dvQueue = false;
++    flags &= ~DRM_MODE_ATOMIC_NONBLOCK;
++    ret = drmModeAtomicCommit(m_fd, m_req->Get(), flags, nullptr);
++    if (m_dvOutFence >= 0)
++      close(m_dvOutFence);
++    m_dvOutFence = -1;
++  }
+   if (ret < 0)
+   {
+-    CLog::LogF(LOGERROR, "atomic commit failed: {}", strerror(errno));
+-    m_atomicRequestQueue.pop_back();
++    const int error = errno;
++    if (!strict)
++      CLog::LogF(LOGERROR, "atomic commit failed: {}", strerror(errno));
++    if (!strict && DVBRIDGE::DiagnosticsEnabled() &&
++        m_dvFailures.Record(DVNowMs(), "native-atomic-commit", error))
++      CollectDVKernelLog();
++    return reject("atomic-commit", error);
+   }
+-  else
++  if (strict)
++  {
++    if (DVBRIDGE::DiagnosticsEnabled() && m_dvFailures.Recovered(DVNowMs()))
++      CLog::Log(LOGINFO, "DVBridge output recovered: failures={} recoveries={}",
++          m_dvFailures.Count(), m_dvFailures.Recoveries());
++    m_dvRetry.Reset();
++  }
++  FinishRequest(true);
++  return true;
++}
++
++void CDRMAtomic::FinishRequest(bool accepted)
++{
++  if (accepted)
+   {
+     // Sync the property cache with values the kernel accepted.
+     // This must happen after a successful commit so that
+@@ -164,10 +348,16 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
+     // after Disable()). Without this, stale cached values cause
+     // incorrect plane cleanup on subsequent video playback.
+     m_req->CacheProperties();
++    if (m_req->signalMode)
++      m_committedMode = *m_req->signalMode;
++    if (m_signalDirty && DVBRIDGE::DiagnosticsEnabled())
++      ReportSignalState();
+ 
+     if (m_atomicRequestQueue.size() > 1)
+       m_atomicRequestQueue.pop_front();
+   }
++  else if (!m_atomicRequestQueue.empty())
++    m_atomicRequestQueue.pop_back();
+ 
+   if (m_inFenceFd != -1)
+   {
+@@ -177,6 +367,217 @@ void CDRMAtomic::DrmAtomicCommit(int fb_id, int flags, bool rendered, bool video
+ 
+   m_atomicRequestQueue.emplace_back(std::make_unique<CDRMAtomicRequest>());
+   m_req = m_atomicRequestQueue.back().get();
++  m_propertyFailure = false;
++  m_signalDirty = false;
++}
++
++void CDRMAtomic::WaitVBlank()
++{
++  // The time of the last vertical blank plus one refresh period, then the count as the
++  // check: the timer and the display do not run from the same clock.
++  uint64_t sequence = 0, ns = 0;
++  const double refresh = m_mode && m_mode->htotal && m_mode->vtotal
++                             ? m_mode->clock * 1000.0 / m_mode->htotal / m_mode->vtotal : 0.0;
++  if (!m_crtc || refresh < 1.0 ||
++      drmCrtcGetSequence(m_fd, m_crtc->GetCrtcId(), &sequence, &ns) != 0 || !ns)
++  {
++    std::this_thread::sleep_for(std::chrono::milliseconds(10));
++    return;
++  }
++  const uint64_t due = ns + static_cast<uint64_t>(1e9 / refresh) + 200000;
++  const timespec target{static_cast<time_t>(due / 1000000000), static_cast<long>(due % 1000000000)};
++  while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &target, nullptr) == EINTR)
++    ;
++  for (int attempt = 0; attempt < 8; ++attempt)
++  {
++    uint64_t now = 0;
++    if (drmCrtcGetSequence(m_fd, m_crtc->GetCrtcId(), &now, &ns) != 0 || now != sequence)
++      break;
++    std::this_thread::sleep_for(std::chrono::microseconds(250));
++  }
++}
++
++bool CDRMAtomic::DVNonblock()
++{
++  static const bool enabled = [] {
++    const char* value = std::getenv("DV_PRIVATE_NONBLOCK");
++    return value && strcmp(value, "1") == 0;
++  }();
++  return enabled;
++}
++
++void CDRMAtomic::DVFlipCompleted()
++{
++  // The out-fence carries the time of the vertical blank the flip completed at: the number
++  // of refreshes since the flip before it says whether every refresh got its new picture.
++  sync_fence_info fence{};
++  sync_file_info info{};
++  info.num_fences = 1;
++  info.sync_fence_info = reinterpret_cast<uint64_t>(&fence);
++  const bool timed = ioctl(m_dvFlipFence, SYNC_IOC_FILE_INFO, &info) == 0 && info.num_fences == 1 &&
++                     fence.timestamp_ns;
++  close(m_dvFlipFence);
++  m_dvFlipFence = -1;
++  m_dvFlipDone = m_dvFlips.queued;
++  const double refresh = m_mode && m_mode->htotal && m_mode->vtotal
++                             ? m_mode->clock * 1000.0 / m_mode->htotal / m_mode->vtotal : 0.0;
++  if (timed && refresh >= 1.0)
++  {
++    const double waited = (static_cast<double>(fence.timestamp_ns) - static_cast<double>(m_dvFlipQueued)) / 1e6;
++    const long gap = m_dvFlipTime
++                         ? std::lround(static_cast<double>(fence.timestamp_ns - m_dvFlipTime) * refresh / 1e9)
++                         : 1;
++    m_dvFlips.waitMs += waited;
++    m_dvFlips.waitMaxMs = std::max(m_dvFlips.waitMaxMs, waited);
++    ++(gap <= 1 ? m_dvFlips.onTime : m_dvFlips.late);
++    static const bool trace = [] {
++      const char* value = std::getenv("DV_PRIVATE_FLIP_TRACE");
++      return value && strcmp(value, "1") == 0;
++    }();
++    if (trace)
++      CLog::Log(LOGINFO, "DV flip: fb={} vblank_ns={} refreshes_since_last={} queued_to_vblank_ms={:.2f}",
++                m_dvFlipFb, fence.timestamp_ns, gap, waited);
++    m_dvFlipTime = fence.timestamp_ns;
++  }
++  if (m_dvFlips.queued % 600 == 0)
++  {
++    CLog::Log(LOGINFO, "DV flips queued={}: on_time={} late={} blocking={} busy={} timeouts={} "
++              "queued_to_vblank_ms mean={:.2f} max={:.2f}", m_dvFlips.queued, m_dvFlips.onTime,
++              m_dvFlips.late, m_dvFlips.blocking, m_dvFlips.busy, m_dvFlips.timeouts,
++              m_dvFlips.waitMs / 600.0, m_dvFlips.waitMaxMs);
++    m_dvFlips.waitMs = m_dvFlips.waitMaxMs = 0.0;
++  }
++}
++
++bool CDRMAtomic::WaitDVFlip(int timeoutMs)
++{
++  if (m_dvFlipFence < 0)
++    return true;
++  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
++  for (;;)
++  {
++    pollfd fence{m_dvFlipFence, POLLIN, 0};
++    const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
++        deadline - std::chrono::steady_clock::now()).count();
++    const int result = poll(&fence, 1, static_cast<int>(std::max<long long>(left, 0)));
++    if (result == 0)
++    {
++      if (timeoutMs > 0)
++        ++m_dvFlips.timeouts;
++      return false;
++    }
++    if (result > 0 || errno != EINTR)
++    {
++      // Signalled; a fence that cannot be waited for is not waited for again.
++      if (result < 0)
++        CLog::Log(LOGERROR, "DV flip: cannot wait for the out-fence: {}", strerror(errno));
++      DVFlipCompleted();
++      return true;
++    }
++  }
++}
++
++bool CDRMAtomic::DVFlipPending()
++{
++  return !WaitDVFlip(0);
++}
++
++void CDRMAtomic::WaitDVRefresh()
++{
++  if (m_dvFlipFence >= 0)
++    WaitDVFlip();
++  else
++    WaitVBlank();
++}
++
++bool CDRMAtomic::FlipPageTransactional(struct gbm_bo* bo, bool restore, bool* queued)
++{
++  if (queued)
++    *queued = false;
++  // Restoration must always be attempted, including after rejected DV output.
++  if (!restore && !DVRetryReady())
++  {
++    FinishRequest(false);
++    return false;
++  }
++  if (!bo)
++  {
++    m_dvRetry.Failed(DVNowMs(), EINVAL);
++    ReportDVFailure("missing-buffer", EINVAL);
++    FinishRequest(false);
++    return false;
++  }
++  const uint32_t fb = DrmOpaqueFbGetFromBo(bo);
++  if (!fb)
++  {
++    m_dvRetry.Failed(DVNowMs(), 0);
++    ReportDVFailure("framebuffer-import", 0);
++    FinishRequest(false);
++    return false;
++  }
++  // A stable DV scanout keeps the mode it was accepted with: commit only the
++  // new framebuffer and the unchanged transport properties. Entering DV, a
++  // pending modeset, a restore and the frame after a rejected commit still
++  // validate the full state. (Allowing a modeset on every frame made amdgpu
++  // DCN 1.0 latch each flip a refresh late: half the frame rate on screen.)
++  const bool stable = m_dvScanoutStable && !restore && !m_need_modeset;
++  int flags = stable ? 0 : DRM_MODE_ATOMIC_ALLOW_MODESET;
++  if (m_dvFlipFence >= 0)
++  {
++    // One flip at a time. The caller has waited for the queued one where a picture follows
++    // it; anything else (a mode or signal change, a restore, the menu) waits here and then
++    // commits as it always did. Still queued after that: this commit is not attempted.
++    // A restore is attempted in any case: its blocking commit waits in the kernel.
++    if (!WaitDVFlip(stable && queued ? 0 : 1000) && !restore)
++    {
++      m_dvRetry.Failed(DVNowMs(), EBUSY);
++      ReportDVFailure("flip-pending", EBUSY);
++      FinishRequest(false);
++      return false;
++    }
++  }
++  m_dvQueue = stable && queued && DVNonblock() && !m_dvNoFence && m_dvFlipFence < 0;
++  if (m_dvQueue)
++    flags |= DRM_MODE_ATOMIC_NONBLOCK;
++  const bool accepted = DrmAtomicCommit(fb, flags, true, false, true);
++  if (accepted && m_dvQueue && m_dvOutFence >= 0)
++  {
++    timespec now{};
++    clock_gettime(CLOCK_MONOTONIC, &now);
++    m_dvFlipFence = m_dvOutFence;
++    m_dvFlipQueued = static_cast<uint64_t>(now.tv_sec) * 1000000000ull + static_cast<uint64_t>(now.tv_nsec);
++    m_dvFlipFb = fb;
++    ++m_dvFlips.queued;
++    *queued = true;
++  }
++  else if (accepted)
++  {
++    if (m_dvQueue)
++    {
++      // Taken without blocking, but with no fence to know its completion by: two refreshes
++      // are more than it needs once its buffer is finished, and no flip is queued again.
++      m_dvNoFence = true;
++      CLog::Log(LOGERROR, "DV flip: the kernel gave no out-fence; presenting with blocking commits");
++      WaitVBlank();
++      WaitVBlank();
++    }
++    // Shown on return (also a flip the kernel made wait for the one before it): a flip
++    // queued before it has completed.
++    if (DVNonblock())
++    {
++      ++m_dvFlips.blocking;
++      m_dvFlipTime = 0;
++    }
++    if (m_dvOutFence >= 0)
++      close(m_dvOutFence);
++    WaitDVFlip(0);
++  }
++  m_dvOutFence = -1;
++  m_dvQueue = false;
++  if (accepted)
++    m_need_modeset = false;
++  m_dvScanoutStable = accepted && !restore;
++  return accepted;
+ }
+ 
+ void CDRMAtomic::FlipPage(struct gbm_bo* bo, bool rendered, bool videoLayer, bool async)
+@@ -204,6 +605,11 @@ void CDRMAtomic::FlipPage(struct gbm_bo* bo, bool rendered, bool videoLayer, boo
+     CLog::LogF(LOGDEBUG, "Execute modeset at next commit");
+   }
+ 
++  // A regular page between DV pages: the next DV page validates the full state.
++  m_dvScanoutStable = false;
++  // ... and comes after a Dolby Vision flip that is still queued.
++  if (m_dvFlipFence >= 0)
++    WaitDVFlip(1000);
+   DrmAtomicCommit(!drm_fb ? 0 : drm_fb->fb_id, flags, rendered, videoLayer);
+ }
+ 
+@@ -255,6 +661,9 @@ bool CDRMAtomic::InitDrm()
+ 
+ void CDRMAtomic::DestroyDrm()
+ {
++  if (m_dvFlipFence >= 0)
++    close(m_dvFlipFence);
++  m_dvFlipFence = -1;
+   CDRMUtils::DestroyDrm();
+ }
+ 
+@@ -295,6 +704,7 @@ bool CDRMAtomic::SupportsAtomicModesetting()
+ 
+ bool CDRMAtomic::SetVideoMode(const RESOLUTION_INFO& res, struct gbm_bo* bo)
+ {
++  m_dvRetry.Reset();
+   m_need_modeset = true;
+ 
+   return true;
+@@ -302,6 +712,7 @@ bool CDRMAtomic::SetVideoMode(const RESOLUTION_INFO& res, struct gbm_bo* bo)
+ 
+ bool CDRMAtomic::SetActive(bool active)
+ {
++  m_dvRetry.Reset();
+   m_need_modeset = true;
+   m_active = active;
+ 
+@@ -310,9 +721,49 @@ bool CDRMAtomic::SetActive(bool active)
+ 
+ bool CDRMAtomic::AddProperty(CDRMObject* object, const char* name, uint64_t value)
+ {
+-  if (!object)
+-    return false;
+-  return m_req->AddProperty(object, name, value);
++  const bool added = object && m_req && m_req->AddProperty(object, name, value);
++  if (added && DVBRIDGE::DiagnosticsEnabled() &&
++      (strcmp(name, "MODE_ID") == 0 || strcmp(name, "ACTIVE") == 0 ||
++       strcmp(name, "DVBRIDGE_DV_STANDARD_LAB") == 0 || strcmp(name, "HDR_OUTPUT_METADATA") == 0 ||
++       strcmp(name, "Colorspace") == 0 || strcmp(name, "max bpc") == 0 ||
++       strcmp(name, "Broadcast RGB") == 0))
++    m_signalDirty = true;
++  m_propertyFailure |= !added;
++  return added;
++}
++
++void CDRMAtomic::ReportSignalState()
++{
++  if (!m_connector || !m_crtc || !m_mode)
++    return;
++  // Cached values are updated only after an accepted real commit. No DRM query
++  // or per-frame log. max_bpc is a requested ceiling, not measured wire depth.
++  const auto get = [&](const char* name) { return m_connector->GetPropertyValue(name).value_or(0); };
++  const auto& mode = m_committedMode;
++  const std::array<uint64_t, 15> state{m_connector->GetId(), m_crtc->GetId(),
++      get("DVBRIDGE_DV_STANDARD_LAB"), get("HDR_OUTPUT_METADATA"), get("Colorspace"),
++      get("max bpc"), get("Broadcast RGB"), mode.hdisplay, mode.vdisplay, mode.clock,
++      mode.htotal, mode.vtotal, mode.flags, mode.vscan, m_crtc->GetPropertyValue("ACTIVE").value_or(0)};
++  if (m_signalKnown && state == m_signalState)
++    return;
++  m_signalKnown = true;
++  m_signalState = state;
++  const auto now = DVNowMs();
++  if (now - m_signalWindow >= 30000) { m_signalWindow = now; m_signalReports = 0; }
++  if (m_signalReports >= 8)
++  {
++    if (m_signalReports == 8)
++    {
++      ++m_signalReports;
++      CLog::Log(LOGWARNING, "DVBridge signal: further state changes suppressed for this 30-second window");
++    }
++    return;
++  }
++  ++m_signalReports;
++  CLog::Log(LOGINFO,
++      "DVBridge signal committed: connector={} crtc={} dv={} hdr_blob={} colorspace={} max_bpc={} rgb={} mode={}x{} clock_khz={} totals={}x{} flags={} vscan={} active={}",
++      state[0], state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8], state[9],
++      state[10], state[11], state[12], state[13], state[14]);
+ }
+ 
+ CDRMAtomic::CDRMAtomicRequest::CDRMAtomicRequest() : m_atomicRequest(drmModeAtomicAlloc())
+@@ -381,6 +832,27 @@ void CDRMAtomic::CDRMAtomicRequest::LogAtomicRequest()
+   LogAtomicRequest(LOGDEBUG, m_atomicRequestItems);
+ }
+ 
++void CDRMAtomic::CDRMAtomicRequest::LogDVProperties()
++{
++  std::string message;
++  unsigned count = 0;
++  for (const auto& object : m_atomicRequestItems)
++    for (const auto& property : object.second)
++    {
++      const auto name = object.first->GetPropertyName(property.first);
++      if (name != "DVBRIDGE_DV_STANDARD_LAB" && name != "HDR_OUTPUT_METADATA" &&
++          name != "max bpc" && name != "Broadcast RGB" && name != "Colorspace" &&
++          name != "CRTC_ID" && name != "ACTIVE" && name != "VRR_ENABLED" &&
++          name != "CTM" && name != "GAMMA_LUT" && name != "DEGAMMA_LUT" &&
++          name != "rotation" && name != "alpha" && name != "COLOR_PIPELINE")
++        continue;
++      if (count++ < 48)
++        message += " " + std::to_string(object.first->GetId()) + ":" + name + "=" +
++                   std::to_string(property.second);
++    }
++  CLog::Log(LOGINFO, "DVBridge requested properties (48 max):{}", message);
++}
++
+ void CDRMAtomic::CDRMAtomicRequest::LogAtomicRequest(
+     uint8_t logLevel, std::map<CDRMObject*, std::map<uint32_t, uint64_t>>& atomicRequestItems)
+ {
+diff --git a/xbmc/windowing/gbm/drm/DRMAtomic.h b/xbmc/windowing/gbm/drm/DRMAtomic.h
+index c20531b..336de24 100644
+--- a/xbmc/windowing/gbm/drm/DRMAtomic.h
++++ b/xbmc/windowing/gbm/drm/DRMAtomic.h
+@@ -10,8 +10,11 @@
+ 
+ #include "DRMUtils.h"
+ #include "utils/log.h"
++#include "utils/DVBridgeOutputRetry.h"
++#include "utils/DVBridgeDiagnosticState.h"
+ 
+ #include <cstdint>
++#include <array>
+ #include <deque>
+ #include <map>
+ #include <memory>
+@@ -35,16 +38,80 @@ public:
+   void DestroyDrm() override;
+   bool SupportsFencing() override { return true; }
+   bool AddProperty(CDRMObject* object, const char* name, uint64_t value);
++  // Blocking commit: rejected properties must not be paired with a new framebuffer.
++  // queued (DVNonblock() only): the caller can do without the flip's completion. A stable
++  // scanout is then committed without blocking and *queued set: the picture is shown from
++  // the next vertical blank its buffer is finished for, and DVFlipPending() until then. In
++  // every other case the commit blocks as before, after a queued flip has completed.
++  bool FlipPageTransactional(struct gbm_bo* bo, bool restore = false, bool* queued = nullptr);
++  // DV_PRIVATE_NONBLOCK=1: stable Dolby Vision pictures are queued, not waited for.
++  static bool DVNonblock();
++  // A queued flip the display has not completed. Its completion is one vertical blank.
++  bool DVFlipPending();
++  // True once no flip is queued any more; false after the timeout (it stays queued).
++  bool WaitDVFlip(int timeoutMs = 250);
++  // One refresh passes: the queued flip completes, or without one the next vertical blank.
++  void WaitDVRefresh();
++  // Queued flips are numbered from 1: the last one queued, and the last one completed.
++  uint64_t DVFlipQueued() const { return m_dvFlips.queued; }
++  uint64_t DVFlipDone()
++  {
++    WaitDVFlip(0);
++    return m_dvFlipDone;
++  }
++  // The next DV tunnel commit validates the full state (ALLOW_MODESET): HDR10+ turns on or off
++  // with it (linux-9932).
++  void RequireDVModeset() { m_dvScanoutStable = false; }
++  // The DV scanout on screen needs nothing but new pictures: no mode or signal change is
++  // waiting for the next commit.
++  bool DVScanoutStable() const { return m_dvScanoutStable && !m_need_modeset; }
++  // Returns after the CRTC's next vertical blank, as a blocking page flip does, for a refresh
++  // that presents nothing new.
++  void WaitVBlank();
++  bool DVRetryReady();
+ 
+   // Probe whether any DRM device supports atomic modesetting, with no
+   // connector required. Used to decide atomic-vs-legacy before falling back.
+   static bool SupportsAtomicModesetting();
+ 
+ private:
+-  void DrmAtomicCommit(int fb_id, int flags, bool rendered, bool videoLayer);
++  bool DrmAtomicCommit(int fb_id, int flags, bool rendered, bool videoLayer,
++                       bool strict = false);
++  // The queued Dolby Vision flip: its out-fence (-1: none), and what the flips did.
++  int m_dvFlipFence{-1};
++  int m_dvOutFence{-1};
++  bool m_dvQueue{false}, m_dvNoFence{false};
++  uint32_t m_dvFlipFb{0};
++  // CLOCK_MONOTONIC ns: when the flip was queued, and the vertical blank of the one before.
++  uint64_t m_dvFlipQueued{0}, m_dvFlipTime{0};
++  uint64_t m_dvFlipDone{0};
++  struct DVFlipStats
++  {
++    uint64_t queued{0}, onTime{0}, late{0}, blocking{0}, busy{0}, timeouts{0};
++    double waitMs{0.0}, waitMaxMs{0.0};
++  } m_dvFlips;
++  void DVFlipCompleted();
++  void FinishRequest(bool accepted);
++  DVBRIDGE::OutputRetry m_dvRetry;
++  bool m_dvLinkKnown{false};
++  uint32_t m_dvLinkConnector{0}, m_dvLinkBlob{0}, m_dvLinkStatus{0};
++  void RefreshDVLink();
++  void ReportDVFailure(const char* stage, int error);
++  void ReportSignalState();
++  bool m_signalDirty{false}, m_signalKnown{false};
++  std::array<uint64_t, 15> m_signalState{};
++  drmModeModeInfo m_committedMode{};
++  uint64_t m_signalWindow{0};
++  unsigned m_signalReports{0};
++  DVBRIDGE::DiagnosticFailures m_dvFailures;
++  bool m_dvSnapshot{false};
++  uint64_t m_dvSnapshotBlob{0};
++  uint32_t m_dvSnapshotConnector{0};
+ 
+   bool m_need_modeset{true};
++  bool m_dvScanoutStable{false};
+   bool m_active = true;
++  bool m_propertyFailure = false;
+ 
+   class CDRMAtomicRequest
+   {
+@@ -57,7 +124,9 @@ private:
+ 
+     bool AddProperty(CDRMObject* object, const char* name, uint64_t value);
+     void CacheProperties();
++    std::optional<drmModeModeInfo> signalMode;
+     void LogAtomicRequest();
++    void LogDVProperties();
+ 
+     static void LogAtomicDiff(CDRMAtomicRequest* current, CDRMAtomicRequest* old);
+ 
+diff --git a/xbmc/windowing/gbm/drm/DRMUtils.cpp b/xbmc/windowing/gbm/drm/DRMUtils.cpp
+index 6985b88..c893b19 100644
+--- a/xbmc/windowing/gbm/drm/DRMUtils.cpp
++++ b/xbmc/windowing/gbm/drm/DRMUtils.cpp
+@@ -8,6 +8,8 @@
+ 
+ #include "DRMUtils.h"
+ 
++#include <algorithm>
++
+ #include "ServiceBroker.h"
+ #include "settings/Settings.h"
+ #include "settings/SettingsComponent.h"
+@@ -28,6 +30,9 @@ void DrmFbDestroyCallback(gbm_bo* bo, void* data)
+ {
+   drm_fb* fb = static_cast<drm_fb*>(data);
+ 
++  if (fb->opaque_fb_id > 0)
++    drmModeRmFB(gbm_device_get_fd(gbm_bo_get_device(bo)), fb->opaque_fb_id);
++
+   if (fb->fb_id > 0)
+   {
+     CLog::LogF(LOGDEBUG, "Removing framebuffer: {}", fb->fb_id);
+@@ -121,6 +126,59 @@ drm_fb* CDRMUtils::DrmFbGetFromBo(struct gbm_bo* bo)
+   return fb;
+ }
+ 
++uint32_t CDRMUtils::DrmOpaqueFbGetFromBo(struct gbm_bo* bo)
++{
++  auto* fb = DrmFbGetFromBo(bo);
++  if (!fb)
++    return 0;
++  if (fb->format == DRM_FORMAT_XRGB8888 || fb->format == DRM_FORMAT_XRGB2101010)
++    return fb->fb_id;
++  if (fb->format != DRM_FORMAT_ARGB8888 && fb->format != DRM_FORMAT_ARGB2101010)
++    return 0;
++  if (fb->opaque_fb_id)
++    return fb->opaque_fb_id;
++
++  // A separate opaque view preserves the ordinary GUI framebuffer and owns no
++  // extra pixel storage. Packed DV and reconstructed HDR10 are final images;
++  // neither must be blended again by the scanout plane.
++  const uint32_t opaqueFormat = fb->format == DRM_FORMAT_ARGB2101010
++                                    ? DRM_FORMAT_XRGB2101010 : DRM_FORMAT_XRGB8888;
++  uint32_t handles[4]{}, strides[4]{}, offsets[4]{};
++  uint64_t modifiers[4]{};
++#if defined(HAS_GBM_MODIFIERS)
++  const int planes = gbm_bo_get_plane_count(bo);
++  if (planes < 1 || planes > 4)
++    return 0;
++  for (int i = 0; i < planes; ++i)
++  {
++    handles[i] = gbm_bo_get_handle_for_plane(bo, i).u32;
++    strides[i] = gbm_bo_get_stride_for_plane(bo, i);
++    offsets[i] = gbm_bo_get_offset(bo, i);
++    modifiers[i] = gbm_bo_get_modifier(bo);
++  }
++#else
++  handles[0] = gbm_bo_get_handle(bo).u32;
++  strides[0] = gbm_bo_get_stride(bo);
++#endif
++  // A bo made without modifiers reports DRM_FORMAT_MOD_INVALID; the kernel
++  // refuses any modifier without DRM_MODE_FB_MODIFIERS (amdgpu: EINVAL), so
++  // such a bo's view goes without one, as DrmFbGetFromBo's fallback does.
++  if (modifiers[0] == DRM_FORMAT_MOD_INVALID)
++    std::fill(std::begin(modifiers), std::end(modifiers), 0);
++  const uint32_t flags = modifiers[0] != DRM_FORMAT_MOD_LINEAR &&
++                                 modifiers[0] != DRM_FORMAT_MOD_INVALID
++                             ? DRM_MODE_FB_MODIFIERS : 0;
++  const int result = drmModeAddFB2WithModifiers(
++      m_fd, gbm_bo_get_width(bo), gbm_bo_get_height(bo), opaqueFormat,
++      handles, strides, offsets, modifiers, &fb->opaque_fb_id, flags);
++  if (result != 0)
++  {
++    fb->opaque_fb_id = 0;
++    CLog::LogF(LOGERROR, "Cannot create opaque transport framebuffer: {}", strerror(errno));
++  }
++  return fb->opaque_fb_id;
++}
++
+ bool CDRMUtils::FindPreferredMode()
+ {
+   if (m_mode)
+diff --git a/xbmc/windowing/gbm/drm/DRMUtils.h b/xbmc/windowing/gbm/drm/DRMUtils.h
+index db4d756..09612b0 100644
+--- a/xbmc/windowing/gbm/drm/DRMUtils.h
++++ b/xbmc/windowing/gbm/drm/DRMUtils.h
+@@ -38,6 +38,7 @@ struct drm_fb
+   struct gbm_bo* bo = nullptr;
+   uint32_t fb_id;
+   uint32_t format;
++  uint32_t opaque_fb_id = 0;
+ };
+ 
+ struct outputformat
+@@ -68,6 +69,7 @@ public:
+   CDRMPlane* GetGuiPlane() const { return m_gui_plane; }
+   CDRMCrtc* GetCrtc() const { return m_crtc; }
+   CDRMConnector* GetConnector() const { return m_connector; }
++  const drmModeModeInfo* GetSelectedMode() const { return m_mode; }
+   std::vector<outputformat>& GetOutputFormats() { return m_output_formats; }
+   bool FindGuiPlane(uint32_t format, uint64_t modifier);
+   bool FindVideoPlane(uint32_t format, uint64_t modifier);
+@@ -93,6 +95,7 @@ public:
+ protected:
+   bool OpenDrm(bool needConnector);
+   drm_fb* DrmFbGetFromBo(struct gbm_bo* bo);
++  uint32_t DrmOpaqueFbGetFromBo(struct gbm_bo* bo);
+ 
+   int m_fd{-1};
+   CDRMConnector* m_connector{nullptr};
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeKernelLogReader.h b/xbmc/windowing/gbm/drm/DVBridgeKernelLogReader.h
+new file mode 100644
+index 0000000..84bd40d
+--- /dev/null
++++ b/xbmc/windowing/gbm/drm/DVBridgeKernelLogReader.h
+@@ -0,0 +1,108 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++
++#include "utils/DVBridgeKernelLog.h"
++#include "utils/log.h"
++
++#include <array>
++#include <cerrno>
++#include <chrono>
++#include <mutex>
++#include <fcntl.h>
++#include <time.h>
++#include <unistd.h>
++
++namespace DVBRIDGE
++{
++// Used only by a Kodi background job after a rate-limited DV output failure.
++// Read-only, nonblocking and bounded. No external process, new service or GPU work.
++class KernelLogReader
++{
++public:
++  ~KernelLogReader()
++  {
++    if (m_fd >= 0)
++      close(m_fd);
++  }
++
++  // True means the independent cursor still has work; callers may run a small
++  // bounded continuation after yielding. Never blocks the render thread.
++  bool Collect()
++  {
++    std::lock_guard<std::mutex> lock(m_mutex);
++    if (m_fd < 0)
++    {
++      m_fd = open("/dev/kmsg", O_RDONLY | O_NONBLOCK | O_CLOEXEC);
++      if (m_fd < 0)
++      {
++        if (!m_warned)
++          CLog::Log(LOGWARNING, "DVBridge kernel: cannot read /dev/kmsg errno={}; kernel reason unavailable", errno);
++        m_warned = true;
++        return false;
++      }
++    }
++    timespec now{};
++    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
++    {
++      if (!m_warned)
++        CLog::Log(LOGWARNING, "DVBridge kernel: monotonic clock unavailable; evidence incomplete");
++      m_warned = true;
++      return false;
++    }
++    const uint64_t nowUs = uint64_t(now.tv_sec) * 1000000 + now.tv_nsec / 1000;
++    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(50);
++    std::array<char, 16384> buffer{};
++    // The output budget spans continuation batches, not just one read call.
++    if (!m_window || nowUs - m_window >= 30000000)
++    {
++      m_window = nowUs;
++      m_copied = 0;
++      m_notices = 0;
++    }
++    unsigned int suppressed = 0, overruns = 0;
++    bool incomplete = true;
++    for (unsigned int records = 0; records < 4096; ++records)
++    {
++      if (std::chrono::steady_clock::now() >= deadline)
++        break;
++      const auto count = read(m_fd, buffer.data(), buffer.size());
++      if (count < 0)
++      {
++        if (errno == EPIPE) { ++overruns; continue; }
++        if (errno == EINTR) continue;
++        if (errno != EAGAIN && !m_warned)
++        {
++          CLog::Log(LOGWARNING, "DVBridge kernel: read failed errno={}; kernel reason unavailable", errno);
++          m_warned = true;
++        }
++        incomplete = false;
++        break;
++      }
++      if (!count) { incomplete = false; break; }
++      const auto message = m_filter.Accept({buffer.data(), static_cast<size_t>(count)}, nowUs);
++      if (!message)
++        continue;
++      if (m_copied < 8)
++      {
++        CLog::Log(LOGERROR, "DVBridge kernel: {}", *message);
++        ++m_copied;
++      }
++      else
++        ++suppressed;
++    }
++    if ((suppressed || overruns || incomplete) && m_notices++ < 2)
++      CLog::Log(LOGWARNING,
++          "DVBridge kernel: evidence incomplete={} ring_overruns={} suppressed={} (bounded collection)",
++          incomplete, overruns, suppressed);
++    return incomplete;
++  }
++
++private:
++  std::mutex m_mutex;
++  KernelLogFilter m_filter;
++  int m_fd{-1};
++  bool m_warned{false};
++  uint64_t m_window{0};
++  unsigned m_copied{0}, m_notices{0};
++};
++}
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.cpp b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+new file mode 100644
+index 0000000..a661278
+--- /dev/null
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+@@ -0,0 +1,233 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "DVBridgeState.h"
++#include "DRMAtomic.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "utils/log.h"
++
++#include <cstring>
++
++using namespace KODI::WINDOWING::GBM;
++
++bool CDVBridgeState::Capture(CDRMAtomic& drm)
++{
++  if (Captured())
++    return false;
++  auto* connector = drm.GetConnector();
++  auto* crtc = drm.GetCrtc();
++  auto* plane = drm.GetGuiPlane() ? drm.GetGuiPlane() : drm.GetVideoPlane();
++  if (!connector || !crtc || !plane || (drm.GetGuiPlane() && drm.GetVideoPlane()))
++    return false;
++  if (connector->GetPropertyValue("DVBRIDGE_DV_STANDARD_LAB") != 0)
++    return false;
++
++  std::vector<Property> saved;
++  const auto save = [&](CDRMObject* object, const char* name, uint64_t transport,
++                        bool required, bool blob, const char* enumName = nullptr) {
++    auto value = object->GetPropertyValue(name);
++    if (!value)
++      return !required;
++    if (enumName)
++    {
++      auto selected = object->GetPropertyEnumValue(name, enumName);
++      if (!selected)
++        return false;
++      transport = *selected;
++    }
++    Property property{object, name, *value, transport, {}};
++    if (blob && *value)
++    {
++      auto* original = drmModeGetPropertyBlob(drm.GetFileDescriptor(), *value);
++      if (!original)
++        return false;
++      property.blob = CDRMPropertyBlob(drm.GetFileDescriptor(), original->data, original->length);
++      drmModeFreePropertyBlob(original);
++      if (!property.blob.IsValid())
++        return false;
++      property.original = property.blob.Get();
++    }
++    saved.push_back(std::move(property));
++    return true;
++  };
++
++  // linux-9928: what the tunnel's pictures are (Dolby Vision until SetSignal)
++  if (!save(connector, "DVBRIDGE_TUNNEL_FORMAT", 0, false, false, "dolby-vision"))
++    return false;
++  // linux-9932: no HDR10+ packet until the engine makes one; none after the restore either
++  // (the GUI never sends HDR10+, and a stale blob id may be gone).
++  if (!save(connector, "HDR10PLUS_METADATA", 0, false, false))
++    return false;
++  if (!save(connector, "DVBRIDGE_DV_STANDARD_LAB", 1, true, false) ||
++      !save(connector, "HDR_OUTPUT_METADATA", 0, true, true) ||
++      !save(connector, "max bpc", 8, true, false) ||
++      !save(connector, "Broadcast RGB", 0, true, false, "Full") ||
++      !save(connector, "Colorspace", 0, true, false, "Default") ||
++      !save(crtc, "CTM", 0, false, true) ||
++      !save(crtc, "GAMMA_LUT", 0, false, true) ||
++      !save(crtc, "DEGAMMA_LUT", 0, false, true) ||
++      !save(crtc, "VRR_ENABLED", 0, false, false) ||
++      !save(plane, "rotation", DRM_MODE_ROTATE_0, false, false) ||
++      !save(plane, "alpha", 65535, false, false) ||
++      !save(plane, "COLOR_PIPELINE", 0, false, false) ||
++      !save(plane, "pixel blend mode", 0, false, false, "None"))
++    return false;
++
++  // Do not silently corrupt tunnel bytes with another plane or hardware cursor.
++  auto* planes = drmModeGetPlaneResources(drm.GetFileDescriptor());
++  if (!planes)
++    return false;
++  bool safe = true;
++  for (uint32_t i = 0; i < planes->count_planes; ++i)
++  {
++    auto* other = drmModeGetPlane(drm.GetFileDescriptor(), planes->planes[i]);
++    if (!other)
++    {
++      safe = false;
++      break;
++    }
++    safe &= other->plane_id == plane->GetId() || other->crtc_id != crtc->GetCrtcId();
++    drmModeFreePlane(other);
++  }
++  drmModeFreePlaneResources(planes);
++  if (!safe)
++    return false;
++  m_saved = std::move(saved);
++  m_owner = &drm;
++  m_hdr10.reset();
++  m_hdr10Blob = CDRMPropertyBlob();
++  m_hdr10PlusBlob = CDRMPropertyBlob();
++  if (auto* hdr10plus = Find("HDR10PLUS_METADATA"))
++    hdr10plus->original = 0;
++  return true;
++}
++
++CDVBridgeState::Property* CDVBridgeState::Find(const char* name)
++{
++  for (auto& property : m_saved)
++    if (property.name == name)
++      return &property;
++  return nullptr;
++}
++
++bool CDVBridgeState::SupportsHDR10(CDRMObject& connector)
++{
++  return connector.SupportsProperty("DVBRIDGE_DV_STANDARD_LAB") &&
++         connector.GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT", "hdr10").has_value();
++}
++
++bool CDVBridgeState::SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10)
++{
++  if (!Captured() || m_owner != &drm)
++    return false;
++  auto* format = Find("DVBRIDGE_TUNNEL_FORMAT");
++  auto* metadata = Find("HDR_OUTPUT_METADATA");
++  if (!format)
++    return !hdr10; // a kernel before linux-9928: Dolby Vision only
++  const auto value = format->object->GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT",
++                                                          hdr10 ? "hdr10" : "dolby-vision");
++  if (!value || !metadata)
++    return false;
++  format->transport = *value;
++  if (!hdr10)
++  {
++    metadata->transport = 0;
++    // no HDR10+ with a Dolby Vision picture
++    if (auto* hdr10plus = Find("HDR10PLUS_METADATA"))
++      hdr10plus->transport = 0;
++    return true;
++  }
++  const std::array<uint16_t, 12> key{hdr10->primaries[0][0], hdr10->primaries[0][1],
++      hdr10->primaries[1][0], hdr10->primaries[1][1], hdr10->primaries[2][0], hdr10->primaries[2][1],
++      hdr10->white[0], hdr10->white[1], hdr10->maxLuminance, hdr10->minLuminance, hdr10->maxCll,
++      hdr10->maxFall};
++  if (!m_hdr10 || *m_hdr10 != key || !m_hdr10Blob.IsValid())
++  {
++    // struct hdr_output_metadata: a u32 metadata_type (0, static type 1), then
++    // hdr_metadata_infoframe (eotf 2 PQ, its metadata_type 0, then the u16s
++    // in the order above: primaries, white point, max/min mastering, MaxCLL,
++    // MaxFALL), native byte order, padded to its 32 bytes (the kernel takes
++    // exactly sizeof(struct hdr_output_metadata)).
++    uint8_t blob[32]{};
++    blob[4] = 2;
++    std::memcpy(blob + 6, key.data(), sizeof(key[0]) * key.size());
++    m_hdr10Blob = CDRMPropertyBlob(drm.GetFileDescriptor(), blob, sizeof(blob));
++    if (!m_hdr10Blob.IsValid())
++      return false;
++    m_hdr10 = key;
++    CLog::Log(LOGINFO, "DVBridge tunnel HDR10 metadata: mastering {} / {:.4f} cd/m2, MaxCLL {}, MaxFALL {}",
++              hdr10->maxLuminance, hdr10->minLuminance / 10000.0, hdr10->maxCll, hdr10->maxFall);
++  }
++  metadata->transport = m_hdr10Blob.Get();
++  return true;
++}
++
++bool CDVBridgeState::SupportsHDR10Plus(CDRMObject& connector)
++{
++  return connector.SupportsProperty("HDR10PLUS_METADATA");
++}
++
++bool CDVBridgeState::HDR10PlusStaged()
++{
++  const auto* hdr10plus = Find("HDR10PLUS_METADATA");
++  return hdr10plus && hdr10plus->transport != 0;
++}
++
++bool CDVBridgeState::SetHDR10Plus(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10PlusPacket* packet,
++                                  bool& toggled)
++{
++  toggled = false;
++  using State = DVBRIDGE::TunnelHDR10PlusPacket::State;
++  const State state = packet ? packet->state : State::None;
++  if (!Captured() || m_owner != &drm)
++    return false;
++  auto* hdr10plus = Find("HDR10PLUS_METADATA");
++  if (!hdr10plus)
++    return state != State::Send; // a connector without HDR10+: nothing to clear
++  const bool was = hdr10plus->transport != 0;
++  switch (state)
++  {
++    case State::None:
++      hdr10plus->transport = 0;
++      break;
++    case State::Keep:
++      break;
++    case State::Send:
++    {
++      // A new blob per picture; the previous one is released here, the kernel holds its own
++      // reference for as long as a committed state uses it.
++      CDRMPropertyBlob blob(drm.GetFileDescriptor(), packet->vsif, sizeof(packet->vsif));
++      if (!blob.IsValid())
++        return false;
++      m_hdr10PlusBlob = std::move(blob);
++      hdr10plus->transport = m_hdr10PlusBlob.Get();
++      break;
++    }
++  }
++  toggled = was != (hdr10plus->transport != 0);
++  if (toggled)
++    CLog::Log(LOGINFO, "DVBridge tunnel HDR10+ metadata: {}", was ? "off" : "on");
++  return true;
++}
++
++void CDVBridgeState::RestoreSDR()
++{
++  // Renderer teardown invalidates the previous video's HDR/colorimetry snapshot.
++  for (auto& property : m_saved)
++  {
++    // no HDR metadata (an HDR10 tunnel's transport is its blob, not SDR's 0)
++    if (property.name == "HDR_OUTPUT_METADATA")
++      property.original = 0;
++    else if (property.name == "Colorspace")
++      property.original = property.transport;
++  }
++}
++
++bool CDVBridgeState::Stage(CDRMAtomic& drm, bool restore)
++{
++  if (!Captured() || m_owner != &drm || m_saved.front().object != drm.GetConnector())
++    return false;
++  bool valid = true;
++  for (const auto& property : m_saved)
++    valid &= drm.AddProperty(property.object, property.name.c_str(),
++                             restore ? property.original : property.transport);
++  return valid;
++}
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.h b/xbmc/windowing/gbm/drm/DVBridgeState.h
+new file mode 100644
+index 0000000..3c8f4f6
+--- /dev/null
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.h
+@@ -0,0 +1,67 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++
++#include "DRMObject.h"
++#include <array>
++#include <cstdint>
++#include <optional>
++#include <string>
++#include <vector>
++
++namespace DVBRIDGE
++{
++struct TunnelHDR10Signal;
++struct TunnelHDR10PlusPacket;
++}
++
++namespace KODI::WINDOWING::GBM
++{
++class CDRMAtomic;
++
++class CDVBridgeState
++{
++public:
++  bool Capture(CDRMAtomic& drm);
++  bool Stage(CDRMAtomic& drm, bool restore);
++  void RestoreSDR();
++  void Restored() { m_saved.clear(); m_owner = nullptr; }
++  bool Captured() const { return !m_saved.empty(); }
++  /* What the tunnel's pictures are, from the next Stage: Dolby Vision
++   * (nullptr), or HDR10 with its static metadata (DVBRIDGE_TUNNEL_FORMAT
++   * hdr10 and an HDR_OUTPUT_METADATA blob, linux-9928). False when the
++   * connector has no such format. */
++  bool SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10);
++  /* The connector takes HDR10 tunnel pictures (DVBRIDGE_TUNNEL_FORMAT's hdr10). */
++  static bool SupportsHDR10(CDRMObject& connector);
++  /* The HDR10+ packet of the next Stage (linux-9932's HDR10PLUS_METADATA, a
++   * 31-byte HDR10+ vendor InfoFrame blob), after SetSignal: nullptr or None
++   * 0, Keep the current one, Send a new blob. Only with an HDR10 signal (the
++   * kernel refuses HDR10+ in the Dolby Vision formats). toggled: HDR10+ turns
++   * on or off with it, which the kernel makes a modeset. False when the
++   * connector has no such property and a packet is to be sent. */
++  bool SetHDR10Plus(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10PlusPacket* packet, bool& toggled);
++  /* The connector has HDR10PLUS_METADATA. */
++  static bool SupportsHDR10Plus(CDRMObject& connector);
++  /* A commit with this state sends an HDR10+ packet. */
++  bool HDR10PlusStaged();
++
++private:
++  struct Property
++  {
++    CDRMObject* object;
++    std::string name;
++    uint64_t original;
++    uint64_t transport;
++    CDRMPropertyBlob blob;
++  };
++  Property* Find(const char* name);
++  std::vector<Property> m_saved;
++  CDRMAtomic* m_owner = nullptr;
++  // the HDR10 signal staged, and its blob (kept until the next one: the
++  // kernel holds its own reference once a commit uses it)
++  std::optional<std::array<uint16_t, 12>> m_hdr10;
++  CDRMPropertyBlob m_hdr10Blob;
++  // the HDR10+ packet staged (the kernel keeps its own reference once committed)
++  CDRMPropertyBlob m_hdr10PlusBlob;
++};
++}

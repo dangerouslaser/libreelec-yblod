@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:40 -0500
+Subject: [PATCH] FFmpeg: keep draining a hardware decoder until it reaches EOF
+
+During a drain (DVD_CODEC_CTRL_DRAIN) CDVDVideoCodecFFmpeg::GetPicture()
+answered VC_BUFFER as soon as a hardware-decoded frame had been taken,
+although the hardware may still be filling its queue, and the drain
+could end before the last pictures of the stream came out. Answer
+VC_NONE instead while draining, so VideoPlayer keeps asking until
+FFmpeg and the hardware have both reached EOF. Outside a drain nothing
+changes.
+
+Applies to Kodi as LibreELEC patches it; needs nothing else from this
+series. Split out of yblod-03 (the native Dolby Vision source), where it
+was found; it is not specific to Dolby Vision.
+---
+ .../cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 34ba54e..d34d7d7 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -892,6 +892,10 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+         return VC_ERROR;
+     }
+ 
++    // A decoded frame was consumed, but hardware may still be filling its queue.
++    // During drain, continue until FFmpeg and the hardware reach their EOFs.
++    if (ret == VC_BUFFER && (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN))
++      return VC_NONE;
+     return ret;
+   }
+   // process filters for sw decoding
