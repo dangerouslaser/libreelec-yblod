@@ -90,18 +90,25 @@ Changed since YBLOD 0.4.1:
   of the commit under the plane's own lock (drm_modeset_lock in the
   commit's acquire context, -EDEADLK passed up), not under the CRTC lock
   only. The plane is not added to the commit.
+- the format's HDR_OUTPUT_METADATA rule (hdr10: static type 1, PQ; the
+  other formats: none) is applied again in amdgpu_dm_dv_atomic_check()
+  for every commit that has the connector. It was only checked when the
+  stream was made, and amdgpu does not modeset when one blob replaces
+  another, so a later blob with another EOTF went out under an engaged
+  hdr10 tunnel. i915 already checked every change. Rejected as
+  "DVBridge: scanout rejected ... stage=hdr-metadata".
 ---
  .../gpu/drm/amd/display/amdgpu_dm/Makefile    |   1 +
  .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  19 +
  .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h |  11 +
  .../display/amdgpu_dm/amdgpu_dm_connector.c   |  31 +-
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c |   9 +-
- .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  | 467 ++++++++++++++++++
+ .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  | 480 ++++++++++++++++++
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h  |  35 ++
  .../display/amdgpu_dm/amdgpu_dm_freesync.c    |   4 +-
  .../gpu/drm/amd/display/dc/core/dc_resource.c |   7 +
  drivers/gpu/drm/amd/display/dc/dc_stream.h    |   8 +
- 10 files changed, 588 insertions(+), 4 deletions(-)
+ 10 files changed, 601 insertions(+), 4 deletions(-)
  create mode 100644 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
  create mode 100644 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
 
@@ -297,10 +304,10 @@ index db546dd44b91..a8948ab3a854 100644
  					    DYN_EXPANSION_DISABLE);
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
 new file mode 100644
-index 000000000000..8684f66fa1dd
+index 000000000000..32bbedf95bf2
 --- /dev/null
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
-@@ -0,0 +1,467 @@
+@@ -0,0 +1,480 @@
 +// SPDX-License-Identifier: MIT
 +/*
 + * big-fella: the Standard Dolby Vision RGB8 tunnel on amdgpu DC.
@@ -682,9 +689,11 @@ index 000000000000..8684f66fa1dd
 + */
 +int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state)
 +{
++	struct drm_connector *connector;
++	struct drm_connector_state *conn;
 +	struct drm_crtc *crtc;
 +	struct drm_crtc_state *cs;
-+	int i;
++	int i, j;
 +
 +	for_each_new_crtc_in_state(state, crtc, cs, i) {
 +		const struct dm_crtc_state *dm = to_dm_crtc_state(cs);
@@ -725,6 +734,17 @@ index 000000000000..8684f66fa1dd
 +			   hweight32(cs->connector_mask) != 1) << 5);
 +		if (reasons)
 +			return dv_scanout_reject(crtc, "crtc", reasons);
++
++		/* HDR_OUTPUT_METADATA can be replaced without a modeset, so
++		 * without amdgpu_dm_dv_configure_stream(), when there was a
++		 * blob before. Apply the format's rule to it in every commit
++		 * that has the connector.
++		 */
++		for_each_new_connector_in_state(state, connector, conn, j)
++			if (conn->crtc == crtc &&
++			    dvbridge_tunnel_hdr_metadata(stream->dv_tunnel_format,
++							 conn->hdr_output_metadata))
++				return dv_scanout_reject(crtc, "hdr-metadata", 1);
 +
 +		p = drm_atomic_get_new_plane_state(state, primary);
 +		if (!p) {

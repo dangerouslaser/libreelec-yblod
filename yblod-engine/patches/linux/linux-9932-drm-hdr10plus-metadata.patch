@@ -404,10 +404,10 @@ index 97eb9c20eccb..023b7bc8636b 100644
  
  	if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
-index 8684f66fa1dd..8c6e25645579 100644
+index 32bbedf95bf2..df56300a1747 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
-@@ -465,3 +465,12 @@ int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state)
+@@ -478,3 +478,12 @@ int amdgpu_dm_dv_atomic_check(struct drm_atomic_commit *state)
  	}
  	return 0;
  }
