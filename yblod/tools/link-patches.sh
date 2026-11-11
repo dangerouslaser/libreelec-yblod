@@ -13,7 +13,6 @@ status=0
 # owner/patches/<package> -> LibreELEC patch folder for that package
 target_dir() {
   case "$1" in
-    libplacebo) echo packages/addons/addon-depends/multimedia-tools-depends/libplacebo/patches ;;
     LibreELEC-settings) echo packages/mediacenter/LibreELEC-settings/patches ;;
     *) echo "projects/Generic/patches/$1" ;;
   esac

@@ -6,7 +6,7 @@ changes to other projects) only has to deal with a short list of glue files.
 
 | Folder | Contents |
 |---|---|
-| `yblod-engine/` | The Dolby Vision pipeline: the Vulkan engine (`vk/`) and the host C it compiles (`src/`, `tests/`), Kodi's runtime environment (`integration/`), its Kodi, FFmpeg, libplacebo and kernel patches (`patches/<package>/`), tools, docs and licences. |
+| `yblod-engine/` | The Dolby Vision pipeline: the Vulkan engine (`vk/`) and the host C it compiles (`src/`, `tests/`), Kodi's runtime environment (`integration/`), its Kodi, FFmpeg and kernel patches (`patches/<package>/`), tools, docs and licences. |
 | `yblod/` | The distribution: patches that are not Dolby Vision (`patches/`), the LG edition (`editions/lg/`), build and release tools (`tools/`), release notes and validation (`docs/releases/`). |
 | `releases/` | Update channel files. Installed systems fetch `releases/releases.json` from `main` by URL, so this folder stays at the repository root. |
 
@@ -24,9 +24,10 @@ package's `patches/` folder or `projects/<project>/patches/<package>/`. So:
   for both patching and change detection, and applies them in file-name order exactly as if
   they were stored there. After adding, renaming or removing a patch, run
   `yblod/tools/link-patches.sh --fix`; without arguments it only checks.
-- **Upstream files we modify** are kept to a few lines: the Kodi recipe (Kodi no longer
-  depends on libplacebo since 0.4.0) and the libplacebo patches for the mpv add-on, the
-  `mediacenter` meta package (LG edition), `README.md` and `.gitignore`.
+- **Upstream files we modify** are kept to a few lines: the Kodi recipe (Kodi does not
+  link libplacebo since 0.4.0, and the libplacebo recipe is stock LibreELEC again; the
+  engine vendors the part it needs), the `mediacenter` meta package (LG edition),
+  `README.md` and `.gitignore`.
 
 `yblod/tools/footprint.sh` lists everything outside the two folders that differs from the
 LibreELEC commit of the last resync. Review that list when resyncing.

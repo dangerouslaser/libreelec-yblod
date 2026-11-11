@@ -105,7 +105,7 @@ YBLOD's own code and docs live in two folders, which keeps it easy to follow ups
 LibreELEC:
 
 - [`yblod-engine/`](yblod-engine/README.md): the Dolby Vision pipeline (engine source,
-  tests, its Kodi, FFmpeg, libplacebo and kernel patches, tools and docs).
+  tests, its Kodi, FFmpeg and kernel patches, tools and docs).
 - [`yblod/`](yblod/README.md): the distribution (other patches, the LG edition, build and
   release tools, release notes).
 
