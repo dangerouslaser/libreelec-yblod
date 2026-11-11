@@ -1216,6 +1216,8 @@ impl Engine {
         if crate::fault::hit("construct-final") {
             return Err(Error::Vk(vk::Result::ERROR_UNKNOWN));
         }
+        // Before the commit: a failure after it would roll nothing back.
+        let plan_state = plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?;
         construction.commit();
         Ok(Engine {
             ring,
@@ -1264,7 +1266,7 @@ impl Engine {
             shot,
             resize_key: None,
             plan: Plan::boxed(),
-            plan_state: plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?,
+            plan_state,
             last_error_flags: 0,
             dm_status: 0,
             last_plan_ms: 0.0,
@@ -3370,6 +3372,7 @@ impl Drop for Engine {
             c.gui_coeff.destroy(d);
             c.gui_error.destroy(d);
             c.map_params.destroy(d);
+            c.stats.destroy(d);
             c.bounds_result.destroy(d);
         }
         unsafe { d.device.destroy_semaphore(self.timeline, None) };
