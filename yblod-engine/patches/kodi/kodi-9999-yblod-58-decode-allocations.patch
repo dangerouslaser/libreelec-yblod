@@ -1,0 +1,178 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:16:03 -0500
+Subject: [PATCH 9/9] yblod-58: trim per-frame allocations and lookups on the
+ decode path
+
+- Each picture's Dolby Vision metadata was copied into a new buffer;
+  share the frame's side-data buffer instead (FFmpeg allocates it per
+  frame and does not write it once attached; anything else is still
+  copied).
+- The enhancement-layer pairing allocated a VideoPicture for every
+  frame; reuse up to four, Reset as Kodi resets its own picture.
+- ProcessDecoderOutput read DV_PRIVATE_ENDPOINT_TRACE from the
+  environment for every picture; read it once.
+---
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp   | 43 ++++++++++++++++---
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.h     |  5 +++
+ .../DVDCodecs/Video/DVMetadataBuffer.h        | 17 ++++++++
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp   |  7 ++-
+ 4 files changed, 63 insertions(+), 9 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 16dfc7c..9cf6f1b 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -829,9 +829,37 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::DVEmitUnpaired(VideoPicture* pict
+ {
+   m_dvPending.front()->doviElSkipped = true;
+   picture->CopyRef(*m_dvPending.front());
+-  m_dvPending.pop_front();
++  DVPopPending();
+   return VC_PICTURE;
+ }
++
++std::shared_ptr<VideoPicture> CDVDVideoCodecFFmpeg::DVTakePicture()
++{
++  if (m_dvSpare.empty())
++  {
++    auto picture = std::make_shared<VideoPicture>();
++    picture->Reset();
++    return picture;
++  }
++  auto picture = std::move(m_dvSpare.back());
++  m_dvSpare.pop_back();
++  return picture;
++}
++
++void CDVDVideoCodecFFmpeg::DVRecycle(std::shared_ptr<VideoPicture> picture)
++{
++  // Releases its surface and enhancement picture, as destroying it would.
++  picture->Reset();
++  if (m_dvSpare.size() < 4)
++    m_dvSpare.push_back(std::move(picture));
++}
++
++void CDVDVideoCodecFFmpeg::DVPopPending()
++{
++  auto picture = std::move(m_dvPending.front());
++  m_dvPending.pop_front();
++  DVRecycle(std::move(picture));
++}
+ #endif
+ 
+ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPicture)
+@@ -862,7 +890,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+         // pairing restarts after a fault.
+         if (m_dvFelResyncing)
+           return DVEmitUnpaired(pVideoPicture);
+-        m_dvPending.pop_front();
++        DVPopPending();
+         return VC_BUFFER;
+       }
+       if (result < 0)
+@@ -888,7 +916,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+       }
+       base->doviEnhancement = {enhancement, [](AVFrame* f) { av_frame_free(&f); }};
+       pVideoPicture->CopyRef(*base);
+-      m_dvPending.pop_front();
++      DVPopPending();
+       return VC_PICTURE;
+     };
+     VCReturn paired = emit();
+@@ -899,8 +927,7 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+       DVFelFault("16 base pictures wait for their enhancement pictures");
+       return DVEmitUnpaired(pVideoPicture);
+     }
+-    auto base = std::make_shared<VideoPicture>();
+-    base->Reset();
++    auto base = DVTakePicture();
+     VCReturn result = GetBasePicture(base.get());
+     if (m_dvMel)
+     {
+@@ -914,11 +941,13 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+       if (m_dvPending.empty())
+         return result;
+       pVideoPicture->CopyRef(*m_dvPending.front());
+-      m_dvPending.pop_front();
++      DVPopPending();
+       return VC_PICTURE;
+     }
+     if (result == VC_PICTURE)
+       m_dvPending.push_back(std::move(base));
++    else
++      DVRecycle(std::move(base));
+     if (m_pCodecContext->hw_frames_ctx)
+     {
+       auto* frames = reinterpret_cast<AVHWFramesContext*>(m_pCodecContext->hw_frames_ctx->data);
+@@ -1618,7 +1647,7 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+     sd = av_frame_get_side_data(m_pFrame, AV_FRAME_DATA_DOVI_METADATA);
+     if (sd)
+     {
+-      if (!pVideoPicture->doviMetadata.Assign(sd->data, sd->size))
++      if (!pVideoPicture->doviMetadata.Share(sd->buf, sd->data, sd->size))
+         CLog::Log(LOGWARNING, "Unable to retain Dolby Vision picture metadata");
+       AVDOVIMetadata* dovi = (AVDOVIMetadata*)sd->data;
+       const AVDOVIRpuDataHeader* hdr = av_dovi_get_header(dovi);
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index 0a80d0b..95f3e4c 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -70,6 +70,11 @@ protected:
+   static constexpr unsigned DV_FEL_RESYNCS = 3;
+   void DVFelFault(const char* reason);
+   VCReturn DVEmitUnpaired(VideoPicture* picture);
++  // Pending pictures are reused rather than allocated per frame.
++  std::vector<std::shared_ptr<VideoPicture>> m_dvSpare;
++  std::shared_ptr<VideoPicture> DVTakePicture();
++  void DVRecycle(std::shared_ptr<VideoPicture> picture);
++  void DVPopPending();
+   unsigned m_dvFelFaults{0};
+   bool m_dvFelResyncing{false};
+   bool m_dvFelBypass{false};
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h
+index 8627668..7358d66 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h
+@@ -33,6 +33,23 @@ public:
+     return true;
+   }
+ 
++  // Shares the buffer that holds exactly data/size (a frame's side data) instead of copying it;
++  // side-data buffers are not written once attached to a frame.
++  bool Share(const AVBufferRef* buffer, const uint8_t* data, size_t size)
++  {
++    if (!buffer || buffer->data != data || buffer->size != size || size == 0 ||
++        size > MAX_PAYLOAD_SIZE)
++      return Assign(data, size);
++    AVBufferRef* ref = av_buffer_ref(buffer);
++    if (!ref)
++    {
++      Reset();
++      return false;
++    }
++    m_buffer = std::shared_ptr<AVBufferRef>(ref, [](AVBufferRef* r) { av_buffer_unref(&r); });
++    return true;
++  }
++
+   void Reset() { m_buffer.reset(); }
+   const uint8_t* Data() const { return m_buffer ? m_buffer->data : nullptr; }
+   size_t Size() const { return m_buffer ? m_buffer->size : 0; }
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index 798fbab..ce7dc99 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -696,8 +696,11 @@ bool CVideoPlayerVideo::ProcessDecoderOutput(double &frametime, double &pts)
+ {
+   CDVDVideoCodec::VCReturn decoderState = m_pVideoCodec->GetPicture(&m_picture);
+ #ifdef HAVE_DVBRIDGE
+-  const char* endpointTrace = std::getenv("DV_PRIVATE_ENDPOINT_TRACE");
+-  if (endpointTrace && endpointTrace[0] == '1' && endpointTrace[1] == '\0')
++  static const bool endpointTrace = [] {
++    const char* trace = std::getenv("DV_PRIVATE_ENDPOINT_TRACE");
++    return trace && trace[0] == '1' && trace[1] == '\0';
++  }();
++  if (endpointTrace)
+   {
+     if (decoderState == CDVDVideoCodec::VC_PICTURE)
+       CLog::Log(LOGINFO, "Private endpoint decoded: pts={}", m_picture.pts);
