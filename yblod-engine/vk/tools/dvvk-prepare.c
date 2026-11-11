@@ -15,6 +15,10 @@ int main(void) {
     signal(SIGPIPE, SIG_IGN); /* A closed progress reader is not an engine fault. */
     setvbuf(stdout, NULL, _IOLBF, 0);
     setenv("DVVK_PREPARE_PROGRESS", "1", 1);
+    /* The HDR10 and HDR10+ pack variants too (a player's engine makes them on
+     * first use: without them here, that is a compile in its render thread).
+     * DVVK_PREPARE_MAP=0 in the environment leaves them out. */
+    setenv("DVVK_PREPARE_MAP", "1", 0);
     setenv("DVVK_LAZY_RESIZED_PACK", "0", 1);
     setenv("DVVK_GPU_BOOST", "0", 1);
     const char *node = getenv("MPV_DV_RENDER_NODE");
