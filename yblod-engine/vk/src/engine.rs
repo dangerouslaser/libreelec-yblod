@@ -839,7 +839,9 @@ pub struct Engine {
     pack_fma: (u32, u32),        // captured at creation, also used by deferred variants
     pack_annexb: Vec<Pipeline>,  // [source * 3 + overlay (none, native, prepared)]: 32x8 chroma tile
     fel_chroma: Pipeline,
-    overlay: HostBuffer,
+    // The test RGBA picture (set_overlay_rgba), made when first needed: no
+    // player gives one, and allocated memory is backed whether bound or not.
+    overlay: Option<HostBuffer>,
     gui_colours: DeviceBuffer,
     gui_retired: Vec<DeviceBuffer>,
     gui_tiles: DeviceBuffer,
@@ -1110,11 +1112,6 @@ impl Engine {
             construction.keep(DeviceBuffer::new(&d, quarter)?),
             construction.keep(DeviceBuffer::new(&d, 2 * quarter)?),
         ];
-        let overlay = construction.keep(HostBuffer::new(
-            &d,
-            (CANVAS_W * CANVAS_H * 4) as u64,
-            vk::BufferUsageFlags::STORAGE_BUFFER,
-        )?);
         // Allocated in full on the first frame that needs them (submit).
         let gui_colours = construction.keep(DeviceBuffer::new(&d, 16)?);
         let gui_tiles =
@@ -1322,7 +1319,7 @@ impl Engine {
             pack_fma: (fma, blend_fma),
             pack_annexb,
             fel_chroma,
-            overlay,
+            overlay: None,
             gui_colours,
             gui_retired: Vec::new(),
             gui_tiles,
@@ -1432,14 +1429,24 @@ impl Engine {
 
     /// The overlay picture (RGBA8 premultiplied sRGB, 3840x2160, rows top
     /// first) used by frames with `overlay` set. Phase 1: copied in.
-    pub fn set_overlay_rgba(&mut self, rgba: &[u8], stride: usize) {
-        let dst = self.overlay.bytes_mut();
+    pub fn set_overlay_rgba(&mut self, rgba: &[u8], stride: usize) -> Result<()> {
+        let dst = self.overlay_rgba()?.bytes_mut();
         let row = (CANVAS_W * 4) as usize;
         for y in 0..CANVAS_H as usize {
             dst[y * row..(y + 1) * row].copy_from_slice(&rgba[y * stride..y * stride + row]);
         }
         self.overlay_dirty = true;
         self.damage.changed(None);
+        Ok(())
+    }
+
+    /// The test RGBA picture's buffer, made on first use.
+    fn overlay_rgba(&mut self) -> Result<&mut HostBuffer> {
+        if self.overlay.is_none() {
+            let bytes = (CANVAS_W * CANVAS_H * 4) as u64;
+            self.overlay = Some(HostBuffer::new(&self.d, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)?);
+        }
+        Ok(self.overlay.as_mut().unwrap())
     }
 
     /// mpv's subtitles / OSD bitmaps for the following frames (none: empty).
@@ -1833,6 +1840,16 @@ impl Engine {
         }
     }
 
+    /// overlay_prepare's binding 0, the test RGBA picture. The variant that
+    /// composes from the sources never reads it: any small buffer there
+    /// (submit made the picture's for a frame that does read it).
+    fn rgba_bind(&self, from_sources: bool, slot: &Slot) -> Bind {
+        Bind::Buffer(match &self.overlay {
+            Some(rgba) if !from_sources => rgba.buffer,
+            _ => slot.error,
+        })
+    }
+
     /// HDR10+ output: the pack measures the film (pack.comp STATS).
     fn stats(&self) -> bool {
         self.map.as_ref().is_some_and(|m| m.signal.mode == crate::map::DVVK_OUTPUT_HDR10PLUS)
@@ -2137,7 +2154,16 @@ impl Engine {
         if !self.cb1_overlay() {
             self.cb1_tiles_valid = false;
         }
-        if !self.cb1_overlay() && self.plan.overlay_visible != 0 {
+        let overlay = self.pack_overlay();
+        if overlay == 1 && !self.sources_used {
+            // overlay_prepare reads the test picture (as allocated if none was set)
+            self.overlay_rgba()?;
+        }
+        // The colour cache and its keys in full: only the prepared overlay has
+        // them (overlay_prepare writes, the pack's OVERLAY 1 reads). The fused
+        // shell computes every colour (gui_flags bit 3) and never touches
+        // them; DVVK_VERIFY's reference of such a frame prepares the overlay.
+        if overlay == 1 || (overlay == 2 && self.verify.is_some()) {
             // Retain the tiny placeholders until engine teardown: earlier native
             // commands may still reference their descriptors, even though unused.
             // No GPU drain on the first subtitle or legacy overlay.
@@ -2571,7 +2597,7 @@ impl Engine {
                 cmd,
                 &self.overlay_prepare[from_sources as usize],
                 &[
-                    Bind::Buffer(self.overlay.buffer),
+                    self.rgba_bind(from_sources, &slot),
                     Bind::Range(atlas, r[0].0, r[0].1),
                     Bind::Range(atlas, r[1].0, r[1].1),
                     Bind::Range(atlas, r[2].0, r[2].1),
@@ -2926,7 +2952,7 @@ impl Engine {
                 cmd,
                 &self.overlay_prepare[from_sources as usize],
                 &[
-                    Bind::Buffer(self.overlay.buffer),
+                    self.rgba_bind(from_sources, slot),
                     Bind::Range(atlas, r[0].0, r[0].1),
                     Bind::Range(atlas, r[1].0, r[1].1),
                     Bind::Range(atlas, r[2].0, r[2].1),
@@ -3440,7 +3466,9 @@ impl Drop for Engine {
         for lut in &self.cb1_luts {
             lut.destroy(d);
         }
-        self.overlay.destroy(d);
+        if let Some(rgba) = &self.overlay {
+            rgba.destroy(d);
+        }
         self.gui_colours.destroy(d);
         for buffer in &self.gui_retired {
             buffer.destroy(d);
