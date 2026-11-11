@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:57:59 -0500
+Subject: [PATCH 2/9] yblod-51: try the other video decoders when the Dolby
+ Vision one fails
+
+When the native Dolby Vision decoder could not open, CreateVideoCodec
+returned nullptr without trying another decoder, so the title played
+without video. Fall through to the usual decoder chain instead.
+---
+ xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
+index 871984f..5d6e3f2 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
+@@ -76,7 +76,9 @@ std::unique_ptr<CDVDVideoCodec> CDVDFactoryCodec::CreateVideoCodec(CDVDStreamInf
+   if (DVBRIDGE::WantsNativeOutput(hint))
+   {
+     pCodec = std::make_unique<CDVDVideoCodecFFmpeg>(processInfo);
+-    return pCodec->Open(hint, options) ? std::move(pCodec) : nullptr;
++    if (pCodec->Open(hint, options))
++      return pCodec;
++    CLog::Log(LOGWARNING, "Dolby Vision: the native decoder could not open; trying the others");
+   }
+ #endif
+   // platform specific video decoders

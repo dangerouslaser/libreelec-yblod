@@ -1,0 +1,911 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:04:52 -0500
+Subject: [PATCH 5/9] yblod-54: move the fork's strings to ids 45000 to 45999
+
+The fork's 79 Dolby Vision strings used #40810-#40925, directly above
+Kodi's newest string (#40804 at the pinned commit, #40806 on master
+today), and the VRR patch (yblod-36) took #13484 and #36059 from
+Kodi's own ranges, which Kodi master already uses. The next Kodi update
+would have given those ids two meanings.
+
+Kodi's core strings use nothing above #40806 (master 7ad52a09); add-ons
+and skins use 30000-32999. Move every fork string to the 45000 block:
+#13484 -> #45000, #36059 -> #45001, #408xx/#409xx -> +4200 (#45010 to
+#45125), and give #13484 and #36059 back to Kodi's empty ranges. The
+settings (settings.xml, linux.xml) and Estuary's player information
+panel use the new ids.
+
+WinSystemGbmGLESContext.cpp and DVPrivateVulkan.cpp still ask for eight
+of these strings (#40810, #40812-#40814, #40900, #40901, #40920,
+#40925) by their old ids, so those entries stay, marked, until that code
+uses the new ones.
+---
+ .../resources/strings.po                      | 238 +++++++++++-------
+ .../xml/IncludesDVProcessInfo.xml             |   2 +-
+ system/settings/linux.xml                     |   2 +-
+ system/settings/settings.xml                  | 112 ++++-----
+ 4 files changed, 203 insertions(+), 151 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index a752df9..b3268b1 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -7830,13 +7830,7 @@ msgctxt "#13483"
+ msgid "8 bit"
+ msgstr ""
+ 
+-#. Label of setting "System / Display / Variable refresh rate"
+-#: system/settings/linux.xml
+-msgctxt "#13484"
+-msgid "Variable refresh rate"
+-msgstr ""
+-
+-#empty strings from id 13485 to 13504
++#empty strings from id 13484 to 13504
+ 
+ #: system/settings/settings.xml
+ msgctxt "#13505"
+@@ -20408,13 +20402,7 @@ msgctxt "#36058"
+ msgid "Automatic"
+ msgstr ""
+ 
+-#. Description of setting with label #13484 "Variable refresh rate"
+-#: system/settings/linux.xml
+-msgctxt "#36059"
+-msgid "Change the refresh rate for playback without the display blanking, on a display with variable refresh rate (FreeSync). Variable refresh rate has to be turned on for this input in the display's settings."
+-msgstr ""
+-
+-#empty strings from id 36060 to 36095
++#empty strings from id 36059 to 36095
+ 
+ #. Label of setting "System / Display / Use system HDR/SDR brightness balance"
+ #: system/settings/settings.xml
+@@ -25980,397 +25968,461 @@ msgctxt "#40804"
+ msgid "{0:.1f} dB"
+ msgstr ""
+ 
+-#: system/settings/settings.xml
++#. Old id of #45010: still used by the render code until it uses the new one
++#: xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+ msgctxt "#40810"
+ msgid "Dolby Vision"
+ msgstr ""
+ 
++#. Old id of #45012: still used by the render code until it uses the new one
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40812"
++msgid "Dolby Vision (TV-led)"
++msgstr ""
++
++#. Old id of #45013: still used by the render code until it uses the new one
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40813"
++msgid "Convert to HDR10"
++msgstr ""
++
++#. Old id of #45014: still used by the render code until it uses the new one
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40814"
++msgid "Off"
++msgstr ""
++
++#. Old id of #45100: still used by the render code until it uses the new one
++#: xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++msgctxt "#40900"
++msgid "The Dolby Vision engine (Vulkan) could not start. Dolby Vision videos play without Dolby Vision until Kodi restarts."
++msgstr ""
++
++#. Old id of #45101: still used by the render code until it uses the new one
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40901"
++msgid "This connection does not take HDR10 from Dolby Vision. Videos play without conversion until Kodi restarts."
++msgstr ""
++
++#. Old id of #45120: still used by the render code until it uses the new one
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40920"
++msgid "Convert to HDR10+"
++msgstr ""
++
++#. Old id of #45125: still used by the render code until it uses the new one
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#40925"
++msgid "This connection does not take HDR10+ packets. The video continues as HDR10."
++msgstr ""
++
++# YBLOD: the fork's strings use ids 45000 to 45999, a block Kodi does not use, so that
++# they cannot collide with strings Kodi adds.
++
++#. Label of setting "System / Display / Variable refresh rate"
++#: system/settings/linux.xml
++msgctxt "#45000"
++msgid "Variable refresh rate"
++msgstr ""
++
++#. Description of setting with label #45000 "Variable refresh rate"
++#: system/settings/linux.xml
++msgctxt "#45001"
++msgid "Change the refresh rate for playback without the display blanking, on a display with variable refresh rate (FreeSync). Variable refresh rate has to be turned on for this input in the display's settings."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45010"
++msgid "Dolby Vision"
++msgstr ""
++
+ #: system/settings/settings.xml
+-msgctxt "#40811"
++msgctxt "#45011"
+ msgid "Output mode"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40812"
++msgctxt "#45012"
+ msgid "Dolby Vision (TV-led)"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40813"
++msgctxt "#45013"
+ msgid "Convert to HDR10"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40814"
++msgctxt "#45014"
+ msgid "Off"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40815"
++msgctxt "#45015"
+ msgid "Dolby Vision (TV-led): the TV maps the picture with its own Dolby Vision processing. Convert to HDR10: YBLOD converts Dolby Vision to HDR10 (the Master Reference conversion), for TVs without Dolby Vision. Convert to HDR10+: YBLOD sends the Master Reference picture with HDR10+ metadata made for each picture from its Dolby Vision metadata and the picture itself, and the TV applies its HDR10+ tone mapping; the HDR10+ curve is an approximation of the Dolby Vision trims by design, and a film whose metadata cannot be represented continues as HDR10. The conversions are shown only on HDMI outputs that carry them (Intel gen12 and later, AMD), not on DisplayPort or converter outputs; HDR10+ only with a TV that reports HDR10+. Off: Kodi plays the HDR10 or SDR base layer itself, without the enhancement layer (Profile 5 colours are wrong). Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40816"
++msgctxt "#45016"
+ msgid "Enhanced player information"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40817"
++msgctxt "#45017"
+ msgid "Show video, audio, metadata and GPU render usage when pressing O. Disable to restore Kodi's original panel."
+ msgstr ""
+ 
+ #: addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+-msgctxt "#40818"
++msgctxt "#45018"
+ msgid "Player information"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40837"
++msgctxt "#45037"
+ msgid "Dolby Vision for the menu"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40838"
++msgctxt "#45038"
+ msgid "Keep the Dolby Vision output on while the menu is shown, so Dolby Vision videos start without the TV switching picture format. Needs a 3840x2160 desktop resolution. Other videos switch the output back to their own format. The menu settings below change only how the menu looks."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40839"
++msgctxt "#45039"
+ msgid "Menu brightness"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40840"
++msgctxt "#45040"
+ msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Brightness of white in the menu. 203 nits is the HDR reference white the on-screen display uses over videos; Dolby Vision players use about 300 nits for their menus. Higher levels suit bright rooms."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40841"
++msgctxt "#45041"
+ msgid "Reference (203 nits)"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40842"
++msgctxt "#45042"
+ msgid "300 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40843"
++msgctxt "#45043"
+ msgid "400 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40844"
++msgctxt "#45044"
+ msgid "500 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40845"
++msgctxt "#45045"
+ msgid "600 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40846"
++msgctxt "#45046"
+ msgid "800 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40847"
++msgctxt "#45047"
+ msgid "Menu saturation"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40848"
++msgctxt "#45048"
+ msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Colour saturation of the menu. 100% shows the skin's colours as authored."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40849"
++msgctxt "#45049"
+ msgid "80%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40850"
++msgctxt "#45050"
+ msgid "90%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40851"
++msgctxt "#45051"
+ msgid "100%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40852"
++msgctxt "#45052"
+ msgid "110%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40853"
++msgctxt "#45053"
+ msgid "120%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40854"
++msgctxt "#45054"
+ msgid "130%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40855"
++msgctxt "#45055"
+ msgid "150%"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40856"
++msgctxt "#45056"
+ msgid "Menu gamma"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40857"
++msgctxt "#45057"
+ msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. How dark the darker greys of the menu look. sRGB is the flattest; 2.4 gives the deepest shadows and the most contrast."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40858"
++msgctxt "#45058"
+ msgid "sRGB"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40859"
++msgctxt "#45059"
+ msgid "2.2"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40860"
++msgctxt "#45060"
+ msgid "2.4"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40861"
++msgctxt "#45061"
+ msgid "Menu wide colour"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40862"
++msgctxt "#45062"
+ msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Show the menu's colours on the TV's full wide colour range instead of accurate standard colours, like a TV's vivid colour mode."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40867"
++msgctxt "#45067"
+ msgid "Dolby Vision output for videos and the menu, on YBLOD's Vulkan engine."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40868"
++msgctxt "#45068"
+ msgid "Video"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40869"
++msgctxt "#45069"
+ msgid "Menu output"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40870"
++msgctxt "#45070"
+ msgid "Performance"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40871"
++msgctxt "#45071"
+ msgid "Diagnostics"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40880"
++msgctxt "#45080"
+ msgid "Reuse unchanged controls"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40881"
++msgctxt "#45081"
+ msgid "Reuse the drawn playback controls and menus while they do not change instead of drawing them again for every video frame. Dolby Vision and HDR10 outputs."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40882"
++msgctxt "#45082"
+ msgid "Reuse the home screen over video"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40883"
++msgctxt "#45083"
+ msgid "Also reuse an unchanged home screen while a video plays in the background. Dolby Vision and HDR10 outputs."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40886"
++msgctxt "#45086"
+ msgid "Half-resolution menus"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40887"
++msgctxt "#45087"
+ msgid "Draw the menus and playback controls over videos at 1920x1080 and upscale them. Faster with controls open, especially for 4K 50/60 fps video, but menu text is softer. The video itself is not affected. Dolby Vision and HDR10 outputs."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40888"
++msgctxt "#45088"
+ msgid "Verify output"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40889"
++msgctxt "#45089"
+ msgid "Render every 60th frame again with the engine's reference route and compare the two; differences are written to the log. For troubleshooting: costs GPU time. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40890"
++msgctxt "#45090"
+ msgid "Frame timing log"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40891"
++msgctxt "#45091"
+ msgid "Write Kodi's startup timing for the first frames and the engine's per-frame timing to the log. For troubleshooting only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40892"
++msgctxt "#45092"
+ msgid "GPU timing log"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40893"
++msgctxt "#45093"
+ msgid "Write the GPU time of each engine pass (averaged over 120 frames) to the log. For troubleshooting only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40894"
++msgctxt "#45094"
+ msgid "YBLOD build"
+ msgstr ""
+ 
+ #: xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+-msgctxt "#40900"
++msgctxt "#45100"
+ msgid "The Dolby Vision engine (Vulkan) could not start. Dolby Vision videos play without Dolby Vision until Kodi restarts."
+ msgstr ""
+ 
+ #: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+-msgctxt "#40901"
++msgctxt "#45101"
+ msgid "This connection does not take HDR10 from Dolby Vision. Videos play without conversion until Kodi restarts."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40902"
++msgctxt "#45102"
+ msgid "Enhancement layer upscaling"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40903"
++msgctxt "#45103"
+ msgid "How a Profile 7 full enhancement layer is upscaled to the picture. Annex B (Master Reference): the filters of Dolby's published reference (ETSI CCM Annex B), with CB1 Master Reference's processing for pictures shown at their own size. Bilinear: YBLOD's own processing with a bilinear upscale for every picture. Dolby Vision and HDR10 outputs. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40904"
++msgctxt "#45104"
+ msgid "Annex B (Master Reference)"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40905"
++msgctxt "#45105"
+ msgid "Bilinear"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40906"
++msgctxt "#45106"
+ msgid "Dolby Vision metadata"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40907"
++msgctxt "#45107"
+ msgid "What the TV's Dolby Vision processing gets with each picture. Original: the film's metadata as it is. CM4.0 auto: neutral CM4.0 levels added to CM2.9 films where CroqueMr's CB1 rules call for it: scenes within the TV's peak brightness (below), or, when the TV's peak is unknown, films mastered at up to 1000 nits. CM4.0 always: added to every CM2.9 film. No trims are made up. Dolby Vision output only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40908"
++msgctxt "#45108"
+ msgid "Original"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40909"
++msgctxt "#45109"
+ msgid "CM4.0 auto"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40910"
++msgctxt "#45110"
+ msgid "CM4.0 always"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40911"
++msgctxt "#45111"
+ msgid "Remove L2 trims"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40912"
++msgctxt "#45112"
+ msgid "Leave the film's CM2.9 trims (L2) out of the metadata, so the TV maps those scenes with its own processing. Dolby Vision output only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40913"
++msgctxt "#45113"
+ msgid "TV peak brightness"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40914"
++msgctxt "#45114"
+ msgid "The TV's peak brightness, for CM4.0 auto. From the TV: the peak the TV reports in its EDID; if it reports none, CM4.0 auto decides by the film's mastering instead. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40915"
++msgctxt "#45115"
+ msgid "From the TV"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40916"
++msgctxt "#45116"
+ msgid "1000 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40917"
++msgctxt "#45117"
+ msgid "1500 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40918"
++msgctxt "#45118"
+ msgid "2000 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40919"
++msgctxt "#45119"
+ msgid "4000 nits"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40920"
++msgctxt "#45120"
+ msgid "Convert to HDR10+"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40921"
++msgctxt "#45121"
+ msgid "HDR10+ videos"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40922"
++msgctxt "#45122"
+ msgid "How videos with HDR10+ are played. Native HDR10+: as Kodi plays them (HDR10; YBLOD does not pass HDR10+ through in this release). Dolby Vision: the TV gets them as Dolby Vision Profile 8.1, with Dolby Vision metadata made for each picture from its HDR10+ (brightness levels L1 and L6; the HDR10+ curve and its trims are not translated, so the TV's own Dolby Vision mapping replaces them). A video whose HDR10+ cannot be represented (several processing windows, no usable peak) plays as HDR10. Dolby Vision output only. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40923"
++msgctxt "#45123"
+ msgid "Native HDR10+"
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+-msgctxt "#40924"
++msgctxt "#45124"
+ msgid "Dolby Vision"
+ msgstr ""
+ 
+ #: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+-msgctxt "#40925"
++msgctxt "#45125"
+ msgid "This connection does not take HDR10+ packets. The video continues as HDR10."
+ msgstr ""
+diff --git a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+index b315f27..1282f4b 100644
+--- a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
++++ b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+@@ -115,7 +115,7 @@
+           <texture border="60">buttons/roundbutton-fo.png</texture><colordiffuse>FF1E2428</colordiffuse>
+         </control>
+         <control type="label"><left>36</left><top>22</top><width>820</width><height>48</height>
+-          <font>font30_title</font><textcolor>FFF4F6F6</textcolor><label>$LOCALIZE[40818]</label>
++          <font>font30_title</font><textcolor>FFF4F6F6</textcolor><label>$LOCALIZE[45018]</label>
+         </control>
+         <control type="label"><left>880</left><top>27</top><right>36</right><height>40</height>
+           <font>font10</font><textcolor>FFB9D8C7</textcolor><align>right</align><label>$VAR[DVPanelMode]</label>
+diff --git a/system/settings/linux.xml b/system/settings/linux.xml
+index a1d8428..d60c8df 100644
+--- a/system/settings/linux.xml
++++ b/system/settings/linux.xml
+@@ -237,7 +237,7 @@
+           </dependencies>
+           <control type="list" format="string" />
+         </setting>
+-        <setting id="winsystem.vrr" type="boolean" label="13484" help="36059">
++        <setting id="winsystem.vrr" type="boolean" label="45000" help="45001">
+           <dependencies>
+             <dependency type="visible">
+               <condition on="property" name="isvrrdisplay" />
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index caecf84..9174d79 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -331,9 +331,9 @@
+         </setting>
+       </group>
+     </category>
+-    <category id="dolbyvision" label="40810" help="40867">
+-      <group id="1" label="40868">
+-        <setting id="dvbridge.outputmode" type="integer" label="40811" help="40815">
++    <category id="dolbyvision" label="45010" help="45067">
++      <group id="1" label="45068">
++        <setting id="dvbridge.outputmode" type="integer" label="45011" help="45015">
+           <level>0</level>
+           <default>0</default>
+           <constraints>
+@@ -341,13 +341,13 @@
+           </constraints>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.hdr10plussources" type="integer" label="40921" help="40922">
++        <setting id="dvbridge.hdr10plussources" type="integer" label="45121" help="45122">
+           <level>0</level>
+           <default>0</default>
+           <constraints>
+             <options>
+-              <option label="40923">0</option>
+-              <option label="40924">1</option>
++              <option label="45123">0</option>
++              <option label="45124">1</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -356,13 +356,13 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.elupscaler" type="integer" label="40902" help="40903">
++        <setting id="dvbridge.elupscaler" type="integer" label="45102" help="45103">
+           <level>1</level>
+           <default>0</default>
+           <constraints>
+             <options>
+-              <option label="40904">0</option>
+-              <option label="40905">1</option>
++              <option label="45104">0</option>
++              <option label="45105">1</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -370,14 +370,14 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.dvmetadata" type="integer" label="40906" help="40907">
++        <setting id="dvbridge.dvmetadata" type="integer" label="45106" help="45107">
+           <level>1</level>
+           <default>0</default>
+           <constraints>
+             <options>
+-              <option label="40908">0</option>
+-              <option label="40909">1</option>
+-              <option label="40910">2</option>
++              <option label="45108">0</option>
++              <option label="45109">1</option>
++              <option label="45110">2</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -385,19 +385,19 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.tvpeak" type="integer" parent="dvbridge.dvmetadata" label="40913" help="40914">
++        <setting id="dvbridge.tvpeak" type="integer" parent="dvbridge.dvmetadata" label="45113" help="45114">
+           <level>1</level>
+           <default>0</default>
+           <constraints>
+             <options>
+-              <option label="40915">0</option>
+-              <option label="40843">400</option>
+-              <option label="40845">600</option>
+-              <option label="40846">800</option>
+-              <option label="40916">1000</option>
+-              <option label="40917">1500</option>
+-              <option label="40918">2000</option>
+-              <option label="40919">4000</option>
++              <option label="45115">0</option>
++              <option label="45043">400</option>
++              <option label="45045">600</option>
++              <option label="45046">800</option>
++              <option label="45116">1000</option>
++              <option label="45117">1500</option>
++              <option label="45118">2000</option>
++              <option label="45119">4000</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -406,7 +406,7 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.removel2" type="boolean" label="40911" help="40912">
++        <setting id="dvbridge.removel2" type="boolean" label="45111" help="45112">
+           <level>1</level>
+           <default>false</default>
+           <dependencies>
+@@ -414,14 +414,14 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.enhancedinfo" type="boolean" label="40816" help="40817">
++        <setting id="dvbridge.enhancedinfo" type="boolean" label="45016" help="45017">
+           <level>0</level>
+           <default>true</default>
+           <control type="toggle" />
+         </setting>
+       </group>
+-      <group id="2" label="40869">
+-        <setting id="dvbridge.menumode" type="boolean" label="40837" help="40838">
++      <group id="2" label="45069">
++        <setting id="dvbridge.menumode" type="boolean" label="45037" help="45038">
+           <level>0</level>
+           <default>false</default>
+           <dependencies>
+@@ -429,17 +429,17 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.menubrightness" type="integer" label="40839" help="40840">
++        <setting id="dvbridge.menubrightness" type="integer" label="45039" help="45040">
+           <level>0</level>
+           <default>400</default>
+           <constraints>
+             <options>
+-              <option label="40841">203</option>
+-              <option label="40842">300</option>
+-              <option label="40843">400</option>
+-              <option label="40844">500</option>
+-              <option label="40845">600</option>
+-              <option label="40846">800</option>
++              <option label="45041">203</option>
++              <option label="45042">300</option>
++              <option label="45043">400</option>
++              <option label="45044">500</option>
++              <option label="45045">600</option>
++              <option label="45046">800</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -447,18 +447,18 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.menusaturation" type="integer" label="40847" help="40848">
++        <setting id="dvbridge.menusaturation" type="integer" label="45047" help="45048">
+           <level>0</level>
+           <default>100</default>
+           <constraints>
+             <options>
+-              <option label="40849">80</option>
+-              <option label="40850">90</option>
+-              <option label="40851">100</option>
+-              <option label="40852">110</option>
+-              <option label="40853">120</option>
+-              <option label="40854">130</option>
+-              <option label="40855">150</option>
++              <option label="45049">80</option>
++              <option label="45050">90</option>
++              <option label="45051">100</option>
++              <option label="45052">110</option>
++              <option label="45053">120</option>
++              <option label="45054">130</option>
++              <option label="45055">150</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -466,14 +466,14 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.menugamma" type="integer" label="40856" help="40857">
++        <setting id="dvbridge.menugamma" type="integer" label="45056" help="45057">
+           <level>0</level>
+           <default>0</default>
+           <constraints>
+             <options>
+-              <option label="40858">0</option>
+-              <option label="40859">1</option>
+-              <option label="40860">2</option>
++              <option label="45058">0</option>
++              <option label="45059">1</option>
++              <option label="45060">2</option>
+             </options>
+           </constraints>
+           <dependencies>
+@@ -481,7 +481,7 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
+-        <setting id="dvbridge.menuwidecolour" type="boolean" label="40861" help="40862">
++        <setting id="dvbridge.menuwidecolour" type="boolean" label="45061" help="45062">
+           <level>0</level>
+           <default>false</default>
+           <dependencies>
+@@ -490,8 +490,8 @@
+           <control type="toggle" />
+         </setting>
+       </group>
+-      <group id="3" label="40870">
+-        <setting id="dvbridge.guicache" type="boolean" label="40880" help="40881">
++      <group id="3" label="45070">
++        <setting id="dvbridge.guicache" type="boolean" label="45080" help="45081">
+           <level>3</level>
+           <default>true</default>
+           <dependencies>
+@@ -499,7 +499,7 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.homecache" type="boolean" parent="dvbridge.guicache" label="40882" help="40883">
++        <setting id="dvbridge.homecache" type="boolean" parent="dvbridge.guicache" label="45082" help="45083">
+           <level>3</level>
+           <default>true</default>
+           <dependencies>
+@@ -512,7 +512,7 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.halfgui" type="boolean" label="40886" help="40887">
++        <setting id="dvbridge.halfgui" type="boolean" label="45086" help="45087">
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+@@ -521,8 +521,8 @@
+           <control type="toggle" />
+         </setting>
+       </group>
+-      <group id="4" label="40871">
+-        <setting id="dvbridge.verify" type="boolean" label="40888" help="40889">
++      <group id="4" label="45071">
++        <setting id="dvbridge.verify" type="boolean" label="45088" help="45089">
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+@@ -530,7 +530,7 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.frametrace" type="boolean" label="40890" help="40891">
++        <setting id="dvbridge.frametrace" type="boolean" label="45090" help="45091">
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+@@ -538,7 +538,7 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
+-        <setting id="dvbridge.gputiming" type="boolean" label="40892" help="40893">
++        <setting id="dvbridge.gputiming" type="boolean" label="45092" help="45093">
+           <level>3</level>
+           <default>false</default>
+           <dependencies>
+@@ -549,14 +549,14 @@
+       </group>
+       <group id="5">
+         <!-- Lets skins detect YBLOD: System.GetBool(yblod.build) is false on other Kodi builds. -->
+-        <setting id="yblod.build" type="boolean" label="40894">
++        <setting id="yblod.build" type="boolean" label="45094">
+           <level>4</level>
+           <default>true</default>
+           <visible>false</visible>
+           <control type="toggle" />
+         </setting>
+         <!-- Settings migrations done (DVEngineSettings.h kSettingsVersion). -->
+-        <setting id="dvbridge.settingsversion" type="integer" label="40894">
++        <setting id="dvbridge.settingsversion" type="integer" label="45094">
+           <level>4</level>
+           <default>0</default>
+           <visible>false</visible>

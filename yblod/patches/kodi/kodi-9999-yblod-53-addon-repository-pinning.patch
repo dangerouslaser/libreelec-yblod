@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:59:20 -0500
+Subject: [PATCH 4/9] yblod-53: update YBLOD's system add-ons from its own
+ repository only
+
+yblod-20 let every optional system add-on take updates from any
+installed third-party repository (m_latestPrivateVersions), bypassing
+the origin pinning that protects system add-ons: any repository a user
+installed could replace them.
+
+The branch exists for the add-ons YBLOD pre-installs from
+repository.dangerouslaser (Estuary YBLOD, the LG edition's webOS add-on
+and the repository add-on itself). Look for their updates in that
+repository's entries of m_latestVersionsByRepo only (keyed by the
+repository's id, which is the origin of each remote add-on; disabled
+repositories are not loaded). As for an add-on installed from a
+third-party repository, which always updates from its origin repository,
+the "update official add-ons from" mode is not consulted: it defaults to
+official repositories only, so honouring it would stop these add-ons
+from ever updating. The automatic-update setting and per-add-on update
+rules still apply downstream (CRepositoryUpdater,
+CAddonMgr::GetAddonUpdateCandidates).
+---
+ xbmc/addons/AddonRepos.cpp | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/addons/AddonRepos.cpp b/xbmc/addons/AddonRepos.cpp
+index 2fd7668..43f838c 100644
+--- a/xbmc/addons/AddonRepos.cpp
++++ b/xbmc/addons/AddonRepos.cpp
+@@ -29,6 +29,8 @@ namespace
+ {
+ constexpr auto ALL_ADDON_IDS = "";
+ constexpr auto ALL_REPOSITORIES = nullptr;
++// The repository that updates the optional system add-ons YBLOD pre-installs.
++constexpr auto YBLOD_REPOSITORY = "repository.dangerouslaser";
+ } // anonymous namespace
+ 
+ using namespace ADDON;
+@@ -262,13 +264,17 @@ bool CAddonRepos::DoAddonUpdateCheck(const std::shared_ptr<IAddon>& addon,
+       }
+     }
+   }
+-  // YBLOD: optional system add-ons pre-installed from a third-party repository (the LG edition's
+-  // skin and webOS add-on) keep the system origin, so they would only ever be updated from the
+-  // official repositories. Also take updates from an installed repository that carries them.
++  // YBLOD: the optional system add-ons YBLOD pre-installs from its own repository (Estuary
++  // YBLOD, the LG edition's webOS add-on and the repository itself) keep the system origin, so
++  // they would only ever be updated from the official repositories. Take their updates from that
++  // repository and no other: like an add-on installed from a third-party repository, which
++  // updates from its origin repository whatever the update mode.
+   else if (addon->Origin() == ORIGIN_SYSTEM && !hasOfficialUpdate &&
+            CServiceBroker::GetAddonMgr().IsOptionalSystemAddon(addon->ID()))
+   {
+-    FindAddonAndCheckForUpdate(addon, m_latestPrivateVersions, update);
++    const auto repoEntryIt = m_latestVersionsByRepo.find(YBLOD_REPOSITORY);
++    if (repoEntryIt != m_latestVersionsByRepo.end())
++      FindAddonAndCheckForUpdate(addon, repoEntryIt->second, update);
+   }
+ 
+   if (update)

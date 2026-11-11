@@ -1,0 +1,513 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:57:59 -0500
+Subject: [PATCH 1/9] yblod-50: resynchronise a Dolby Vision FEL after a
+ pairing fault
+
+A single fault in the enhancement-layer pairing (a packet without a
+time, a parser miss, a missing enhancement picture, 16 base pictures
+waiting) froze the video for good: GetPicture returned VC_ERROR on every
+call until a seek, the base decoder was no longer drained, and nothing
+said why.
+
+dvbridge_fel now records why the pairing failed (dvbridge_fel_error).
+The decoder logs the first fault of a title at WARNING with that reason,
+restarts the pairing (it resynchronises at the next common key frame, as
+after a seek) and meanwhile shows the base pictures with their metadata,
+as a MEL plays. After DV_FEL_RESYNCS (3) restarts the enhancement layer
+is not decoded until the next seek. At the end of the stream base
+pictures left without a partner are shown instead of an error.
+
+An enhancement-layer decoder that cannot be created no longer fails the
+whole decoder: the title plays from the base layer and metadata.
+---
+ tools/dvbridge/dvbridge_fel.c                 |  79 ++++++-----
+ tools/dvbridge/dvbridge_fel.h                 |   2 +
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp   | 126 ++++++++++++++----
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.h     |  13 +-
+ 4 files changed, 160 insertions(+), 60 deletions(-)
+
+diff --git a/tools/dvbridge/dvbridge_fel.c b/tools/dvbridge/dvbridge_fel.c
+index 7d3a222..66f4532 100644
+--- a/tools/dvbridge/dvbridge_fel.c
++++ b/tools/dvbridge/dvbridge_fel.c
+@@ -66,8 +66,17 @@ struct dvbridge_fel {
+     int sync_key_poc;
+     int64_t sync_key_identity, sync_key_pts;
+     int sync_base_poc[QUEUE_MAX], sync_el_poc[QUEUE_MAX];
++    const char *error; /* why the pairing failed: the first reason since the last reset */
+ };
+ 
++static bool fail_with(struct dvbridge_fel *f, const char *error)
++{
++    if (!f->error)
++        f->error = error;
++    f->failed = true;
++    return false;
++}
++
+ static enum AVPixelFormat hardware_format(AVCodecContext *ctx, const enum AVPixelFormat *formats)
+ {
+     bool found = false;
+@@ -105,6 +114,7 @@ static void clear_queues(struct dvbridge_fel *f)
+     f->num_packets = f->num_frames = 0;
+     f->packet_bytes = 0;
+     f->failed = f->draining = f->sent_eof = f->eof = false;
++    f->error = NULL;
+     f->num_times = 0;
+     f->sync_key = f->sync_el_key = false;
+ }
+@@ -125,7 +135,7 @@ void dvbridge_fel_reset(struct dvbridge_fel *f)
+         if (order->parser)
+             order->parser->flags = PARSER_FLAG_COMPLETE_FRAMES;
+         else
+-            f->failed = true;
++            fail_with(f, "out of memory");
+         order->offset = order->maximum = 0;
+         order->seen = false;
+     }
+@@ -194,13 +204,14 @@ static bool receive_frames(struct dvbridge_fel *f)
+     while (f->num_frames < QUEUE_MAX) {
+         AVFrame *frame = av_frame_alloc();
+         if (!frame)
+-            return false;
++            return fail_with(f, "out of memory");
+         int result = avcodec_receive_frame(f->decoder, frame);
+         if (result < 0) {
+             av_frame_free(&frame);
+             if (result == AVERROR_EOF)
+                 f->eof = true;
+-            return result == AVERROR(EAGAIN) || result == AVERROR_EOF;
++            return result == AVERROR(EAGAIN) || result == AVERROR_EOF ||
++                   fail_with(f, "the enhancement-layer decoder failed");
+         }
+         /* This timestamp was mapped from HEVC picture order before decoding,
+          * not borrowed from the BL packet carrying this EL access unit. */
+@@ -208,12 +219,12 @@ static bool receive_frames(struct dvbridge_fel *f)
+             frame->pts = frame->best_effort_timestamp;
+         if (frame->format != AV_PIX_FMT_VAAPI || frame->pts == AV_NOPTS_VALUE) {
+             av_frame_free(&frame);
+-            return false;
++            return fail_with(f, "an enhancement picture is not a timed VAAPI surface");
+         }
+         for (unsigned i = 0; i < f->num_frames; ++i) {
+             if (f->frames[i]->pts == frame->pts) {
+                 av_frame_free(&frame);
+-                return false;
++                return fail_with(f, "two enhancement pictures have the same time");
+             }
+         }
+         f->frames[f->num_frames++] = frame;
+@@ -238,7 +249,7 @@ static bool pump(struct dvbridge_fel *f)
+             ++match;
+         if (match == f->num_times) {
+             if (f->draining)
+-                goto fail;
++                return fail_with(f, "an enhancement picture has no base picture at the end");
+             break; /* A reference EL picture can precede its corresponding BL. */
+         }
+         packet->pts = f->times[match].pts;
+@@ -247,7 +258,7 @@ static bool pump(struct dvbridge_fel *f)
+         if (result == AVERROR(EAGAIN))
+             break;
+         if (result < 0)
+-            goto fail;
++            return fail_with(f, "the enhancement-layer decoder rejected a picture");
+         --f->num_times;
+         memmove(f->times + match, f->times + match + 1,
+                 (f->num_times - match) * sizeof(*f->times));
+@@ -263,7 +274,7 @@ static bool pump(struct dvbridge_fel *f)
+         int result = avcodec_send_packet(f->decoder, NULL);
+         if (result != AVERROR(EAGAIN)) {
+             if (result < 0 && result != AVERROR_EOF)
+-                goto fail;
++                return fail_with(f, "the enhancement-layer decoder could not drain");
+             f->sent_eof = true;
+         }
+         if (!receive_frames(f))
+@@ -271,8 +282,7 @@ static bool pump(struct dvbridge_fel *f)
+     }
+     return true;
+ fail:
+-    f->failed = true;
+-    return false;
++    return fail_with(f, "the enhancement-layer decoder failed");
+ }
+ 
+ bool dvbridge_fel_device(struct dvbridge_fel *f, AVBufferRef *device)
+@@ -280,12 +290,11 @@ bool dvbridge_fel_device(struct dvbridge_fel *f, AVBufferRef *device)
+     if (!f || !device || ((AVHWDeviceContext *)device->data)->type != AV_HWDEVICE_TYPE_VAAPI)
+         return false;
+     if (f->opened)
+-        return f->decoder->hw_device_ctx->data == device->data && pump(f);
++        return f->decoder->hw_device_ctx->data == device->data ? pump(f)
++               : fail_with(f, "the base layer changed its VAAPI device");
+     f->decoder->hw_device_ctx = av_buffer_ref(device);
+-    if (!f->decoder->hw_device_ctx || avcodec_open2(f->decoder, f->decoder->codec, NULL) < 0) {
+-        f->failed = true;
+-        return false;
+-    }
++    if (!f->decoder->hw_device_ctx || avcodec_open2(f->decoder, f->decoder->codec, NULL) < 0)
++        return fail_with(f, "the enhancement-layer decoder could not open");
+     f->opened = true;
+     return pump(f);
+ }
+@@ -293,12 +302,17 @@ bool dvbridge_fel_device(struct dvbridge_fel *f, AVBufferRef *device)
+ 
+ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+ {
+-    if (!f || !packet || f->failed || f->draining || packet->size <= 0 ||
+-        packet->pts == AV_NOPTS_VALUE)
++    if (!f || !packet || f->failed)
+         return false;
++    if (f->draining)
++        return fail_with(f, "a packet arrived after the end of the stream");
++    if (packet->size <= 0 || packet->pts == AV_NOPTS_VALUE)
++        return fail_with(f, "a base-layer packet has no time");
+     int64_t base_identity;
+-    if (f->num_times == MAP_MAX || !picture_identity(&f->base_order, packet, &base_identity))
+-        goto fail;
++    if (f->num_times == MAP_MAX)
++        return fail_with(f, "too many base pictures wait for their enhancement pictures");
++    if (!picture_identity(&f->base_order, packet, &base_identity))
++        return fail_with(f, "the base-layer parser could not order a picture");
+     if (f->synchronizing) {
+         if (f->sync_el_key && ++f->sync_key_age >= QUEUE_MAX) {
+             clear_packets(f);
+@@ -322,7 +336,7 @@ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+     }
+     for (unsigned i = 0; i < f->num_times; ++i)
+         if (f->times[i].order == base_identity)
+-            goto fail;
++            return fail_with(f, "two base pictures have the same order");
+     f->times[f->num_times].order = base_identity;
+     f->times[f->num_times++].pts = packet->pts;
+     AVPacket *copy = av_packet_clone(packet);
+@@ -345,10 +359,13 @@ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+         }
+         int64_t enhancement_identity;
+         if (f->num_packets == QUEUE_MAX || copy->size <= 0 ||
+-            (size_t)copy->size > PACKET_BYTES_MAX - f->packet_bytes ||
+-            !picture_identity(&f->enhancement_order, copy, &enhancement_identity)) {
++            (size_t)copy->size > PACKET_BYTES_MAX - f->packet_bytes) {
+             av_packet_free(&copy);
+-            goto fail;
++            return fail_with(f, "too many enhancement pictures wait for their base pictures");
++        }
++        if (!picture_identity(&f->enhancement_order, copy, &enhancement_identity)) {
++            av_packet_free(&copy);
++            return fail_with(f, "the enhancement-layer parser could not order a picture");
+         }
+         if (f->synchronizing) {
+             const AVCodecParserContext *ep = f->enhancement_order.parser;
+@@ -372,7 +389,7 @@ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+             if (!common_key && !early_key && !el_idr) {
+                 if (++f->preroll_packets > 1024) {
+                     av_packet_free(&copy);
+-                    goto fail;
++                    return fail_with(f, "no common key frame in 1024 pictures");
+                 }
+                 if (ep->key_frame == 1) {
+                     clear_packets(f);
+@@ -436,18 +453,15 @@ bool dvbridge_fel_submit(struct dvbridge_fel *f, const AVPacket *packet)
+         f->packets[f->num_packets++] = copy;
+     }
+ fail:
+-    f->failed = true;
+-    return false;
++    return fail_with(f, "the enhancement layer could not be separated");
+ }
+ 
+ bool dvbridge_fel_drain(struct dvbridge_fel *f)
+ {
+     if (!f)
+         return false;
+-    if (f->synchronizing) {
+-        f->failed = true;
+-        return false; /* EOF cannot supply the missing random-access picture. */
+-    }
++    if (f->synchronizing) /* EOF cannot supply the missing random-access picture. */
++        return fail_with(f, "the stream ended before a common key frame");
+     f->draining = true;
+     return pump(f);
+ }
+@@ -483,6 +497,11 @@ bool dvbridge_fel_failed(const struct dvbridge_fel *f)
+     return !f || f->failed;
+ }
+ 
++const char *dvbridge_fel_error(const struct dvbridge_fel *f)
++{
++    return f && f->failed && f->error ? f->error : "unknown";
++}
++
+ bool dvbridge_fel_exhausted(const struct dvbridge_fel *f)
+ {
+     return f && !f->failed && f->eof && !f->num_frames && !f->num_packets;
+diff --git a/tools/dvbridge/dvbridge_fel.h b/tools/dvbridge/dvbridge_fel.h
+index 1ff8693..d3d7e82 100644
+--- a/tools/dvbridge/dvbridge_fel.h
++++ b/tools/dvbridge/dvbridge_fel.h
+@@ -15,6 +15,8 @@ bool dvbridge_fel_drain(struct dvbridge_fel *fel);
+ /* 1: exact pair, 0: need input, 2: discard preroll, -1: missing pair / failure. */
+ int dvbridge_fel_take(struct dvbridge_fel *fel, int64_t pts, AVFrame **frame);
+ bool dvbridge_fel_failed(const struct dvbridge_fel *fel);
++/* Why the pairing failed, for the log; never NULL. */
++const char *dvbridge_fel_error(const struct dvbridge_fel *fel);
+ /* Decoder reached EOF and no enhancement surface remains to pair. */
+ bool dvbridge_fel_exhausted(const struct dvbridge_fel *fel);
+ #endif
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 3a4ced7..16dfc7c 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -378,6 +378,11 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+   m_dvNativeOutput = DVBRIDGE::WantsNativeOutput(hints);
+   m_dvLayerChecked = false;
+   m_dvMel = false;
++  m_dvFelFaults = 0;
++  m_dvFelResyncing = false;
++  m_dvFelBypass = false;
++  m_dvFelWarned = false;
++  m_dvFelUnavailable = false;
+   m_dvHasStreamDisplayMetadata = false;
+   m_dvHasStreamLightMetadata = false;
+   // HDR10+ -> Dolby Vision: an HDR10 stream (no Dolby Vision of its own) whose pictures carry
+@@ -559,9 +564,8 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+   if (NeedsDVEnhancement())
+   {
+     AVCodecParameters* parameters = avcodec_parameters_alloc();
+-    if (!parameters)
+-      return false;
+-    int result = avcodec_parameters_from_context(parameters, m_pCodecContext);
++    int result = parameters ? avcodec_parameters_from_context(parameters, m_pCodecContext)
++                            : AVERROR(ENOMEM);
+     if (result >= 0 && hints.doviELConfig)
+     {
+       AVPacketSideData* side = av_packet_side_data_new(&parameters->coded_side_data,
+@@ -574,8 +578,13 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+     if (result >= 0)
+       m_dvFel = {dvbridge_fel_create(parameters, AVRational{1, AV_TIME_BASE}), dvbridge_fel_destroy};
+     avcodec_parameters_free(&parameters);
++    // The base layer and its metadata still play, as a MEL's do.
+     if (!m_dvFel)
+-      return false;
++    {
++      CLog::Log(LOGWARNING, "Dolby Vision FEL: the enhancement-layer decoder could not be created; "
++                            "showing the base layer and metadata");
++      m_dvFelUnavailable = true;
++    }
+   }
+ #endif
+   return true;
+@@ -586,7 +595,10 @@ void CDVDVideoCodecFFmpeg::Dispose()
+ #ifdef HAVE_DVBRIDGE
+   m_dvPending.clear();
+   m_dvFel.reset();
+-  m_dvFailed = false;
++  m_dvFelFaults = 0;
++  m_dvFelResyncing = false;
++  m_dvFelBypass = false;
++  m_dvFelUnavailable = false;
+   m_dvNativeOutput = false;
+   m_dvLayerChecked = false;
+   m_dvMel = false;
+@@ -747,8 +759,8 @@ bool CDVDVideoCodecFFmpeg::AddData(const DemuxPacket &packet)
+   int ret = avcodec_send_packet(m_pCodecContext, avpkt);
+ #ifdef HAVE_DVBRIDGE
+   // Submit once, only after BL accepted the packet (Kodi retries EAGAIN).
+-  if (ret == 0 && m_dvFel && !dvbridge_fel_submit(m_dvFel.get(), avpkt))
+-    m_dvFailed = true;
++  if (ret == 0 && m_dvFel && !m_dvFelBypass && !dvbridge_fel_submit(m_dvFel.get(), avpkt))
++    DVFelFault(dvbridge_fel_error(m_dvFel.get()));
+ #endif
+ 
+   //! @todo: properly handle avpkt side_data. this works around our improper use of the side_data
+@@ -786,32 +798,70 @@ bool CDVDVideoCodecFFmpeg::AddData(const DemuxPacket &packet)
+   return true;
+ }
+ 
+-CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPicture)
+-{
+ #ifdef HAVE_DVBRIDGE
+-  // Pictures that waited for an EL partner before the stream turned out a MEL.
+-  if (!m_dvFel && !m_dvPending.empty())
++void CDVDVideoCodecFFmpeg::DVFelFault(const char* reason)
++{
++  ++m_dvFelFaults;
++  if (!m_dvFelWarned)
+   {
+-    pVideoPicture->CopyRef(*m_dvPending.front());
+-    m_dvPending.pop_front();
+-    return VC_PICTURE;
++    m_dvFelWarned = true;
++    CLog::Log(LOGWARNING,
++              "Dolby Vision FEL: the enhancement layer lost its pairing ({}); showing the base "
++              "layer and metadata until the next common key frame (logged once per title)",
++              reason);
+   }
+-  if (m_dvFel)
++  else
++    CLog::Log(LOGDEBUG, "Dolby Vision FEL: pairing fault {} since the last seek: {}",
++              m_dvFelFaults, reason);
++  dvbridge_fel_reset(m_dvFel.get());
++  m_dvFelResyncing = true;
++  if (m_dvFelFaults > DV_FEL_RESYNCS && !m_dvFelBypass)
++  {
++    m_dvFelBypass = true;
++    CLog::Log(LOGWARNING,
++              "Dolby Vision FEL: {} pairing faults since the last seek; the enhancement layer is "
++              "not decoded until the next seek",
++              m_dvFelFaults);
++  }
++}
++
++CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::DVEmitUnpaired(VideoPicture* picture)
++{
++  m_dvPending.front()->doviElSkipped = true;
++  picture->CopyRef(*m_dvPending.front());
++  m_dvPending.pop_front();
++  return VC_PICTURE;
++}
++#endif
++
++CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPicture)
++{
++#ifdef HAVE_DVBRIDGE
++  if (m_dvFel && !m_dvFelBypass && dvbridge_fel_failed(m_dvFel.get()))
++    DVFelFault(dvbridge_fel_error(m_dvFel.get()));
++  if (m_dvFel && !m_dvFelBypass)
+   {
+-    if (m_dvFailed || dvbridge_fel_failed(m_dvFel.get()))
+-      return VC_ERROR;
+     auto emit = [&]() -> VCReturn
+     {
+       if (m_dvPending.empty())
+         return VC_NONE;
++      if (m_dvFelBypass)
++        return DVEmitUnpaired(pVideoPicture);
+       auto& base = m_dvPending.front();
+       if (base->doviSourcePts == AV_NOPTS_VALUE)
+-        return VC_ERROR;
++      {
++        DVFelFault("a base picture has no time");
++        return DVEmitUnpaired(pVideoPicture);
++      }
+       AVFrame* enhancement = nullptr;
+       int result = dvbridge_fel_take(m_dvFel.get(), base->doviSourcePts,
+                                      &enhancement);
+       if (result == 2)
+       {
++        // Before the first common key frame: Kodi's preroll after a seek, but shown while the
++        // pairing restarts after a fault.
++        if (m_dvFelResyncing)
++          return DVEmitUnpaired(pVideoPicture);
+         m_dvPending.pop_front();
+         return VC_BUFFER;
+       }
+@@ -825,10 +875,17 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+           m_dvPending.clear();
+           return VC_EOF;
+         }
+-        return VC_ERROR;
++        DVFelFault(dvbridge_fel_failed(m_dvFel.get()) ? dvbridge_fel_error(m_dvFel.get())
++                                                     : "an enhancement picture is missing");
++        return DVEmitUnpaired(pVideoPicture);
+       }
+       if (!result)
+         return VC_NONE;
++      if (m_dvFelResyncing)
++      {
++        m_dvFelResyncing = false;
++        CLog::Log(LOGDEBUG, "Dolby Vision FEL: the enhancement layer is paired again");
++      }
+       base->doviEnhancement = {enhancement, [](AVFrame* f) { av_frame_free(&f); }};
+       pVideoPicture->CopyRef(*base);
+       m_dvPending.pop_front();
+@@ -838,7 +895,10 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+     if (paired != VC_NONE)
+       return paired;
+     if (m_dvPending.size() >= 16)
+-      return VC_ERROR;
++    {
++      DVFelFault("16 base pictures wait for their enhancement pictures");
++      return DVEmitUnpaired(pVideoPicture);
++    }
+     auto base = std::make_shared<VideoPicture>();
+     base->Reset();
+     VCReturn result = GetBasePicture(base.get());
+@@ -857,26 +917,32 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::GetPicture(VideoPicture* pVideoPi
+       m_dvPending.pop_front();
+       return VC_PICTURE;
+     }
++    if (result == VC_PICTURE)
++      m_dvPending.push_back(std::move(base));
+     if (m_pCodecContext->hw_frames_ctx)
+     {
+       auto* frames = reinterpret_cast<AVHWFramesContext*>(m_pCodecContext->hw_frames_ctx->data);
+       if (!dvbridge_fel_device(m_dvFel.get(), frames->device_ref))
+-        return VC_ERROR;
++        DVFelFault(dvbridge_fel_error(m_dvFel.get()));
+     }
+-    if (result == VC_PICTURE)
+-      m_dvPending.push_back(std::move(base));
+-    if (result == VC_EOF || (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN))
+-      if (!dvbridge_fel_drain(m_dvFel.get()))
+-        return VC_ERROR;
++    // While the pairing restarts there is nothing to drain: its pictures are shown unpaired.
++    if ((result == VC_EOF || (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN)) && !m_dvFelResyncing &&
++        !dvbridge_fel_drain(m_dvFel.get()))
++      DVFelFault(dvbridge_fel_error(m_dvFel.get()));
+     paired = emit();
+     if (paired != VC_NONE)
+       return paired;
++    // The base layer ended: nothing is left to pair the rest with.
+     if (result == VC_EOF && !m_dvPending.empty())
+-      return VC_ERROR;
++      return DVEmitUnpaired(pVideoPicture);
+     return result == VC_PICTURE ? VC_BUFFER : result;
+   }
++  // Pictures that waited for an EL partner before the stream turned out a MEL, or before the
++  // pairing was given up.
++  if (!m_dvPending.empty())
++    return DVEmitUnpaired(pVideoPicture);
+   VCReturn result = GetBasePicture(pVideoPicture);
+-  if (result == VC_PICTURE && m_dvMel)
++  if (result == VC_PICTURE && (m_dvMel || m_dvFelBypass || m_dvFelUnavailable))
+     pVideoPicture->doviElSkipped = true;
+   return result;
+ #else
+@@ -1255,7 +1321,9 @@ void CDVDVideoCodecFFmpeg::Reset()
+ #ifdef HAVE_DVBRIDGE
+   m_dvPending.clear();
+   dvbridge_fel_reset(m_dvFel.get());
+-  m_dvFailed = false;
++  m_dvFelFaults = 0;
++  m_dvFelResyncing = false;
++  m_dvFelBypass = false;
+   // After a seek the next HDR10+ picture starts a scene.
+   m_dvHDR10PlusPreviousSize = 0;
+ #endif
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index f615de7..0a80d0b 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -63,7 +63,18 @@ protected:
+ #ifdef HAVE_DVBRIDGE
+   std::shared_ptr<dvbridge_fel> m_dvFel;
+   std::deque<std::shared_ptr<VideoPicture>> m_dvPending;
+-  bool m_dvFailed{false};
++  // A pairing fault (a packet without a time, a parser miss, a missing enhancement picture...)
++  // restarts the pairing at the next common key frame; meanwhile the pictures play as a MEL's do,
++  // base layer and metadata. After DV_FEL_RESYNCS restarts the enhancement layer is not decoded
++  // until the next seek.
++  static constexpr unsigned DV_FEL_RESYNCS = 3;
++  void DVFelFault(const char* reason);
++  VCReturn DVEmitUnpaired(VideoPicture* picture);
++  unsigned m_dvFelFaults{0};
++  bool m_dvFelResyncing{false};
++  bool m_dvFelBypass{false};
++  bool m_dvFelWarned{false};
++  bool m_dvFelUnavailable{false}; // the enhancement-layer decoder could not be created
+   // Profile 7: the first RPU decides whether the stream is a MEL (Dolby: a
+   // bitstream is MEL or non-MEL throughout); a MEL's EL is not decoded.
+   bool m_dvLayerChecked{false};
