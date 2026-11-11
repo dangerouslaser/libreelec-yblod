@@ -60,10 +60,10 @@ index 0a5e70681f6f..c8d263d21cb6 100644
  
  	/* Content Match Refresh Rate state */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 1bb4a53c0ae0..61fade1a792d 100644
+index dc2fac4440c5..983cdfdac766 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -2802,6 +2802,167 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
+@@ -2809,6 +2809,167 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
  	return false;
  }
  
@@ -231,7 +231,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  /*
   * Replace the requested timing with the 60 Hz base timing, so everything
   * computed from the mode (TMDS clock, AVI VIC, quantization range, Dolby
-@@ -2818,6 +2979,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2825,6 +2986,7 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	struct intel_display *display = to_intel_display(encoder);
  	struct drm_display_mode *m = &crtc_state->hw.adjusted_mode;
  	const struct intel_hdmi_qms_base *b = NULL;
@@ -239,7 +239,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  	u64 num, den, g;
  	int i;
  
-@@ -2854,7 +3016,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2861,7 +3023,14 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	     !info->hdmi.scdc.scrambling.supported))
  		return;
  
@@ -255,7 +255,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  		return;
  
  	/*
-@@ -2922,6 +3091,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
+@@ -2929,6 +3098,15 @@ static void intel_hdmi_qms_prepare(struct intel_encoder *encoder,
  	crtc_state->qms.base_vtotal = b->vtotal;
  	crtc_state->qms.lines_num = num;
  	crtc_state->qms.lines_den = den;
@@ -271,7 +271,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  }
  
  static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
-@@ -2942,7 +3120,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
+@@ -2949,7 +3127,25 @@ static void intel_hdmi_qms_stretch(struct intel_crtc_state *crtc_state,
  	crtc_state->infoframes.enable |=
  		intel_hdmi_infoframe_enable(HDMI_PACKET_TYPE_GAMUT_METADATA);
  
@@ -298,7 +298,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  }
  
  /*
-@@ -2983,10 +3179,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
+@@ -2990,10 +3186,31 @@ static void intel_hdmi_qms_write_vtem(struct intel_display *display,
  	};
  	int i;
  
@@ -334,7 +334,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  
  	/* rewritten in place: the packet must not miss a frame */
  	for (i = 0; i < VIDEO_DIP_GMP_DATA_SIZE / 4; i++)
-@@ -3099,7 +3316,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
+@@ -3106,7 +3323,8 @@ void intel_hdmi_qms_pre_update(struct intel_atomic_state *state,
  
  	intel_hdmi_qms_pacer_stop(crtc);
  
@@ -344,7 +344,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  		return;
  
  	/* announce the next rate for four frames at the current one */
-@@ -3122,13 +3340,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
+@@ -3129,13 +3347,14 @@ void intel_hdmi_qms_post_update(struct intel_atomic_state *state,
  	    (!modeset && !intel_hdmi_qms_rate_changed(old_crtc_state, new_crtc_state)))
  		return;
  
@@ -362,7 +362,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  		    new_crtc_state->qms.lines_num, new_crtc_state->qms.lines_den);
  }
  
-@@ -3548,8 +3767,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
+@@ -3555,8 +3774,13 @@ static int intel_hdmi_get_modes(struct drm_connector *_connector)
  {
  	struct intel_connector *connector = to_intel_connector(_connector);
  
@@ -377,7 +377,7 @@ index 1bb4a53c0ae0..61fade1a792d 100644
  }
  
  static int
-@@ -3642,6 +3866,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3649,6 +3873,10 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  
  	if (!HAS_GMCH(display))
  		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);

@@ -17,7 +17,8 @@ Ported from CroqueMr's CB1 (libreelec-x86-DV-pcon, upstream/main
   the atomic commit that carries its framebuffer (primary-plane mask taken
   before helpers add planes);
 - linux-9942-intel-hdr10plus-internal-recovery.patch (lessbones): i915's
-  internal commits (link recovery) include the primary plane;
+  internal commits (link recovery) include the primary plane (not taken
+  any more, see the changes below);
 - the HDR10+ parts of CB1's i915 (linux-9900-00/01/04/07) and amdgpu
   (linux-9920) patches.
 CB1 docs: CB1/docs/HDR10PLUS.md, docs/cb1/DRIVER-COVERAGE.md,
@@ -110,9 +111,10 @@ TEST_ONLY to probe) unless all of:
   actually runs at >= 10 bpc (i915 pipe_bpp >= 30, amdgpu stream depth);
   except in the DV tunnel's hdr10 format (12-bit 4:2:2 on an 8 bpc pipe);
 - DVBRIDGE_DV_STANDARD_LAB is 0, or 1 with DVBRIDGE_TUNNEL_FORMAT hdr10;
-- the same commit sets the CRTC's primary plane with a framebuffer (the
-  picture the packet describes); CRTC active; no async flip (page-flip
-  with DRM_MODE_PAGE_FLIP_ASYNC); no 3D mode;
+- a commit that sets a new packet (a blob other than the one set) also
+  sets the CRTC's primary plane with a framebuffer (the picture the
+  packet describes); CRTC active; no async flip (page-flip with
+  DRM_MODE_PAGE_FLIP_ASYNC); no 3D mode;
 - amdgpu: the stream is native HDMI TMDS with no HDMI VIC.
 
 Lifetime:
@@ -121,8 +123,8 @@ Lifetime:
   queue off while HDR10+ is on; amdgpu: in the same DC stream update as
   the surface). Each picture's commit sets a new blob; the kernel never
   repeats or advances packets on its own. A commit that does not touch
-  the connector keeps the last packet (it stays on the link until
-  replaced).
+  the connector, or leaves the blob as it is, keeps the last packet (it
+  stays on the link until replaced) and needs no framebuffer.
 - Turning HDR10+ on (0 -> blob) or off (blob -> 0) is a modeset
   (ALLOW_MODESET): the VSIF changes owner and, for 4K24/25/30 HDMI-VIC
   timings, the AVI VIC changes. Do it with the HDR mode change at playback
@@ -135,17 +137,28 @@ Lifetime:
 - Hotplug/EDID change: the VSVDB is re-read; a stale packet whose version
   the new sink doesn't support makes the next commit fail -EINVAL; clear
   the property and fall back to HDR10.
-- i915 internal commits (link recovery) add the primary plane themselves
-  (CB1 linux-9942), so they pass the frame rule with the last packet.
+- The driver's own commits (link recovery) and modesets that another
+  pipe's commit pulls this pipe into (a cdclk change) leave the blob as
+  it is, so they keep the last packet.
 
 Untested on hardware: no HDR10+ TV in the YBLOD lab (LG sets have no
 HDR10+). Compile-checked only (i915, xe, amdgpu, -Werror, on YBLOD's
 Linux 7.3 series).
 
-Regrouped from linux-9932-hdr10plus (YBLOD 0.4.0 and 0.4.1); no code
-change.
+Regrouped from linux-9932-hdr10plus (YBLOD 0.4.0 and 0.4.1).
+
+Changed since YBLOD 0.4.1:
+- the framebuffer rule applies to commits that set a new packet only
+  (i915 and amdgpu). It applied to every commit that had the connector,
+  and the primary-plane mask is taken before the driver adds states: an
+  unrelated commit that made i915 modeset all pipes (a cdclk change)
+  pulled the HDR10+ connector in and failed with -EINVAL while HDR10+
+  was on.
+- i915's internal modesets no longer add the primary plane (CB1's
+  linux-9942): they leave the packet as it is, so they pass without it,
+  and they did it whether or not HDR10+ was in use.
 ---
- .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 131 ++++++++++++++++++
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 138 ++++++++++++++++++
  .../display/amdgpu_dm/amdgpu_dm_connector.c   |  19 ++-
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  |   9 ++
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h  |   4 +
@@ -156,20 +169,20 @@ change.
  drivers/gpu/drm/drm_connector.c               | 107 ++++++++++++++
  drivers/gpu/drm/drm_edid.c                    |   9 ++
  drivers/gpu/drm/i915/display/intel_atomic.c   |  14 ++
- drivers/gpu/drm/i915/display/intel_display.c  |  39 +++++-
+ drivers/gpu/drm/i915/display/intel_display.c  |  26 +++-
  .../drm/i915/display/intel_display_types.h    |   2 +
- drivers/gpu/drm/i915/display/intel_hdmi.c     | 121 +++++++++++++++-
- drivers/gpu/drm/i915/display/intel_hdmi.h     |   8 ++
- drivers/video/hdmi.c                          |  54 ++++++++
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 128 +++++++++++++++-
+ drivers/gpu/drm/i915/display/intel_hdmi.h     |   8 +
+ drivers/video/hdmi.c                          |  54 +++++++
  include/drm/drm_connector.h                   |  11 ++
- include/drm/drm_hdr10plus.h                   |  48 +++++++
+ include/drm/drm_hdr10plus.h                   |  48 ++++++
  include/drm/drm_mode_config.h                 |   2 +
  include/linux/hdmi.h                          |  14 ++
- 20 files changed, 611 insertions(+), 4 deletions(-)
+ 20 files changed, 612 insertions(+), 4 deletions(-)
  create mode 100644 include/drm/drm_hdr10plus.h
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 4396874b95f7..6f698f2cdd52 100644
+index 4396874b95f7..e134395f7e84 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -98,6 +98,7 @@
@@ -180,7 +193,7 @@ index 4396874b95f7..6f698f2cdd52 100644
  #include <drm/drm_eld.h>
  #include <drm/drm_mode.h>
  #include <drm/drm_utils.h>
-@@ -3798,6 +3799,97 @@ static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
+@@ -3798,6 +3799,103 @@ static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
  		drm_crtc_vblank_get(&acrtc->base);
  }
  
@@ -228,35 +241,41 @@ index 4396874b95f7..6f698f2cdd52 100644
 +}
 +
 +/*
-+ * Every commit that carries an HDR10+ blob must carry the CRTC's primary
++ * A commit that sets a new HDR10+ packet must carry the CRTC's primary
 + * framebuffer too (@frame_mask, taken before helpers add planes): the packet
-+ * goes out in the same stream update as that surface. Native HDMI TMDS, a
++ * goes out in the same stream update as that surface. A commit that leaves the
++ * packet as it is needs none and keeps it on the link. Native HDMI TMDS, a
 + * real >= 10 bpc stream, no DV tunnel, no HDMI VIC, no 3D, no async flip.
 + */
 +static int amdgpu_dm_hdr10plus_atomic_check(struct drm_atomic_commit *state,
 +					    u32 frame_mask)
 +{
 +	struct drm_connector *connector;
-+	struct drm_connector_state *conn;
++	struct drm_connector_state *old_conn, *conn;
 +	int i;
 +
-+	for_each_new_connector_in_state(state, connector, conn, i) {
++	for_each_oldnew_connector_in_state(state, connector, old_conn, conn, i) {
 +		struct drm_crtc_state *crtc_state;
 +		struct drm_plane_state *primary;
 +		struct dc_stream_state *stream;
++		bool new_packet;
 +
 +		if (!conn->hdr10plus_metadata)
 +			continue;
++		new_packet = conn->hdr10plus_metadata != old_conn->hdr10plus_metadata;
 +		crtc_state = conn->crtc ? drm_atomic_get_new_crtc_state(state, conn->crtc) : NULL;
 +		stream = crtc_state ? to_dm_crtc_state(crtc_state)->stream : NULL;
 +		primary = conn->crtc ?
 +			drm_atomic_get_new_plane_state(state, conn->crtc->primary) : NULL;
-+		if (!stream || !(frame_mask & drm_crtc_mask(conn->crtc)) ||
++		if (!stream ||
++		    (new_packet &&
++		     (!(frame_mask & drm_crtc_mask(conn->crtc)) ||
++		      !primary || primary->crtc != conn->crtc ||
++		      !primary->fb || !to_dm_plane_state(primary)->dc_state)) ||
 +		    drm_connector_check_hdr10plus(conn, amdgpu_dm_hdr10plus_tunnel(conn)) ||
 +		    (to_dm_connector_state(conn)->dv_lab_standard &&
 +		     !amdgpu_dm_hdr10plus_tunnel(conn)) ||
-+		    !crtc_state->active || !primary || primary->crtc != conn->crtc ||
-+		    !primary->fb || !to_dm_plane_state(primary)->dc_state ||
++		    !crtc_state->active ||
 +		    !stream->hdr10plus || stream->signal != SIGNAL_TYPE_HDMI_TYPE_A ||
 +		    stream->timing.hdmi_vic ||
 +		    /* the HDR10 tunnel's 8 bpc stream carries 12-bit 4:2:2 */
@@ -265,8 +284,8 @@ index 4396874b95f7..6f698f2cdd52 100644
 +		    crtc_state->async_flip ||
 +		    (crtc_state->mode.flags & DRM_MODE_FLAG_3D_MASK)) {
 +			drm_dbg_atomic(connector->dev,
-+				       "[CONNECTOR:%d:%s] HDR10+ refused (frame %d, stream %d)\n",
-+				       connector->base.id, connector->name,
++				       "[CONNECTOR:%d:%s] HDR10+ refused (new packet %d, frame %d, stream %d)\n",
++				       connector->base.id, connector->name, new_packet,
 +				       conn->crtc ? !!(frame_mask & drm_crtc_mask(conn->crtc)) : 0,
 +				       stream ? stream->hdr10plus : -1);
 +			return -EINVAL;
@@ -278,7 +297,7 @@ index 4396874b95f7..6f698f2cdd52 100644
  static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  				    struct drm_device *dev,
  				    struct amdgpu_display_manager *dm,
-@@ -3830,6 +3922,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -3830,6 +3928,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  		struct dc_scaling_info scaling_infos[MAX_SURFACES];
  		struct dc_flip_addrs flip_addrs[MAX_SURFACES];
  		struct dc_stream_update stream_update;
@@ -286,12 +305,13 @@ index 4396874b95f7..6f698f2cdd52 100644
  	} *bundle;
  
  	bundle = kzalloc_obj(*bundle);
-@@ -4087,6 +4180,24 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -4087,6 +4186,25 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  			flush_workqueue(dm->vblank_control_workqueue);
  
  		bundle->stream_update.stream = acrtc_state->stream;
 +		/* linux-9932: this picture's HDR10+ packet, in the same stream
-+		 * update as its surface (atomic check required the primary).
++		 * update as its surface (atomic check required the primary for
++		 * a new packet).
 +		 */
 +		if (acrtc_state->stream->hdr10plus) {
 +			struct drm_connector *connector __maybe_unused;
@@ -311,7 +331,7 @@ index 4396874b95f7..6f698f2cdd52 100644
  		if (new_pcrtc_state->mode_changed) {
  			bundle->stream_update.src = acrtc_state->stream->src;
  			bundle->stream_update.dst = acrtc_state->stream->dst;
-@@ -5482,6 +5593,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5482,6 +5600,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  				goto fail;
  		}
  
@@ -328,7 +348,7 @@ index 4396874b95f7..6f698f2cdd52 100644
  		/*
  		 * If we already removed the old stream from the context
  		 * (and set the new stream to NULL) then we can't reuse
-@@ -5494,6 +5615,8 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5494,6 +5622,8 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  		if (amdgpu_freesync_vid_mode &&
  		    dm_new_crtc_state->stream &&
  		    dm_new_conn_state->dv_lab_standard == dm_old_conn_state->dv_lab_standard &&
@@ -337,7 +357,7 @@ index 4396874b95f7..6f698f2cdd52 100644
  		    amdgpu_dm_is_timing_unchanged_for_freesync(new_crtc_state, old_crtc_state))
  			goto skip_modeset;
  
-@@ -6155,6 +6278,9 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6155,6 +6285,9 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
  	struct drm_dp_mst_topology_state *mst_state;
  	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
  
@@ -347,7 +367,7 @@ index 4396874b95f7..6f698f2cdd52 100644
  	trace_amdgpu_dm_atomic_check_begin(state);
  
  	ret = drm_atomic_helper_check_modeset(dev, state);
-@@ -6634,6 +6760,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6634,6 +6767,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
  	if (ret)
  		goto fail;
  
@@ -727,7 +747,7 @@ index c55a77cf56ed..9e09cb76cc2e 100644
  	    new_conn_state->broadcast_rgb != old_conn_state->broadcast_rgb ||
  	    new_conn_state->base.colorspace != old_conn_state->base.colorspace ||
 diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
-index a67b07528fb6..230dbf2f24f2 100644
+index a67b07528fb6..36973e590781 100644
 --- a/drivers/gpu/drm/i915/display/intel_display.c
 +++ b/drivers/gpu/drm/i915/display/intel_display.c
 @@ -4472,6 +4472,10 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
@@ -755,27 +775,7 @@ index a67b07528fb6..230dbf2f24f2 100644
  	if (!fastset) {
  		PIPE_CONF_CHECK_INFOFRAME(drm);
  		PIPE_CONF_CHECK_DP_AS_SDP(as_sdp);
-@@ -5815,6 +5824,19 @@ int intel_modeset_commit_pipes_for_atomic_state(struct intel_atomic_state *state
- 		if (IS_ERR(crtc_state))
- 			return PTR_ERR(crtc_state);
- 
-+		/*
-+		 * linux-9942 (CB1, lessbones): include the current primary frame
-+		 * before atomic_check takes the HDR10+ frame mask, so link
-+		 * recovery with HDR10+ metadata set isn't refused.
-+		 */
-+		if (crtc->base.primary) {
-+			struct drm_plane_state *primary_state =
-+				drm_atomic_get_plane_state(&state->base, crtc->base.primary);
-+
-+			if (IS_ERR(primary_state))
-+				return PTR_ERR(primary_state);
-+		}
-+
- 		crtc_state->uapi.connectors_changed = true;
- 	}
- 
-@@ -6570,6 +6592,9 @@ int intel_atomic_check(struct drm_device *dev,
+@@ -6570,6 +6579,9 @@ int intel_atomic_check(struct drm_device *dev,
  	if (!intel_display_driver_check_access(display))
  		return -ENODEV;
  
@@ -785,7 +785,7 @@ index a67b07528fb6..230dbf2f24f2 100644
  	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state) {
  		/*
  		 * crtc's state no longer considered to be inherited
-@@ -7008,6 +7033,7 @@ static void intel_update_crtc(struct intel_atomic_state *state,
+@@ -7008,6 +7020,7 @@ static void intel_update_crtc(struct intel_atomic_state *state,
  		commit_pipe_pre_planes(state, crtc);
  
  		intel_crtc_planes_update_arm(NULL, state, crtc);
@@ -793,7 +793,7 @@ index a67b07528fb6..230dbf2f24f2 100644
  
  		commit_pipe_post_planes(state, crtc);
  
-@@ -7433,6 +7459,17 @@ static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
+@@ -7433,6 +7446,17 @@ static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
  
  	if (state->base.legacy_cursor_update)
  		return;
@@ -825,7 +825,7 @@ index 79016feb5815..0a5e70681f6f 100644
  	struct ref_tracker *wakeref;
  
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 0884d1b037ca..1bb4a53c0ae0 100644
+index 0884d1b037ca..dc2fac4440c5 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -795,6 +795,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
@@ -886,7 +886,7 @@ index 0884d1b037ca..1bb4a53c0ae0 100644
  	if (to_intel_digital_connector_state(conn_state)->dv_lab_standard) {
  		struct hdmi_dolby_vendor_infoframe *dv =
  			&crtc_state->infoframes.hdmi.vendor.dolby;
-@@ -1386,6 +1423,83 @@ static void vlv_set_infoframes(struct intel_encoder *encoder,
+@@ -1386,6 +1423,90 @@ static void vlv_set_infoframes(struct intel_encoder *encoder,
  			      &crtc_state->infoframes.hdmi);
  }
  
@@ -906,13 +906,15 @@ index 0884d1b037ca..1bb4a53c0ae0 100644
 +}
 +
 +/*
-+ * Every commit that carries an HDR10+ blob must also carry the CRTC's primary
++ * A commit that sets a new HDR10+ packet must also carry the CRTC's primary
 + * framebuffer (state->hdr10plus_primary_mask, taken before helpers add planes):
-+ * the packet describes that picture. Native HDMI only, a real >= 10 bpc link,
-+ * no DV tunnel, no 3D, no async flip. The packet goes in this CRTC state's
-+ * VSIF slot here, also for plane-only commits, and is written by
-+ * intel_hdmi_hdr10plus_update() in the same vblank-evaded section as the
-+ * planes.
++ * the packet describes that picture. A commit that leaves the packet as it is
++ * needs none and keeps it on the link: the driver's own link recovery, a
++ * modeset another pipe pulled this one into (cdclk), a property change. Native
++ * HDMI only, a real >= 10 bpc link, no DV tunnel, no 3D, no async flip. The
++ * packet goes in this CRTC state's VSIF slot here, also for plane-only
++ * commits, and is written by intel_hdmi_hdr10plus_update() in the same
++ * vblank-evaded section as the planes.
 + */
 +int intel_hdmi_hdr10plus_check(struct intel_atomic_state *state, struct intel_crtc *crtc)
 +{
@@ -920,24 +922,29 @@ index 0884d1b037ca..1bb4a53c0ae0 100644
 +	struct intel_digital_connector_state *conn;
 +	struct intel_connector *connector;
 +	struct drm_plane_state *primary;
++	bool new_packet;
 +	int i;
 +
 +	for_each_new_intel_connector_in_state(state, connector, conn, i) {
 +		if (conn->base.crtc != &crtc->base || !conn->base.hdr10plus_metadata)
 +			continue;
 +		primary = drm_atomic_get_new_plane_state(&state->base, crtc->base.primary);
-+		if (!(state->hdr10plus_primary_mask & drm_crtc_mask(&crtc->base)) ||
++		new_packet = conn->base.hdr10plus_metadata !=
++			drm_atomic_get_old_connector_state(&state->base,
++							   &connector->base)->hdr10plus_metadata;
++		if ((new_packet &&
++		     (!(state->hdr10plus_primary_mask & drm_crtc_mask(&crtc->base)) ||
++		      !primary || primary->crtc != &crtc->base || !primary->fb)) ||
 +		    connector->base.connector_type != DRM_MODE_CONNECTOR_HDMIA ||
 +		    drm_connector_check_hdr10plus(&conn->base, intel_hdr10plus_tunnel(conn)) ||
 +		    (conn->dv_lab_standard && !intel_hdr10plus_tunnel(conn)) ||
-+		    !pipe->uapi.active || !primary || primary->crtc != &crtc->base ||
-+		    !primary->fb || !pipe->has_hdmi_sink || !pipe->has_infoframe ||
++		    !pipe->uapi.active || !pipe->has_hdmi_sink || !pipe->has_infoframe ||
 +		    /* the HDR10 tunnel's 8 bpc pipe carries 12-bit 4:2:2 */
 +		    (pipe->pipe_bpp < 30 && !intel_hdr10plus_tunnel(conn)) || pipe->uapi.async_flip ||
 +		    (pipe->hw.adjusted_mode.flags & DRM_MODE_FLAG_3D_MASK)) {
 +			drm_dbg_atomic(state->base.dev,
-+				       "[CONNECTOR:%d:%s] HDR10+ refused (frame %d, pipe_bpp %d, dv %d)\n",
-+				       connector->base.base.id, connector->base.name,
++				       "[CONNECTOR:%d:%s] HDR10+ refused (new packet %d, frame %d, pipe_bpp %d, dv %d)\n",
++				       connector->base.base.id, connector->base.name, new_packet,
 +				       !!(state->hdr10plus_primary_mask & drm_crtc_mask(&crtc->base)),
 +				       pipe->pipe_bpp, conn->dv_lab_standard);
 +			return -EINVAL;
@@ -970,7 +977,7 @@ index 0884d1b037ca..1bb4a53c0ae0 100644
  void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
  				   const struct intel_crtc_state *crtc_state,
  				   const struct drm_connector_state *conn_state)
-@@ -3518,8 +3632,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3518,8 +3639,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  	intel_attach_hdmi_colorspace_property(&connector->base);
  	drm_connector_attach_content_type_property(&connector->base);
  
