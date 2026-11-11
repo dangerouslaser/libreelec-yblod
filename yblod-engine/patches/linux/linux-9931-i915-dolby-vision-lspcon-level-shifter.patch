@@ -43,8 +43,12 @@ Verified with the NUC Display Lab (nuc-hardware-lab v0.3.1/v0.4.0-dvlab,
 reports #15 and #17): NUC7i7BNB, MCDP2800 HW 2.2 FW 1.77, LG OLED55C3,
 4K23.976 RGB8; DV picture modes, test bars from the RGB8 tunnel, no-VSIF
 control shows noise, and a metadata-only A/B pair renders darker/brighter.
-That lab switched modes by rebinding i915; the in-modeset switch of this
-patch is not yet hardware-verified.
+That lab switched modes by rebinding i915. The in-modeset switch was
+played in Kodi on the same NUC7 and TV in its first form (YBLOD 0.3.5,
+without the HPD wait and the retries): Dolby Vision played after one
+intermittent failure to switch (the "-6" above). The form in this patch
+(0.4.0, with the wait and the retries) has not been run on hardware, nor
+have TV off/on and suspend/resume during Dolby Vision.
 
 Regrouped from linux-9931-lspcon-ls-dv (YBLOD 0.3.5 to 0.4.1); no code
 change.

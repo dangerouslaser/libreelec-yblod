@@ -31,9 +31,13 @@ Dolby Vision tunnel (dv_lab_standard). i915.hdmi_freesync: 0 off, 1 with
 VRR_ENABLED (default), 2 also without it. Where QMS is possible (display
 version 12 to 29).
 
-Proven on Tiger Lake with an LG G5 (big-fella linux-9931, the same
-signalling): FreeSync 40-60 Hz reported by the TV; 60, 59.94, 50, 47.99
-and 47.96 switch by fastset with no resync.
+Validation: this patch has not been run on hardware. It was merged as a
+test build after YBLOD 0.4.1 and is compile-checked only. The signalling
+is that of big-fella's linux-9931, which according to its header ran on
+Tiger Lake with an LG G5: FreeSync 40-60 Hz reported by the TV; 60,
+59.94, 50, 47.99 and 47.96 switched by fastset with no resync. What is
+new here and unrun: the vrr_capable property, the added modes, the
+VRR_ENABLED switch, and Kodi's use of them.
 
 Regrouped from linux-9933-hdmi-freesync (merged after YBLOD 0.4.1, in no
 release).

@@ -142,8 +142,9 @@ Lifetime:
   it is, so they keep the last packet.
 
 Untested on hardware: no HDR10+ TV in the YBLOD lab (LG sets have no
-HDR10+). Compile-checked only (i915, xe, amdgpu, -Werror, on YBLOD's
-Linux 7.3 series).
+HDR10+). It shipped in YBLOD 0.4.0 and 0.4.1, and no HDR10+ picture has
+been seen on an HDR10+ TV from either. Compile-checked only (i915, xe,
+amdgpu, on YBLOD's Linux 7.3 series).
 
 Regrouped from linux-9932-hdr10plus (YBLOD 0.4.0 and 0.4.1).
 

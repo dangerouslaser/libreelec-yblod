@@ -50,10 +50,16 @@ wrong TMDS_Config is fixed.
 From big-fella (linux-yblod 7.3-7 and 7.3-8), where kwin-big-fella had
 held such an output for 3 s itself (kwin-big-fella-hotplug-hold.patch).
 
-Validation as recorded with the original patches: the HPD hold was "not
-yet tested with a sink that drops HPD (the LG B4 on ryzen-fella and the
-N150 doesn't); there, boots, forced detects and EDID changes neither
-hold nor remove the output".
+Validation: i915 on Tiger Lake (i5-1135G7) with an LG G5, YBLOD
+0.3.3-test3, 2026-11-03, 10 Dolby Vision start/stop cycles: every HPD
+drop was held ("HPD back after 1007-1027 ms"), no hotplug event reached
+userspace (10 in 5 cycles without the patches), one SCDC modeset per
+stop after HPD came back, never "still wrong after 3 modesets"; the
+screen was blank for 0.9 s at a start and 2.2 s after a stop (0.9 s and
+1.8 s without the patches). Not tested: amdgpu with a sink that drops
+HPD (the LG B4 on the Ryzen box does not; there, boots, forced detects
+and EDID changes neither held nor removed the output), and any
+HPD-dropping TV other than the G5.
 
 Regrouped from linux-9913-big-fella-hdmi-scdc-recheck,
 linux-9925-big-fella-hdmi-hpd-hold and
