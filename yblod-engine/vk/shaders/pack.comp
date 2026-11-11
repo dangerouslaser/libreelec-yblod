@@ -65,8 +65,17 @@ layout(binding = 14, std430) buffer ReconError { uint recon_error; };
 // (DVVK_MAP_LUT_ONLY=1, timing); 4 the marked cells exact here
 // (DVVK_MAP_INLINE=1, the fix-up pass's comparison).
 layout(constant_id = 8) const uint MAP = 0;
+// MAP_SDR (constant 10, with MAP != 0; docs/intel-dv/OUTPUT-MODES.md): the
+// picture converted to an SDR display's R'G'B' instead, 8-bit XRGB8888,
+// dithered; a pair's pixels each from their own luma and the pair's chroma.
+// Its overlay is OVERLAY 4: the shell's sRGB layer blended over the
+// converted picture, after the map (before it, the layer would go through a
+// curve that follows the film's scenes). A pair with a marked sample and the
+// layer over it is computed exactly here: map_fixup knows no layer.
 #define MAP_PARAMS_BINDING 22
 #define MAP_CELLS_BINDING 23
+#define MAP_TABLES_BINDING 25
+#define MAP_SDR_ID 10
 #include "dv_map.glsl"
 layout(binding = 21) uniform sampler3D map_lut;
 // STATS (MAP != 0; HDR10+ output, dvvk_output_mode DVVK_OUTPUT_HDR10PLUS): the
@@ -203,7 +212,7 @@ vec3 map_lane(uint yy, uint cb, uint cr, vec3 t, out bool marked)
     marked = (MAP == 1u || MAP == 4u) && v.a < 0.5;
     if (MAP == 2u || (MAP == 4u && marked))
         return map_exact(yy, cb, cr);
-    return v.rgb * 4096.0;
+    return v.rgb * map_node_scale();
 }
 
 uint packet_byte(uint i) { return (packet_words[i >> 2] >> (8 * (i & 3))) & 255u; }
@@ -731,7 +740,55 @@ void pack_main()
         }
         bool raw[2] = bool[2](false, false);
         vec3 m4[4];
-        if (MAP != 0u) {
+        uint sdr4[4];
+        if (MAP != 0u && MAP_SDR != 0u) {
+            // The row's four samples as in the HDR10 branch below, then the
+            // display's codes: the layer over them, the dither.
+            uvec3 bi = mp.black_in.xyz;
+            bool marked[4];
+            vec4 layer[4];
+            for (uint i = 0u; i < 4u; i++) {
+                uint e = i & ~1u;
+                if (i == e)
+                    m4[i] = map_base(lv4[e].y, lv4[e + 1u].y);
+                else
+                    m4[i] = m4[e];
+                layer[i] = vec4(0.0);
+                if (OVERLAY == 4u) {
+                    uint v = shell_rgba(x0 + i, y);
+                    layer[i] = vec4(v & 255u, (v >> 8) & 255u, (v >> 16) & 255u, v >> 24) * (1.0 / 255.0);
+                }
+            }
+            for (uint i = 0u; i < 4u; i++) {
+                uint e = i & ~1u;
+                m4[i] = map_lane(lv4[i].x, lv4[e].y, lv4[e + 1u].y, map_coord(lv4[i].x, m4[i]), marked[i]);
+            }
+            for (uint pair = 0u; pair < 2u; pair++) {
+                uvec2 a = lv4[2u * pair], b = lv4[2u * pair + 1u];
+                bool chroma_black = a.y == bi.y && b.y == bi.z;
+                bool black[2] = bool[2](chroma_black && a.x == bi.x, chroma_black && b.x == bi.x);
+                bool layered = layer[2u * pair].a > 0.0 || layer[2u * pair + 1u].a > 0.0;
+                if (MAP == 1u && (marked[2u * pair] || marked[2u * pair + 1u]) && !(black[0] && black[1])) {
+                    if (!layered) {
+                        raw[pair] = true;
+                        fixup |= 1u << (r * 2u + pair);
+                        continue;
+                    }
+                    m4[2u * pair] = map_exact(a.x, a.y, b.y);
+                    m4[2u * pair + 1u] = map_exact(b.x, a.y, b.y);
+                }
+                for (uint lane = 0u; lane < 2u; lane++) {
+                    uint i = 2u * pair + lane;
+                    // black is exact (an integer code: the dither leaves it)
+                    precise vec3 c = black[lane] ? vec3(mp.black_out.xyz) : m4[i];
+                    vec4 g = layer[i];
+                    if (g.a > 0.0)
+                        // premultiplied sRGB over the display's codes
+                        c = (mp.out_code.x * g.rgb + mp.out_code.y * g.a) + (1.0 - g.a) * c;
+                    sdr4[i] = map_sdr_word(map_sdr_q(c, uvec2(x0 + i, y)));
+                }
+            }
+        } else if (MAP != 0u) {
             // The row's four samples: the lookups issued together (their
             // latency overlaps), then used. A pair's chroma is the even
             // (co-sited) sample's: Cb on the even lane, Cr on the odd one, as
@@ -791,7 +848,8 @@ void pack_main()
             }
         }
         for (uint i = 0u; i < 4u; i++)
-            out4[i] = MAP == 1u && raw[i >> 1] ? map_word(lv4[i]) & 0x00ffffffu : finish(x0 + i, y, lv4[i]);
+            out4[i] = MAP == 1u && raw[i >> 1] ? map_word(lv4[i]) & 0x00ffffffu
+                      : MAP != 0u && MAP_SDR != 0u ? sdr4[i] : finish(x0 + i, y, lv4[i]);
         pixels4[(y * stride_words + x0) / 4u] = out4;
     }
     if (MAP == 1u && fixup != 0u) {

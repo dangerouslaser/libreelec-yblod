@@ -296,6 +296,14 @@ pub unsafe extern "C" fn dvvk_set_output_mode(e: *mut Engine, mode: *const crate
     })
 }
 
+/// dvvk_output_modes (optional symbol): the output modes this library has,
+/// bit 1 << DVVK_OUTPUT_*.
+#[no_mangle]
+pub extern "C" fn dvvk_output_modes() -> u32 {
+    use crate::map::*;
+    1 << DVVK_OUTPUT_DV | 1 << DVVK_OUTPUT_HDR10 | 1 << DVVK_OUTPUT_HDR10PLUS | 1 << DVVK_OUTPUT_SDR
+}
+
 /// dvvk_output_signal (optional symbol): the last frame's HDR static metadata.
 ///
 /// # Safety

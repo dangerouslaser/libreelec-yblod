@@ -6,9 +6,13 @@
 // alpha 0xff, so a pair listed twice (overlapping damage regions) is mapped
 // once (two at once compute the same words). Dispatched indirectly: the
 // list's header is the dispatch's workgroup count.
+// SDR output (MAP_SDR): the listed pairs become two XRGB8888 pixels, dithered
+// as the pack's.
 #version 460
 #define MAP_PARAMS_BINDING 1
 #define MAP_CELLS_BINDING 2
+#define MAP_TABLES_BINDING 3
+#define MAP_SDR_ID 0
 #include "dv_map.glsl"
 layout(local_size_x = 64) in;
 layout(binding = 0, std430) buffer Out { uint pixels[]; };
@@ -29,6 +33,14 @@ void main()
         if ((wa >> 24) != 0u)
             continue;
         uvec2 a = map_unword(wa), b = map_unword(wb), ra, rb;
+        if (MAP_SDR != 0u) {
+            uvec2 at = uvec2(x0 + 2u * (k & 1u), y0 + (k >> 1));
+            uint pa, pb;
+            map_sdr_pair(a, b, map_exact(a.x, a.y, b.y), map_exact(b.x, a.y, b.y), at, pa, pb);
+            pixels[i] = pa;
+            pixels[i + 1u] = pb;
+            continue;
+        }
         map_pair(a, b, map_exact(a.x, a.y, b.y), map_exact(b.x, a.y, b.y), ra, rb);
         pixels[i] = map_word(ra);
         pixels[i + 1u] = map_word(rb);

@@ -1,9 +1,9 @@
 // The output colour mapping's 3D LUT (include/dvvk_map.h): run only when the
 // mapping's parameters change (a scene's L1).
 // PASS 0: the function at the N^3 points of the nonlinear source cube (its
-//   output codes, unrounded, / 4096), as RGBA16 UNORM texels into `nodes` (copied into the sampled 3D image after).
+//   output codes, unrounded, / 4096; SDR: / 256), as RGBA16 UNORM texels into `nodes` (copied into the sampled 3D image after).
 // PASS 1: per cell, whether trilinear interpolation of its corners misses the
-//   exact function by more than `thresh` 12-bit codes at the cell's centre or
+//   exact function by more than `thresh` output codes at the cell's centre or
 //   a face's centre (a kink inside: a clamp, the tone curve's ends, the hull's
 //   branch): a bit in `cells`.
 // PASS 2: alpha 0 in the nodes of every marked cell (1 elsewhere): the pack's
@@ -11,8 +11,14 @@
 //   beside one less than 1, so `alpha < 0.5` marks every marked cell's
 //   samples (and some of their neighbours'), and those pairs are computed
 //   exactly (map_fixup.comp), with no lookup of the cells per sample.
+// SDR output (MAP_SDR): the nodes hold R'G'B' codes / 256, `thresh` is in
+// those codes, and PASS 1 also looks at the cell's 12 edge centres: the map
+// has more kinks there (a channel reaching the display's black or white, the
+// gamut LUT's own cells) and they pass between the 7 points more often.
 #version 460
 #define MAP_PARAMS_BINDING 0
+#define MAP_TABLES_BINDING 3
+#define MAP_SDR_ID 1
 #include "dv_map.glsl"
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 layout(constant_id = 0) const uint PASS = 0;
@@ -33,7 +39,7 @@ vec3 unpack16(uvec2 t)
 
 vec3 node(uvec3 p) { return unpack16(nodes[(p.z * n + p.y) * n + p.x]); }
 
-vec3 codes(vec3 rgb) { return map_codes(map_ycc(rgb)); }
+vec3 codes(vec3 rgb) { return map_out_codes(rgb); }
 
 void main()
 {
@@ -43,7 +49,7 @@ void main()
             return;
         vec3 rgb;
         map_rgb(vec3(g) / float(n - 1u), rgb);
-        nodes[(g.z * n + g.y) * n + g.x] = pack16(codes(rgb) * (1.0 / 4096.0));
+        nodes[(g.z * n + g.y) * n + g.x] = pack16(codes(rgb) * (1.0 / map_node_scale()));
         return;
     }
     uint m = n - 1u;
@@ -66,11 +72,14 @@ void main()
         return;
     vec3 c[8];
     for (uint k = 0u; k < 8u; k++)
-        c[k] = node(g + uvec3(k & 1u, (k >> 1) & 1u, k >> 2)) * 4096.0;
-    const vec3 pts[7] = vec3[7](vec3(.5, .5, .5), vec3(0, .5, .5), vec3(1, .5, .5), vec3(.5, 0, .5),
-                                vec3(.5, 1, .5), vec3(.5, .5, 0), vec3(.5, .5, 1));
+        c[k] = node(g + uvec3(k & 1u, (k >> 1) & 1u, k >> 2)) * map_node_scale();
+    const vec3 pts[19] = vec3[19](vec3(.5, .5, .5), vec3(0, .5, .5), vec3(1, .5, .5), vec3(.5, 0, .5),
+                                  vec3(.5, 1, .5), vec3(.5, .5, 0), vec3(.5, .5, 1), vec3(.5, 0, 0), vec3(.5, 1, 0),
+                                  vec3(.5, 0, 1), vec3(.5, 1, 1), vec3(0, .5, 0), vec3(1, .5, 0), vec3(0, .5, 1),
+                                  vec3(1, .5, 1), vec3(0, 0, .5), vec3(1, 0, .5), vec3(0, 1, .5), vec3(1, 1, .5));
+    const uint points = MAP_SDR != 0u ? 19u : 7u;
     float err = 0.0;
-    for (uint q = 0u; q < 7u && err <= thresh; q++) {
+    for (uint q = 0u; q < points && err <= thresh; q++) {
         vec3 f = pts[q], exact;
         map_rgb((vec3(g) + f) / float(m), exact);
         vec3 x00 = mix(c[0], c[1], f.x), x10 = mix(c[2], c[3], f.x), x01 = mix(c[4], c[5], f.x),

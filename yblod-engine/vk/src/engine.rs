@@ -114,6 +114,9 @@ const ANNEXB_OVERLAYS: [u32; 3] = [0, 3, 1];
 // resize_prepare, cb1_tiles. (prepare_end checks the total.)
 // And map_bake's three passes (the HDR10 output's 3D LUT), map_fixup.
 const OTHER_PIPELINES: u32 = 1 + 18 + 1 + 2 + 1 + 1 + 3 + 1;
+// SDR output's own: map_bake's three passes and map_fixup with MAP_SDR, made
+// on the first SDR frame (or by dvvk-prepare).
+const SDR_PIPELINES: u32 = 3 + 1;
 
 /// What of a frame's plan picks its pack variant.
 #[derive(Clone, Copy, Debug)]
@@ -423,6 +426,21 @@ mod pack_tests {
         let prepare = EngineOptions { prepare_map: true, ..EngineOptions::default() };
         assert_eq!(n(&prepare), 19);
         assert_eq!(pipeline_count(&prepare), 19 + 3 + OTHER_PIPELINES + 2 * (19 + 3));
+        // and with DVVK_PREPARE_SDR the 6 reachable packs without an overlay
+        // + the Annex B one, each without and with the layer, and SDR's bake
+        // and fix-up
+        let sdr = EngineOptions { prepare_map: true, prepare_sdr: true, ..EngineOptions::default() };
+        assert_eq!(sdr_variants().len(), 6 + 1);
+        assert_eq!(pipeline_count(&sdr), pipeline_count(&prepare) + 2 * 7 + SDR_PIPELINES);
+        // HDR10's constants are what they were before SDR output (the cache's keys)
+        assert_eq!(
+            pack_map_spec(&shipped, PackVariant::Regular(0), false, 0),
+            [(0, 0), (1, 1), (2, 0), (3, 1), (4, 0), (6, 2), (8, 1), (9, 0)]
+        );
+        assert_eq!(
+            pack_map_spec(&shipped, PackVariant::Regular(0), false, SDR_LAYER),
+            [(0, 0), (1, 1), (2, 4), (3, 1), (4, 0), (6, 2), (8, 1), (9, 0), (10, 1)]
+        );
         // DVVK_VERIFY's reference packs (source 0, the frame's kind) are made
         for r in routings() {
             let Some(route) = planned(&r) else { continue };
@@ -575,6 +593,21 @@ fn pack_spec(o: &crate::options::EngineOptions, variant: PackVariant) -> Vec<(u3
     }
 }
 
+/// The pack variants a frame of SDR output can take: a route's variant
+/// without an overlay (its own overlay, if any, is the pack's OVERLAY 4).
+fn sdr_variants() -> Vec<PackVariant> {
+    let mut v = Vec::new();
+    for source in 0..PACK_SOURCES {
+        for kind in 0..PACK_KINDS {
+            if pack_reachable(source, 0, kind) {
+                v.push(PackVariant::Regular((source * PACK_OVERLAYS * PACK_KINDS + kind) as usize));
+            }
+        }
+    }
+    v.push(PackVariant::Annexb(0));
+    v
+}
+
 /// The HDR10 pack's MAP (pack.comp): 1 LUT + map_fixup, or a diagnostic.
 fn map_spec(o: &crate::options::EngineOptions) -> u32 {
     if o.map_direct {
@@ -588,13 +621,28 @@ fn map_spec(o: &crate::options::EngineOptions) -> u32 {
     }
 }
 
-/// A variant's constants with MAP (HDR10 output) and STATS (HDR10+). One
-/// place for the prepare run and a frame's first use: the pipeline cache
-/// only answers for the same constants in the same order.
-fn pack_map_spec(o: &crate::options::EngineOptions, variant: PackVariant, stats: bool) -> Vec<(u32, u32)> {
+/// SDR output's pack, as a mapped pack's key and constants name it: with
+/// the shell's layer blended after the map (OVERLAY 4), or without.
+const SDR_PLAIN: u32 = 1;
+const SDR_LAYER: u32 = 2;
+
+/// A variant's constants with MAP (HDR10 output) and STATS (HDR10+), or for
+/// SDR output (`sdr`: 0 not, SDR_PLAIN, SDR_LAYER). One place for the
+/// prepare run and a frame's first use: the pipeline cache only answers for
+/// the same constants in the same order (HDR10's are as they were before
+/// SDR: nothing is added to them).
+fn pack_map_spec(o: &crate::options::EngineOptions, variant: PackVariant, stats: bool, sdr: u32) -> Vec<(u32, u32)> {
     let mut spec = pack_spec(o, variant);
+    if sdr == SDR_LAYER {
+        for c in spec.iter_mut().filter(|c| c.0 == 2) {
+            c.1 = 4;
+        }
+    }
     spec.push((8, map_spec(o)));
     spec.push((9, stats as u32));
+    if sdr != 0 {
+        spec.push((10, 1));
+    }
     spec
 }
 
@@ -608,9 +656,11 @@ fn pipeline_count(o: &crate::options::EngineOptions) -> u32 {
             }
         }
     }
-    // DVVK_PREPARE_MAP: each HDR10 variant without and with the statistics
+    // DVVK_PREPARE_MAP: each HDR10 variant without and with the statistics;
+    // DVVK_PREPARE_SDR: SDR's without and with the layer, its bake and fix-up
     let mapped = if o.prepare_map { 2 * map_variants().len() as u32 } else { 0 };
-    packs + ANNEXB_OVERLAYS.len() as u32 + OTHER_PIPELINES + u32::from(o.verify_every > 0) + mapped
+    let sdr = if o.prepare_map && o.prepare_sdr { 2 * sdr_variants().len() as u32 + SDR_PIPELINES } else { 0 };
+    packs + ANNEXB_OVERLAYS.len() as u32 + OTHER_PIPELINES + u32::from(o.verify_every > 0) + mapped + sdr
 }
 
 // Offsets in the tables buffer (256-aligned).
@@ -914,7 +964,15 @@ pub struct Engine {
     map_fixup: Pipeline,
     /// map_cells' fix-up list (words: groups, 1, 1, count, the entries)
     map_list: u32,
-    pack_map: HashMap<(bool, usize, bool), Pipeline>,
+    pack_map: HashMap<(bool, usize, bool, u32), Pipeline>,
+    // SDR output (made on its first frame): map_bake's passes and map_fixup
+    // with MAP_SDR; its tables (map.rs TABLE_WORDS: the dither pattern and
+    // the gamut LUT) as the GPU reads them and as set_black does, and the
+    // gamut they are for.
+    map_sdr: Option<([Pipeline; 3], Pipeline)>,
+    map_tables: Option<HostBuffer>,
+    map_table_words: Vec<u32>,
+    map_tables_key: Option<u64>,
     pub map_bakes: u64,
     map_frames: u64,
 }
@@ -949,6 +1007,7 @@ impl Engine {
         pack_bindings.extend([sampled, sampled, storage]); // CB1 LUTs and GPU bounds
         pack_bindings.extend([sampled, storage, storage]); // HDR10 output: the 3D LUT, its parameters and exact cells
         pack_bindings.push(storage); // HDR10+ output: the frame's statistics
+        pack_bindings.push(storage); // SDR output: its tables
         let pack_push = std::mem::size_of::<PackPush>() as u32;
         // The variants a frame can use (pack_eager; the rest stay None).
         let mut pack = Vec::with_capacity((PACK_SOURCES * PACK_OVERLAYS * PACK_KINDS) as usize);
@@ -1185,14 +1244,14 @@ impl Engine {
             None
         };
         let map_bake = [
-            construction.keep(Pipeline::new(&d, "map_bake", &[storage, storage, storage], 8, &[(0, 0)])?),
-            construction.keep(Pipeline::new(&d, "map_bake", &[storage, storage, storage], 8, &[(0, 1)])?),
-            construction.keep(Pipeline::new(&d, "map_bake", &[storage, storage, storage], 8, &[(0, 2)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 0)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 1)])?),
+            construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 2)])?),
         ];
         let n = o.map_n;
         let map_lut = construction.keep(gpu::Lut3d::new(&d, n)?);
         let map_nodes = construction.keep(DeviceBuffer::new(&d, (n * n * n) as u64 * 8)?);
-        let map_fixup = construction.keep(Pipeline::new(&d, "map_fixup", &[storage, storage, storage], 8, &[])?);
+        let map_fixup = construction.keep(Pipeline::new(&d, "map_fixup", &[storage; 4], 8, &[])?);
         // the marked cells' bits, then (256-aligned) map_fixup's list: its
         // header and an entry per pack invocation at most
         let map_list = ((n - 1).pow(3).div_ceil(32) * 4).next_multiple_of(256) / 4;
@@ -1204,15 +1263,34 @@ impl Engine {
         // thread. A playing engine leaves them to first use: they would only
         // delay its start.
         let mut pack_map = HashMap::new();
+        let mut map_sdr = None;
         if o.prepare_map {
             // The Dolby Vision set is complete: kept if this run is cut short.
             d.save_pipeline_cache();
             for stats in [false, true] {
                 for variant in map_variants() {
-                    let spec = pack_map_spec(&o, variant, stats);
+                    let spec = pack_map_spec(&o, variant, stats, 0);
                     let pipe = construction.keep(Pipeline::new(&d, "pack", &pack_bindings, pack_push, &spec)?);
-                    pack_map.insert(Self::pack_map_key(variant, stats), pipe);
+                    pack_map.insert(Self::pack_map_key(variant, stats, 0), pipe);
                 }
+            }
+            if o.prepare_sdr {
+                d.save_pipeline_cache();
+                for sdr in [SDR_PLAIN, SDR_LAYER] {
+                    for variant in sdr_variants() {
+                        let spec = pack_map_spec(&o, variant, false, sdr);
+                        let pipe = construction.keep(Pipeline::new(&d, "pack", &pack_bindings, pack_push, &spec)?);
+                        pack_map.insert(Self::pack_map_key(variant, false, sdr), pipe);
+                    }
+                }
+                map_sdr = Some((
+                    [
+                        construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 0), (1, 1)])?),
+                        construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 1), (1, 1)])?),
+                        construction.keep(Pipeline::new(&d, "map_bake", &[storage; 4], 8, &[(0, 2), (1, 1)])?),
+                    ],
+                    construction.keep(Pipeline::new(&d, "map_fixup", &[storage; 4], 8, &[(0, 1)])?),
+                ));
             }
         }
         gpu::prepare_end()?;
@@ -1379,6 +1457,10 @@ impl Engine {
             map_fixup,
             map_list,
             pack_map,
+            map_sdr,
+            map_tables: None,
+            map_table_words: Vec::new(),
+            map_tables_key: None,
             map_bakes: 0,
             map_frames: 0,
             va: va_display,
@@ -1772,8 +1854,20 @@ impl Engine {
         self.cb1.is_some()
     }
 
+    /// SDR output (the frame's mapping says so).
+    fn sdr(&self) -> bool {
+        self.map.as_ref().is_some_and(|m| m.sdr())
+    }
+
+    /// SDR output's overlay: the shell's layer, blended by the pack after
+    /// the map (submit refused any other overlay source).
+    fn sdr_layer(&self) -> bool {
+        self.sdr() && self.plan.overlay_visible != 0
+    }
+
     fn fused_overlay(&self) -> bool {
         !self.cb1_overlay()
+            && !self.sdr()
             && self.plan.overlay_visible != 0
             && self.sources_used
             && self.sources.shell().is_some()
@@ -1785,10 +1879,12 @@ impl Engine {
         pack_source(&PackRoute::of(&self.plan))
     }
 
+    /// The pack's overlay before the map. SDR output has none: its layer
+    /// comes after (sdr_layer).
     fn pack_overlay(&self) -> u32 {
         if self.cb1_overlay() {
             3
-        } else if self.plan.overlay_visible == 0 {
+        } else if self.plan.overlay_visible == 0 || self.sdr() {
             0
         } else if self.fused_overlay() {
             2
@@ -1833,11 +1929,68 @@ impl Engine {
         Ok(())
     }
 
-    fn pack_map_key(variant: PackVariant, stats: bool) -> (bool, usize, bool) {
+    fn pack_map_key(variant: PackVariant, stats: bool, sdr: u32) -> (bool, usize, bool, u32) {
         match variant {
-            PackVariant::Annexb(k) => (true, k, stats),
-            PackVariant::Regular(i) => (false, i, stats),
+            PackVariant::Annexb(k) => (true, k, stats, sdr),
+            PackVariant::Regular(i) => (false, i, stats, sdr),
         }
+    }
+
+    /// The frame's mapped pack: its key in pack_map.
+    fn frame_map_key(&self) -> (bool, usize, bool, u32) {
+        let variant = select_pack(&PackRoute::of(&self.plan), self.pack_overlay()).1;
+        let sdr = match (self.sdr(), self.sdr_layer()) {
+            (false, _) => 0,
+            (true, false) => SDR_PLAIN,
+            (true, true) => SDR_LAYER,
+        };
+        Self::pack_map_key(variant, self.stats(), sdr)
+    }
+
+    /// SDR output's pipelines and tables, before a frame of it is recorded:
+    /// the pipelines on the first such frame, the tables whenever the gamut
+    /// they are made from changes (a title, a setting; the GPU is idle
+    /// meanwhile: frames in flight read them).
+    fn ensure_sdr(&mut self, map: &crate::map::Map) -> Result<()> {
+        if self.map_sdr.is_none() {
+            let storage = [vk::DescriptorType::STORAGE_BUFFER; 4];
+            let start = std::time::Instant::now();
+            let mut made = Vec::new();
+            let result = (|| {
+                for pass in 0..3 {
+                    made.push(Pipeline::new_deferred(&self.d, "map_bake", &storage, 8, &[(0, pass), (1, 1)])?);
+                }
+                made.push(Pipeline::new_deferred(&self.d, "map_fixup", &storage, 8, &[(0, 1)])?);
+                Ok(())
+            })();
+            if let Err(e) = result {
+                for p in &made {
+                    p.destroy(&self.d);
+                }
+                return Err(e);
+            }
+            eprintln!("dvvk SDR bake and fix-up: creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
+            let fixup = made.pop().unwrap();
+            let mut bake = made.into_iter();
+            self.map_sdr = Some(([bake.next().unwrap(), bake.next().unwrap(), bake.next().unwrap()], fixup));
+            self.d.save_pipeline_cache();
+        }
+        if self.map_tables.is_none() {
+            let bytes = (crate::map::TABLE_WORDS * 4) as u64;
+            self.map_tables = Some(HostBuffer::new(&self.d, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)?);
+            self.map_table_words = vec![0; crate::map::TABLE_WORDS];
+            self.map_tables_key = None;
+        }
+        if self.map_tables_key != Some(map.gamut_key) {
+            self.idle_checked()?;
+            map.tables(&mut self.map_table_words);
+            let words = bytes_of(&self.map_table_words);
+            self.map_tables.as_mut().unwrap().bytes_mut()[..words.len()].copy_from_slice(words);
+            self.map_tables_key = Some(map.gamut_key);
+            // the LUT's nodes were baked through the old tables
+            self.map_baked = None;
+        }
+        Ok(())
     }
 
     /// overlay_prepare's binding 0, the test RGBA picture. The variant that
@@ -1863,16 +2016,20 @@ impl Engine {
             return Ok(());
         }
         let variant = select_pack(&PackRoute::of(&self.plan), self.pack_overlay()).1;
-        let key = Self::pack_map_key(variant, self.stats());
+        let key = self.frame_map_key();
         if self.pack_map.contains_key(&key) {
             return Ok(());
         }
         let start = std::time::Instant::now();
         let Some(first) = self.pack[0].as_ref() else { return Err(Error::Missing("the first pack variant")) };
         let bindings = first.bindings.clone();
-        let spec = pack_map_spec(&self.d.options, variant, key.2);
+        let spec = pack_map_spec(&self.d.options, variant, key.2, key.3);
         let pipe = Pipeline::new_deferred(&self.d, "pack", &bindings, std::mem::size_of::<PackPush>() as u32, &spec)?;
-        eprintln!("dvvk HDR10 pack: {variant:?} creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
+        eprintln!(
+            "dvvk {} pack: {variant:?} creation_ms={:.1}",
+            if key.3 != 0 { "SDR" } else { "HDR10" },
+            start.elapsed().as_secs_f64() * 1000.0
+        );
         self.pack_map.insert(key, pipe);
         self.d.save_pipeline_cache();
         Ok(())
@@ -1880,11 +2037,11 @@ impl Engine {
 
     /// dvvk_set_output_mode: from the next frame.
     pub fn set_output_mode(&mut self, mode: &crate::map::OutputMode) -> Result<()> {
-        if mode.mode > crate::map::DVVK_OUTPUT_HDR10PLUS {
-            return Err(Error::Unsupported(format!("output mode {}", mode.mode)));
-        }
-        if mode.flags != 0 || mode.peak_nits != 0.0 || mode.min_nits != 0.0 {
-            return Err(Error::Unsupported("output mode options".into()));
+        if !crate::map::mode_supported(mode) {
+            return Err(Error::Unsupported(format!(
+                "output mode {} (flags {:#x}, {} .. {} cd/m2)",
+                mode.mode, mode.flags, mode.min_nits, mode.peak_nits
+            )));
         }
         if *mode != self.map_mode {
             self.map_mode = *mode;
@@ -2118,12 +2275,29 @@ impl Engine {
         if self.map_mode.mode != crate::map::DVVK_OUTPUT_DV {
             match crate::map::Map::plan(&self.map_mode, f.metadata) {
                 Ok(mut m) => {
-                    m.set_black([self.plan.black[0], self.plan.black[1], self.plan.black[2]]);
+                    let black = [self.plan.black[0], self.plan.black[1], self.plan.black[2]];
+                    if m.sdr() {
+                        self.ensure_sdr(&m)?;
+                        m.set_black(black, Some(&self.map_table_words));
+                    } else {
+                        m.set_black(black, None);
+                    }
                     m.set_lut_n(self.map_lut.n);
                     m.set_list(self.map_list);
                     self.map = Some(m);
                 }
                 Err(status) => return Ok((status, 0)),
+            }
+            // SDR output blends one kind of overlay, after the map: the
+            // shell's 8-bit sRGB layer at the canvas's size. A frame with
+            // another (subtitle bitmaps, the test picture, a linear or a
+            // scaled shell) is refused rather than shown without it.
+            if self.sdr_layer()
+                && !(self.sources_used
+                    && self.sources.subs_parts == 0
+                    && self.sources.shell().is_some_and(|sh| !sh.linear && !sh.scaled))
+            {
+                return Ok((-2, 0));
             }
             self.map_frames += 1;
             if self.d.options.map_stats && self.map_frames % 120 == 0 {
@@ -2134,7 +2308,7 @@ impl Engine {
         // combined subtitle sources on their existing paths. DVVK_OVERLAY_PREPARE
         // also retains the prepared blend.
         self.cb1 = None;
-        let native = !self.d.options.overlay_prepare;
+        let native = !self.d.options.overlay_prepare && !self.sdr();
         if native
             && self.sources_used
             && plan_in.cb1_contract != 0
@@ -2218,9 +2392,10 @@ impl Engine {
         }
         let decode_waits = waits.len();
         // The shell's OSD buffer: Qt's rendering into it may still be running.
-        let compose = self.sources_used && self.sources.dirty && self.plan.overlay_visible != 0;
+        let layer = self.sdr_layer();
+        let compose = self.sources_used && self.sources.dirty && self.plan.overlay_visible != 0 && !layer;
         let fused = self.fused_overlay();
-        if compose || fused || self.cb1_overlay() {
+        if compose || fused || layer || self.cb1_overlay() {
             if let Some(sh) = self.sources.shell() {
                 // Export failure cannot authorize reading an unknown producer.
                 let sync_file = crate::interop::sync::export_sync_file(sh.fd, crate::interop::sync::DMA_BUF_SYNC_READ)?;
@@ -2299,7 +2474,7 @@ impl Engine {
         self.ring[ci].ticket = ticket;
         self.ring[ci].plan_ms = self.last_plan_ms;
         self.next = (ci + 1) % RING;
-        if compose || fused || self.cb1_overlay() {
+        if compose || fused || layer || self.cb1_overlay() {
             self.sources.used(ticket);
             self.sources.dirty = false;
             self.sources.dirty_rect = Some([0, 0, 0, 0]);
@@ -2342,7 +2517,9 @@ impl Engine {
         // The overlay's colour error belongs to the prepared overlay: every
         // frame that uses it reports it.
         self.ring[ci].gui_error.bytes_mut()[..4].copy_from_slice(&self.overlay_error_flag.to_le_bytes());
-        let compose = self.sources_used && self.sources.dirty && p.overlay_visible != 0 && !self.cb1_overlay();
+        let layer = self.sdr_layer();
+        let compose =
+            self.sources_used && self.sources.dirty && p.overlay_visible != 0 && !self.cb1_overlay() && !layer;
         let fused = self.fused_overlay();
         if p.overlay_visible != 0 && fused != self.overlay_fused {
             // The other path's cache: start over.
@@ -2350,8 +2527,11 @@ impl Engine {
             self.overlay_fused = fused;
         }
         let coeff_changed = self.overlay_coeff != p.gui_coeff;
-        let prepare_overlay =
-            !fused && !self.cb1_overlay() && p.overlay_visible != 0 && (compose || self.overlay_dirty || coeff_changed);
+        let prepare_overlay = !fused
+            && !layer
+            && !self.cb1_overlay()
+            && p.overlay_visible != 0
+            && (compose || self.overlay_dirty || coeff_changed);
         let fused_invalidate = fused && (coeff_changed || !self.keys_valid);
         if check {
             // The reference prepares the overlay afresh from this frame's coefficients.
@@ -2413,6 +2593,7 @@ impl Engine {
                 p.route,
                 p.overlay_visible,
                 fused,
+                layer,
                 p.active,
                 p.black,
                 p.top_left,
@@ -2638,7 +2819,7 @@ impl Engine {
         // Pack into the output.
         let overlay_kind = self.pack_overlay();
         let shell_view = match self.sources.shell() {
-            Some(sh) if fused || self.cb1_overlay() => {
+            Some(sh) if fused || layer || self.cb1_overlay() => {
                 if shell_read != Some(sh.fd) {
                     gpu::acquire_foreign_images(d, cmd, &[sh.image.image]);
                 }
@@ -2651,6 +2832,18 @@ impl Engine {
         // HDR10 output: the frame's parameters, and the scene's 3D LUT baked
         // when they changed (map_bake.comp), before the pack reads them.
         let mapped = self.map.is_some();
+        let sdr = self.sdr();
+        // SDR output's tables (any buffer for the pipelines that never read them)
+        let tables = match (&self.map_tables, sdr) {
+            (Some(t), true) => t.buffer,
+            _ => slot.error,
+        };
+        let (map_bake, map_fixup) = match (&self.map_sdr, sdr) {
+            (Some((bake, fixup)), true) => (bake, fixup),
+            // submit made them (ensure_sdr) before a frame of SDR output got here
+            (None, true) => return Err(Error::Missing("the SDR bake pipelines")),
+            _ => (&self.map_bake, &self.map_fixup),
+        };
         if let Some(m) = self.map.as_ref() {
             self.ring[ci].map_params.bytes_mut()[..m.gpu.bytes.len()].copy_from_slice(&m.gpu.bytes);
             if self.map_baked != Some(m.key) {
@@ -2659,15 +2852,24 @@ impl Engine {
                 gpu::compute_barrier(d, cmd);
                 unsafe { d.device.cmd_fill_buffer(cmd, self.map_cells.buffer, 0, vk::WHOLE_SIZE, 0) };
                 gpu::compute_barrier(d, cmd);
-                let push: [u32; 2] = [n, self.d.options.map_thresh.to_bits()];
-                let binds =
-                    [Bind::Buffer(slot.map_params), Bind::Buffer(self.map_nodes.buffer), Bind::Buffer(self.map_cells.buffer)];
+                let thresh = self.d.options.map_thresh.unwrap_or(if sdr {
+                    crate::map::BAKE_THRESH_SDR
+                } else {
+                    crate::map::BAKE_THRESH
+                });
+                let push: [u32; 2] = [n, thresh.to_bits()];
+                let binds = [
+                    Bind::Buffer(slot.map_params),
+                    Bind::Buffer(self.map_nodes.buffer),
+                    Bind::Buffer(self.map_cells.buffer),
+                    Bind::Buffer(tables),
+                ];
                 // nodes, the cells they interpolate badly, the marks in the nodes' alpha
-                self.dispatch3(cmd, &self.map_bake[0], &binds, &push, n.div_ceil(4));
+                self.dispatch3(cmd, &map_bake[0], &binds, &push, n.div_ceil(4));
                 gpu::compute_barrier(d, cmd);
-                self.dispatch3(cmd, &self.map_bake[1], &binds, &push, (n - 1).div_ceil(4));
+                self.dispatch3(cmd, &map_bake[1], &binds, &push, (n - 1).div_ceil(4));
                 gpu::compute_barrier(d, cmd);
-                self.dispatch3(cmd, &self.map_bake[2], &binds, &push, n.div_ceil(4));
+                self.dispatch3(cmd, &map_bake[2], &binds, &push, n.div_ceil(4));
                 self.map_lut.record_copy(d, cmd, self.map_nodes.buffer);
                 gpu::compute_barrier(d, cmd);
                 self.map_baked = Some(m.key);
@@ -2686,9 +2888,9 @@ impl Engine {
             gpu::indirect_barrier(d, cmd);
         }
         let pack = if mapped {
-            match self.pack_map.get(&Self::pack_map_key(variant, self.stats())) {
+            match self.pack_map.get(&self.frame_map_key()) {
                 Some(pack) => pack,
-                None => return Err(Error::Missing("an HDR10 pack variant")),
+                None => return Err(Error::Missing("a mapped pack variant")),
             }
         } else {
             match variant {
@@ -2735,6 +2937,7 @@ impl Engine {
                 Bind::Buffer(slot.map_params),
                 Bind::Buffer(self.map_cells.buffer),
                 Bind::Buffer(slot.stats),
+                Bind::Buffer(tables),
             ],
         );
         let push = PackPush {
@@ -2772,13 +2975,18 @@ impl Engine {
         if fixup {
             // the pairs the pack listed (a marked LUT cell), computed exactly
             gpu::indirect_barrier(d, cmd);
-            unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, self.map_fixup.pipeline) };
+            unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, map_fixup.pipeline) };
             self.push.bind(
                 cmd,
-                &self.map_fixup,
-                &[Bind::Buffer(out_buffer), Bind::Buffer(slot.map_params), Bind::Buffer(self.map_cells.buffer)],
+                map_fixup,
+                &[
+                    Bind::Buffer(out_buffer),
+                    Bind::Buffer(slot.map_params),
+                    Bind::Buffer(self.map_cells.buffer),
+                    Bind::Buffer(tables),
+                ],
             );
-            gpu::push_constants(d, cmd, &self.map_fixup, &[CANVAS_W, out_stride / 4]);
+            gpu::push_constants(d, cmd, map_fixup, &[CANVAS_W, out_stride / 4]);
             unsafe { d.device.cmd_dispatch_indirect(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4) };
         }
         stamp(cmd, 3);
@@ -3020,6 +3228,7 @@ impl Engine {
                 Bind::Buffer(slot.map_params),
                 Bind::Buffer(self.map_cells.buffer),
                 Bind::Buffer(slot.stats),
+                Bind::Buffer(slot.error),
             ],
             &reference_push,
             ((CANVAS_W / 4).div_ceil(32), (CANVAS_H / 2).div_ceil(2)),
@@ -3457,6 +3666,14 @@ impl Drop for Engine {
         self.shot.destroy(d);
         for p in self.pack_map.values().chain(self.map_bake.iter()).chain(std::iter::once(&self.map_fixup)) {
             p.destroy(d);
+        }
+        if let Some((bake, fixup)) = &self.map_sdr {
+            for p in bake.iter().chain(std::iter::once(fixup)) {
+                p.destroy(d);
+            }
+        }
+        if let Some(t) = &self.map_tables {
+            t.destroy(d);
         }
         self.map_lut.destroy(d);
         self.map_nodes.destroy(d);

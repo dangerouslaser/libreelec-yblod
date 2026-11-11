@@ -143,18 +143,44 @@ void dvvk_reset(dvvk_engine *);
  * frame before the overlay (each channel's linear maximum, the average
  * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin) in the pack
  * (shaders/pack.comp STATS), read back once the frame is done. */
-enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2 };
+/*   DVVK_OUTPUT_SDR  SDR (after YBLOD 0.5.0): the engine converts to the picture
+ *                      of an SDR display (docs/intel-dv/OUTPUT-MODES.md): the
+ *                      HDR10 recipe (libplacebo's spline tone curve on IPT's I,
+ *                      scene by scene from L1) compressing to the display's
+ *                      white, libplacebo's perceptual gamut mapping from the
+ *                      source's primaries (L9) to BT.709, then the display's
+ *                      inverse EOTF. The output is ordinary 8-bit R'G'B' in
+ *                      XRGB8888 (no Dolby Vision or HDR signalling), dithered
+ *                      with a fixed pattern, each pixel from its own luma and
+ *                      its pair's chroma; an overlay is blended after the
+ *                      conversion, as sRGB over the display's R'G'B'.
+ *                      peak_nits: the display's white in cd/m2 (0: 203),
+ *                      min_nits: its black (0: white / 1000). flags
+ *                      DVVK_SDR_*. An engine without it refuses the mode
+ *                      (dvvk_set_output_mode returns -2); dvvk_output_modes
+ *                      says so before an engine exists. */
+enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2, DVVK_OUTPUT_SDR = 3 };
+/* dvvk_output_mode.flags for DVVK_OUTPUT_SDR (0 for the other modes):
+ * GAMMA22 a pure 2.2 power, black at the display's black (else BT.1886,
+ * gamma 2.4 with the display's black); LIMITED codes 16..235 (else 0..255);
+ * NO_DITHER the codes rounded. */
+enum { DVVK_SDR_GAMMA22 = 1u, DVVK_SDR_LIMITED = 2u, DVVK_SDR_NO_DITHER = 4u };
 typedef struct {
     uint32_t mode;
-    uint32_t flags;               /* 0 */
-    float peak_nits, min_nits;    /* 0: the stream's */
+    uint32_t flags;               /* DVVK_SDR_* (SDR), else 0 */
+    float peak_nits, min_nits;    /* 0: the stream's (SDR: the default display) */
     uint32_t reserved[4];
 } dvvk_output_mode;
+/* The output modes this library has, bit 1 << DVVK_OUTPUT_*. An optional
+ * symbol (with DVVK_OUTPUT_SDR; no engine needed): a library without it has the
+ * modes its other optional symbols say (never SDR). */
+uint32_t dvvk_output_modes(void);
 /* The last frame's output: what the HDR static metadata InfoFrame (CTA-861.3)
- * says. mode DVVK_OUTPUT_DV: everything 0. */
+ * says. mode DVVK_OUTPUT_DV: everything 0. mode DVVK_OUTPUT_SDR: eotf 0, the
+ * display's primaries (BT.709) and white, no InfoFrame to send. */
 typedef struct {
     uint32_t mode;
-    uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ) */
+    uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ); 0: SDR */
     uint16_t primaries[3][2];     /* display primaries x, y (0.00002 units): R, G, B */
     uint16_t white[2];
     uint16_t max_luminance;       /* cd/m2 */

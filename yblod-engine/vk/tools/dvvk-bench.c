@@ -50,6 +50,14 @@
  *                        dvvk_hdr10plus_packet as a JSON line ("hdr10plus":
  *                        right after submit, "late" statistics allowed; and
  *                        for dumped pictures once done, "own")
+ *                        sdr: the engine converts to an SDR display's picture
+ *                        (the dumps are then 8-bit R'G'B' XRGB8888)
+ *     --white NITS       sdr: the display's white (default 203); also the
+ *                        overlay's white in the other modes
+ *     --black NITS       sdr: the display's black (default white / 1000)
+ *     --gamma22          sdr: a 2.2 power instead of BT.1886
+ *     --limited          sdr: codes 16..235
+ *     --no-dither        sdr: rounded codes
  *     --hdr10plus-v0     HDR10+ application version 0 (default 1)
  *     --no-l2            L2 trims left out of the metadata
  *     --dump FILE        the last picture's XRGB8888 bytes
@@ -235,7 +243,8 @@ int main(int argc, char **argv)
     uint32_t last_dm_status = UINT32_MAX;
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
     const char *metadata_prefix = NULL;
-    double start = 0, rate = 23.976, white = 203.0;
+    double start = 0, rate = 23.976, white = 203.0, black = 0;
+    unsigned sdr_flags = 0;
     unsigned dx = 0, dy = 0, dwid = 0, dhei = 0;
     const char *file = NULL, *overlay_path = NULL, *mode = "none", *dump = NULL;
     for (int i = 1; i < argc; i++) {
@@ -298,8 +307,17 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--output") && i + 1 < argc)
         {
             const char *m = argv[++i];
-            output = !strcmp(m, "hdr10") ? DVVK_OUTPUT_HDR10 : !strcmp(m, "hdr10plus") ? DVVK_OUTPUT_HDR10PLUS : DVVK_OUTPUT_DV;
+            output = !strcmp(m, "hdr10") ? DVVK_OUTPUT_HDR10 : !strcmp(m, "hdr10plus") ? DVVK_OUTPUT_HDR10PLUS
+                     : !strcmp(m, "sdr") ? DVVK_OUTPUT_SDR : DVVK_OUTPUT_DV;
         }
+        else if (!strcmp(argv[i], "--black") && i + 1 < argc)
+            black = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--gamma22"))
+            sdr_flags |= DVVK_SDR_GAMMA22;
+        else if (!strcmp(argv[i], "--limited"))
+            sdr_flags |= DVVK_SDR_LIMITED;
+        else if (!strcmp(argv[i], "--no-dither"))
+            sdr_flags |= DVVK_SDR_NO_DITHER;
         else if (!strcmp(argv[i], "--hdr10plus-v0"))
             hdr10plus_v0 = 1;
         else if (!strcmp(argv[i], "--no-l2"))
@@ -339,6 +357,11 @@ int main(int argc, char **argv)
         return fprintf(stderr, "dvvk_create failed\n"), 1;
     if (output != DVVK_OUTPUT_DV) {
         dvvk_output_mode om = {.mode = output};
+        if (output == DVVK_OUTPUT_SDR) {
+            om.flags = sdr_flags;
+            om.peak_nits = (float)white;
+            om.min_nits = (float)black;
+        }
         if (dvvk_set_output_mode(e, &om))
             return fprintf(stderr, "dvvk_set_output_mode failed\n"), 1;
     }
@@ -559,9 +582,9 @@ int main(int argc, char **argv)
     if (output != DVVK_OUTPUT_DV) {
         dvvk_hdr_signal sig;
         if (!dvvk_output_signal(e, &sig))
-            printf("dvvk-bench: HDR10 signal: mode %u eotf %u max %u cd/m2 min %u (1e-4) cll %u fall %u "
+            printf("dvvk-bench: %s signal: mode %u eotf %u max %u cd/m2 min %u (1e-4) cll %u fall %u "
                    "R %u,%u G %u,%u B %u,%u W %u,%u\n",
-                   sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
+                   output == DVVK_OUTPUT_SDR ? "SDR" : "HDR10", sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
                    sig.primaries[0][0], sig.primaries[0][1], sig.primaries[1][0], sig.primaries[1][1],
                    sig.primaries[2][0], sig.primaries[2][1], sig.white[0], sig.white[1]);
     }
