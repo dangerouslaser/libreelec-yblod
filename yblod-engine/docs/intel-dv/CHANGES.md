@@ -128,9 +128,8 @@ The table below covers the files of the Intel Dolby Vision tunnel (`linux-9900`,
 
 | Patch | Purpose |
 | --- | --- |
-| [ffmpeg-9900-00-libavcodec__dovi_rpudec.c.patch](../../patches/ffmpeg/ffmpeg-9900-00-libavcodec__dovi_rpudec.c.patch) | Preserve extended Dolby Vision metadata during decoding. |
-| [ffmpeg-9900-01-libavformat__isom_tags.c.patch](../../patches/ffmpeg/ffmpeg-9900-01-libavformat__isom_tags.c.patch) | Recognize Dolby Vision AV1 tracks in MP4 containers. |
-| [ffmpeg-9900-02-libavutil__dovi_meta.h.patch](../../patches/ffmpeg/ffmpeg-9900-02-libavutil__dovi_meta.h.patch) | Carry extended Dolby Vision metadata to the player. |
+| [ffmpeg-9900-dovi-rpu-extension-block-bytes.patch](../../patches/ffmpeg/ffmpeg-9900-dovi-rpu-extension-block-bytes.patch) | Preserve extended Dolby Vision metadata during decoding and carry it to the player (`dovi_rpudec.c`, `dovi_meta.h`). |
+| [ffmpeg-9901-mov-dav1-sample-entry.patch](../../patches/ffmpeg/ffmpeg-9901-mov-dav1-sample-entry.patch) | Recognize Dolby Vision AV1 tracks in MP4 containers. |
 
 | Changed source file | High-level change |
 | --- | --- |
