@@ -35,8 +35,7 @@ dv-engine-vk work unchanged on AMD integrated graphics:
   with drm.debug=0x4.
 
 Not ported: QMS (linux-9910/9911; a refresh change is a modeset on amdgpu),
-the SPD source type (linux-9912; amdgpu sends no SPD InfoFrame of its own),
-DVBRIDGE_HDR10_DEEP_COLOR (linux-9904).
+the SPD source type (linux-9912; amdgpu sends no SPD InfoFrame of its own).
 
 DC hook points adapted from CroqueMr's CB1
 (github.com/CroqueMr/libreelec-x86-DV, projects/Generic/patches/linux/

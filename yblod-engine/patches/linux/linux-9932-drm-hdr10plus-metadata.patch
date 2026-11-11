@@ -688,7 +688,7 @@ index 07970e5b5f65..62bec406b979 100644
  	info->edid_hdmi_rgb444_dc_modes = 0;
  	info->edid_hdmi_ycbcr444_dc_modes = 0;
 diff --git a/drivers/gpu/drm/i915/display/intel_atomic.c b/drivers/gpu/drm/i915/display/intel_atomic.c
-index dfe51d863680..83c53bbe2af2 100644
+index c55a77cf56ed..9e09cb76cc2e 100644
 --- a/drivers/gpu/drm/i915/display/intel_atomic.c
 +++ b/drivers/gpu/drm/i915/display/intel_atomic.c
 @@ -36,6 +36,7 @@
@@ -699,7 +699,7 @@ index dfe51d863680..83c53bbe2af2 100644
  #include "intel_atomic.h"
  #include "intel_cdclk.h"
  #include "intel_display_core.h"
-@@ -173,6 +174,18 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
+@@ -159,6 +160,18 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
  
  	intel_hdcp_atomic_check(conn, old_state, new_state);
  
@@ -717,15 +717,15 @@ index dfe51d863680..83c53bbe2af2 100644
 +
  	if (!new_state->crtc) {
  		new_conn_state->dv_lab_standard = false;
- 		new_conn_state->dv_hdr10_deep_color = false;
-@@ -190,6 +203,7 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
+ 		return 0;
+@@ -173,6 +186,7 @@ int intel_digital_connector_atomic_check(struct drm_connector *conn,
  	if (new_conn_state->dv_lab_standard != old_conn_state->dv_lab_standard ||
  	    (new_conn_state->dv_lab_standard &&
  	     new_conn_state->dv_tunnel_format != old_conn_state->dv_tunnel_format) ||
 +	    !!new_state->hdr10plus_metadata != !!old_state->hdr10plus_metadata ||
- 	    new_conn_state->dv_hdr10_deep_color != old_conn_state->dv_hdr10_deep_color ||
  	    new_conn_state->force_audio != old_conn_state->force_audio ||
  	    new_conn_state->broadcast_rgb != old_conn_state->broadcast_rgb ||
+ 	    new_conn_state->base.colorspace != old_conn_state->base.colorspace ||
 diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
 index 4eb3d6c3623b..d232092a0332 100644
 --- a/drivers/gpu/drm/i915/display/intel_display.c
@@ -812,10 +812,10 @@ index 4eb3d6c3623b..d232092a0332 100644
  	/* FIXME deal with everything */
  	new_crtc_state->use_flipq =
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index b2bd2cef3b9f..6842e7da7267 100644
+index af4898612ecf..0f978335cb2f 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -660,6 +660,8 @@ struct dpll {
+@@ -658,6 +658,8 @@ struct dpll {
  
  struct intel_atomic_state {
  	struct drm_atomic_commit base;
@@ -825,7 +825,7 @@ index b2bd2cef3b9f..6842e7da7267 100644
  	struct ref_tracker *wakeref;
  
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 797427855bf2..bb9eaaae0b5a 100644
+index 668cb8337351..0267ffc33514 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -796,6 +796,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
@@ -970,7 +970,7 @@ index 797427855bf2..bb9eaaae0b5a 100644
  void intel_hdmi_fastset_infoframes(struct intel_encoder *encoder,
  				   const struct intel_crtc_state *crtc_state,
  				   const struct drm_connector_state *conn_state)
-@@ -3569,8 +3683,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
+@@ -3544,8 +3658,13 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *_
  	intel_attach_hdmi_colorspace_property(&connector->base);
  	drm_connector_attach_content_type_property(&connector->base);
  

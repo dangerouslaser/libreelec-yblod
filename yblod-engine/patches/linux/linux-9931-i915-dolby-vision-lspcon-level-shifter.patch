@@ -141,10 +141,10 @@ index 0c65e964df96..b80de9ae709c 100644
  	param(char *, vbt_firmware, NULL, 0400) \
  	param(int, lvds_channel_mode, 0, 0400) \
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index b10963555774..b2bd2cef3b9f 100644
+index cecbee83d6e4..af4898612ecf 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -2005,6 +2005,8 @@ struct intel_lspcon {
+@@ -2003,6 +2003,8 @@ struct intel_lspcon {
  	bool hdr_supported;
  	enum drm_lspcon_mode mode;
  	enum lspcon_vendor vendor;
@@ -318,10 +318,10 @@ index 9a692f4fdfee..f2b4265c7c6f 100644
  
  	/*
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index eb22d14395ca..797427855bf2 100644
+index 4350a1cbed61..668cb8337351 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -3131,9 +3131,14 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -3110,9 +3110,14 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  		struct dvbridge_sink_caps caps = dvbridge_parse_edid(
  			edid ? edid->data : NULL, edid ? edid->length : 0);
  		unsigned int format = to_intel_digital_connector_state(conn_state)->dv_tunnel_format;
@@ -337,7 +337,7 @@ index eb22d14395ca..797427855bf2 100644
  			/* big-fella: the sink the format needs (dvbridge_tunnel_format.h) */
  			.sink_standard = dvbridge_tunnel_sink(format, &caps, &connector->base),
  			.hdmi = pipe_config->has_hdmi_sink && pipe_config->has_infoframe &&
-@@ -3142,6 +3147,7 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -3121,6 +3126,7 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  				enc_to_dig_port(encoder)->lspcon.active,
  				enc_to_intel_hdmi(encoder)->dp_dual_mode.type != DRM_DP_DUAL_MODE_NONE,
  				intel_bios_encoder_supports_dp_dual_mode(encoder->devdata)),
@@ -345,7 +345,7 @@ index eb22d14395ca..797427855bf2 100644
  			.rgb = pipe_config->output_format == INTEL_OUTPUT_FORMAT_RGB &&
  				pipe_config->sink_format == INTEL_OUTPUT_FORMAT_RGB,
  			.limited_range = pipe_config->limited_color_range,
-@@ -3161,6 +3167,11 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -3140,6 +3146,11 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  		ret = intel_dv_lab_validate(&link);
  		if (!ret)
  			ret = dvbridge_tunnel_hdr_metadata(format, conn_state->hdr_output_metadata);
@@ -357,7 +357,7 @@ index eb22d14395ca..797427855bf2 100644
  		/* the Dolby block's 2160p60 bit is about TV-led Dolby Vision */
  		if (!ret && format == DVBRIDGE_TUNNEL_DV && link.width == 3840 &&
  		    link.rounded_refresh > 30 && !caps.supports_2160p60)
-@@ -3910,6 +3921,64 @@ static u8 intel_hdmi_ddc_pin(struct intel_encoder *encoder)
+@@ -3885,6 +3896,64 @@ static u8 intel_hdmi_ddc_pin(struct intel_encoder *encoder)
  	return ddc_pin;
  }
  
@@ -422,7 +422,7 @@ index eb22d14395ca..797427855bf2 100644
  void intel_infoframe_init(struct intel_digital_port *dig_port)
  {
  	struct intel_display *display = to_intel_display(dig_port);
-@@ -3925,7 +3994,12 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
+@@ -3900,7 +3969,12 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
  		dig_port->set_infoframes = g4x_set_infoframes;
  		dig_port->infoframes_enabled = g4x_infoframes_enabled;
  	} else if (HAS_DDI(display)) {

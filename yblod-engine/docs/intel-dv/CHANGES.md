@@ -96,7 +96,6 @@ it was tested on. Until 0.4.1 the series was 30 files (`linux-9900-00` to
 | --- | --- |
 | [linux-9900-video-hdmi-dolby-vendor-infoframes.patch](../../patches/linux/linux-9900-video-hdmi-dolby-vendor-infoframes.patch) | Dolby vendor InfoFrames in the HDMI helpers: the Dolby-OUI form and the HDMI 1.4b form. |
 | [linux-9901-i915-dolby-vision-tunnel.patch](../../patches/linux/linux-9901-i915-dolby-vision-tunnel.patch) | i915: the Dolby Vision tunnel on native HDMI (connector properties, link and scanout policy, EDID parser, tunnel formats, rejection messages). |
-| [linux-9904-i915-dvbridge-hdr10-deep-color.patch](../../patches/linux/linux-9904-i915-dvbridge-hdr10-deep-color.patch) | i915: `DVBRIDGE_HDR10_DEEP_COLOR`, 10 bpc or nothing for HDR10 converted from Dolby Vision. |
 | [linux-9910-i915-hdmi-qms.patch](../../../yblod/patches/linux/linux-9910-i915-hdmi-qms.patch) | i915: HDMI 2.1 Quick Media Switching (refresh rate changes without a blank). |
 | [linux-9912-i915-hdmi-spd-source-type.patch](../../../yblod/patches/linux/linux-9912-i915-hdmi-spd-source-type.patch) | i915: the SPD InfoFrame says "Digital STB", so TVs do not treat the input as a PC. |
 | [linux-9913-hdmi-link-robustness.patch](../../patches/linux/linux-9913-hdmi-link-robustness.patch) | i915, amdgpu: a short HPD drop is not an unplug; the sink's SCDC is checked again after a hotplug. |

@@ -30,10 +30,10 @@ change.
  7 files changed, 286 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_atomic.c b/drivers/gpu/drm/i915/display/intel_atomic.c
-index 62dd8d05d3f1..dfe51d863680 100644
+index 78622b34db2a..c55a77cf56ed 100644
 --- a/drivers/gpu/drm/i915/display/intel_atomic.c
 +++ b/drivers/gpu/drm/i915/display/intel_atomic.c
-@@ -115,7 +115,10 @@ int intel_digital_connector_atomic_set_property(struct drm_connector *connector,
+@@ -110,7 +110,10 @@ int intel_digital_connector_atomic_set_property(struct drm_connector *connector,
  
  	if (to_intel_connector(connector)->dv_lab_property &&
  	    property == to_intel_connector(connector)->dv_lab_property) {
@@ -374,7 +374,7 @@ index 8689fb887662..28d385a401fe 100644
  	if (!s->hdmi || !s->rgb || s->limited_range || s->hdr_blob || s->cloned ||
  	    !s->progressive || s->requested_bpc != 8 || s->pipe_bpp != 24 ||
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 8c4a01fe06d0..eb22d14395ca 100644
+index c10e32b4030e..4350a1cbed61 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -603,6 +603,71 @@ static u32 hsw_infoframes_enabled(struct intel_encoder *encoder,
@@ -449,7 +449,7 @@ index 8c4a01fe06d0..eb22d14395ca 100644
  static const u8 infoframe_type_to_idx[] = {
  	HDMI_PACKET_TYPE_GENERAL_CONTROL,
  	HDMI_PACKET_TYPE_GAMUT_METADATA,
-@@ -3865,6 +3930,11 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
+@@ -3840,6 +3905,11 @@ void intel_infoframe_init(struct intel_digital_port *dig_port)
  			dig_port->read_infoframe = lspcon_read_infoframe;
  			dig_port->set_infoframes = lspcon_set_infoframes;
  			dig_port->infoframes_enabled = lspcon_infoframes_enabled;

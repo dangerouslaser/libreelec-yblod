@@ -27,7 +27,6 @@ Limits:
   1080p at 10 bpc keep QMS; 2160p24/25/30 HDR at 10 bpc keeps its own
   timing. From big-fella (linux-9911): KWin's HDR desktop at 2160p60
   already runs at 8 bpc, and every rate change there was a blank.
-- not with DVBRIDGE_HDR10_DEEP_COLOR;
 - the Dolby Vision tunnel in its dolby-vision format at 2160p: only if
   the sink's Dolby block allows 2160p60 (the base timing);
 - not on LSPCON ports (gen9/10: the VTEM does not fit the 32-byte GMP
@@ -43,14 +42,18 @@ correct. Dolby Vision 24p titles looked fine there.
 
 Regrouped from linux-9910-yblod-hdmi-qms,
 linux-9911-big-fella-qms-hdr-8bpc and the QMS lines of
-linux-9928-big-fella-tunnel-format and linux-9931-lspcon-ls-dv; no code
-change.
+linux-9928-big-fella-tunnel-format and linux-9931-lspcon-ls-dv.
+
+Changed since YBLOD 0.4.1:
+- the exclusion for DVBRIDGE_HDR10_DEEP_COLOR went with that property
+  (linux-9904-hdr10-conversion, dropped: Kodi has not set it since 0.4.0
+  and amdgpu never had it).
 ---
  drivers/gpu/drm/i915/display/intel_display.c  |  12 +-
  .../drm/i915/display/intel_display_types.h    |   8 +
- drivers/gpu/drm/i915/display/intel_hdmi.c     | 444 ++++++++++++++++++
+ drivers/gpu/drm/i915/display/intel_hdmi.c     | 437 ++++++++++++++++++
  drivers/gpu/drm/i915/display/intel_hdmi.h     |   6 +
- 4 files changed, 468 insertions(+), 2 deletions(-)
+ 4 files changed, 461 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
 index 82b1218fe585..4eb3d6c3623b 100644
@@ -97,10 +100,10 @@ index 82b1218fe585..4eb3d6c3623b 100644
  } while (0)
  
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 59d45ceb6e8a..30f068982b67 100644
+index 49dd54cdbfa3..fcb71fb2bd46 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -1425,6 +1425,14 @@ struct intel_crtc_state {
+@@ -1423,6 +1423,14 @@ struct intel_crtc_state {
  		} dc_balance;
  	} vrr;
  
@@ -116,7 +119,7 @@ index 59d45ceb6e8a..30f068982b67 100644
  	struct {
  		bool enable;
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 2656e99b541a..f8a93b3d0702 100644
+index 105db8f83651..053fc926834f 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -27,11 +27,15 @@
@@ -172,7 +175,7 @@ index 2656e99b541a..f8a93b3d0702 100644
  }
  
  void intel_dp_dual_mode_set_tmds_output(struct intel_hdmi *hdmi, bool enable)
-@@ -2483,6 +2496,433 @@ bool intel_hdmi_compute_has_hdmi_sink(struct intel_encoder *encoder,
+@@ -2481,6 +2494,426 @@ bool intel_hdmi_compute_has_hdmi_sink(struct intel_encoder *encoder,
  		!intel_hdmi_is_cloned(crtc_state);
  }
  
@@ -281,13 +284,6 @@ index 2656e99b541a..f8a93b3d0702 100644
 +	    intel_bios_encoder_is_lspcon(encoder->devdata) ||
 +	    m->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN |
 +			DRM_MODE_FLAG_DBLCLK | DRM_MODE_FLAG_3D_MASK))
-+		return;
-+
-+	/*
-+	 * Reconstructed HDR10 (10/12 bpc required) keeps its own timing. Other
-+	 * HDR is checked below, once the base timing is known.
-+	 */
-+	if (intel_conn_state->dv_hdr10_deep_color)
 +		return;
 +
 +	for (i = 0; i < ARRAY_SIZE(qms_bases); i++)
@@ -606,7 +602,7 @@ index 2656e99b541a..f8a93b3d0702 100644
  int intel_hdmi_compute_config(struct intel_encoder *encoder,
  			      struct intel_crtc_state *pipe_config,
  			      struct drm_connector_state *conn_state)
-@@ -2508,6 +2948,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+@@ -2506,6 +2939,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  	if (adjusted_mode->flags & DRM_MODE_FLAG_DBLCLK)
  		pipe_config->pixel_multiplier = 2;
  
@@ -614,8 +610,8 @@ index 2656e99b541a..f8a93b3d0702 100644
 +
  	if (!intel_link_bw_compute_pipe_bpp(pipe_config))
  		return -EINVAL;
- 	/* This opt-in applies only to reconstructed HDR10, never ordinary Kodi HDR.
-@@ -2658,6 +3100,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
+ 
+@@ -2644,6 +3079,8 @@ int intel_hdmi_compute_config(struct intel_encoder *encoder,
  		return -EINVAL;
  	}
  

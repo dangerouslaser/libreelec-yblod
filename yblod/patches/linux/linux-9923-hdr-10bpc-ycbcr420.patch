@@ -15,7 +15,7 @@ YUV 4:2:0 when HDR was on above 480 MHz), which only amdgpu has; i915 has no
 
 The rule now lives where the link budget is known. With PQ or HLG
 HDR_OUTPUT_METADATA, max bpc >= 10 and not the Dolby Vision tunnel (RGB, 8
-bpc) or reconstructed HDR10 (i915's own rule):
+bpc):
 - amdgpu: with "color format" AUTO, amdgpu_dm_create_validate_stream_for_sink
   first tries RGB and then YCbCr 4:2:0 at 10 bpc and up (where the mode allows
   4:2:0), then the usual order. Leaving or entering HDR with metadata on both
@@ -32,8 +32,11 @@ B4, with kwin-big-fella without hdr-ycbcr420.patch: HDR on at 2160p60 and
 the Dolby Vision tunnel over an HDR desktop 8 bpc RGB at 2160p60 and
 2160p23.976.
 
-Regrouped from linux-9923-big-fella-hdr-yuv420 (YBLOD 0.3.3 to 0.4.1);
-no code change.
+Regrouped from linux-9923-big-fella-hdr-yuv420 (YBLOD 0.3.3 to 0.4.1).
+
+Changed since YBLOD 0.4.1:
+- i915: the exclusion for DVBRIDGE_HDR10_DEEP_COLOR went with that
+  property (linux-9904-hdr10-conversion, dropped).
 ---
  .../display/amdgpu_dm/amdgpu_dm_connector.c   | 61 ++++++++++++++++++-
  drivers/gpu/drm/i915/display/intel_hdmi.c     | 52 ++++++++++++++++
@@ -159,10 +162,10 @@ index 3d33f6d96a3f..97eb9c20eccb 100644
  
  	return 0;
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index e86209bf4cad..8c4a01fe06d0 100644
+index b57ae8023f91..c10e32b4030e 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
-@@ -2418,6 +2418,37 @@ static bool intel_dvbridge_hdr_deep_requested(struct intel_display *display,
+@@ -2416,6 +2416,37 @@ static bool intel_dvbridge_hdr_deep_requested(struct intel_display *display,
  		hdr->hdmi_metadata_type1.eotf == HDMI_EOTF_SMPTE_ST2084;
  }
  
@@ -170,10 +173,10 @@ index e86209bf4cad..8c4a01fe06d0 100644
 + * big-fella: HDR at 4K50/60. 10 bpc RGB doesn't fit HDMI 2.0 there, so the
 + * pipe drops to 8 bpc RGB, and an LG B4 ignores HDR10 metadata on 8 bpc RGB.
 + * With PQ/HLG HDR_OUTPUT_METADATA and max bpc >= 10 (not the Dolby Vision
-+ * tunnel, which is RGB, nor reconstructed HDR10, which has its own rule
-+ * below), an RGB link below 10 bpc is tried again as YCbCr 4:2:0, kept if
-+ * that gets 10 bpc. amdgpu does the same (amdgpu.hdr_yuv420); until
-+ * linux-yblod 7.3-7 KWin asked for it (kwin-big-fella-hdr-ycbcr420.patch).
++ * tunnel, which is RGB), an RGB link below 10 bpc is tried again as YCbCr
++ * 4:2:0, kept if that gets 10 bpc. amdgpu does the same
++ * (amdgpu.hdr_yuv420); until linux-yblod 7.3-7 KWin asked for it
++ * (kwin-big-fella-hdr-ycbcr420.patch).
 + */
 +static bool hdr_yuv420 = true;
 +module_param(hdr_yuv420, bool, 0644);
@@ -187,7 +190,7 @@ index e86209bf4cad..8c4a01fe06d0 100644
 +		to_intel_digital_connector_state(state);
 +	const struct hdr_output_metadata *hdr;
 +
-+	if (!hdr_yuv420 || intel_state->dv_lab_standard || intel_state->dv_hdr10_deep_color ||
++	if (!hdr_yuv420 || intel_state->dv_lab_standard ||
 +	    state->max_requested_bpc < 10 || !state->hdr_output_metadata ||
 +	    state->hdr_output_metadata->length < sizeof(*hdr))
 +		return false;
@@ -200,7 +203,7 @@ index e86209bf4cad..8c4a01fe06d0 100644
  static int intel_hdmi_compute_formats(struct intel_encoder *encoder,
  				      struct intel_crtc_state *crtc_state,
  				      const struct drm_connector_state *conn_state,
-@@ -2464,6 +2495,27 @@ static int intel_hdmi_compute_formats(struct intel_encoder *encoder,
+@@ -2462,6 +2493,27 @@ static int intel_hdmi_compute_formats(struct intel_encoder *encoder,
  				return ret ? ret : -EINVAL;
  		}
  
