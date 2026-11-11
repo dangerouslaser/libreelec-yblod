@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 13:07:33 -0500
+Subject: [PATCH] kodi: play software-decoded Dolby Vision pictures as ordinary
+ video
+
+DVBRIDGE::WantsNativeOutput(picture) told the eligibility check that
+no picture is software-decoded. A picture with Dolby Vision metadata
+that is not a VAAPI surface (hardware decoding off or failed, or a CPU
+filter's copy) therefore configured the renderer for the bridge, the
+window put up the Dolby Vision signal, and every frame ended in the
+base class's RenderDVBridge(), which returns false: a black or frozen
+picture for the whole title.
+
+The Vulkan engine reads decoded VAAPI surfaces and nothing else, so the
+picture now says so: one that is not a decoded surface is not wanted
+for native output. The renderer, the render manager's refresh choice
+and the window's output format all take their answer from this query,
+and such a title plays through the ordinary renderer (HDR10 for a
+compatible base layer). There is no per-frame fallback: once the
+tunnel's signal is up, the GL back buffer is never presented.
+
+A refresh change that was left for the first native frame is committed
+with the next ordinary page when the picture turns out not to use the
+bridge, instead of after the three second deadline.
+---
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 25 ++++++++++++++++++-
+ 1 file changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 09a28de..7916922 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -52,6 +52,9 @@ extern "C"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVHDR10PlusToDovi.h"
++#if defined(HAVE_LIBVA)
++#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
++#endif
+ #include "cores/VideoPlayer/DVDStreamInfo.h"
+ #include "drm/DRMAtomic.h"
+ #include "dialogs/GUIDialogKaiToast.h"
+@@ -959,12 +962,27 @@ bool DVBRIDGE::VideoModesetExpected()
+   return videoModesetExpected.load();
+ }
+ 
++namespace
++{
++// The Vulkan engine reads decoded VAAPI surfaces. Any other picture (software decoding, or a
++// CPU filter's copy) has no route to the tunnel and plays as ordinary video.
++bool DecodedSurface(const VideoPicture& picture)
++{
++#if defined(HAVE_LIBVA)
++  const auto* buffer = dynamic_cast<const VAAPI::CVaapiRenderPicture*>(picture.videoBuffer);
++  return buffer && buffer->procPic.videoSurface != VA_INVALID_ID;
++#else
++  return false;
++#endif
++}
++} // namespace
++
+ bool DVBRIDGE::WantsNativeOutput(const VideoPicture* picture)
+ {
+   return picture &&
+          SourceSizeSupported(picture->iWidth, picture->iHeight,
+                              picture->doviEnhancement || picture->doviElSkipped) &&
+-         NativeDVEligible(picture->doviMetadata.Data() != nullptr, false,
++         NativeDVEligible(picture->doviMetadata.Data() != nullptr, !DecodedSurface(*picture),
+                           (picture->iFlags & DVP_FLAG_INTERLACED) != 0,
+                           !picture->stereoMode.empty());
+ }
+@@ -1146,6 +1164,11 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
+ {
+   m_dvVideo = picture != nullptr;
++  // A video that does not use the bridge after all (a software-decoded picture of a Dolby
++  // Vision stream): its mode goes with the next ordinary page, not with a native frame that
++  // never comes.
++  if (picture && !DVBridgeRequested(picture))
++    m_dvModesetDeferred = false;
+   // A stop held for the refresh restore (EndDVBridgeAtStop) keeps the signal through renderer
+   // teardown while the surface keeps its depth; it is restored in the refresh change.
+   const bool sameDepth = VideoOutputBitDepth(picture) == GetOutputBitDepth();
