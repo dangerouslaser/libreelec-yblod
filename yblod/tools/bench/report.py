@@ -62,6 +62,12 @@ def compact(d):
         "enhancement_layer": k.get("enhancement_layer"), "audio_stream": k.get("audio_stream"),
         "output": k.get("output"),
     }
+    # amdgpu: the driver's busy % and power profile; non-blocking: Kodi's flip counters.
+    for key in ("amd_busy_pct_mean", "amd_profile"):
+        if key in d["gpu_clock"]:
+            out[key] = d["gpu_clock"][key]
+    if k.get("flips_summary_last"):
+        out["kodi_flips"] = k["flips_summary_last"]
     if d.get("engine_profile"):
         out["engine_profile"] = d["engine_profile"]
     return out
@@ -95,7 +101,8 @@ def summarise(session, runs):
             "system_md5", "env_override", "sinks", "display_note", "recorded", "harness",
             "gt_RP0_freq_mhz", "gt_min_freq_mhz", "gt_max_freq_mhz", "rapl_long_term_uw",
             "rapl_short_term_uw", "dv_prepare_marker", "outputmode_options", "settings",
-            "profile", "env_image"]
+            "profile", "env_image", "amd_sclk_levels", "amd_dpm_level", "amd_power_profile",
+            "amdgpu_enable_dv_lab"]
     return {"session": {k: session.get(k) for k in keep}, "rows": rows}
 
 

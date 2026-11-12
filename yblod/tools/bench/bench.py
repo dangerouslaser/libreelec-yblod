@@ -31,6 +31,11 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 BOX_DIR = "/storage/yblod-bench"
 RPC_AUTH = "kodi:bench"
+# The bench profile's name: /flash/bench-name on the N150 (le-switch.sh writes
+# it); on a box that boots profiles from btrfs subvolumes (ryzen-fella), the
+# subvolume of the SYSTEM image on the kernel's command line, @bench-NAME.
+BENCH_NAME_SH = ("cat /flash/bench-name 2>/dev/null || "
+                 "sed -n 's|.* SYSTEM_IMAGE=/@bench-\\([^/ ]*\\)/SYSTEM.*|\\1|p' /proc/cmdline")
 
 SETTLE = 15         # s of playback before the window opens
 WINDOW = 60         # s measured
@@ -83,7 +88,8 @@ SESSION_SCRIPT = r"""
 . /etc/os-release
 echo "os_version=${VERSION}"
 echo "os_build_id=${BUILD_ID:-}"
-echo "bench_name=$(cat /flash/bench-name 2>/dev/null)"
+echo "bench_name=$(cat /flash/bench-name 2>/dev/null ||
+  sed -n 's|.* SYSTEM_IMAGE=/@bench-\([^/ ]*\)/SYSTEM.*|\1|p' /proc/cmdline)"
 echo "kernel=$(uname -r)"
 echo "kernel_build=$(uname -v)"
 echo "cmdline=$(cat /proc/cmdline)"
@@ -96,6 +102,16 @@ for d in /sys/class/drm/card?; do
   for f in RP0 RP1 RPn min max boost; do
     echo "gt_${f}_freq_mhz=$(cat "${d}/gt_${f}_freq_mhz")"
   done
+done
+for d in /sys/class/drm/card?; do
+  [ -r "${d}/device/gpu_busy_percent" ] || continue
+  echo "gpu_pci=$(cat "${d}/device/vendor"):$(cat "${d}/device/device")"
+  echo "amd_sclk_levels=$(tr '\n' ' ' < "${d}/device/pp_dpm_sclk")"
+  echo "amd_mclk_levels=$(tr '\n' ' ' < "${d}/device/pp_dpm_mclk")"
+  echo "amd_dpm_level=$(cat "${d}/device/power_dpm_force_performance_level")"
+  echo "amd_power_profile=$(sed -n 's/^ *[0-9]* *\([A-Z_0-9]*\) *\*.*/\1/p' "${d}/device/pp_power_profile_mode")"
+  echo "amd_vbios=$(cat "${d}/device/vbios_version" 2>/dev/null)"
+  echo "amdgpu_enable_dv_lab=$(cat /sys/module/amdgpu/parameters/enable_dv_lab 2>/dev/null)"
 done
 z=/sys/class/powercap/intel-rapl:0
 for c in 0 1 2; do
@@ -140,7 +156,9 @@ class Box:
         self.opts = [
             "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
             "-o", "ServerAliveInterval=15",
-            "-o", f"UserKnownHostsFile={state}/known_hosts.{image}",
+            # YBLOD_BENCH_KNOWN_HOSTS=/dev/null: no host key kept (ryzen-fella).
+            "-o", "UserKnownHostsFile=" + os.environ.get(
+                "YBLOD_BENCH_KNOWN_HOSTS", f"{state}/known_hosts.{image}"),
             "-o", "StrictHostKeyChecking=accept-new",
             "-o", f"ControlPath={state}/cm-%C",
         ]
@@ -436,7 +454,7 @@ def cmd_prepare(args):
     for name in ("prepare-profile.sh", "sample.sh"):
         with open(os.path.join(HERE, "box", name)) as f:
             box.write(f"{BOX_DIR}/{name}", f.read())
-    name = box.ssh("cat /flash/bench-name 2>/dev/null", check=False).strip()
+    name = box.ssh(BENCH_NAME_SH, check=False).strip()
     if name != args.image:
         raise BenchError(f"the box runs bench image {name!r}, not {args.image!r}")
     print(box.ssh(f"sh {BOX_DIR}/prepare-profile.sh", timeout=300), end="")
@@ -490,7 +508,7 @@ def wait_home(box):
 
 def cmd_env(args):
     box = Box(args.host, args.image, args.port)
-    name = box.ssh("cat /flash/bench-name 2>/dev/null", check=False).strip()
+    name = box.ssh(BENCH_NAME_SH, check=False).strip()
     if name != args.image:
         raise BenchError(f"the box runs bench image {name!r}, not {args.image!r}")
     changed = set_env(box, args.pairs, args.restart)
@@ -511,7 +529,7 @@ def cmd_run(args):
     out = os.path.join(args.out, args.label or args.image)
     os.makedirs(os.path.join(out, "raw"), exist_ok=True)
     box = Box(args.host, args.image, args.port)
-    name = box.ssh("cat /flash/bench-name 2>/dev/null", check=False).strip()
+    name = box.ssh(BENCH_NAME_SH, check=False).strip()
     if name != args.image:
         raise BenchError(f"the box runs bench image {name!r}, not {args.image!r}")
     if box.ssh("systemctl is-active yblod-dv-prepare", check=False).strip() == "activating":
@@ -681,6 +699,8 @@ def presentation(marks, flips, period_ms, source_fps):
     return out
 
 
+FLIPS = re.compile(r"DV flips queued=(\d+): on_time=(\d+) late=(\d+) blocking=(\d+) busy=(\d+) "
+                   r"timeouts=(\d+) queued_to_vblank_ms mean=([\d.]+) max=([\d.]+)")
 HEALTH = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}) .*DVBridge playback health: (.*)")
 STAMP = re.compile(r"^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d\.\d{3}) ")
 
@@ -726,6 +746,12 @@ def kodi_log(raw, t0, t1, offset):
             out["renderer_closed"] = line.split("closed: ")[1]
         elif "Creating audio stream" in line:
             out["audio_stream"] = line.split("Creating audio stream ")[1]
+        elif FLIPS.search(line):
+            # Non-blocking presentation: cumulative since Kodi started, every 600 queued flips.
+            g = FLIPS.search(line).groups()
+            out["flips_summary_last"] = dict(zip(
+                ("queued", "on_time", "late", "blocking", "busy", "timeouts"), map(int, g[:6])))
+            out["flips_summary_lines"] = out.get("flips_summary_lines", 0) + 1
     if health and t0 is not None:
         out["source_fps"] = float(health[-1][1]["source_fps"])
         inside = [h for h in health if t0 <= h[0] <= t1]
@@ -823,12 +849,19 @@ def window_metrics(raw, driver):
         "cores": round(cores),
     }
 
-    freq = [int(x.split()[1]) for x in read(f"{raw}/freq.txt", "").splitlines()
-            if len(x.split()) == 3 and x.split()[1].isdigit()]
-    clock = {"samples": len(freq)}
+    lines = [x.split() for x in read(f"{raw}/freq.txt", "").splitlines()]
+    freq = [int(f[1]) for f in lines if len(f) == 3 and f[1].isdigit()]
+    # amdgpu: "time sclk_mhz amd busy_pct". The shader clock never reads 0
+    # (GFXOFF does not show in it): no share asleep, the busy % instead.
+    amd = [(int(f[1]), int(f[3])) for f in lines if len(f) == 4 and f[2] == "amd"]
+    clock = {"samples": len(freq) + len(amd)}
     awake = [x for x in freq if x]  # 0: the GPU was asleep (RC6) at that sample
     if freq:
         clock["share_asleep"] = round(freq.count(0) / len(freq), 3)
+    if amd:
+        awake = [mhz for mhz, _ in amd]
+        clock["amd_busy_pct_mean"] = round(statistics.mean(b for _, b in amd), 1)
+        clock["amd_profile"] = [read(f"{raw}/{n}.amdpm", "").split() for n in ("t0", "t1")]
     if awake:
         clock.update({"awake_mhz_mean": round(statistics.mean(awake)),
                       "awake_mhz_median": statistics.median(awake),

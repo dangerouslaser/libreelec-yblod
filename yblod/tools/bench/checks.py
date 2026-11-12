@@ -178,6 +178,7 @@ PROFILE = re.compile(r"^(\d+\.\d+) .*dvvk profile: gpu ([\d.]+) ms \(p95 ([\d.]+
                      r"\+ pack ([\d.]+)")
 KERNEL_BAD = re.compile(r"\*ERROR\*|WARNING:|BUG:|Call Trace|flip_done timed out|underrun|"
                         r"\[drm\].*(fail|error|timed out)|i915.*(fail|error|timed out|reset)|"
+                        r"amdgpu.*(fail|error|timed out|timeout|reset)|ring \S+ timeout|"
                         r"GPU HANG|hung task", re.I)
 # Known noise of this profile on every image (the skin's and add-ons' own).
 BENIGN = re.compile(r"Texture manager unable to load file|service\.webostv|custom_sort_train|"
@@ -790,7 +791,7 @@ def main():
     out = os.path.join(args.out, args.label or args.image, "checks")
     os.makedirs(os.path.join(out, "raw"), exist_ok=True)
     box = bench.Box(args.host, args.image, args.port)
-    name = box.ssh("cat /flash/bench-name 2>/dev/null", check=False).strip()
+    name = box.ssh(bench.BENCH_NAME_SH, check=False).strip()
     if name != args.image:
         raise BenchError(f"the box runs bench image {name!r}, not {args.image!r}")
     with open(os.path.join(bench.HERE, "box", "sample.sh")) as f:
