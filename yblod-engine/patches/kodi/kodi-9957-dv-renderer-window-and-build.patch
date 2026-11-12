@@ -1,0 +1,3011 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:42 -0500
+Subject: [PATCH] Dolby Vision: renderer, window and build switch
+
+Ties the Dolby Vision pieces into VideoPlayer and the GBM window, and
+adds the build switch:
+
+- Eligibility (DVPlaybackPolicy.h): a stream takes the native path when
+  the display takes Standard Dolby Vision, the tunnel is available and
+  the source is Dolby Vision (or HDR10+ to convert), not a software
+  probe, interlaced or stereo; a picture also has to be a decoded VAAPI
+  surface, so software-decoded pictures play through the ordinary
+  renderer (HDR10 for a compatible base layer).
+- VideoPlayer and CRenderManager: a refresh-rate switch for a native
+  stream is left for the bridge's first commit (one HDMI change), the
+  stream's native rate is kept until its first picture, the startup and
+  end-of-stream waits use CDVPrivateDrain, and overlays are reported to
+  the window.
+- CLinuxRendererGLES and CRendererVAAPIGLES: a native picture goes to
+  the engine before any GL texture is made (no vaExportSurfaceHandle
+  texture, vaSyncSurface, EGL images or YUV shaders), and every queued
+  picture is numbered so that a repeat can be recognised.
+- CWinSystemGbmGLESContext: BeginDVBridge and EndDVBridge (signal up in
+  the selected output mode, restore of the ordinary display, retried
+  when refused), the black Dolby Vision startup signal before playback
+  is released, the menu output (the GUI packed by dvbridge_gl_pack with
+  graphics-only metadata), the GUI framebuffer shared with the engine
+  (half resolution and reuse on request), PresentRender committing the
+  engine's buffers (a held repeat waits for the next vertical blank;
+  with DV_PRIVATE_NONBLOCK=1 flips are queued and
+  GetFrameLatencyAdjustment adds the refresh), display resets and
+  modesets during output, and HDR10 and HDR10+ through the tunnel with a
+  notification when the connection refuses them. The menu target is
+  recreated after a menu return, and a pass that commits nothing pauses
+  10 ms instead of spinning.
+- Build: option(ENABLE_DVBRIDGE) in the top-level CMakeLists.txt defines
+  HAVE_DVBRIDGE for every target, since the headers change class
+  layouts; VideoRenderers builds tools/dvbridge and the adapter, and the
+  targets that call them link dvbridge_core. The LibreELEC recipe turns
+  it on only for x86_64 Generic with GBM, OpenGL ES and Vulkan.
+
+Needs every patch before it in yblod-engine/patches/kodi/. Until this
+one, ENABLE_DVBRIDGE does not exist and the guarded code is compiled
+out; the intermediate states are not build-tested, the series as a
+whole is. Queued flips (DV_PRIVATE_NONBLOCK=1) could not be tested
+without a display and ship off.
+
+Formerly the renderer, window and build parts of kodi-9990-native-dv,
+with kodi-9994-hdmi-recovery, kodi-9995-diagnostics and
+kodi-9996-output-modes-and-info (their window parts),
+kodi-9999-dv-display-reset, kodi-9999-dv-single-modeset, yblod-01 to
+-07, -10 (live display coordination), -15, -21 to -25, -29 to -31, -34,
+-35 (even geometry), -40 to -49 (0.5.0 presentation rework), -58, -59
+and -61.
+---
+ CMakeLists.txt                                |    6 +
+ .../DVDCodecs/Video/DVPlaybackPolicy.h        |   27 +
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp        |   54 +-
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp   |   53 +
+ .../VideoPlayer/VideoRenderers/CMakeLists.txt |   19 +
+ .../VideoRenderers/DVBridgeGLES.cpp           |  288 ++++
+ .../VideoPlayer/VideoRenderers/DVBridgeGLES.h |   90 ++
+ .../VideoRenderers/DVBridgeShaders.h.in       |    4 +
+ .../VideoRenderers/HwDecRender/CMakeLists.txt |    3 +
+ .../HwDecRender/RendererVAAPIGLES.cpp         |   46 +
+ .../HwDecRender/RendererVAAPIGLES.h           |    3 +
+ .../VideoRenderers/LinuxRendererGLES.cpp      |   87 +-
+ .../VideoRenderers/LinuxRendererGLES.h        |   12 +
+ .../VideoRenderers/RenderManager.cpp          |  123 +-
+ .../VideoRenderers/RenderManager.h            |    8 +-
+ xbmc/platform/linux/CMakeLists.txt            |    3 +
+ xbmc/windowing/gbm/CMakeLists.txt             |    3 +
+ xbmc/windowing/gbm/WinSystemGbmEGLContext.cpp |    7 +-
+ xbmc/windowing/gbm/WinSystemGbmEGLContext.h   |    1 +
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 1321 ++++++++++++++++-
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  111 ++
+ 21 files changed, 2247 insertions(+), 22 deletions(-)
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h
+ create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+ create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+ create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeShaders.h.in
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2b06e3b..6a72e7a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -5,6 +5,12 @@ endif()
+ 
+ project(kodi LANGUAGES CXX C ASM)
+ 
++option(ENABLE_DVBRIDGE "Build experimental native DV bridge (requires patched dependencies)" OFF)
++if(ENABLE_DVBRIDGE)
++  # Headers change class layout: every translation unit must use the same ABI.
++  add_compile_definitions(HAVE_DVBRIDGE=1)
++endif()
++
+ if(POLICY CMP0069)
+   set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
+   cmake_policy(SET CMP0069 NEW)
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h
+new file mode 100644
+index 0000000..94226d9
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h
+@@ -0,0 +1,27 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++
++class CDVDStreamInfo;
++class VideoPicture;
++
++namespace DVBRIDGE
++{
++// Keep software metadata probes and ordinary HDR/SDR playback on Kodi's path.
++constexpr bool Eligible(bool standardDVDisplay, bool transportAvailable,
++                        bool dolbySource, bool softwareProbe, bool interlaced, bool stereo)
++{
++  return standardDVDisplay && transportAvailable && dolbySource &&
++         !softwareProbe && !interlaced && !stereo;
++}
++
++bool WantsNativeOutput(const CDVDStreamInfo& stream);
++bool WantsNativeOutput(const VideoPicture* picture);
++
++// Set around a refresh-rate switch made for a stream that will use native output, so the
++// window system can leave the mode change for the bridge's first commit (one HDMI change).
++void ExpectNativeOutput(bool expected);
++bool NativeOutputExpected();
++// Set around any refresh-rate switch made for a video stream.
++void ExpectVideoModeset(bool expected);
++bool VideoModesetExpected();
++} // namespace DVBRIDGE
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index c0812b6..e97d259 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -10,6 +10,9 @@
+ #ifdef HAVE_DVBRIDGE
+ #include "DVDCodecs/Video/DVOutputSettings.h"
+ #endif
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h"
++#endif
+ 
+ #include "DVDCodecs/DVDCodecUtils.h"
+ #include "DVDDemuxers/DVDDemux.h"
+@@ -2391,6 +2394,15 @@ void CVideoPlayer::HandlePlaySpeed()
+       }
+ 
+       m_syncStartPtsWait.reset();
++#ifdef HAVE_DVBRIDGE
++      const char* startupTrace = std::getenv("DV_PRIVATE_FRAME_TIMING");
++      if (startupTrace && std::strcmp(startupTrace, "1") == 0)
++        CLog::Log(LOGINFO,
++            "Private source startup sync: clock={} video_start={} video_cache={} audio_start={} audio_cache={}",
++            clock, m_CurrentVideo.starttime, m_CurrentVideo.cachetime,
++            m_CurrentAudio.id >= 0 ? m_CurrentAudio.starttime : DVD_NOPTS_VALUE,
++            m_CurrentAudio.id >= 0 ? m_CurrentAudio.cachetime : 0.0);
++#endif
+       m_clock.Discontinuity(clock);
+       m_CurrentAudio.syncState = IDVDStreamPlayer::SYNC_INSYNC;
+       m_CurrentAudio.avsync = CCurrentStream::AV_SYNC_NONE;
+@@ -4594,9 +4606,22 @@ bool CVideoPlayer::OpenVideoStream(CDVDStreamInfo& hint, bool reset)
+                                                    (double)DVD_TIME_BASE * hint.fpsscale /
+                                                    (hint.fpsrate * (hint.interlaced ? 2 : 1)));
+ 
+-      RESOLUTION res = CResolutionUtils::ChooseBestResolution(static_cast<float>(framerate), hint.width, hint.height, !hint.stereo_mode.empty());
++      bool nativeDV = false;
++#ifdef HAVE_DVBRIDGE
++      nativeDV = DVBRIDGE::WantsNativeOutput(hint);
++#endif
++      RESOLUTION res = CResolutionUtils::ChooseBestResolution(static_cast<float>(framerate), hint.width, hint.height, !hint.stereo_mode.empty(), nativeDV);
++#ifdef HAVE_DVBRIDGE
++      DVBRIDGE::ExpectNativeOutput(nativeDV);
++      DVBRIDGE::ExpectVideoModeset(true);
++#endif
+       CServiceBroker::GetWinSystem()->GetGfxContext().SetVideoResolution(res, false);
+-      m_renderManager.TriggerUpdateResolution(framerate, hint.width, hint.height, hint.stereo_mode);
++#ifdef HAVE_DVBRIDGE
++      DVBRIDGE::ExpectNativeOutput(false);
++      DVBRIDGE::ExpectVideoModeset(false);
++#endif
++      m_renderManager.TriggerUpdateResolution(framerate, hint.width, hint.height, hint.stereo_mode,
++                                              nativeDV);
+     }
+   }
+ 
+@@ -4641,6 +4666,17 @@ bool CVideoPlayer::OpenVideoStream(CDVDStreamInfo& hint, bool reset)
+ 
+   m_HasVideo = true;
+ 
++#ifdef HAVE_DVBRIDGE
++  const char* earlyFullscreen = std::getenv("DV_PRIVATE_STARTUP_FULLSCREEN");
++  if (m_CurrentVideo.id < 0 && m_playerOptions.fullscreen &&
++      DVBRIDGE::WantsNativeOutput(hint) && earlyFullscreen &&
++      std::strcmp(earlyFullscreen, "1") == 0)
++  {
++    // Prepare the playback GUI before native setup releases the playback clock.
++    CServiceBroker::GetAppMessenger()->PostMsg(TMSG_SWITCHTOFULLSCREEN);
++  }
++#endif
++
+   static_cast<IDVDStreamPlayerVideo*>(player)->SendMessage(
+       std::make_shared<CDVDMsg>(CDVDMsg::PLAYER_REQUEST_STATE), 1);
+ 
+@@ -5799,6 +5835,20 @@ void CVideoPlayer::UpdatePlayState(double timeout)
+ 
+   SPlayerState state(m_State);
+ 
++#ifdef HAVE_DVBRIDGE
++  const char* avTiming = std::getenv("DV_PRIVATE_AV_TIMING");
++  if (avTiming && std::strcmp(avTiming, "1") == 0 &&
++      m_CurrentAudio.id >= 0 && m_CurrentVideo.id >= 0)
++  {
++    const double audioPts = m_VideoPlayerAudio->GetCurrentPts();
++    const double videoPts = m_VideoPlayerVideo->GetCurrentPts();
++    if (audioPts != DVD_NOPTS_VALUE && videoPts != DVD_NOPTS_VALUE)
++      CLog::Log(LOGINFO,
++          "Private source AV timing: audio_pts={} video_pts={} delta_ms={} speed={}",
++          audioPts, videoPts, DVD_TIME_TO_MSEC(audioPts - videoPts), m_playSpeed);
++  }
++#endif
++
+   state.dts = DVD_NOPTS_VALUE;
+   if (m_CurrentVideo.dts != DVD_NOPTS_VALUE)
+     state.dts = m_CurrentVideo.dts;
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index 8fa8647..ce7dc99 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -10,6 +10,7 @@
+ #ifdef HAVE_DVBRIDGE
+ #include "DVDCodecs/Video/DVStreamTelemetry.h"
+ #include "DVDCodecs/Video/DVPlaybackInfo.h"
++#include "VideoRenderers/DVPrivateDrain.h"
+ #include "utils/DVBridgeDiagnosticState.h"
+ #include "utils/StringUtils.h"
+ #endif
+@@ -31,6 +32,7 @@
+ 
+ #include <algorithm>
+ #include <iomanip>
++#include <cstdlib>
+ #include <iterator>
+ #include <memory>
+ #include <mutex>
+@@ -268,6 +270,13 @@ void CVideoPlayerVideo::CloseStream(bool bWaitForBuffers)
+   {
+     SendMessage(std::make_shared<CDVDMsg>(CDVDMsg::VIDEO_DRAIN), 0);
+     m_messageQueue.WaitUntilEmpty();
++#ifdef HAVE_DVBRIDGE
++    if (CDVPrivateDrain::Enabled())
++    {
++      const auto result = CDVPrivateDrain::Get().Wait(m_bAbortOutput, 1000ms);
++      CLog::Log(LOGINFO, "Private EOF presentation drain: result={}", static_cast<int>(result));
++    }
++#endif
+   }
+ 
+   m_messageQueue.Abort();
+@@ -391,6 +400,17 @@ void CVideoPlayerVideo::Process()
+     }
+     else if (ret == MSGQ_TIMEOUT)
+     {
++#ifdef HAVE_DVBRIDGE
++      const char* startupResync = std::getenv("DV_PRIVATE_STARTUP_RESYNC");
++      if (m_syncState == IDVDStreamPlayer::SYNC_WAITSYNC && startupResync &&
++          std::strcmp(startupResync, "1") == 0 && CDVPrivateDrain::Enabled() &&
++          CDVPrivateDrain::Get().Wait(m_bAbortOutput, 0ms) == CDVPrivateDrain::Result::Complete)
++      {
++        // A committed first frame is ready for sync. Filling the remaining
++        // renderer slots here can block delivery of GENERAL_RESYNC.
++        continue;
++      }
++#endif
+       if (m_outputSate == OUTPUT_AGAIN &&
+           m_picture.videoBuffer)
+       {
+@@ -675,6 +695,19 @@ void CVideoPlayerVideo::UpdatePlayerInfo()
+ bool CVideoPlayerVideo::ProcessDecoderOutput(double &frametime, double &pts)
+ {
+   CDVDVideoCodec::VCReturn decoderState = m_pVideoCodec->GetPicture(&m_picture);
++#ifdef HAVE_DVBRIDGE
++  static const bool endpointTrace = [] {
++    const char* trace = std::getenv("DV_PRIVATE_ENDPOINT_TRACE");
++    return trace && trace[0] == '1' && trace[1] == '\0';
++  }();
++  if (endpointTrace)
++  {
++    if (decoderState == CDVDVideoCodec::VC_PICTURE)
++      CLog::Log(LOGINFO, "Private endpoint decoded: pts={}", m_picture.pts);
++    else if (decoderState == CDVDVideoCodec::VC_EOF)
++      CLog::Log(LOGINFO, "Private endpoint decoder EOF");
++  }
++#endif
+ 
+   if (decoderState == CDVDVideoCodec::VC_BUFFER)
+   {
+@@ -857,6 +890,26 @@ bool CVideoPlayerVideo::ProcessDecoderOutput(double &frametime, double &pts)
+       msg.cachetime = DVD_MSEC_TO_TIME(50); //! @todo implement
+       msg.cachetotal = DVD_MSEC_TO_TIME(100); //! @todo implement
+       msg.timestamp = hasTimestamp ? (pts + m_renderManager.GetDelay() * 1000) : DVD_NOPTS_VALUE;
++#ifdef HAVE_DVBRIDGE
++      const char* startupLatency = std::getenv("DV_PRIVATE_STARTUP_LATENCY");
++      if (startupLatency && std::strcmp(startupLatency, "1") == 0 &&
++          CDVPrivateDrain::Enabled() && msg.timestamp != DVD_NOPTS_VALUE && frametime > 0 &&
++          CDVPrivateDrain::Get().Wait(m_bAbortOutput, 0ms) == CDVPrivateDrain::Result::Complete)
++      {
++        int lateframes, queued, discarded;
++        double presented;
++        if (m_renderManager.GetStats(lateframes, presented, queued, discarded) &&
++            presented != DVD_NOPTS_VALUE)
++        {
++          // Allow one scheduling interval after the first committed frame's
++          // latency-adjusted presentation time before releasing the clock.
++          msg.cachetotal = std::max(msg.cachetotal, msg.timestamp - presented + frametime);
++          CLog::Log(LOGINFO,
++              "Private source startup latency: timestamp={} presented={} frame_us={} cachetotal={}",
++              msg.timestamp, presented, frametime, msg.cachetotal);
++        }
++      }
++#endif
+       m_messageParent.Put(std::make_shared<CDVDMsgType<SStartMsg>>(CDVDMsg::PLAYER_STARTED, msg));
+     }
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt b/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
+index 2b9efdb..0e633a3 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/CMakeLists.txt
+@@ -49,4 +49,23 @@ if(TARGET ${APP_NAME_LC}::OpenGLES AND ("android" IN_LIST CORE_PLATFORM_NAME_LC
+                       OverlayRendererGLES.cpp)
+ endif()
+ 
++if(ENABLE_DVBRIDGE)
++  if(NOT TARGET ${APP_NAME_LC}::OpenGLES OR NOT "gbm" IN_LIST CORE_PLATFORM_NAME_LC OR
++     NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
++    message(FATAL_ERROR "DVBridge requires the GBM/OpenGL ES platform")
++  endif()
++  set(DVBRIDGE_SOURCE_DIR "${CMAKE_SOURCE_DIR}/tools/dvbridge" CACHE PATH "DVBridge common source directory")
++  add_subdirectory("${DVBRIDGE_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/dvbridge-core")
++  file(READ "${DVBRIDGE_SOURCE_DIR}/pack_gles300.vert" DVBRIDGE_VERTEX_SOURCE)
++  file(READ "${DVBRIDGE_SOURCE_DIR}/pack_gles300.frag" DVBRIDGE_FRAGMENT_SOURCE)
++  configure_file(DVBridgeShaders.h.in DVBridgeShaders.h @ONLY)
++  list(APPEND SOURCES DVBridgeGLES.cpp DVPrivateSource.cpp DVPrivateScanout.cpp DVPrivateVulkan.cpp
++                      dv_scanout_slots.cpp)
++  list(APPEND HEADERS DVBridgeGLES.h DVPrivateSource.h DVPrivateScanout.h DVPrivateVulkan.h dv_scanout_slots.h)
++endif()
++
+ core_add_library(videorenderers)
++if(ENABLE_DVBRIDGE)
++  target_link_libraries(${CORE_LIBRARY} PRIVATE dvbridge_core)
++  target_include_directories(${CORE_LIBRARY} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
++endif()
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+new file mode 100644
+index 0000000..0b6ffd1
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -0,0 +1,288 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#include "DVBridgeGLES.h"
++
++#include "DVPrivateSource.h"
++#include "DVPrivateVulkan.h"
++#include "DVPrivateOverlay.h"
++#include "DVBridgeShaders.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
++#include "utils/log.h"
++extern "C"
++{
++#include <libavutil/pixfmt.h>
++}
++
++#include <EGL/egl.h>
++#include <GLES3/gl3.h>
++#include <algorithm>
++#include <cmath>
++#include <cstdlib>
++#include <cstring>
++
++namespace
++{
++// The source's chroma siting for the engine. A top-left 4:2:0 base layer is
++// sited so; a Profile 7 base layer (paired with its EL) is always sited as
++// the enhancement layer expects (centre-left).
++unsigned SourcePlaneSiting(bool enhancement, int location)
++{
++  return !enhancement && location == AVCHROMA_LOC_TOPLEFT ? DV_SOURCE_CHROMA_TOP_LEFT
++                                                          : DV_SOURCE_CHROMA_CENTER_LEFT;
++}
++
++// The Vulkan engine with CB1 Master Reference's processing (enhancement layer
++// upscaling Annex B, DVPrivateVulkan) sites an unscaled picture as CB1 does:
++// top-left when the stream says so (also with an EL), or unspecified in
++// Profile 7 (an EL, or a MEL's undecoded one); left otherwise.
++bool VulkanCB1(bool masterReference, int baseWidth, int baseHeight, const dvbridge_geometry& geometry)
++{
++  return masterReference && geometry.width == baseWidth && geometry.height == baseHeight;
++}
++
++unsigned PlaneSiting(bool cb1, bool profile7, int location)
++{
++  if (!cb1)
++    return SourcePlaneSiting(profile7, location);
++  return location == AVCHROMA_LOC_TOPLEFT || (location == AVCHROMA_LOC_UNSPECIFIED && profile7)
++      ? DV_SOURCE_CHROMA_TOP_LEFT : DV_SOURCE_CHROMA_CENTER_LEFT;
++}
++
++unsigned PQCode(float nits)
++{
++  const double y = std::pow(std::clamp(static_cast<double>(nits) / 10000.0, 0.0, 1.0), 2610.0 / 16384);
++  const double e = std::pow((3424.0 / 4096 + 2413.0 / 128 * y) / (1 + 2392.0 / 128 * y), 2523.0 / 32);
++  return static_cast<unsigned>(std::lround(e * 4095));
++}
++} // namespace
++
++bool CDVBridgeGLES::Failure(const char* stage)
++{
++  if (DVBRIDGE::DiagnosticsEnabled() && m_failures.Record(DVBRIDGE::DiagnosticNowMs(), stage))
++    CLog::Log(LOGERROR, "DVBridge renderer: stage={} failures={}", stage, m_failures.Count());
++  return false;
++}
++
++CDVBridgeGLES::~CDVBridgeGLES()
++{
++  if (m_source && m_source->Close())
++    delete m_source;
++  CDVPlaybackInfo::presented.store(0);
++  dvbridge_candidate_destroy(m_graphicsCandidate);
++  dvbridge_destroy(m_graphics);
++  dvbridge_gl_packer_destroy(m_packer);
++}
++
++bool CDVBridgeGLES::Initialize()
++{
++  if (m_packer)
++    return m_graphics != nullptr;
++  if (eglGetCurrentContext() == EGL_NO_CONTEXT)
++    return Failure("no-egl-context");
++  // The menu output's packer and metadata state; video goes to the Vulkan engine.
++  m_packer = dvbridge_gl_packer_create(DVBRIDGE_VERTEX, DVBRIDGE_FRAGMENT);
++  m_graphics = dvbridge_create();
++  return (m_packer && m_graphics) || Failure("packer-init");
++}
++
++void CDVBridgeGLES::Reset()
++{
++  if (m_source) m_source->Reset();
++  m_sourceFrame = m_wasSource = m_held = false;
++  CDVPlaybackInfo::presented.store(0);
++  m_pendingInfo = 0;
++  m_prepared = m_packed = false;
++  m_graphicsFrame = false;
++  dvbridge_candidate_destroy(m_graphicsCandidate);
++  m_graphicsCandidate = nullptr;
++  dvbridge_reset(m_graphics);
++  m_unsupportedReports = 0;
++}
++
++bool CDVBridgeGLES::SourceEligible(const Layer& base, const AVFrame* enhancement,
++                                 dvbridge_geometry geometry) const
++{
++  const bool paired = enhancement || base.pairedSiting;
++  // 8-bit bases: single-layer pictures sited left only.
++  const bool allowNV12 = !paired && base.chromaPosition == AVCHROMA_LOC_LEFT;
++  // As the engine: 4:2:0 sizes are even (cropped encodes such as 3840x1746); an enhancement
++  // layer (half size, 4:2:0 itself) or a scaled picture needs multiples of 4.
++  const bool scaled = geometry.width != base.width || geometry.height != base.height;
++  const int align = paired || scaled ? 4 : 2;
++  return base.width > 0 && base.width <= 3840 && base.height > 0 && base.height <= 2160 &&
++      base.width % align == 0 && base.height % align == 0 &&
++      (base.format == Format::P010 || (allowNV12 && base.format == Format::NV12)) &&
++      geometry.x >= 0 && geometry.y >= 0 && geometry.x % 2 == 0 && geometry.y % 2 == 0 &&
++      geometry.width > 0 && geometry.width <= 3840 && geometry.height > 0 && geometry.height <= 2160 &&
++      geometry.width % align == 0 && geometry.height % align == 0 &&
++      geometry.x <= 3840 - geometry.width && geometry.y <= 2160 - geometry.height &&
++      (paired || base.chromaPosition == AVCHROMA_LOC_TOPLEFT ||
++       base.chromaPosition == AVCHROMA_LOC_LEFT) &&
++      base.vaOwner && base.vaDisplay && std::isfinite(base.pts) &&
++      base.pts >= -9223372036854775808.0 && base.pts < 9223372036854775808.0;
++}
++
++bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhancement,
++                                  const CDVMetadataBuffer& metadata, dvbridge_geometry geometry,
++                                  const DVPrivateOverlay* overlay, bool mayHold)
++{
++  m_sourceFrame = m_held = false;
++  m_prepared = m_packed = false;
++  m_graphicsFrame = false;
++  Layer base = decoded;
++  // The engine scales in multiples of 4: a scaled single-layer picture (1920x1038 to 4K, or
++  // 3834 wide to 3840) leaves out its last 1-3 rows and columns, and its rectangle shrinks
++  // to match around the same centre. An unscaled picture keeps every row.
++  if ((geometry.width != base.width || geometry.height != base.height) && !enhancement &&
++      !base.pairedSiting && base.width > 0 && base.height > 0)
++  {
++    const int width = base.width & ~3, height = base.height & ~3;
++    const int dw = static_cast<int>(std::lround(static_cast<double>(geometry.width) * width / base.width)) & ~3;
++    const int dh = static_cast<int>(std::lround(static_cast<double>(geometry.height) * height / base.height)) & ~3;
++    geometry.x += (geometry.width - dw) / 2;
++    geometry.y += (geometry.height - dh) / 2;
++    geometry.width = dw;
++    geometry.height = dh;
++    base.width = width;
++    base.height = height;
++  }
++  // A 4:2:0 picture starts on an even row and column (each chroma sample covers two of
++  // each); centring 1746 rows on 2160 gives row 207, so it moves up one.
++  geometry.x &= ~1;
++  geometry.y &= ~1;
++  if (SourceEligible(base, enhancement, geometry))
++  {
++    if (!m_source) m_source = new CDVPrivateSource;
++    if (!m_wasSource) m_source->Reset();
++    const dv_source_geometry placement{static_cast<unsigned>(base.width), static_cast<unsigned>(base.height),
++                                       3840, 2160, static_cast<unsigned>(geometry.x), static_cast<unsigned>(geometry.y),
++                                       PlaneSiting(VulkanCB1(m_source->MasterReference(), base.width,
++                                                             base.height, geometry),
++                                                   enhancement || base.pairedSiting, base.chromaPosition),
++                                       static_cast<unsigned>(geometry.width), static_cast<unsigned>(geometry.height)};
++    const dv_source_input input{sizeof(dv_source_input),
++        base.format == Format::NV12 ? DV_SOURCE_INPUT_NV12 : DV_SOURCE_INPUT_P010,
++        base.format == Format::NV12 ? 8u : 10u};
++    const int result = m_source->Prepare(base.vaDisplay, base.vaSurface, base.vaOwner, enhancement,
++                                         metadata.Data(), metadata.Size(), static_cast<int64_t>(base.pts),
++                                         placement, input, overlay && overlay->texture ? overlay : nullptr,
++                                         base.sequence, mayHold);
++    if (result < 0) return Failure("private-source");
++    if (result == 2)
++    {
++      // The picture on screen: it stays, and so does what the playback info says of it.
++      m_held = true;
++      return true;
++    }
++    if (result > 0)
++    {
++      const bool entering = !m_wasSource;
++      m_sourceFrame = m_wasSource = m_prepared = true;
++      m_packed = false;
++      const bool fel = enhancement && dvbridge_fel_active(metadata.Data(), metadata.Size());
++      // The engine's HDR10 through the tunnel (DV -> HDR10), or Dolby Vision.
++      m_pendingInfo = (DVBRIDGE::playbackTunnelHDR10.load() ? CDVPlaybackInfo::HDR10
++                                                             : CDVPlaybackInfo::HDMI) |
++                      (fel ? CDVPlaybackInfo::FEL : 0u);
++      const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
++      if (entering && trace && std::strcmp(trace, "1") == 0)
++        CLog::Log(LOGINFO, "Private source composition: pts={} enhancement={} fel={} prepared=true",
++                  base.pts, enhancement != nullptr, fel);
++      return true;
++    }
++  }
++  // No other renderer: a picture the engine does not take is not shown (the last one stays).
++  if (m_unsupportedReports < 8)
++  {
++    ++m_unsupportedReports;
++    CLog::Log(LOGWARNING, "DVBridge: picture not supported by the Vulkan engine, not shown: pts={} "
++              "size={}x{} format={} chroma={} placement={},{},{}x{} enhancement={}",
++              base.pts, base.width, base.height, static_cast<int>(base.format), base.chromaPosition,
++              geometry.x, geometry.y, geometry.width, geometry.height, enhancement != nullptr);
++  }
++  if (m_wasSource)
++  {
++    m_source->Reset();
++    m_wasSource = false;
++  }
++  return Failure("source-unsupported");
++}
++
++bool CDVBridgeGLES::PrepareGraphics(float whiteNits, double pts)
++{
++  m_prepared = m_packed = m_held = false;
++  m_pendingInfo = 0;
++  m_graphicsFrame = false;
++  dvbridge_candidate_destroy(m_graphicsCandidate);
++  m_graphicsCandidate = nullptr;
++  if (!m_graphics || !m_packer)
++    return Failure("graphics-unavailable");
++  // 0.005 cd/m2 black (the spec's default source minimum, as Amlogic's graphics minimum). The
++  // average follows the static-metadata convention of midway between the scene limits.
++  const unsigned black = PQCode(0.005f);
++  const unsigned white = PQCode(whiteNits);
++  m_graphicsWhite = whiteNits;
++  if (white > black)
++    m_graphicsCandidate =
++        dvbridge_prepare_graphics(m_graphics, black, white, (black + white) / 2, pts);
++  m_prepared = m_graphicsFrame = m_graphicsCandidate != nullptr;
++  return m_prepared || Failure("graphics-prepare");
++}
++
++bool CDVBridgeGLES::PackGraphics(unsigned int guiTexture, unsigned int framebuffer, int width,
++                                 int height, bool flipY, float saturation, unsigned gamma,
++                                 bool wideColour)
++{
++  m_packed = false;
++  if (!m_prepared || !m_graphicsFrame)
++    return Failure("pack-without-prepared-graphics");
++  unsigned int count;
++  const auto* packets = dvbridge_packets(m_graphicsCandidate, &count);
++  const dvbridge_graphics_style style{m_graphicsWhite, saturation, gamma, wideColour};
++  m_packed = dvbridge_gl_pack_graphics(m_packer, guiTexture, framebuffer, width, height, packets,
++                                       count, flipY, &style);
++  return m_packed || Failure("graphics-pack");
++}
++
++gbm_bo* CDVBridgeGLES::GetPrivateScanout()
++{
++  if (!m_sourceFrame || !m_prepared || !m_source) return nullptr;
++  auto* bo = m_source->ScanoutBuffer();
++  if (bo) m_packed = true;
++  return bo;
++}
++
++bool CDVBridgeGLES::DisplayReplaced()
++{ return !m_source || m_source->DisplayReplaced(); }
++
++bool CDVBridgeGLES::Presented(bool success, bool queued)
++{
++  if (m_held)
++  {
++    m_held = false;
++    return true;
++  }
++  if (m_sourceFrame)
++  {
++    const bool committed = success && m_prepared && m_packed;
++    m_source->Presented(committed, queued);
++    CDVPlaybackInfo::presented.store(committed ? m_pendingInfo : 0);
++    m_prepared = m_packed = m_sourceFrame = false;
++    return committed;
++  }
++  if (success && m_source && !m_source->DisplayReplaced())
++    return Failure("private-scanout-retirement");
++  bool committed = false;
++  if (m_graphicsFrame)
++  {
++    committed = success && m_prepared && m_packed &&
++                dvbridge_commit(m_graphics, m_graphicsCandidate);
++    dvbridge_candidate_destroy(m_graphicsCandidate);
++    m_graphicsCandidate = nullptr;
++    if (!committed)
++      dvbridge_reset(m_graphics);
++  }
++  CDVPlaybackInfo::presented.store(0);
++  m_prepared = m_packed = m_graphicsFrame = false;
++  return committed;
++}
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+new file mode 100644
+index 0000000..b49d859
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h
+@@ -0,0 +1,90 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++
++#include "cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h"
++#include "utils/DVBridgeDiagnosticState.h"
++
++extern "C"
++{
++#include "dvbridge_core.h"
++#include "dvbridge_gl_pack.h"
++}
++
++class CVideoBuffer;
++class CDVPrivateSource;
++struct DVPrivateOverlay;
++struct AVFrame;
++struct gbm_bo;
++
++/* The Dolby Vision output: video through the native route (CDVPrivateSource,
++ * the Vulkan engine) and the menu output (graphics-only frames packed from
++ * the GUI with static metadata). */
++class CDVBridgeGLES
++{
++public:
++  enum class Format
++  {
++    Other,
++    NV12,
++    P010,
++  };
++  struct Layer
++  {
++    Format format{Format::Other};
++    int width;
++    int height;
++    double pts;
++    // Decoded VAAPI surface of this layer.
++    void* vaDisplay = nullptr;
++    unsigned vaSurface = 0xffffffff; // VA_INVALID_SURFACE
++    CVideoBuffer* vaOwner{nullptr};
++    int chromaPosition{0};
++    // A Profile 7 MEL whose EL was not decoded: sited and routed as when paired.
++    bool pairedSiting{false};
++    // Names one picture in the renderer's queue: the same number is the same
++    // picture asked for again (0: not known).
++    uint64_t sequence{0};
++  };
++
++  CDVBridgeGLES() = default;
++  ~CDVBridgeGLES();
++  CDVBridgeGLES(const CDVBridgeGLES&) = delete;
++  CDVBridgeGLES& operator=(const CDVBridgeGLES&) = delete;
++
++  bool Initialize();
++  void Reset();
++  // mayHold: when the picture is the one on screen already, nothing is rendered and Held()
++  // says so; the caller then presents nothing for this refresh.
++  bool PrepareHardware(const Layer& base, const AVFrame* enhancement,
++                       const CDVMetadataBuffer& metadata, dvbridge_geometry geometry,
++                       const DVPrivateOverlay* overlay, bool mayHold = false);
++  bool Held() const { return m_held; }
++  // Graphics only (no video): static metadata for a GUI whose white is at whiteNits, then the
++  // transport packed directly from the sRGB GUI texture.
++  bool PrepareGraphics(float whiteNits, double pts);
++  bool PackGraphics(unsigned int guiTexture, unsigned int framebuffer, int width, int height,
++                    bool flipY, float saturation, unsigned gamma, bool wideColour);
++  // queued: the display took the picture without waiting for its flip.
++  bool Presented(bool success, bool queued = false);
++  gbm_bo* GetPrivateScanout();
++  bool DisplayReplaced();
++
++private:
++  bool SourceEligible(const Layer& base, const AVFrame* enhancement,
++                      dvbridge_geometry geometry) const;
++  bool Failure(const char* stage);
++  DVBRIDGE::DiagnosticFailures m_failures;
++  float m_graphicsWhite{0.0f};
++  // All methods, including destruction, require the owning GL context/thread.
++  dvbridge_gl_packer* m_packer = nullptr;
++  bool m_prepared = false;
++  bool m_packed = false;
++  unsigned m_pendingInfo = 0;
++  // Menu output (graphics-only frames): its own metadata state and candidate.
++  dvbridge_context* m_graphics = nullptr;
++  dvbridge_candidate* m_graphicsCandidate = nullptr;
++  bool m_graphicsFrame = false;
++  CDVPrivateSource* m_source{nullptr};
++  bool m_sourceFrame{false}, m_wasSource{false}, m_held{false};
++  unsigned m_unsupportedReports{0};
++};
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeShaders.h.in b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeShaders.h.in
+new file mode 100644
+index 0000000..76caa04
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeShaders.h.in
+@@ -0,0 +1,4 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++inline constexpr char DVBRIDGE_VERTEX[] = R"DVGLSL(@DVBRIDGE_VERTEX_SOURCE@)DVGLSL";
++inline constexpr char DVBRIDGE_FRAGMENT[] = R"DVGLSL(@DVBRIDGE_FRAGMENT_SOURCE@)DVGLSL";
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt
+index 5c7abff..c1941e8 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/CMakeLists.txt
+@@ -79,4 +79,7 @@ endif()
+ # with ENABLE_VDPAU=OFF and ENABLE_VAAPI=OFF
+ if(SOURCES)
+   core_add_library(videorenderers_hwdec)
++  if(ENABLE_DVBRIDGE)
++    target_link_libraries(${CORE_LIBRARY} PRIVATE dvbridge_core)
++  endif()
+ endif()
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+index 3514ba0..279d498 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.cpp
+@@ -16,6 +16,11 @@
+ #include "utils/EGLFence.h"
+ #include "utils/GLUtils.h"
+ #include "utils/log.h"
++#ifdef HAVE_DVBRIDGE
++#include "ServiceBroker.h"
++#include "windowing/gbm/WinSystemGbmGLESContext.h"
++#include <cmath>
++#endif
+ 
+ #include <memory>
+ 
+@@ -171,6 +176,47 @@ bool CRendererVAAPIGLES::RenderHook(int idx)
+   return false;
+ }
+ 
++#ifdef HAVE_DVBRIDGE
++bool CRendererVAAPIGLES::RenderDVBridge(int idx)
++{
++  // Native decoder surfaces only. Postprocessed/cropped/rotated images need
++  // their own explicit metadata/geometry mapping and must not fall back here.
++  if (!m_isVAAPIBuffer || m_textureTarget != GL_TEXTURE_2D || m_renderOrientation != 0)
++    return false;
++  auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbmGLESContext*>(
++      CServiceBroker::GetWinSystem());
++  auto& buffer = m_buffers[idx];
++  auto* picture = dynamic_cast<CVaapiRenderPicture*>(buffer.videoBuffer);
++  if (!window || !picture || !picture->valid || !buffer.doviMetadata.Data() ||
++      buffer.doviPts == DVD_NOPTS_VALUE)
++    return false;
++  CDVBridgeGLES::Layer layer{};
++  switch (m_vaapiFourcc)
++  {
++    case VA_FOURCC_NV12: layer.format = CDVBridgeGLES::Format::NV12; break;
++    case VA_FOURCC_P010: layer.format = CDVBridgeGLES::Format::P010; break;
++    default: layer.format = CDVBridgeGLES::Format::Other; break;
++  }
++  layer.width = m_sourceWidth;
++  layer.height = m_sourceHeight;
++  layer.pts = buffer.doviPts;
++  layer.vaDisplay = picture->vadsp;
++  layer.vaSurface = picture->procPic.videoSurface;
++  layer.vaOwner = picture;
++  layer.chromaPosition = picture->DVDPic.chroma_position;
++  layer.pairedSiting = picture->DVDPic.doviElSkipped;
++  layer.sequence = buffer.doviSequence;
++  if (m_sourceRect.x1 != 0 || m_sourceRect.y1 != 0 ||
++      m_sourceRect.Width() != m_sourceWidth || m_sourceRect.Height() != m_sourceHeight)
++    return false;
++  dvbridge_geometry geometry{layer.width, layer.height,
++      static_cast<int>(std::lround(m_destRect.x1)), static_cast<int>(std::lround(m_destRect.y1)),
++      static_cast<int>(std::lround(m_destRect.Width())),
++      static_cast<int>(std::lround(m_destRect.Height()))};
++  return window->RenderDVBridge(layer, buffer.doviEnhancement.get(), buffer.doviMetadata, geometry);
++}
++#endif
++
+ bool CRendererVAAPIGLES::CreateTexture(int index)
+ {
+   if (!m_isVAAPIBuffer)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
+index 7ace6ef..a3bb324 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererVAAPIGLES.h
+@@ -49,6 +49,9 @@ public:
+ protected:
+   bool LoadShadersHook() override;
+   bool RenderHook(int idx) override;
++#ifdef HAVE_DVBRIDGE
++  bool RenderDVBridge(int idx) override;
++#endif
+   void AfterRenderHook(int idx) override;
+ 
+   // textures
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index 2762bc3..bfb275b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -29,7 +29,12 @@
+ #include "utils/MathUtils.h"
+ #include "utils/log.h"
+ #include "windowing/WinSystem.h"
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "windowing/gbm/WinSystemGbmGLESContext.h"
++#endif
+ 
++#include <atomic>
+ #include <mutex>
+ 
+ using namespace Shaders;
+@@ -144,13 +149,20 @@ bool CLinuxRendererGLES::ValidateRenderTarget()
+     // trigger update of video filters
+     m_scalingMethodGui = VS_SCALINGMETHOD_MAX;
+ 
+-    // create the yuv textures
+-    UpdateVideoFilter();
+-    LoadShaders();
+-
+-    if (m_renderMethod < 0)
++#ifdef HAVE_DVBRIDGE
++    // The Dolby Vision engine reads the decoded surfaces: no picture is drawn
++    // with the YUV and scaling shaders, so none are compiled.
++    if (!m_dvRequested)
++#endif
+     {
+-      return false;
++      // create the yuv textures
++      UpdateVideoFilter();
++      LoadShaders();
++
++      if (m_renderMethod < 0)
++      {
++        return false;
++      }
+     }
+ 
+     for (int i = 0; i < m_NumYUVBuffers; i++)
+@@ -208,10 +220,37 @@ bool CLinuxRendererGLES::Configure(const VideoPicture &picture, float fps, unsig
+   m_bValidated = false;
+ 
+   if (!CServiceBroker::GetWinSystem()->SetVideoOutput(&picture))
++  {
+     CLog::Log(LOGWARNING, "LinuxRendererGLES::Configure: SetVideoOutput failed");
++#ifdef HAVE_DVBRIDGE
++    if (KODI::WINDOWING::GBM::CWinSystemGbmGLESContext::DVBridgeRequested(&picture))
++    {
++      m_bConfigured = false;
++      return false;
++    }
++#endif
++  }
+ 
+   CServiceBroker::GetWinSystem()->SetColorimetry(&picture);
+ 
++#ifdef HAVE_DVBRIDGE
++  m_dvRequested = KODI::WINDOWING::GBM::CWinSystemGbmGLESContext::DVBridgeRequested(&picture);
++  if (m_dvRequested)
++  {
++    auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbmGLESContext*>(
++        CServiceBroker::GetWinSystem());
++    m_passthroughHDR = false;
++    m_hdrFboActive = window && window->BeginDVBridge();
++    if (!m_hdrFboActive)
++    {
++      m_bConfigured = false;
++      CLog::Log(LOGERROR, "DVBridge: native output initialization rejected");
++      return false;
++    }
++    return true;
++  }
++#endif
++
+   m_passthroughHDR = CServiceBroker::GetWinSystem()->SetHDR(&picture);
+   CLog::Log(LOGDEBUG, "LinuxRendererGLES::Configure: HDR passthrough: {}",
+             m_passthroughHDR ? "on" : "off");
+@@ -251,6 +290,14 @@ void CLinuxRendererGLES::AddVideoPicture(const VideoPicture &picture, int index)
+   buf.videoBuffer = picture.videoBuffer;
+   buf.videoBuffer->Acquire();
+   buf.loaded = false;
++  buf.doviMetadata = picture.doviMetadata;
++#ifdef HAVE_DVBRIDGE
++  buf.doviEnhancement = picture.doviEnhancement;
++  static std::atomic<uint64_t> sequence{0};
++  buf.doviSequence = ++sequence;
++#endif
++  buf.doviPts = picture.doviSourcePts == AV_NOPTS_VALUE ? DVD_NOPTS_VALUE :
++                  static_cast<double>(picture.doviSourcePts);
+   buf.m_srcPrimaries = picture.color_primaries;
+   buf.m_srcColSpace = picture.color_space;
+   buf.m_srcColTransfer = picture.color_transfer;
+@@ -269,6 +316,12 @@ void CLinuxRendererGLES::AddVideoPicture(const VideoPicture &picture, int index)
+ void CLinuxRendererGLES::ReleaseBuffer(int idx)
+ {
+   CPictureBuffer &buf = m_buffers[idx];
++  buf.doviMetadata.Reset();
++#ifdef HAVE_DVBRIDGE
++  buf.doviEnhancement.reset();
++  buf.doviSequence = 0;
++#endif
++  buf.doviPts = DVD_NOPTS_VALUE;
+   if (buf.videoBuffer)
+   {
+     buf.videoBuffer->Release();
+@@ -1065,6 +1118,20 @@ void CLinuxRendererGLES::UnInit()
+ 
+   glFinish();
+ 
++#ifdef HAVE_DVBRIDGE
++  if (m_dvRequested)
++  {
++    auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbmGLESContext*>(
++        CServiceBroker::GetWinSystem());
++    if (window && !window->EndDVBridgeAtStop())
++    {
++      CLog::Log(LOGERROR, "DVBridge: cannot restore output during renderer teardown");
++      return;
++    }
++    m_dvRequested = false;
++  }
++#endif
++
+   // YUV textures
+   for (int i = 0; i < NUM_BUFFERS; ++i)
+   {
+@@ -1165,6 +1232,14 @@ bool CLinuxRendererGLES::Render(unsigned int flags, int index)
+     m_currentField = FIELD_FULL;
+   }
+ 
++#ifdef HAVE_DVBRIDGE
++  // The engine reads the decoded surface itself and waits for the decoder on
++  // the GPU: no texture is made of it and no fence of ours guards it (the
++  // engine's adapter keeps the surface until its frame is done).
++  if (m_dvRequested)
++    return m_buffers[index].videoBuffer && m_currentField == FIELD_FULL && RenderDVBridge(index);
++#endif
++
+   // call texture load function
+   if (!UploadTexture(index))
+   {
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+index f719b5a..3ed4029 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+@@ -132,6 +132,11 @@ protected:
+   // hooks for HwDec rendering
+   virtual bool LoadShadersHook() { return false; }
+   virtual bool RenderHook(int idx) { return false; }
++#ifdef HAVE_DVBRIDGE
++  // Failure is terminal for this frame: never silently use the ordinary shader.
++  virtual bool RenderDVBridge(int idx) { return false; }
++  bool m_dvRequested{false};
++#endif
+   virtual void AfterRenderHook(int idx) {}
+ 
+   struct
+@@ -199,6 +204,13 @@ protected:
+     AVMasteringDisplayMetadata displayMetadata;
+     bool hasLightMetadata{false};
+     AVContentLightMetadata lightMetadata;
++    CDVMetadataBuffer doviMetadata;
++#ifdef HAVE_DVBRIDGE
++    std::shared_ptr<AVFrame> doviEnhancement;
++    // Names this picture among all queued ones, for the bridge to know a repeat by.
++    uint64_t doviSequence{0};
++#endif
++    double doviPts = DVD_NOPTS_VALUE;
+   };
+ 
+   // YUV decoder textures
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+index 1a09b5a..8f61aed 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+@@ -7,6 +7,9 @@
+  */
+ 
+ #include "RenderManager.h"
++#ifdef HAVE_DVBRIDGE
++#include "DVPrivateDrain.h"
++#endif
+ 
+ /* to use the same as player */
+ #include "../VideoPlayer/DVDClock.h"
+@@ -30,6 +33,14 @@
+ 
+ #include <memory>
+ #include <mutex>
++#ifdef HAVE_DVBRIDGE
++#include "guilib/GUIComponent.h"
++#include "guilib/GUIWindowManager.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h"
++#include "windowing/gbm/WinSystemGbmGLESContext.h"
++#include <cstdlib>
++#include <cstring>
++#endif
+ 
+ using namespace std::chrono_literals;
+ 
+@@ -141,6 +152,10 @@ bool CRenderManager::Configure(const VideoPicture& picture, float fps, unsigned
+   {
+     std::unique_lock lock(m_statelock);
+     m_picture.SetParams(picture);
++    m_nativeDVRate = false;
++#ifdef HAVE_DVBRIDGE
++    m_nativeDVRate = DVBRIDGE::WantsNativeOutput(&picture);
++#endif
+     m_fps = fps;
+     m_orientation = orientation;
+     m_NumberBuffers  = buffers;
+@@ -262,6 +277,10 @@ bool CRenderManager::IsConfigured() const
+ 
+ void CRenderManager::ShowVideo(bool enable)
+ {
++#ifdef HAVE_DVBRIDGE
++  if (!enable && CDVPrivateDrain::Enabled())
++    CDVPrivateDrain::Get().Cancel();
++#endif
+   m_showVideo = enable;
+   if (!enable)
+     DiscardBuffer();
+@@ -302,6 +321,12 @@ void CRenderManager::FrameMove()
+       lock.unlock();
+       if (!Configure())
+         return;
++#ifdef HAVE_DVBRIDGE
++      // Carry the renderer's queued HDR state in the refresh commit, before
++      // presenting a frame at the previous refresh rate. Native DV owns its handoff.
++      if (!m_nativeDVRate)
++        UpdateResolution();
++#endif
+       UpdateLatencyTweak();
+       firstFrame = true;
+       FrameWait(50ms);
+@@ -356,6 +381,24 @@ void CRenderManager::FrameMove()
+   // to use during the render pass. PrepareOverlays MarkDirty's on libass
+   // changes and on PGS/DVB/SPU arrival/disappearance.
+   m_overlays.PrepareOverlays(m_presentsource);
++#ifdef HAVE_DVBRIDGE
++  const char* earlyProbe = std::getenv("DV_PRIVATE_EARLY_PROBE");
++  if (earlyProbe && std::strcmp(earlyProbe, "1") == 0)
++  {
++    const bool controls = CServiceBroker::GetGUI()->GetWindowManager().HasVisibleControls();
++    if (m_probeControls && !controls) m_probeFrames = 3;
++    m_probeControls = controls;
++    if (!controls && m_probeFrames)
++    {
++      std::unique_lock lock(m_presentlock);
++      const auto now = std::chrono::steady_clock::now().time_since_epoch();
++      CLog::Log(LOGINFO, "Private source early probe: pts={} steady_ns={} subtitles={} remaining={}",
++          m_Queue[m_presentsource].pts, std::chrono::duration_cast<std::chrono::nanoseconds>(now).count(),
++          m_overlays.HasVisibleOverlay(m_presentsource), m_probeFrames);
++      --m_probeFrames;
++    }
++  }
++#endif
+ }
+ 
+ void CRenderManager::PreInit()
+@@ -395,6 +438,10 @@ void CRenderManager::PreInit()
+ 
+ void CRenderManager::UnInit()
+ {
++#ifdef HAVE_DVBRIDGE
++  if (CDVPrivateDrain::Enabled())
++    CDVPrivateDrain::Get().Cancel();
++#endif
+   if (!CServiceBroker::GetAppMessenger()->IsProcessThread())
+   {
+     m_initEvent.Reset();
+@@ -415,6 +462,7 @@ void CRenderManager::UnInit()
+ 
+   m_renderState = STATE_UNCONFIGURED;
+   m_picture.Reset();
++  m_nativeDVRate = false;
+   m_bRenderGUI = false;
+ 
+   m_initEvent.Set();
+@@ -422,6 +470,10 @@ void CRenderManager::UnInit()
+ 
+ bool CRenderManager::Flush(bool wait, bool saveBuffers)
+ {
++#ifdef HAVE_DVBRIDGE
++  if (CDVPrivateDrain::Enabled())
++    CDVPrivateDrain::Get().Cancel();
++#endif
+   if (!m_pRenderer)
+     return true;
+ 
+@@ -607,8 +659,10 @@ RESOLUTION CRenderManager::GetResolution()
+     return res;
+ 
+   if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF)
++  {
+     res = CResolutionUtils::ChooseBestResolution(m_fps, m_picture.iWidth, m_picture.iHeight,
+-                                                 !m_picture.stereoMode.empty());
++                                                 !m_picture.stereoMode.empty(), m_nativeDVRate);
++  }
+ 
+   return res;
+ }
+@@ -629,6 +683,11 @@ void CRenderManager::Render(bool clear, DWORD flags, DWORD alpha, bool gui)
+   bool presented = false;
+   if (!gui || m_pRenderer->IsGuiLayer())
+   {
++#ifdef HAVE_DVBRIDGE
++    if (auto* window = dynamic_cast<KODI::WINDOWING::GBM::CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem()))
++      window->SetDVBridgeOverlays(m_renderDebug || m_overlays.HasVisibleOverlay(m_presentsource),
++                                  m_overlays.HasHDROverlay(m_presentsource), m_renderDebug);
++#endif
+     SPresent& m = m_Queue[m_presentsource];
+ 
+     if( m.presentmethod == PRESENT_METHOD_BOB )
+@@ -815,8 +874,16 @@ void CRenderManager::UpdateResolution()
+       if (CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF && m_fps > 0.0f)
+       {
+         RESOLUTION res = CResolutionUtils::ChooseBestResolution(
+-            m_fps, m_picture.iWidth, m_picture.iHeight, !m_picture.stereoMode.empty());
++            m_fps, m_picture.iWidth, m_picture.iHeight, !m_picture.stereoMode.empty(), m_nativeDVRate);
++#ifdef HAVE_DVBRIDGE
++        DVBRIDGE::ExpectNativeOutput(m_nativeDVRate);
++        DVBRIDGE::ExpectVideoModeset(true);
++#endif
+         CServiceBroker::GetWinSystem()->GetGfxContext().SetVideoResolution(res, false);
++#ifdef HAVE_DVBRIDGE
++        DVBRIDGE::ExpectNativeOutput(false);
++        DVBRIDGE::ExpectVideoModeset(false);
++#endif
+         UpdateLatencyTweak();
+         if (m_pRenderer)
+           m_pRenderer->Update();
+@@ -827,10 +894,14 @@ void CRenderManager::UpdateResolution()
+   }
+ }
+ 
+-void CRenderManager::TriggerUpdateResolution(float fps, int width, int height, std::string &stereomode)
++void CRenderManager::TriggerUpdateResolution(float fps, int width, int height, std::string &stereomode,
++                                             bool nativeDV)
+ {
+   if (width)
+   {
++    // Carry the stream's intent until the first decoded picture replaces it.
++    // Otherwise startup briefly reverts DV 25 Hz to vanilla 50 Hz, then back.
++    m_nativeDVRate = nativeDV;
+     m_fps = fps;
+     m_picture.iWidth = width;
+     m_picture.iHeight = height;
+@@ -850,6 +921,8 @@ void CRenderManager::ToggleDebug()
+   m_renderDebug = isEnabled;
+   m_debugTimer.SetExpired();
+   m_renderDebugVideo = false;
++  if (CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
++    CServiceBroker::GetGUI()->GetWindowManager().MarkDirty();
+ }
+ 
+ void CRenderManager::ToggleDebugVideo()
+@@ -863,6 +936,8 @@ void CRenderManager::ToggleDebugVideo()
+   m_renderDebug = isEnabled;
+   m_debugTimer.SetExpired();
+   m_renderDebugVideo = true;
++  if (CServiceBroker::GetWinSystem()->UsesNativeGuiCoverage())
++    CServiceBroker::GetGUI()->GetWindowManager().MarkDirty();
+ }
+ 
+ void CRenderManager::SetSubtitleVerticalPosition(int value, bool save)
+@@ -932,6 +1007,15 @@ bool CRenderManager::AddVideoPicture(const VideoPicture& picture, volatile std::
+   m.presentfield = displayField;
+   m.presentmethod = presentmethod;
+   m.pts = picture.pts;
++#ifdef HAVE_DVBRIDGE
++  if (CDVPrivateDrain::Enabled())
++  {
++    if (m_nativeDVRate && picture.videoBuffer && picture.pts != DVD_NOPTS_VALUE)
++      CDVPrivateDrain::Get().Queue(picture.videoBuffer, static_cast<int64_t>(picture.pts));
++    else
++      CDVPrivateDrain::Get().Cancel();
++  }
++#endif
+   m_queued.push_back(m_free.front());
+   m_free.pop_front();
+   m_playerPort->UpdateRenderBuffers(m_queued.size(), m_discard.size(), m_free.size());
+@@ -960,6 +1044,22 @@ bool CRenderManager::AddVideoPicture(const VideoPicture& picture, volatile std::
+       }
+     }
+     m_forceNext = false;
++#ifdef HAVE_DVBRIDGE
++    const char* firstCommit = std::getenv("DV_PRIVATE_STARTUP_COMMIT");
++    if (m_nativeDVRate && CDVPrivateDrain::Enabled() && firstCommit &&
++        std::strcmp(firstCommit, "1") == 0)
++    {
++      // Frame selection does not mean the native renderer has finished setup.
++      // Release the presentation lock so rendering and cancellation can proceed.
++      lock.unlock();
++      const auto started = std::chrono::steady_clock::now();
++      const auto result = CDVPrivateDrain::Get().Wait(bStop, 10s);
++      CLog::Log(LOGINFO, "Private source startup commit: pts={} result={} wait_ms={}",
++          picture.pts, static_cast<int>(result),
++          std::chrono::duration<double, std::milli>(
++              std::chrono::steady_clock::now() - started).count());
++    }
++#endif
+   }
+ 
+   return true;
+@@ -1136,6 +1236,15 @@ void CRenderManager::PrepareNextRender()
+       ++iter;
+     }
+ 
++#ifdef HAVE_DVBRIDGE
++    const char* startupTrace = std::getenv("DV_PRIVATE_FRAME_TIMING");
++    if (m_nativeDVRate && startupTrace && std::strcmp(startupTrace, "1") == 0 &&
++        m_Queue[idx].pts >= 0 && m_Queue[idx].pts < DVD_TIME_BASE)
++      CLog::Log(LOGINFO,
++          "Private source startup selection: front_pts={} selected_pts={} clock={} render_pts={} latency={} paused={} forced={} queued={}",
++          m_Queue[m_queued.front()].pts, m_Queue[idx].pts, frameOnScreen, renderPts,
++          m_displayLatency, isPaused, m_forceNext, m_queued.size());
++#endif
+     // skip late frames
+     while (m_queued.front() != idx)
+     {
+@@ -1143,6 +1252,14 @@ void CRenderManager::PrepareNextRender()
+       {
+         m_discard.push_back(m_presentsourcePast);
+         m_QueueSkip++;
++#ifdef HAVE_DVBRIDGE
++        const char* trace = std::getenv("DV_PRIVATE_TRANSITION_TIMING");
++        if (trace && std::strcmp(trace, "1") == 0 && m_QueueSkip <= 32)
++          CLog::Log(LOGINFO,
++              "Private source queue skip: total={} discarded_pts={} selected_pts={} render_pts={} lateframes={} queued={}",
++              m_QueueSkip, m_Queue[m_presentsourcePast].pts, m_Queue[idx].pts,
++              renderPts, m_lateframes, m_queued.size());
++#endif
+       }
+       m_presentsourcePast = m_queued.front();
+       m_queued.pop_front();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
+index db0f71c..21157e7 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
+@@ -79,7 +79,8 @@ public:
+ 
+   RESOLUTION GetResolution();
+   void UpdateResolution();
+-  void TriggerUpdateResolution(float fps, int width, int height, std::string &stereomode);
++  void TriggerUpdateResolution(float fps, int width, int height, std::string &stereomode,
++                               bool nativeDV = false);
+   void SetViewMode(int iViewMode);
+   void PreInit();
+   void UnInit();
+@@ -176,6 +177,7 @@ protected:
+   CCriticalSection m_presentlock;
+   CCriticalSection m_datalock;
+   bool m_bTriggerUpdateResolution = false;
++  std::atomic_bool m_nativeDVRate{false};
+   bool m_bRenderGUI = true;
+   bool m_renderedDebugOverlay = false;
+   bool m_renderDebug = false;
+@@ -239,6 +241,10 @@ protected:
+   int m_lateframes = -1;
+   double m_presentpts = 0.0;
+   EPRESENTSTEP m_presentstep = PRESENT_IDLE;
++#ifdef HAVE_DVBRIDGE
++  bool m_probeControls{true};
++  unsigned m_probeFrames{0};
++#endif
+   XbmcThreads::EndTime<> m_presentTimer;
+   bool m_forceNext = false;
+   int m_presentsource = 0;
+diff --git a/xbmc/platform/linux/CMakeLists.txt b/xbmc/platform/linux/CMakeLists.txt
+index 7c4da1b..d989ce2 100644
+--- a/xbmc/platform/linux/CMakeLists.txt
++++ b/xbmc/platform/linux/CMakeLists.txt
+@@ -41,3 +41,6 @@ if(ADDONS_CONFIGURE_AT_STARTUP)
+ endif()
+ 
+ core_add_library(linuxsupport)
++if(ENABLE_DVBRIDGE)
++  target_link_libraries(${CORE_LIBRARY} PRIVATE dvbridge_core)
++endif()
+diff --git a/xbmc/windowing/gbm/CMakeLists.txt b/xbmc/windowing/gbm/CMakeLists.txt
+index 4bf4d12..7ef1dcc 100644
+--- a/xbmc/windowing/gbm/CMakeLists.txt
++++ b/xbmc/windowing/gbm/CMakeLists.txt
+@@ -24,3 +24,6 @@ if(TARGET ${APP_NAME_LC}::OpenGLES)
+ endif()
+ 
+ core_add_library(windowing_gbm)
++if(ENABLE_DVBRIDGE)
++  target_link_libraries(${CORE_LIBRARY} PRIVATE dvbridge_core)
++endif()
+diff --git a/xbmc/windowing/gbm/WinSystemGbmEGLContext.cpp b/xbmc/windowing/gbm/WinSystemGbmEGLContext.cpp
+index 6f19a9d..cb6df88 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmEGLContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmEGLContext.cpp
+@@ -194,6 +194,11 @@ bool CWinSystemGbmEGLContext::DestroyWindow()
+   return true;
+ }
+ 
++int CWinSystemGbmEGLContext::VideoOutputBitDepth(const VideoPicture* picture) const
++{
++  return picture ? picture->colorBits : 8;
++}
++
+ bool CWinSystemGbmEGLContext::SetVideoOutput(const VideoPicture* videoPicture)
+ {
+   // Override: the base only flips the gui/video plane role. On EGL
+@@ -203,7 +208,7 @@ bool CWinSystemGbmEGLContext::SetVideoOutput(const VideoPicture* videoPicture)
+   // base so plane-role tracking sees the new format. EGL context survives
+   // across the rebuild, no shader-rebuild. The next flip forces a modeset
+   // when needed (amdgpu), on other drivers it is a fast flip."
+-  const int bitDepth = videoPicture ? videoPicture->colorBits : 8;
++  const int bitDepth = VideoOutputBitDepth(videoPicture);
+ 
+   // Pick an EGL config matching the target bit depth, then rebuild
+   // the surface only if that pick changed the native visual ID.
+diff --git a/xbmc/windowing/gbm/WinSystemGbmEGLContext.h b/xbmc/windowing/gbm/WinSystemGbmEGLContext.h
+index 1580be9..d382c87 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmEGLContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmEGLContext.h
+@@ -58,6 +58,7 @@ protected:
+   bool InitWindowSystemEGL(EGLint renderableType, EGLint apiType);
+   bool ChooseEGLConfig(EGLint renderableType, int bitDepth = 8);
+   virtual bool CreateContext() = 0;
++  virtual int VideoOutputBitDepth(const VideoPicture* picture) const;
+ 
+   EGLint m_renderableType{0};
+ 
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index b3eb401..63b6c84 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -7,6 +7,9 @@
+  */
+ 
+ #include "WinSystemGbmGLESContext.h"
++#include "cores/VideoPlayer/VideoRenderers/DVPrivateOverlay.h"
++#include "cores/VideoPlayer/VideoRenderers/DVEngineSettings.h"
++#include "cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h"
+ 
+ #include "OptionalsReg.h"
+ #include "cores/RetroPlayer/process/gbm/RPProcessInfoGbm.h"
+@@ -37,8 +40,39 @@ extern "C"
+ #include "windowing/WindowSystemFactory.h"
+ 
+ #include <mutex>
++#include <cmath>
++#include <cstdlib>
++#include <cstring>
++#include <vector>
++#ifdef HAVE_DVBRIDGE
++#include "ServiceBroker.h"
++#include "application/ApplicationComponents.h"
++#include "application/ApplicationPlayer.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVHDR10PlusToDovi.h"
++#if defined(HAVE_LIBVA)
++#include "cores/VideoPlayer/DVDCodecs/Video/VAAPI.h"
++#endif
++#include "cores/VideoPlayer/DVDStreamInfo.h"
++#include "drm/DRMAtomic.h"
++#include "dialogs/GUIDialogKaiToast.h"
++#include "messaging/ApplicationMessenger.h"
++#include "resources/LocalizeStrings.h"
++#include "resources/ResourcesComponent.h"
++#include "settings/DisplaySettings.h"
++#include "settings/Settings.h"
++#include "settings/SettingsComponent.h"
++#include "windowing/GraphicContext.h"
++
++#include <atomic>
++#include <chrono>
++#endif
+ 
++#include <drm_fourcc.h>
+ #include <gbm.h>
++#include <unistd.h>
+ 
+ using namespace KODI::WINDOWING::GBM;
+ 
+@@ -61,6 +95,10 @@ std::unique_ptr<CWinSystemBase> CWinSystemGbmGLESContext::CreateWinSystem()
+ 
+ bool CWinSystemGbmGLESContext::InitWindowSystem()
+ {
++#ifdef HAVE_DVBRIDGE
++  // Settings > Player > Dolby Vision engine switches, before anything reads them.
++  DVEngineSettings::Register();
++#endif
+   VIDEOPLAYER::CRendererFactory::ClearRenderer();
+   CDVDFactoryCodec::ClearHWAccels();
+   CLinuxRendererGLES::Register();
+@@ -115,6 +153,33 @@ bool CWinSystemGbmGLESContext::SetFullScreen(bool fullScreen,
+                                              RESOLUTION_INFO& res,
+                                              bool blankOtherDisplays)
+ {
++  bool swap = true;
++#ifdef HAVE_DVBRIDGE
++  // One HDMI change per transition, when the raster size stays the same: a DV stop held for
++  // this refresh restore restores its signal in this mode change, and a refresh switch for a
++  // stream that will use native output leaves the mode to the bridge's first commit. Both
++  // happen in CompleteModeset().
++  const bool sameSize = res.iWidth == m_nWidth && res.iHeight == m_nHeight;
++  // The menu output stays through a refresh change, except one for a video that will not use
++  // native output: that restores the signal in the mode change, as a held stop does.
++  const bool keepMenu = m_dvMenu && sameSize &&
++                        (DVBRIDGE::NativeOutputExpected() || !DVBRIDGE::VideoModesetExpected());
++  if (m_dvMenu && sameSize && !keepMenu)
++    m_dvExitPending = true;
++  m_dvMenuFailed = false;
++  m_dvRestoreWithModeset = m_dvExitPending && sameSize;
++  m_dvExitPending = false;
++  if (!m_dvRestoreWithModeset && !keepMenu)
++  {
++    if (!EndDVBridge())
++      return false;
++    m_dvBridge.reset();
++  }
++  m_dvMenuModeset = keepMenu;
++  m_dvModesetDeferred = !keepMenu && !m_dvRestoreWithModeset && sameSize && res.iWidth == 3840 &&
++                        res.iHeight == 2160 && DVBRIDGE::NativeOutputExpected();
++  swap = !m_dvRestoreWithModeset && !m_dvModesetDeferred && !keepMenu;
++#endif
+   if (res.iWidth != m_nWidth || res.iHeight != m_nHeight)
+   {
+     CLog::Log(LOGDEBUG, "CWinSystemGbmGLESContext::{} - resolution changed, creating a new window",
+@@ -122,7 +187,7 @@ bool CWinSystemGbmGLESContext::SetFullScreen(bool fullScreen,
+     CreateNewWindow("", fullScreen, res);
+   }
+ 
+-  if (!m_eglContext.TrySwapBuffers())
++  if (swap && !m_eglContext.TrySwapBuffers())
+   {
+     CEGLUtils::Log(LOGERROR, "eglSwapBuffers failed");
+     throw std::runtime_error("eglSwapBuffers failed");
+@@ -139,6 +204,144 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+   if (!m_bRenderCreated)
+     return;
+ 
++#ifdef HAVE_DVBRIDGE
++  // The bridge paths below return before the display reset at the end of this function. A
++  // pending reset is still due once its delay has passed: without it VideoPlayer and ActiveAE
++  // stay in their display-lost state while the bridge keeps presenting the held frame.
++  const auto sendPendingDisplayReset = [this]()
++  {
++    if (m_dispReset && m_dispResetTimer.IsTimePast())
++    {
++      CLog::Log(LOGDEBUG,
++                "CWinSystemGbmGLESContext::PresentRender - Sending display reset to all clients");
++      m_dispReset = false;
++      CWinSystemGbm::OnResetDisplay();
++    }
++  };
++
++  if (m_dvExitPending)
++  {
++    m_dvRestorePending = false;
++    if (!m_dvExitDeadline.IsTimePast())
++    {
++      // Hold the last DV frame until the refresh restore: GUI pixels must never be scanned
++      // out under the DV signal.
++      KODI::TIME::Sleep(10ms);
++      sendPendingDisplayReset();
++      return;
++    }
++    CLog::Log(LOGINFO, "DVBridge: no refresh restore followed the stop, restoring the signal alone");
++    if (EndDVBridge())
++      m_dvBridge.reset();
++    sendPendingDisplayReset();
++    return;
++  }
++
++  if (m_dvMenu)
++  {
++    m_dvRestorePending = false;
++    PresentDVMenu(rendered);
++    sendPendingDisplayReset();
++    return;
++  }
++  if (m_dvRestorePending && m_dvState.Captured())
++  {
++    // The signal is still the tunnel's and no GUI page is shown under it. The restore is
++    // tried again, spaced by the output's retry delay like any rejected commit.
++    auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++    if ((!drm || drm->DVRetryReady()) && EndDVBridge())
++    {
++      m_dvBridge.reset();
++      CLog::Log(LOGINFO, "DVBridge: normal display restored on a later attempt");
++    }
++    else
++      KODI::TIME::Sleep(10ms);
++    sendPendingDisplayReset();
++    return;
++  }
++  if (m_dvState.Captured())
++  {
++    bool presented = false;
++    // EGL's window framebuffer has a bottom-left GL origin, while transport
++    // metadata is indexed from the top-left of the HDMI raster.
++    auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++    bool queued = false;
++    if (m_dvFrame && m_dvBridge && m_dvBridge->Held())
++    {
++      // The picture on screen was asked for again: there is nothing to commit. The refresh
++      // still passes here, as it does inside a blocking commit, so the main loop keeps its pace.
++      if (drm)
++        drm->WaitDVRefresh();
++      presented = drm != nullptr;
++    }
++    else if (m_dvFrame && m_dvBridge && m_dvBridge->GetPrivateScanout())
++    {
++      // The engine's picture: HDR10 when it made one (its signal), else Dolby Vision.
++      DVBRIDGE::TunnelHDR10Signal signal;
++      const bool hdr10 = DVBRIDGE::playbackTunnelHDR10.load() && DVBRIDGE::CurrentTunnelHDR10(signal);
++      if (DVBRIDGE::playbackTunnelHDR10.load() && !hdr10 && !m_dvTunnelHDR10Warned)
++      {
++        m_dvTunnelHDR10Warned = true;
++        CLog::Log(LOGWARNING, "DVBridge: HDR10 asked for, but the engine made a Dolby Vision picture; sent as Dolby Vision");
++      }
++      // Dolby Vision -> HDR10+: the picture's HDR10+ packet in the same commit as the picture.
++      // Turning HDR10+ on or off is a modeset for the kernel.
++      const bool hdr10plus = hdr10 && DVBRIDGE::playbackTunnelHDR10Plus.load();
++      DVBRIDGE::TunnelHDR10PlusPacket packet;
++      if (hdr10plus)
++        packet = DVBRIDGE::CurrentTunnelHDR10Plus();
++      bool toggled = false;
++      presented = drm && m_dvState.SetSignal(*drm, hdr10 ? &signal : nullptr) &&
++                  m_dvState.SetHDR10Plus(*drm, hdr10plus ? &packet : nullptr, toggled);
++      const bool packetStaged = presented && m_dvState.HDR10PlusStaged();
++      if (presented && toggled)
++        drm->RequireDVModeset();
++      // DV_PRIVATE_NONBLOCK=1: a picture of a stable scanout is queued instead of waited for,
++      // so the next one is prepared while the GPU finishes this one. It is committed one
++      // refresh after its preparation began (the queued flip's completion is that refresh),
++      // always, so every picture takes the same two refreshes from the render manager's
++      // choice to the screen (GetFrameLatencyAdjustment). A mode or signal change and
++      // HDR10+ output commit blocking as ever, after the queued flip.
++      const bool queue = presented && DVQueueing() && drm->DVScanoutStable() && !packetStaged;
++      if (queue)
++        drm->WaitDVRefresh();
++      presented = presented && FlipDVBridgePage(m_dvState, false, m_dvBridge->GetPrivateScanout(),
++                                                queue ? &queued : nullptr);
++      if (packetStaged)
++        TunnelHDR10PlusPresented(presented);
++      else if (hdr10)
++        TunnelHDR10Presented(presented);
++    }
++    if (m_dvBridge)
++      m_dvBridge->Presented(presented, queued);
++    m_dvFrame = false;
++    if (presented)
++      m_dvModesetDeferred = false;
++    else
++    {
++      // No commit paced this pass (no picture yet, one the engine does not take, a rejected
++      // commit or its retry delay): without a pause the main loop would spin.
++      KODI::TIME::Sleep(10ms);
++    }
++    sendPendingDisplayReset();
++    return;
++  }
++
++  if (m_dvModesetDeferred)
++  {
++    if (!m_dvModesetDeadline.IsTimePast())
++    {
++      // The selected mode waits for the bridge's first commit; a GUI flip would commit it now
++      // and make the TV change mode twice.
++      KODI::TIME::Sleep(10ms);
++      sendPendingDisplayReset();
++      return;
++    }
++    m_dvModesetDeferred = false;
++    CLog::Log(LOGINFO, "DVBridge: native output did not start, committing the refresh change alone");
++  }
++#endif
++
+   if (rendered || videoLayer)
+   {
+     bool async = !videoLayer && m_eglFence;
+@@ -189,8 +392,37 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+   }
+ }
+ 
++#ifdef HAVE_DVBRIDGE
++bool CWinSystemGbmGLESContext::DVQueueing() const
++{
++  return CDRMAtomic::DVNonblock() && m_dvState.Captured() && m_dvVideo && !m_dvMenu &&
++         !m_dvStartup && !m_dvExitPending &&
++         !(DVBRIDGE::playbackTunnelHDR10Plus.load() && !DVBRIDGE::playbackHDR10PlusFallback.load());
++}
++#endif
++
++float CWinSystemGbmGLESContext::GetFrameLatencyAdjustment()
++{
++#ifdef HAVE_DVBRIDGE
++  // Queued flips put one refresh between a picture's preparation and its commit
++  // (PresentRender): the render manager chooses each picture that much earlier.
++  if (DVQueueing())
++  {
++    const float fps = GetGfxContext().GetFPS();
++    if (fps > 0.0f)
++      return -1000.0f / fps;
++  }
++#endif
++  return CWinSystemGbmEGLContext::GetFrameLatencyAdjustment();
++}
++
+ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+ {
++#ifdef HAVE_DVBRIDGE
++  // Renderer teardown turns compositing off; held DV output still needs it.
++  if ((m_dvMenu || m_dvStartup) && colorTransfer == 0)
++    return m_guiCompositing;
++#endif
+   m_guiCompositing = (colorTransfer != 0);
+ 
+   if (m_guiCompositing)
+@@ -198,7 +430,11 @@ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+     if (!m_compositeShader)
+     {
+       std::string defines;
+-      if (UseLimitedColor())
++      if (UseLimitedColor()
++#ifdef HAVE_DVBRIDGE
++          && !m_dvState.Captured()
++#endif
++          )
+         defines += "#define KODI_LIMITED_RANGE 1\n";
+       m_compositeShader = std::make_unique<CGuiCompositeShaderGLES>(defines);
+       if (!m_compositeShader->CompileAndLink())
+@@ -220,7 +456,12 @@ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+   }
+   else
+   {
+-    m_guiFbo.Cleanup();
++    CleanupGuiFbo();
++    m_guiHalfFbo.Cleanup();
++    m_guiHalf = false;
++    m_guiHalfBound = false;
++    m_guiRasterReady = true;
++    m_nativeGuiCoverage = false;
+     m_guiFboWidth = 0;
+     m_guiFboHeight = 0;
+     m_compositeShader.reset();
+@@ -229,20 +470,175 @@ bool CWinSystemGbmGLESContext::SetGuiCompositing(int colorTransfer)
+   return m_guiCompositing;
+ }
+ 
++void CWinSystemGbmGLESContext::ScaleGuiRaster(bool viewport)
++{
++  GLint box[4];
++  glGetIntegerv(viewport ? GL_VIEWPORT : GL_SCISSOR_BOX, box);
++  const GLint left = static_cast<GLint>(std::floor(box[0] / 2.0));
++  const GLint bottom = static_cast<GLint>(std::floor(box[1] / 2.0));
++  const GLint right = static_cast<GLint>(std::ceil((box[0] + box[2]) / 2.0));
++  const GLint top = static_cast<GLint>(std::ceil((box[1] + box[3]) / 2.0));
++  if (viewport)
++    glViewport(left, bottom, right - left, top - bottom);
++  else
++    glScissor(left, bottom, right - left, top - bottom);
++}
++
++void CWinSystemGbmGLESContext::SetViewPort(const CRect& viewPort)
++{
++  CRenderSystemGLES::SetViewPort(viewPort);
++  if (m_guiHalfBound)
++  {
++    ScaleGuiRaster(true);
++    ScaleGuiRaster(false);
++  }
++}
++
++void CWinSystemGbmGLESContext::SetScissors(const CRect& rect)
++{
++  CRenderSystemGLES::SetScissors(rect);
++  if (m_guiHalfBound)
++    ScaleGuiRaster(false);
++}
++
++bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height)
++{
++  auto create = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
++  using Target = void (*)(GLenum, void*);
++  auto target = reinterpret_cast<Target>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
++  gbm_device* device = GetGBMDevice().Get();
++  if (!create || !target || !device || !m_guiFbo.IsValid())
++    return false;
++  // The driver's layout if it names it in one plane, else linear.
++  const uint32_t layouts[] = {GBM_BO_USE_RENDERING, GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR};
++  for (const uint32_t flags : layouts)
++  {
++    m_guiBo = gbm_bo_create(device, width, height, GBM_FORMAT_ABGR8888, flags);
++    if (m_guiBo && gbm_bo_get_plane_count(m_guiBo) == 1 &&
++        ((flags & GBM_BO_USE_LINEAR) || gbm_bo_get_modifier(m_guiBo) != DRM_FORMAT_MOD_INVALID))
++      break;
++    if (m_guiBo)
++      gbm_bo_destroy(m_guiBo);
++    m_guiBo = nullptr;
++  }
++  if (!m_guiBo)
++    return false;
++  m_guiBoFd = gbm_bo_get_fd(m_guiBo);
++  m_guiBoStride = gbm_bo_get_stride(m_guiBo);
++  m_guiBoOffset = gbm_bo_get_offset(m_guiBo, 0);
++  m_guiBoModifier = gbm_bo_get_modifier(m_guiBo);
++  if (m_guiBoModifier == DRM_FORMAT_MOD_INVALID)
++    m_guiBoModifier = DRM_FORMAT_MOD_LINEAR;
++  if (m_guiBoFd < 0)
++    return false;
++  const EGLint attrs[] = {EGL_WIDTH, width, EGL_HEIGHT, height,
++      EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
++      EGL_DMA_BUF_PLANE0_FD_EXT, m_guiBoFd,
++      EGL_DMA_BUF_PLANE0_OFFSET_EXT, static_cast<EGLint>(m_guiBoOffset),
++      EGL_DMA_BUF_PLANE0_PITCH_EXT, static_cast<EGLint>(m_guiBoStride),
++      EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT, static_cast<EGLint>(m_guiBoModifier & 0xffffffff),
++      EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, static_cast<EGLint>(m_guiBoModifier >> 32), EGL_NONE};
++  m_guiImage = create(m_eglContext.GetEGLDisplay(), EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attrs);
++  if (m_guiImage == EGL_NO_IMAGE_KHR)
++    return false;
++  // The FBO's texture takes the buffer as its storage (its sampling state stays).
++  GLint texture, framebuffer;
++  glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
++  glGetIntegerv(GL_FRAMEBUFFER_BINDING, &framebuffer);
++  glBindTexture(GL_TEXTURE_2D, m_guiFbo.Texture());
++  target(GL_TEXTURE_2D, m_guiImage);
++  glBindTexture(GL_TEXTURE_2D, texture);
++  bool complete = m_guiFbo.BeginRender();
++  if (complete)
++  {
++    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_guiFbo.Texture(), 0);
++    complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
++  }
++  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
++  if (!complete || glGetError() != GL_NO_ERROR)
++    return false;
++  CLog::Log(LOGINFO, "Private native GUI raster shared with the Vulkan engine: {}x{} modifier={:#x}",
++            width, height, m_guiBoModifier);
++  return true;
++}
++
++void CWinSystemGbmGLESContext::CleanupGuiFbo()
++{
++  ++m_guiWrites;
++  // The texture goes first, then its storage.
++  m_guiFbo.Cleanup();
++  if (m_guiImage != EGL_NO_IMAGE_KHR)
++  {
++    auto destroy = reinterpret_cast<PFNEGLDESTROYIMAGEKHRPROC>(eglGetProcAddress("eglDestroyImageKHR"));
++    if (destroy)
++      destroy(m_eglContext.GetEGLDisplay(), m_guiImage);
++  }
++  if (m_guiBoFd >= 0)
++    close(m_guiBoFd);
++  if (m_guiBo)
++    gbm_bo_destroy(m_guiBo);
++  m_guiImage = EGL_NO_IMAGE_KHR;
++  m_guiBoFd = -1;
++  m_guiBo = nullptr;
++}
++
++bool CWinSystemGbmGLESContext::CanReuseGuiComposite() const
++{
++#ifdef HAVE_DVBRIDGE
++  const char* enabled = std::getenv("DV_PRIVATE_GUI_CACHE");
++  return enabled && std::strcmp(enabled, "1") == 0 && m_nativeGuiCoverage &&
++         m_dvState.Captured() && !m_dvMenu && !m_dvDebugOverlay && m_guiRasterReady &&
++         m_guiFbo.IsValid() && m_guiFboWidth == m_nWidth && m_guiFboHeight == m_nHeight;
++#else
++  return false;
++#endif
++}
++
+ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+ {
++#ifdef HAVE_DVBRIDGE
++  UpdateDVMenu();
++#endif
+   if (!m_guiCompositing)
+     return false;
+ 
++  bool nativeCoverage = false;
++#ifdef HAVE_DVBRIDGE
++  // The Vulkan engine composes the GUI over the video (native coverage alpha).
++  nativeCoverage = m_dvState.Captured() && !m_dvMenu;
++#endif
++  if (nativeCoverage != m_nativeGuiCoverage)
++    m_guiFboClean = false;
++  m_nativeGuiCoverage = nativeCoverage;
+   m_guiWillRender = guiWillRender;
++  if (guiWillRender || m_dvOverlays)
++    ++m_guiRevision;
+ 
+   int width = m_nWidth;
+   int height = m_nHeight;
++  const char* half = std::getenv("DV_PRIVATE_GUI_HALF");
++  const bool guiHalf = nativeCoverage && width == 3840 && height == 2160 && half &&
++                       std::strcmp(half, "1") == 0;
++  if (guiHalf != m_guiHalf)
++  {
++    m_guiFboClean = false;
++    m_guiRasterReady = false;
++    CLog::Log(LOGINFO, "Private native GUI raster: {}x{}; movie and output {}x{}",
++              guiHalf ? width / 2 : width, guiHalf ? height / 2 : height, width, height);
++  }
++  m_guiHalf = guiHalf;
+ 
++  // Shared with the Vulkan engine (a 4K GUI only); DV_VULKAN_GUI_COPY=1
++  // keeps the per-frame copy (for comparison).
++  const char* copy = std::getenv("DV_VULKAN_GUI_COPY");
++  const bool share = nativeCoverage && width == 3840 && height == 2160 &&
++                     !(copy && std::strcmp(copy, "1") == 0) && !m_guiShareFailed;
+   // create or recreate FBO if size changed
+-  if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height)
++  if (!m_guiFbo.IsValid() || m_guiFboWidth != width || m_guiFboHeight != height ||
++      share != (m_guiBo != nullptr))
+   {
+-    m_guiFbo.Cleanup();
++    ++m_guiRevision;
++    CleanupGuiFbo();
+ 
+     if (!m_guiFbo.Initialize())
+     {
+@@ -254,7 +650,7 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+     {
+       CLog::Log(LOGERROR, "CWinSystemGbmGLESContext: failed to create GUI FBO texture {}x{}", width,
+                 height);
+-      m_guiFbo.Cleanup();
++      CleanupGuiFbo();
+       return false;
+     }
+ 
+@@ -263,10 +659,24 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+       CLog::Log(LOGERROR,
+                 "CWinSystemGbmGLESContext: failed to attach depth buffer to GUI FBO {}x{}", width,
+                 height);
+-      m_guiFbo.Cleanup();
++      CleanupGuiFbo();
+       return false;
+     }
+ 
++    if (share && !ShareGuiFbo(width, height))
++    {
++      // The engine copies the texture instead.
++      CLog::Log(LOGWARNING, "Private native GUI raster: no shared buffer; the Vulkan engine copies it");
++      m_guiShareFailed = true;
++      CleanupGuiFbo();
++      if (!m_guiFbo.Initialize() || !m_guiFbo.CreateAndBindToTexture(GL_TEXTURE_2D, width, height, GL_RGBA) ||
++          (GetEnabledFrontToBackRendering() && !m_guiFbo.AttachDepthBuffer(width, height)))
++      {
++        CleanupGuiFbo();
++        return false;
++      }
++    }
++
+     m_guiFboWidth = width;
+     m_guiFboHeight = height;
+     m_guiFboClean = false; // fresh FBO is undefined, force a clear
+@@ -283,16 +693,50 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+   //! lets the GUI walk skip while CompositeGui still runs each video frame,
+   //! re-using this cached sRGB FBO as the composite source.
+   if (!guiWillRender)
++  {
++    if (CanReuseGuiComposite() && (++m_guiReusedFrames <= 3 || m_guiReusedFrames % 120 == 0))
++      CLog::Log(LOGINFO, "Private native GUI cache: reused_frames={} empty={}",
++                m_guiReusedFrames, m_guiFboClean);
+     return true;
++  }
+ 
+-  if (!m_guiFbo.BeginRender())
++  // From here GL draws into the GUI framebuffer: the clear below, the GUI pass (subtitles
++  // and the debug overlay included) and the half-resolution upscale in EndGuiComposite().
++  ++m_guiWrites;
++  m_guiRasterReady = false;
++  if (m_guiHalf && !m_guiHalfFbo.IsValid())
++  {
++    if (!m_guiHalfFbo.Initialize() ||
++        !m_guiHalfFbo.CreateAndBindToTexture(GL_TEXTURE_2D, width / 2, height / 2, GL_RGBA) ||
++        (GetEnabledFrontToBackRendering() &&
++         !m_guiHalfFbo.AttachDepthBuffer(width / 2, height / 2)))
++    {
++      m_guiHalfFbo.Cleanup();
++      CLog::Log(LOGERROR, "Private native GUI: failed to create half-resolution framebuffer");
++      return false;
++    }
++  }
++  if (!(m_guiHalf ? m_guiHalfFbo : m_guiFbo).BeginRender())
+     return false;
++  if (m_guiHalf)
++  {
++    glGetIntegerv(GL_VIEWPORT, m_guiSavedViewport);
++    glGetIntegerv(GL_SCISSOR_BOX, m_guiSavedScissor);
++    m_guiHalfBound = true;
++    ScaleGuiRaster(true);
++    ScaleGuiRaster(false);
++  }
+ 
+   // Clear only when the FBO holds stale content; idle frames are already clean.
+   if (!m_guiFboClean)
+   {
++    const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
++    if (m_guiHalf)
++      glDisable(GL_SCISSOR_TEST);
+     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+     glClear(GL_COLOR_BUFFER_BIT);
++    if (m_guiHalf && scissor)
++      glEnable(GL_SCISSOR_TEST);
+     m_guiFboClean = true;
+   }
+ 
+@@ -301,6 +745,84 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+ 
+ void CWinSystemGbmGLESContext::EndGuiComposite()
+ {
++  if (m_guiHalfBound)
++  {
++    GLint source = 0;
++    m_guiHalfFbo.BeginRender();
++    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &source);
++    const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
++    glDisable(GL_SCISSOR_TEST);
++    if (m_guiFbo.BeginRender())
++    {
++      glBindFramebuffer(GL_READ_FRAMEBUFFER, source);
++      glBlitFramebuffer(0, 0, m_guiFboWidth / 2, m_guiFboHeight / 2,
++                        0, 0, m_guiFboWidth, m_guiFboHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
++      m_guiRasterReady = glGetError() == GL_NO_ERROR;
++      if (!m_guiRasterReady)
++        CLog::Log(LOGERROR, "Private native GUI: half-resolution upscale failed");
++    }
++    m_guiHalfBound = false;
++    glViewport(m_guiSavedViewport[0], m_guiSavedViewport[1],
++               m_guiSavedViewport[2], m_guiSavedViewport[3]);
++    glScissor(m_guiSavedScissor[0], m_guiSavedScissor[1],
++              m_guiSavedScissor[2], m_guiSavedScissor[3]);
++    if (scissor)
++      glEnable(GL_SCISSOR_TEST);
++  }
++  else if (m_guiWillRender)
++    m_guiRasterReady = true;
++  const char* coverage = std::getenv("DV_PRIVATE_GUI_COVERAGE");
++  if (coverage && std::strcmp(coverage, "1") == 0 && m_nativeGuiCoverage &&
++      m_guiWillRender && m_guiRasterReady && m_guiFboWidth > 0 && m_guiFboHeight > 0)
++  {
++    // Intrusive, bounded readback: never enable during performance measurements.
++    static unsigned samples = 0;
++    static unsigned rendered = 0;
++    if (samples < 3 && ++rendered % 30 == 0)
++    {
++      ++samples;
++      GLint buffer, alignment, rowLength, skipRows, skipPixels;
++      glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING, &buffer);
++      glGetIntegerv(GL_PACK_ALIGNMENT, &alignment);
++      glGetIntegerv(GL_PACK_ROW_LENGTH, &rowLength);
++      glGetIntegerv(GL_PACK_SKIP_ROWS, &skipRows);
++      glGetIntegerv(GL_PACK_SKIP_PIXELS, &skipPixels);
++      glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
++      glPixelStorei(GL_PACK_ALIGNMENT, 1);
++      glPixelStorei(GL_PACK_ROW_LENGTH, 0);
++      glPixelStorei(GL_PACK_SKIP_ROWS, 0);
++      glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
++      const int width = m_guiFboWidth, height = m_guiFboHeight;
++      std::vector<unsigned char> pixels(static_cast<size_t>(width) * height * 4);
++      glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
++      const GLenum error = glGetError();
++      glBindBuffer(GL_PIXEL_PACK_BUFFER, buffer);
++      glPixelStorei(GL_PACK_ALIGNMENT, alignment);
++      glPixelStorei(GL_PACK_ROW_LENGTH, rowLength);
++      glPixelStorei(GL_PACK_SKIP_ROWS, skipRows);
++      glPixelStorei(GL_PACK_SKIP_PIXELS, skipPixels);
++      const int columns = (width + 15) / 16, rows = (height + 15) / 16;
++      std::vector<unsigned char> tiles(static_cast<size_t>(columns) * rows);
++      unsigned occupied = 0, touched = 0;
++      int left = width, right = -1, bottom = height, top = -1;
++      for (int y = 0; y < height; ++y)
++        for (int x = 0; x < width; ++x)
++          if (pixels[(static_cast<size_t>(y) * width + x) * 4 + 3])
++          {
++            ++occupied;
++            left = std::min(left, x); right = std::max(right, x);
++            bottom = std::min(bottom, y); top = std::max(top, y);
++            for (int dx = -1; dx <= 1; ++dx)
++              tiles[(y / 16) * columns + std::clamp(x + dx, 0, width - 1) / 16] = 1;
++          }
++      for (const auto tile : tiles)
++        touched += tile;
++      CLog::Log(LOGINFO, "Private GUI coverage: sample={} size={}x{} alpha_pixels={} "
++                "bounds_gl={},{},{},{} halo_tiles={}/{} gl_error={}", samples,
++                width, height, occupied, left, bottom, right, top, touched,
++                columns * rows, error);
++    }
++  }
+   if (m_guiWillRender)
+     m_guiFbo.EndRender();
+ 
+@@ -313,6 +835,14 @@ void CWinSystemGbmGLESContext::EndGuiComposite()
+   if (isD2P && !m_guiWillRender)
+     return;
+ 
++  // Native Dolby Vision output presents the engine's buffers: the back buffer is not swapped
++  // while it lasts and nothing draws into it (the GUI goes to its framebuffer, the video to
++  // the engine). One clear when it begins keeps it black for whatever reads it; EndDVBridge()
++  // clears it again before the swap that ends the output.
++  if (m_nativeGuiCoverage && m_nativeBackBufferCleared)
++    return;
++  m_nativeBackBufferCleared = m_nativeGuiCoverage;
++
+   // Clear the backbuffer before video renders. In the FBO compositing path,
+   // video renders in the RenderEx pass with clear=false, so DrawBlackBars is
+   // never called. Without this clear, letterbox areas retain stale content
+@@ -337,7 +867,11 @@ void CWinSystemGbmGLESContext::CompositeGui()
+   //   D2P:          "FBO is empty/clean AND back buffer cache is invalid"
+   if (m_guiWillRender)
+   {
+-    const bool guiEmpty = (GetGUIElementCount() == 0);
++    const bool guiEmpty = (GetGUIElementCount() == 0)
++#ifdef HAVE_DVBRIDGE
++                         && !(m_nativeGuiCoverage && m_dvOverlays)
++#endif
++                         ;
+     m_guiFboClean = guiEmpty;
+     if (guiEmpty)
+       return;
+@@ -356,6 +890,13 @@ void CWinSystemGbmGLESContext::CompositeGui()
+       m_DRM->GetGuiPlane() != nullptr)
+     return;
+ 
++#ifdef HAVE_DVBRIDGE
++  // Dolby Vision output takes the GUI texture itself: the Vulkan engine composes it over the
++  // video, the menu output packs it.
++  if (m_nativeGuiCoverage || m_dvState.Captured())
++    return;
++#endif
++
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(GL_TEXTURE_2D, m_guiFbo.Texture());
+ 
+@@ -375,7 +916,9 @@ void CWinSystemGbmGLESContext::CompositeGui()
+   float w = static_cast<float>(m_guiFboWidth);
+   float h = static_cast<float>(m_guiFboHeight);
+ 
++  // BEGIN GUI target projection (also exercised by the GPU orientation regression).
+   GLfloat proj[16] = {2.0f / w, 0, 0, 0, 0, -2.0f / h, 0, 0, 0, 0, -1, 0, -1.0f, 1.0f, 0, 1};
++  // END GUI target projection
+ 
+   m_compositeShader->SetProjection(proj);
+   m_compositeShader->Enable();
+@@ -400,6 +943,766 @@ void CWinSystemGbmGLESContext::CompositeGui()
+   m_compositeShader->Disable();
+ }
+ 
++#ifdef HAVE_DVBRIDGE
++namespace
++{
++bool NativeDVEligible(bool source, bool software, bool interlaced, bool stereo)
++{
++  if (!source || software)
++    return false;
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  const auto mode = DVBRIDGE::playbackMode.load();
++  // The Vulkan engine is the only Dolby Vision renderer: without it (its library missing, or it
++  // did not start), Dolby Vision titles play as plain base-layer video.
++  bool available = false;
++  switch (mode)
++  {
++    case DVBRIDGE::OutputMode::Standard:
++      available = window && window->SupportsNativeDVOutput();
++      break;
++    case DVBRIDGE::OutputMode::HDR10:
++    case DVBRIDGE::OutputMode::HDR10Plus: // HDR10 where the TV has no HDR10+
++      available = window && window->SupportsTunnelHDR10();
++      break;
++    default:
++      break;
++  }
++  available = available && CDVPrivateVulkan::Usable();
++  return DVBRIDGE::Eligible(available, available, source, software, interlaced, stereo);
++}
++} // namespace
++
++namespace
++{
++// The picture sizes the Vulkan engine takes (CDVBridgeGLES::SourceEligible unscaled): decided
++// when the video opens, so another size plays as the base layer instead of not at all. An
++// unknown size is left to the per-picture check.
++bool SourceSizeSupported(unsigned width, unsigned height, bool enhancement)
++{
++  const unsigned align = enhancement ? 4 : 2;
++  return !width || !height ||
++         (width <= 3840 && height <= 2160 && width % align == 0 && height % align == 0);
++}
++} // namespace
++
++namespace
++{
++// The stream WantsNativeOutput() last announced, and the playback it belonged to. The
++// player, the codec factory, the codec and the demuxer each ask, and ask again at seeks: the
++// answer is a query, and only a new stream starts the telemetry over and is logged.
++struct AnnouncedStream
++{
++  uint64_t playback{0};
++  unsigned profile{0}, level{0}, major{0}, minor{0}, compatibility{0}, width{0}, height{0};
++  bool bl{false}, el{false}, rpu{false}, software{false}, interlaced{false}, stereo{false};
++  bool eligible{false}, mastering{false}, light{false};
++  int mode{0};
++  int maxLuminance[2]{}, minLuminance[2]{};
++  unsigned maxCLL{0}, maxFALL{0};
++  bool operator==(const AnnouncedStream&) const = default;
++};
++std::mutex announcedMutex;
++AnnouncedStream announced;
++bool announcedAny{false};
++// Counts the videos that have ended (SetVideoOutput without a picture).
++std::atomic<uint64_t> playbacksEnded{0};
++} // namespace
++
++bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
++{
++  const bool software = (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0;
++  const bool sized = SourceSizeSupported(stream.width, stream.height, stream.dovi.dv_profile == 7);
++  const bool eligible = sized && NativeDVEligible(stream.dovi.dv_profile != 0, software,
++                          stream.interlaced, !stream.stereo_mode.empty());
++  AnnouncedStream now;
++  now.playback = playbacksEnded.load();
++  now.profile = stream.dovi.dv_profile;
++  now.level = stream.dovi.dv_level;
++  now.major = stream.dovi.dv_version_major;
++  now.minor = stream.dovi.dv_version_minor;
++  now.compatibility = stream.dovi.dv_bl_signal_compatibility_id;
++  now.width = static_cast<unsigned>(stream.width);
++  now.height = static_cast<unsigned>(stream.height);
++  now.bl = stream.dovi.bl_present_flag;
++  now.el = stream.dovi.el_present_flag;
++  now.rpu = stream.dovi.rpu_present_flag;
++  now.software = software;
++  now.interlaced = stream.interlaced;
++  now.stereo = !stream.stereo_mode.empty();
++  now.eligible = eligible;
++  now.mode = static_cast<int>(playbackMode.load());
++  if (const auto* mastering = stream.masteringMetadata.get(); mastering && mastering->has_luminance)
++  {
++    now.mastering = true;
++    now.maxLuminance[0] = mastering->max_luminance.num;
++    now.maxLuminance[1] = mastering->max_luminance.den;
++    now.minLuminance[0] = mastering->min_luminance.num;
++    now.minLuminance[1] = mastering->min_luminance.den;
++  }
++  if (const auto* light = stream.contentLightMetadata.get())
++  {
++    now.light = true;
++    now.maxCLL = light->MaxCLL;
++    now.maxFALL = light->MaxFALL;
++  }
++  {
++    std::lock_guard<std::mutex> lock(announcedMutex);
++    if (announcedAny && now == announced)
++      return eligible;
++    announced = now;
++    announcedAny = true;
++  }
++  if (!software)
++  {
++    StreamTelemetry::Begin(stream.dovi.dv_profile, stream.dovi.dv_level,
++        stream.dovi.dv_version_major, stream.dovi.dv_version_minor,
++        stream.dovi.bl_present_flag, stream.dovi.el_present_flag, stream.dovi.rpu_present_flag);
++    StreamTelemetry::StaticMetadata(stream.masteringMetadata.get(), stream.contentLightMetadata.get());
++  }
++  if (stream.dovi.dv_profile && !sized)
++    CLog::Log(LOGWARNING, "DVBridge: the Vulkan engine does not take {}x{} Dolby Vision pictures; playing the base layer",
++              stream.width, stream.height);
++  if (stream.dovi.dv_profile && DiagnosticsEnabled())
++    CLog::Log(LOGINFO, "DVBridge stream candidate: profile={} level={} compatibility={} size={}x{} native_eligible={} software={} interlaced={} stereo={} mode={} (selection probe, not active output)",
++        stream.dovi.dv_profile, stream.dovi.dv_level, stream.dovi.dv_bl_signal_compatibility_id,
++        stream.width, stream.height, eligible,
++        (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0, stream.interlaced,
++        !stream.stereo_mode.empty(), static_cast<int>(playbackMode.load()));
++  return eligible;
++}
++
++namespace
++{
++std::atomic<bool> nativeOutputExpected{false};
++} // namespace
++
++void DVBRIDGE::ExpectNativeOutput(bool expected)
++{
++  nativeOutputExpected = expected;
++}
++
++bool DVBRIDGE::NativeOutputExpected()
++{
++  return nativeOutputExpected.load();
++}
++
++namespace
++{
++std::atomic<bool> videoModesetExpected{false};
++} // namespace
++
++void DVBRIDGE::ExpectVideoModeset(bool expected)
++{
++  videoModesetExpected = expected;
++}
++
++bool DVBRIDGE::VideoModesetExpected()
++{
++  return videoModesetExpected.load();
++}
++
++namespace
++{
++// The Vulkan engine reads decoded VAAPI surfaces. Any other picture (software decoding, or a
++// CPU filter's copy) has no route to the tunnel and plays as ordinary video.
++bool DecodedSurface(const VideoPicture& picture)
++{
++#if defined(HAVE_LIBVA)
++  const auto* buffer = dynamic_cast<const VAAPI::CVaapiRenderPicture*>(picture.videoBuffer);
++  return buffer && buffer->procPic.videoSurface != VA_INVALID_ID;
++#else
++  return false;
++#endif
++}
++} // namespace
++
++bool DVBRIDGE::WantsNativeOutput(const VideoPicture* picture)
++{
++  return picture &&
++         SourceSizeSupported(picture->iWidth, picture->iHeight,
++                             picture->doviEnhancement || picture->doviElSkipped) &&
++         NativeDVEligible(picture->doviMetadata.Data() != nullptr, !DecodedSurface(*picture),
++                          (picture->iFlags & DVP_FLAG_INTERLACED) != 0,
++                          !picture->stereoMode.empty());
++}
++
++bool CWinSystemGbmGLESContext::DVBridgeRequested(const VideoPicture* picture)
++{
++  return DVBRIDGE::WantsNativeOutput(picture);
++}
++
++int CWinSystemGbmGLESContext::VideoOutputBitDepth(const VideoPicture* picture) const
++{
++  if (!DVBridgeRequested(picture))
++    return CWinSystemGbmEGLContext::VideoOutputBitDepth(picture);
++  // The tunnel's 8-bit RGB raster.
++  return 8;
++}
++
++namespace
++{
++// Whether an HDR10 tunnel commit ever worked on this connection (1), or the
++// kernel refused every one (2: an LSPCON in level-shifter mode offers the
++// format but takes only Dolby Vision, linux-9931).
++std::atomic<int> tunnelHDR10Verdict{0};
++} // namespace
++
++bool CWinSystemGbmGLESContext::SupportsTunnelHDR10()
++{
++  if (tunnelHDR10Verdict.load() == 2 || !IsHDRDisplay() ||
++      !GetDisplayHDRCapabilities().SupportsHDR10())
++    return false;
++  // linux-9928's DVBRIDGE_TUNNEL_FORMAT with an hdr10 value: native HDMI connectors (gen12+
++  // Intel, amdgpu). The converter routes (linux-9930's DP connectors) have no such property.
++  auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  const auto* mode = m_DRM ? m_DRM->GetSelectedMode() : nullptr;
++  auto* connector = m_DRM ? m_DRM->GetConnector() : nullptr;
++  return drm && connector && connector->IsConnected() && CDVBridgeState::SupportsHDR10(*connector) &&
++         mode && mode->hdisplay == 3840 && mode->vdisplay == 2160 &&
++         !(mode->flags & DRM_MODE_FLAG_INTERLACE) && CDVPrivateVulkan::HasHDR10();
++}
++
++namespace
++{
++// Whether a commit with an HDR10+ packet ever worked on this connection (1), or the kernel
++// refused every one (2): the option is withdrawn until Kodi restarts.
++std::atomic<int> tunnelHDR10PlusVerdict{0};
++} // namespace
++
++bool CWinSystemGbmGLESContext::SupportsTunnelHDR10Plus()
++{
++  if (tunnelHDR10PlusVerdict.load() == 2 || DisplayHDR10PlusVersion() < 0 || !SupportsTunnelHDR10())
++    return false;
++  auto* connector = m_DRM ? m_DRM->GetConnector() : nullptr;
++  return connector && CDVBridgeState::SupportsHDR10Plus(*connector) && CDVPrivateVulkan::HasHDR10Plus();
++}
++
++bool CWinSystemGbmGLESContext::TunnelHDR10Selected()
++{
++  const auto mode = DVBRIDGE::playbackMode.load();
++  return (mode == DVBRIDGE::OutputMode::HDR10 || mode == DVBRIDGE::OutputMode::HDR10Plus) &&
++         SupportsTunnelHDR10();
++}
++
++void CWinSystemGbmGLESContext::TunnelHDR10PlusPresented(bool presented)
++{
++  if (presented)
++  {
++    tunnelHDR10PlusVerdict = 1;
++    m_dvTunnelHDR10PlusFailures = 0;
++    return;
++  }
++  // The kernel refuses the packets (another sink after a hotplug, a VSVDB version it does not
++  // take): HDR10 for the rest of the title, the property cleared with the next picture. Three
++  // refused commits, so that the link settling does not count; where none ever worked the
++  // option is withdrawn too.
++  if (++m_dvTunnelHDR10PlusFailures < 3 || DVBRIDGE::playbackHDR10PlusFallback.exchange(true))
++    return;
++  if (tunnelHDR10PlusVerdict.load() == 0)
++    tunnelHDR10PlusVerdict = 2;
++  CLog::Log(LOGERROR, "DVBridge: the kernel refuses HDR10+ packets on this connection; HDR10 for the "
++            "rest of this video{}", tunnelHDR10PlusVerdict.load() == 2
++                ? ", and Convert Dolby Vision to HDR10+ is unavailable until Kodi restarts" : "");
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Warning, strings.Get(45010),
++                                        strings.Get(45125));
++}
++
++void CWinSystemGbmGLESContext::TunnelHDR10Presented(bool presented)
++{
++  if (presented)
++  {
++    tunnelHDR10Verdict = 1;
++    m_dvTunnelHDR10Failures = 0;
++    return;
++  }
++  // A connection that never took one: the kernel refuses the format here. Give the title back
++  // to plain playback (the option is hidden from now on). Ten attempted commits, so that a
++  // few failures while the link settles do not count (frames held back by the HDMI recovery
++  // are not attempted).
++  if (tunnelHDR10Verdict.load() != 0 || ++m_dvTunnelHDR10Failures < 10)
++    return;
++  tunnelHDR10Verdict = 2;
++  CLog::Log(LOGERROR, "DVBridge: this connection refuses HDR10 through the tunnel; Convert Dolby "
++            "Vision to HDR10 is unavailable until Kodi restarts, the title plays without conversion");
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(45010),
++                                        strings.Get(45101));
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++}
++
++void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
++                                 IntegerSettingOptions& list, int& current)
++{
++  // Dolby Vision and Off always; the conversions only where this connection has them.
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  list.emplace_back(strings.Get(45012), static_cast<int>(OutputMode::Standard));
++  if (window && window->SupportsTunnelHDR10())
++    list.emplace_back(strings.Get(45013), static_cast<int>(OutputMode::HDR10));
++  if (window && window->SupportsTunnelHDR10Plus())
++    list.emplace_back(strings.Get(45120), static_cast<int>(OutputMode::HDR10Plus));
++  list.emplace_back(strings.Get(45014), static_cast<int>(OutputMode::Disabled));
++}
++
++bool DVBRIDGE::HDR10PlusToDVAvailable(const std::string& /*condition*/,
++                                      const std::string& /*value*/,
++                                      const std::shared_ptr<const CSetting>& /*setting*/)
++{
++  // A Dolby Vision TV on this connection and an engine with the conversion.
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  return window && window->SupportsNativeDVOutput() && CDVPrivateVulkan::Usable() &&
++         DVHDR10PlusToDovi::Available();
++}
++
++bool CWinSystemGbmGLESContext::BeginDVBridge()
++{
++  const auto failure = [this](const char* stage) {
++    if (DVBRIDGE::DiagnosticsEnabled() &&
++        m_dvSetupFailures.Record(DVBRIDGE::DiagnosticNowMs(), stage))
++      CLog::Log(LOGERROR, "DVBridge setup: stage={} failures={} size={}x{} depth={} renderable={}",
++          stage, m_dvSetupFailures.Count(), m_nWidth, m_nHeight,
++          GetOutputBitDepth(), m_renderableType);
++    return false;
++  };
++  if (m_nWidth != 3840 || m_nHeight != 2160 || GetOutputBitDepth() != 8 ||
++      m_renderableType != EGL_OPENGL_ES3_BIT)
++    return failure("output-format");
++  if (m_dvState.Captured())
++  {
++    // Video takes the output as it is, also one a refused restore left behind.
++    const bool ready = m_dvBridge && m_guiCompositing && m_compositeShader;
++    if (ready)
++      m_dvRestorePending = false;
++    return ready;
++  }
++  auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  if (!drm)
++    return failure("atomic-output-unavailable");
++  if (!m_dvBridge)
++    m_dvBridge = std::make_unique<CDVBridgeGLES>();
++  if (!m_dvBridge->Initialize())
++    return failure("renderer-init");
++  if (!m_dvState.Captured() && !m_dvState.Capture(*drm))
++    return failure("drm-state-capture");
++  // HDR10 through the tunnel is the tunnel's output with the engine in HDR10.
++  const bool tunnelHDR10 = TunnelHDR10Selected();
++  // HDR10+ on top where asked for and the TV has it (else HDR10), with the TV's version.
++  const bool tunnelHDR10Plus = tunnelHDR10 &&
++                               DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::HDR10Plus &&
++                               SupportsTunnelHDR10Plus();
++  DVBRIDGE::playbackHDR10PlusFlags.store(
++      DisplayHDR10PlusVersion() >= 1 ? static_cast<uint32_t>(DVVK_HDR10PLUS_V1) : 0u);
++  const bool plusChanged = DVBRIDGE::playbackTunnelHDR10Plus.exchange(tunnelHDR10Plus) != tunnelHDR10Plus;
++  if (DVBRIDGE::playbackTunnelHDR10.exchange(tunnelHDR10) != tunnelHDR10 || plusChanged)
++    CLog::Log(LOGINFO, "DVBridge output: {}", tunnelHDR10Plus
++              ? "HDR10+ through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10, HDR10PLUS_METADATA)"
++              : tunnelHDR10
++              ? "HDR10 through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10)"
++              : "Dolby Vision");
++  if (tunnelHDR10Plus && plusChanged)
++    CLog::Log(LOGINFO, "DVBridge HDR10+: the TV's HDR10+ application version {}",
++              DisplayHDR10PlusVersion());
++  m_compositeShader.reset();
++  return SetGuiCompositing(AVCOL_TRC_SMPTE2084);
++}
++
++bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
++{
++  m_dvVideo = picture != nullptr;
++  if (picture)
++    CDVPrivateVulkan::VideoConfigured();
++  else
++    ++playbacksEnded;
++  // A video that does not use the bridge after all (a software-decoded picture of a Dolby
++  // Vision stream): its mode goes with the next ordinary page, not with a native frame that
++  // never comes.
++  if (picture && !DVBridgeRequested(picture))
++    m_dvModesetDeferred = false;
++  // A stop held for the refresh restore (EndDVBridgeAtStop) keeps the signal through renderer
++  // teardown while the surface keeps its depth; it is restored in the refresh change.
++  const bool sameDepth = VideoOutputBitDepth(picture) == GetOutputBitDepth();
++  const bool keepHeldStop = m_dvExitPending && !picture && sameDepth;
++  // The menu output continues into native DV video, and through the teardown that handed it back.
++  const bool keepMenu = (m_dvMenu || m_dvStartup) && sameDepth &&
++                        (!picture || (DVBridgeRequested(picture) &&
++                                      DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard));
++  if (keepMenu && picture)
++  {
++    m_dvMenu = false;
++    m_dvStartup = false;
++    m_dvMenuModeset = false;
++    m_dvBridge->Reset();
++    CLog::Log(LOGINFO, "DVBridge: menu output handed to the video");
++  }
++  else if (!keepHeldStop && !keepMenu)
++  {
++    // Restore with the current surface before EGL replaces its buffers.
++    if (m_dvState.Captured() && !EndDVBridge())
++      return false;
++    m_dvBridge.reset();
++  }
++  return CWinSystemGbmEGLContext::SetVideoOutput(picture);
++}
++
++bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
++                                            const AVFrame* enhancement,
++                                            const CDVMetadataBuffer& metadata,
++                                            dvbridge_geometry geometry)
++{
++  if (m_dvStartup)
++  {
++    m_dvStartup = false;
++    m_dvBridge->Reset();
++    CLog::Log(LOGINFO, "DVBridge: startup output handed to the video");
++  }
++  m_dvFrame = false;
++  if (auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM); drm && !drm->DVRetryReady())
++    return false;
++  if (!BeginDVBridge())
++    return false;
++  // PGS (PQ bitmap) subtitles are drawn into the GUI layer with native coverage
++  // (palette converted to sRGB), so the engine composites them like other GUI.
++  const bool overlayFree = !m_dvOverlays &&
++      (m_guiWillRender ? GetGUIElementCount() == 0 : CanReuseGuiComposite() && m_guiFboClean);
++  DVPrivateOverlay gui;
++  if (m_nativeGuiCoverage)
++  {
++    if (!m_guiRasterReady || !m_guiFbo.IsValid() ||
++        m_guiFboWidth != 3840 || m_guiFboHeight != 2160)
++      return false;
++    if (!overlayFree)
++    {
++      gui.texture = m_guiFbo.Texture();
++      if (m_guiBo)
++      {
++        gui.dmabufFd = m_guiBoFd;
++        gui.dmabufFormat = DRM_FORMAT_ABGR8888;
++        gui.dmabufStride = m_guiBoStride;
++        gui.dmabufOffset = m_guiBoOffset;
++        gui.dmabufModifier = m_guiBoModifier;
++      }
++    }
++    gui.flipY = 1;
++    gui.writes = m_guiWrites;
++    const char* revisionCache = std::getenv("DV_PRIVATE_GUI_REVISION");
++    if (revisionCache && std::strcmp(revisionCache, "1") == 0)
++      gui.revision = m_guiRevision;
++    // GUI709 -> BT2020 -> common LMS; the engine inverts the current movie matrices.
++    const double rgb[9]{.6274,.3293,.0433,.0691,.9195,.0114,.0164,.0880,.8956};
++    const double lms[9]{7222,8771,390,2654,12430,1300,0,422,15962};
++    for (unsigned i = 0; i < 3; ++i)
++      for (unsigned j = 0; j < 3; ++j)
++        for (unsigned k = 0; k < 3; ++k)
++          gui.rgbToLms[3*i+j] += lms[3*i+k] * rgb[3*k+j] / 16384.0;
++  }
++  if (!m_nativeGuiCoverage && !overlayFree)
++    return false;
++  // The picture on screen may stay there for this refresh unless a mode or signal change
++  // waits for the next commit.
++  const auto atomic = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  const bool mayHold = atomic && atomic->DVScanoutStable() && !m_dvModesetDeferred;
++  m_dvFrame = m_dvBridge->PrepareHardware(layer, enhancement, metadata, geometry,
++                                         m_nativeGuiCoverage ? &gui : nullptr, mayHold);
++  if (m_dvFrame)
++    m_dvExitPending = false;
++  glBindFramebuffer(GL_FRAMEBUFFER, 0);
++  return m_dvFrame;
++}
++
++bool CWinSystemGbmGLESContext::EndDVBridge()
++{
++  DVBRIDGE::playbackTunnelHDR10.store(false);
++  DVBRIDGE::PublishTunnelHDR10(nullptr);
++  // HDR10+ ends with the output (the restore commit clears HDR10PLUS_METADATA).
++  DVBRIDGE::playbackTunnelHDR10Plus.store(false);
++  DVBRIDGE::playbackHDR10PlusFallback.store(false);
++  DVBRIDGE::PublishTunnelHDR10Plus({});
++  m_dvTunnelHDR10PlusFailures = 0;
++  m_dvTunnelHDR10Warned = false;
++  m_dvTunnelHDR10Failures = 0;
++  m_dvStartup = false;
++  m_dvExitPending = false;
++  m_dvMenu = false;
++  m_dvMenuModeset = false;
++  m_dvFrame = false;
++  // Never reset Kodi's ordinary HDR GUI compositor unless we owned DV output.
++  if (!m_dvState.Captured())
++  {
++    m_dvRestorePending = false;
++    return true;
++  }
++  {
++    // Restore signaling with a clean ordinary framebuffer, never tunnel pixels.
++    glBindFramebuffer(GL_FRAMEBUFFER, 0);
++    glDisable(GL_SCISSOR_TEST);
++    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
++    glClearColor(0, 0, 0, 1);
++    glClear(GL_COLOR_BUFFER_BIT);
++    glFinish();
++    // The swap leaves another buffer of the chain as the back buffer.
++    m_nativeBackBufferCleared = false;
++    if (!m_eglContext.TrySwapBuffers() || !FlipDVBridgePage(m_dvState, true))
++    {
++      // The state flags above are cleared: without this nothing would come back here, and
++      // the GUI would stay unseen under the tunnel's signal.
++      m_dvRestorePending = true;
++      if (DVBRIDGE::DiagnosticsEnabled() &&
++          m_dvSetupFailures.Record(DVBRIDGE::DiagnosticNowMs(), "restore"))
++        CLog::Log(LOGERROR, "DVBridge: output restoration failed; retaining scanout state; failures={}",
++            m_dvSetupFailures.Count());
++      return false;
++    }
++  }
++  m_dvRestorePending = false;
++  if (DVBRIDGE::DiagnosticsEnabled() &&
++      m_dvSetupFailures.Recovered(DVBRIDGE::DiagnosticNowMs()))
++    CLog::Log(LOGINFO, "DVBridge: normal display restored after failures={}", m_dvSetupFailures.Count());
++  // The ordinary signal is on the display: the GUI is composed for it from here on, whatever
++  // the bridge's own retirement says.
++  SetGuiCompositing(0);
++  if (m_dvBridge)
++  {
++    if (!m_dvBridge->DisplayReplaced()) return false;
++    m_dvBridge->Reset();
++  }
++  return true;
++}
++
++bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
++{
++  m_dvState.RestoreSDR();
++  // The menu output continues; a refresh restore is carried by its next frame.
++  if (m_dvState.Captured() && m_dvBridge && !m_dvMenuFailed &&
++      DVBRIDGE::MenuModeEnabled())
++  {
++    m_dvMenu = true;
++    m_dvFrame = false;
++    m_dvBridge->Reset();
++    // The menu must not reuse the GUI target shared with native movie composition.
++    glBindFramebuffer(GL_FRAMEBUFFER, 0);
++    CleanupGuiFbo();
++    m_guiFboWidth = m_guiFboHeight = 0;
++    m_guiFboClean = false;
++    m_guiRasterReady = false;
++    CLog::Log(LOGINFO, "DVBridge: output handed back to the menu");
++    return true;
++  }
++  // Kodi restores the desktop refresh rate right after a stop when it switched for the video.
++  // Keep the DV signal (and the last frame) until then, so the restore is one HDMI change.
++  if (m_dvState.Captured())
++  {
++    auto& gfx = GetGfxContext();
++    const RESOLUTION desktop = CDisplaySettings::GetInstance().GetCurrentResolution();
++    const auto& desktopInfo = CDisplaySettings::GetInstance().GetResolutionInfo(desktop);
++    const bool restoreExpected =
++        CServiceBroker::GetSettingsComponent()->GetSettings()->GetInt(
++            CSettings::SETTING_VIDEOPLAYER_ADJUSTREFRESHRATE) != ADJUST_REFRESHRATE_OFF &&
++        gfx.GetVideoResolution() != desktop && desktopInfo.iWidth == m_nWidth &&
++        desktopInfo.iHeight == m_nHeight;
++    if (restoreExpected)
++    {
++      m_dvExitPending = true;
++      m_dvExitDeadline.Set(2500ms);
++      m_dvFrame = false;
++      CLog::Log(LOGINFO, "DVBridge: keeping the signal for the refresh restore");
++      return true;
++    }
++  }
++  return EndDVBridge();
++}
++
++bool CWinSystemGbmGLESContext::CompleteModeset()
++{
++  if (m_dvRestoreWithModeset)
++  {
++    m_dvRestoreWithModeset = false;
++    // The restore commit carries the mode SetFullScreen() selected.
++    if (!EndDVBridge())
++      return false;
++    m_dvBridge.reset();
++    CLog::Log(LOGINFO, "DVBridge: signal restored in the refresh change");
++    return true;
++  }
++  if (m_dvMenuModeset)
++  {
++    CLog::Log(LOGINFO, "DVBridge: refresh change left to the next menu frame");
++    return true;
++  }
++  if (m_dvModesetDeferred)
++  {
++    const char* startup = std::getenv("DV_PRIVATE_STARTUP_SIGNAL");
++    if ((!startup || std::strcmp(startup, "0") != 0) &&
++        DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard && BeginDVStartup())
++    {
++      m_dvModesetDeferred = false;
++      m_dvModesetDeadline.Set(10000ms);
++      return true;
++    }
++    // The bridge's first commit carries the mode (see PresentRender).
++    m_dvModesetDeadline.Set(3000ms);
++    CLog::Log(LOGINFO, "DVBridge: refresh change left to the first native frame");
++    return true;
++  }
++  return CWinSystemGbm::CompleteModeset();
++}
++
++bool CWinSystemGbmGLESContext::BeginDVStartup()
++{
++  // Establish the final HDMI signal while clients are still display-lost, before
++  // decoding releases the playback clocks. The black frame carries valid metadata.
++  if (!BeginDVBridge())
++    return false;
++  CFrameBufferObject black;
++  bool presented = false;
++  if (black.Initialize() &&
++      black.CreateAndBindToTexture(GL_TEXTURE_2D, m_nWidth, m_nHeight, GL_RGBA) &&
++      black.BeginRender())
++  {
++    const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
++    GLboolean mask[4];
++    GLfloat colour[4];
++    glGetBooleanv(GL_COLOR_WRITEMASK, mask);
++    glGetFloatv(GL_COLOR_CLEAR_VALUE, colour);
++    glDisable(GL_SCISSOR_TEST);
++    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
++    glClearColor(0, 0, 0, 1);
++    glClear(GL_COLOR_BUFFER_BIT);
++    glClearColor(colour[0], colour[1], colour[2], colour[3]);
++    glColorMask(mask[0], mask[1], mask[2], mask[3]);
++    if (scissor)
++      glEnable(GL_SCISSOR_TEST);
++    black.EndRender();
++    if (m_dvBridge->PrepareGraphics(400.0f, 0.0) &&
++        m_dvBridge->PackGraphics(black.Texture(), 0, m_nWidth, m_nHeight, true, 1.0f, 0, false))
++    {
++      glFinish();
++      m_nativeBackBufferCleared = false;
++      if (m_eglContext.TrySwapBuffers())
++        presented = FlipDVBridgePage(m_dvState, false);
++    }
++  }
++  black.Cleanup();
++  m_dvBridge->Presented(presented);
++  if (!presented)
++  {
++    EndDVBridge();
++    CLog::Log(LOGWARNING, "DVBridge: startup signal unavailable, using first-frame handoff");
++    return false;
++  }
++  m_dvStartup = true;
++  CLog::Log(LOGINFO, "DVBridge: startup signal established before display reset");
++  return true;
++}
++
++void CWinSystemGbmGLESContext::UpdateDVMenu()
++{
++  // A title that had to play without the engine has ended: the next one tries it again.
++  if (const auto player = CServiceBroker::GetAppComponents().GetComponent<CApplicationPlayer>();
++      player && !player->IsPlaying())
++    CDVPrivateVulkan::PlaybackIdle();
++  if (m_dvStartup)
++  {
++    const auto player = CServiceBroker::GetAppComponents().GetComponent<CApplicationPlayer>();
++    if (((player && !player->IsPlaying()) || m_dvModesetDeadline.IsTimePast()) && EndDVBridge())
++      m_dvBridge.reset();
++    return;
++  }
++  const bool enabled = DVBRIDGE::MenuModeEnabled();
++  if (m_dvMenu)
++  {
++    if (!enabled && EndDVBridge())
++      m_dvBridge.reset();
++    return;
++  }
++  if (!enabled)
++  {
++    m_dvMenuFailed = false;
++    return;
++  }
++  if (m_dvMenuFailed || m_dvVideo || m_dvState.Captured() ||
++      m_dvModesetDeferred || m_dvRestoreWithModeset || !SupportsNativeDVOutput())
++    return;
++  const auto& components = CServiceBroker::GetAppComponents();
++  const auto player = components.GetComponent<CApplicationPlayer>();
++  if (player && player->IsPlaying())
++    return;
++  if (!BeginDVMenu())
++  {
++    m_dvMenuFailed = true;
++    CLog::Log(LOGWARNING, "DVBridge: menu output unavailable");
++  }
++}
++
++bool CWinSystemGbmGLESContext::BeginDVMenu()
++{
++  auto drm = std::dynamic_pointer_cast<CDRMAtomic>(m_DRM);
++  if (!drm || m_nWidth != 3840 || m_nHeight != 2160 || GetOutputBitDepth() != 8 ||
++      m_renderableType != EGL_OPENGL_ES3_BIT)
++    return false;
++  m_dvBridge = std::make_unique<CDVBridgeGLES>();
++  if (!m_dvBridge->Initialize() || !m_dvState.Capture(*drm))
++  {
++    m_dvBridge.reset();
++    return false;
++  }
++  m_compositeShader.reset();
++  if (!SetGuiCompositing(AVCOL_TRC_SMPTE2084))
++  {
++    // Nothing was committed yet.
++    m_dvState.Restored();
++    m_dvBridge.reset();
++    return false;
++  }
++  m_dvMenu = true;
++  m_dvMenuModeset = false;
++  CLog::Log(LOGINFO, "DVBridge: menu output started (graphics white {} cd/m2)",
++            DVBRIDGE::MenuWhiteNits());
++  return true;
++}
++
++void CWinSystemGbmGLESContext::PresentDVMenu(bool rendered)
++{
++  // Without a new GUI frame the scanout keeps the last one, metadata included.
++  if (!rendered && !m_dvMenuModeset)
++  {
++    KODI::TIME::Sleep(10ms);
++    return;
++  }
++  const double pts = std::chrono::duration<double>(
++                         std::chrono::steady_clock::now().time_since_epoch())
++                         .count();
++  bool presented = false;
++  if (m_guiFbo.IsValid() && m_dvBridge->PrepareGraphics(DVBRIDGE::MenuWhiteNits(), pts) &&
++      m_dvBridge->PackGraphics(m_guiFbo.Texture(), 0, m_nWidth, m_nHeight, true,
++                                DVBRIDGE::MenuSaturation(), DVBRIDGE::MenuGamma(),
++                                DVBRIDGE::MenuWideColour()))
++  {
++    glFinish();
++    if (m_eglContext.TrySwapBuffers())
++      presented = FlipDVBridgePage(m_dvState, false);
++  }
++  m_dvBridge->Presented(presented);
++  if (presented)
++  {
++    m_dvMenuModeset = false;
++    return;
++  }
++  CLog::Log(LOGWARNING, "DVBridge: menu output failed, restoring the normal display");
++  m_dvMenuFailed = true;
++  if (EndDVBridge())
++    m_dvBridge.reset();
++}
++
++bool CWinSystemGbmGLESContext::DestroyWindowSystem()
++{
++  if (!EndDVBridge())
++    return false;
++  m_dvBridge.reset();
++  return CWinSystemGbmEGLContext::DestroyWindowSystem();
++}
++#endif
++
+ bool CWinSystemGbmGLESContext::CreateContext()
+ {
+   const EGLint version = (m_renderableType == EGL_OPENGL_ES3_BIT) ? 3 : 2;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 7c6a04f..59fc3e7 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -13,7 +13,14 @@
+ #include "rendering/gles/RenderSystemGLES.h"
+ #include "utils/EGLUtils.h"
+ 
++#include <EGL/egl.h>
++#include <EGL/eglext.h>
+ #include <memory>
++#include <optional>
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/VideoRenderers/DVBridgeGLES.h"
++#include "drm/DVBridgeState.h"
++#endif
+ 
+ class CGuiCompositeShaderGLES;
+ 
+@@ -48,23 +55,127 @@ public:
+   void EndGuiComposite() override;
+   void CompositeGui() override;
+   bool IsHdrComposite() const override { return m_guiCompositing; }
++  bool UsesNativeGuiCoverage() const override { return m_nativeGuiCoverage; }
++  bool CanReuseGuiComposite() const override;
++  float GetFrameLatencyAdjustment() override;
++  void SetViewPort(const CRect& viewPort) override;
++  void SetScissors(const CRect& rect) override;
++#ifdef HAVE_DVBRIDGE
++  static bool DVBridgeRequested(const VideoPicture* picture);
++  bool BeginDVBridge();
++  /* HDR10 through the tunnel (OutputMode HDR10): the Vulkan engine's HDR10
++   * output and DVBRIDGE_TUNNEL_FORMAT hdr10 (linux-9928), on an HDR10 display.
++   * Not on the converter routes (no such property there). */
++  bool SupportsTunnelHDR10();
++  /* Dolby Vision -> HDR10+ (OutputMode HDR10Plus): the HDR10 tunnel output
++   * plus linux-9932's HDR10PLUS_METADATA on this connector, an HDR10+ VSVDB in
++   * the TV's EDID and the engine's HDR10+ output. */
++  bool SupportsTunnelHDR10Plus();
++  bool TunnelHDR10Selected();  void SetDVBridgeOverlays(bool visible, bool hdr, bool debug)
++  {
++    m_dvOverlays = visible;
++    m_dvHDROverlays = hdr;
++    m_dvDebugOverlay = debug;
++  }
++  bool RenderDVBridge(const CDVBridgeGLES::Layer& layer, const AVFrame* enhancement,
++                       const CDVMetadataBuffer& metadata,
++                       dvbridge_geometry geometry);
++  bool EndDVBridge();
++  // Renderer teardown: when a refresh-rate restore is about to follow, the DV signal is
++  // restored in that mode change instead of in a separate one.
++  bool EndDVBridgeAtStop();
++  bool SetVideoOutput(const VideoPicture* picture) override;
++  bool DestroyWindowSystem() override;
++#endif
+ 
+ protected:
+   void SetVSyncImpl(bool enable) override {}
+   void PresentRenderImpl(bool rendered) override {};
+   bool CreateContext() override;
++#ifdef HAVE_DVBRIDGE
++  int VideoOutputBitDepth(const VideoPicture* picture) const override;
++  bool CompleteModeset() override;
++#endif
+ 
+ private:
++  void ScaleGuiRaster(bool viewport);
++  // The GUI framebuffer's texture on a GBM buffer, for the Vulkan engine to
++  // read in place: no per-frame copy.
++  bool ShareGuiFbo(int width, int height);
++  void CleanupGuiFbo();
++  struct gbm_bo* m_guiBo{nullptr};
++  EGLImageKHR m_guiImage{EGL_NO_IMAGE_KHR};
++  int m_guiBoFd{-1};
++  uint32_t m_guiBoStride{0};
++  uint32_t m_guiBoOffset{0};
++  uint64_t m_guiBoModifier{0};
++  bool m_guiShareFailed{false}; // not again: the engine copies the texture
+   bool m_guiCompositing{false};
+   CFrameBufferObject m_guiFbo;
++  CFrameBufferObject m_guiHalfFbo;
++  bool m_guiHalf{false};
++  bool m_guiHalfBound{false};
++  bool m_guiRasterReady{true};
++  uint64_t m_guiRevision{0};
++  // Counts every binding of the GUI framebuffer for drawing and every replacement of its
++  // storage (DVPrivateOverlay::writes).
++  uint64_t m_guiWrites{0};
++  unsigned m_guiReusedFrames{0};
++  GLint m_guiSavedViewport[4]{};
++  GLint m_guiSavedScissor[4]{};
+   int m_guiFboWidth{0};
+   int m_guiFboHeight{0};
+   // True when the GUI FBO is empty (no draws this frame); CompositeGui skips composite when true.
+   bool m_guiFboClean{false};
+   // Whether the GUI render pass will run this frame; set by BeginGuiComposite.
+   bool m_guiWillRender{true};
++  bool m_nativeGuiCoverage{false};
++  // The EGL back buffer was cleared since native Dolby Vision output began (EndGuiComposite).
++  bool m_nativeBackBufferCleared{false};
+ 
+   std::unique_ptr<CGuiCompositeShaderGLES> m_compositeShader;
++#ifdef HAVE_DVBRIDGE
++  std::unique_ptr<CDVBridgeGLES> m_dvBridge;
++  CDVBridgeState m_dvState;
++  // Pictures of this video are queued, not waited for (DV_PRIVATE_NONBLOCK=1): native video
++  // output that is not HDR10+ (a picture's HDR10+ packet takes its statistics from the
++  // picture before it, which a blocking commit keeps one picture apart).
++  bool DVQueueing() const;
++  void TunnelHDR10Presented(bool presented);
++  void TunnelHDR10PlusPresented(bool presented);
++  unsigned m_dvTunnelHDR10PlusFailures{0};
++  bool m_dvTunnelHDR10Warned{false};
++  unsigned m_dvTunnelHDR10Failures{0};
++  DVBRIDGE::DiagnosticFailures m_dvSetupFailures;
++  bool m_dvFrame = false;
++  bool m_dvOverlays = true;
++  bool m_dvHDROverlays = false;
++  bool m_dvDebugOverlay = false;
++  // One HDMI change per transition: a refresh switch for native output leaves its mode set
++  // pending for the bridge's first commit (m_dvModesetDeferred), and a DV stop that a refresh
++  // restore will follow keeps the signal until that mode change (m_dvExitPending). Both give
++  // up at their deadline and fall back to separate commits.
++  bool m_dvModesetDeferred = false;
++  bool BeginDVStartup();
++  bool m_dvStartup = false;
++  XbmcThreads::EndTime<> m_dvModesetDeadline;
++  bool m_dvExitPending = false;
++  bool m_dvRestoreWithModeset = false;
++  // EndDVBridge() could not commit the ordinary display back: nothing owns the tunnel's
++  // output any more, and PresentRender() tries the restore again until it is taken.
++  bool m_dvRestorePending = false;
++  XbmcThreads::EndTime<> m_dvExitDeadline;
++  // Menu output (dvbridge.menumode): while no video is shown, the GUI is packed into the DV
++  // transport with static graphics metadata. Native DV video takes this output over and hands it
++  // back at its end; mode changes are carried by the next menu frame (m_dvMenuModeset).
++  void UpdateDVMenu();
++  bool BeginDVMenu();
++  void PresentDVMenu(bool rendered);
++  bool m_dvMenu = false;
++  bool m_dvMenuModeset = false;
++  bool m_dvMenuFailed = false;
++  bool m_dvVideo = false;
++#endif
+ };
+ 
+ } // namespace GBM

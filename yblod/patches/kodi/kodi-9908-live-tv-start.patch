@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:40 -0500
+Subject: [PATCH] VideoPlayer: start live TV sooner
+
+Three changes for live (realtime) streams, PVR and IPTV MPEG-TS:
+
+- Decoder frame rate: a live demuxer may add the video stream without a
+  frame rate. Take it from the decoder once it has parsed the stream's
+  timing (5 to 120 fps), and let VideoPlayerVideo configure the
+  renderer, and so the refresh rate, at that rate instead of with
+  none.
+- One MPEG-TS open: after probing, CDVDDemuxFFmpeg::Open() closed the
+  input and opened it again with load_all_variants=0, which only
+  matters for HLS. A realtime MPEG-TS input keeps its first connection:
+  reopening discarded the buffered packets and repeated the network and
+  format setup. Other formats and non-live inputs reopen as before. On
+  the test channels this made one open instead of two and started them
+  about 1.5 s sooner, see
+  yblod-engine/docs/YBLOD-LIVE-SINGLE-OPEN-VALIDATION.txt.
+- Audio preroll: the start clock of a realtime stream left the audio's
+  whole cache capacity (cachetotal) and 400 ms ahead; leave what is
+  cached (cachetime) and 100 ms of jitter headroom.
+
+Applies to Kodi as LibreELEC patches it; needs nothing else from this
+series. Formerly yblod-08 (live decoder frame rate), yblod-09 (live
+single open) and yblod-11 (live audio preroll).
+---
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp   | 13 +++++++++
+ .../DVDDemuxers/DVDDemuxFFmpeg.cpp            | 27 ++++++++++++-------
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp        |  3 ++-
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp   | 12 +++++++++
+ 4 files changed, 44 insertions(+), 11 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index d34d7d7..62faf20 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -1023,6 +1023,19 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+   if (!m_pFrame)
+     return false;
+ 
++  // Live demuxers may omit FPS even when the decoder has parsed stream timing.
++  if (m_processInfo.IsRealtimeStream() && m_processInfo.GetVideoFps() == 0.0f &&
++      m_pCodecContext->framerate.num > 0 && m_pCodecContext->framerate.den > 0)
++  {
++    const double fps = av_q2d(m_pCodecContext->framerate);
++    if (fps >= 5.0 && fps <= 120.0)
++    {
++      m_processInfo.SetVideoFps(static_cast<float>(fps));
++      CLog::Log(LOGINFO, "Live startup: decoder supplied framerate {}/{}",
++                m_pCodecContext->framerate.num, m_pCodecContext->framerate.den);
++    }
++  }
++
+   pVideoPicture->iWidth = m_pFrame->width;
+   pVideoPicture->iHeight = m_pFrame->height;
+ 
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index bc5186d..795b81c 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -361,17 +361,24 @@ bool CDVDDemuxFFmpeg::Open(const std::shared_ptr<CDVDInputStream>& pInput, bool
+         return false;
+       }
+       av_dict_free(&options);
+-      avformat_close_input(&m_pFormatContext);
+-      m_pFormatContext = avformat_alloc_context();
+-      m_pFormatContext->interrupt_callback = int_cb;
+-      AVDictionary* options = GetFFMpegOptionsFromInput();
+-      av_dict_set_int(&options, "load_all_variants", 0, AV_OPT_SEARCH_CHILDREN);
+-      if (avformat_open_input(&m_pFormatContext, strFile.c_str(), iformat, &options) < 0)
++      // MPEG-TS has no HLS variants: retain its already-open live connection.
++      // Reopening discards buffered packets and repeats network/format setup.
++      const bool keepLiveTs = m_pInput->IsRealtime() && m_pFormatContext->iformat &&
++                              strcmp(m_pFormatContext->iformat->name, "mpegts") == 0;
++      if (!keepLiveTs)
+       {
+-        CLog::Log(LOGDEBUG, "Error, could not open file (2) {}", CURL::GetRedacted(strFile));
+-        Dispose();
+-        av_dict_free(&options);
+-        return false;
++        avformat_close_input(&m_pFormatContext);
++        m_pFormatContext = avformat_alloc_context();
++        m_pFormatContext->interrupt_callback = int_cb;
++        options = GetFFMpegOptionsFromInput();
++        av_dict_set_int(&options, "load_all_variants", 0, AV_OPT_SEARCH_CHILDREN);
++        if (avformat_open_input(&m_pFormatContext, strFile.c_str(), iformat, &options) < 0)
++        {
++          CLog::Log(LOGDEBUG, "Error, could not open file (2) {}", CURL::GetRedacted(strFile));
++          Dispose();
++          av_dict_free(&options);
++          return false;
++        }
+       }
+     }
+     av_dict_free(&options);
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index 100ea0d..6256fb3 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -2355,7 +2355,8 @@ void CVideoPlayer::HandlePlaySpeed()
+       else if (m_CurrentAudio.starttime != DVD_NOPTS_VALUE && m_CurrentAudio.packets > 0)
+       {
+         if (m_pInputStream->IsRealtime())
+-          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetotal - DVD_MSEC_TO_TIME(400);
++          // Retain jitter headroom without waiting for unused audio-buffer capacity.
++          clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime - DVD_MSEC_TO_TIME(100);
+         else
+           clock = m_CurrentAudio.starttime - m_CurrentAudio.cachetime;
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index c8f609f..063adee 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -921,6 +921,18 @@ CVideoPlayerVideo::EOutputState CVideoPlayerVideo::OutputPicture(const VideoPict
+     m_messageParent.Put(std::make_shared<CDVDMsg>(CDVDMsg::PLAYER_AVCHANGE));
+   }
+ 
++  if (m_bFpsInvalid && m_processInfo.IsRealtimeStream())
++  {
++    const float decoderFps = m_processInfo.GetVideoFps();
++    if (decoderFps >= 5.0f && decoderFps <= 120.0f)
++    {
++      m_fFrameRate = DVD_TIME_BASE /
++                     CDVDCodecUtils::NormalizeFrameduration(DVD_TIME_BASE / decoderFps);
++      m_bFpsInvalid = false;
++      CLog::Log(LOGINFO, "Live startup: configuring renderer at {:.3f} fps", m_fFrameRate);
++    }
++  }
++
+   double config_framerate = m_bFpsInvalid ? 0.0 : m_fFrameRate;
+   if (m_processInfo.GetVideoInterlaced())
+   {

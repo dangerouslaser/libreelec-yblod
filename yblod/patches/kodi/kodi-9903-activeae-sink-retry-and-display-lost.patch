@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:39 -0500
+Subject: [PATCH] ActiveAE: reopen the sink after a failed init, answer
+ DISPLAYLOST always
+
+Two stock Kodi defects around HDMI mode changes. The refresh-rate
+switches around Dolby Vision playback make them likely, but neither is
+specific to it.
+
+- The sink reopen can fail transiently while the display changes mode.
+  Configure() has then already stored the new request in
+  m_sinkRequestFormat, so the error-state retry compared the request
+  with itself, skipped InitSink() and configured buffers and resamplers
+  against the stale sink format (for example the previous passthrough
+  format). Resampler setup failed and freeing the mismatched buffer
+  pools corrupted the heap (swr_get_delay() on a NULL context, or an
+  abort in ~CActiveAEBufferPool). Configure() now reopens the sink on
+  the next attempt after a failed InitSink(), which is what the
+  error-state retry expects.
+- DISPLAYLOST was answered only in the states that have a sink to
+  suspend; anywhere else the caller, a display mode change waiting
+  synchronously for the reply, ran into its timeout. Every state now
+  replies. In the error state a lost display also holds the sink
+  retries: the HDMI device goes away with the display, so retrying
+  before DISPLAYRESET only fails. Device-change events do not retry
+  meanwhile; DISPLAYRESET (or 3 s, should it never come) does.
+
+Applies to Kodi as LibreELEC patches it; needs nothing else from this
+series. Formerly kodi-9998-activeae-sink-retry.patch and
+kodi-9999-activeae-display-lost.patch.
+---
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.cpp | 35 +++++++++++++++++--
+ .../AudioEngine/Engines/ActiveAE/ActiveAE.h   |  5 +++
+ 2 files changed, 37 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+index 59950c2..fc6fd6c 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp
+@@ -406,6 +406,11 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+           return;
+         case CActiveAEControlProtocol::DISPLAYRESET:
+           return;
++        case CActiveAEControlProtocol::DISPLAYLOST:
++          // Only the configured states have a sink to suspend; elsewhere the caller (a display
++          // mode change, waiting synchronously) only needs the reply.
++          msg->Reply(CActiveAEControlProtocol::ACC);
++          return;
+         case CActiveAEControlProtocol::APPFOCUSED:
+           m_sink.m_controlPort.SendOutMessage(CSinkControlProtocol::APPFOCUSED, msg->data, sizeof(bool));
+           return;
+@@ -539,8 +544,26 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+           case CActiveAEControlProtocol::DEVICECHANGE:
+           case CActiveAEControlProtocol::DEFAULTDEVICECHANGE:
+           case CActiveAEControlProtocol::DEVICECOUNTCHANGE:
+-            if (m_extTimeout != 0ms)
++            // During a display mode change the HDMI device comes and goes; DISPLAYRESET
++            // re-enumerates and retries once the display is back.
++            if (m_extTimeout != 0ms && !m_extDisplayLost)
++            {
++              m_sink.EnumerateSinkList(true, "");
++              m_extErrorRetries = 0;
++              m_extTimeout = 0ms;
++            }
++            return;
++          case CActiveAEControlProtocol::DISPLAYLOST:
++            // The HDMI device goes away with the display, so retrying now only fails. Wait for
++            // DISPLAYRESET, but retry anyway if it never comes.
++            m_extDisplayLost = true;
++            m_extTimeout = 3s;
++            msg->Reply(CActiveAEControlProtocol::ACC);
++            return;
++          case CActiveAEControlProtocol::DISPLAYRESET:
++            if (m_extDisplayLost)
+             {
++              m_extDisplayLost = false;
+               m_sink.EnumerateSinkList(true, "");
+               m_extErrorRetries = 0;
+               m_extTimeout = 0ms;
+@@ -560,6 +583,7 @@ void CActiveAE::StateMachine(int signal, Protocol *port, Message *msg)
+         {
+         case CActiveAEControlProtocol::TIMEOUT:
+           m_extError = false;
++          m_extDisplayLost = false;
+           LoadSettings();
+           Configure();
+           if (!m_extError)
+@@ -1257,12 +1281,17 @@ void CActiveAE::Configure(AEAudioFormat *desiredFmt)
+   const AESinkDevice dev = CAESinkFactory::ParseDevice(device);
+   const bool requestedDefaultDevice = IsDefaultDevice(dev);
+ 
+-  if ((!CompareFormat(m_sinkRequestFormat, m_sinkFormat) &&
++  // After a failed InitSink() m_sinkRequestFormat already holds the failed
++  // request, so the format comparison below would skip reopening the sink on
++  // retry and configure buffers and resamplers against the stale m_sinkFormat.
++  if (m_sinkInitFailed ||
++      (!CompareFormat(m_sinkRequestFormat, m_sinkFormat) &&
+        !CompareFormat(m_sinkRequestFormat, oldSinkRequestFormat)) ||
+       m_currDevice.compare(dev.name) != 0 || m_settings.driver.compare(dev.driver) != 0)
+   {
+     FlushEngine();
+-    if (!InitSink())
++    m_sinkInitFailed = !InitSink();
++    if (m_sinkInitFailed)
+       return;
+     m_settings.driver = dev.driver;
+     m_currDevice = dev.name;
+diff --git a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+index 38b3b54..dcb9739 100644
+--- a/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
++++ b/xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.h
+@@ -356,6 +356,11 @@ protected:
+   std::chrono::milliseconds m_extTimeout;
+   bool m_extError;
+   unsigned int m_extErrorRetries{0};
++  // A display mode change is in progress: sink retries wait for DISPLAYRESET.
++  bool m_extDisplayLost{false};
++  // The last InitSink() failed: the sink must be opened again before the
++  // pipeline is configured against m_sinkFormat.
++  bool m_sinkInitFailed{false};
+   bool m_extDrain;
+   XbmcThreads::EndTime<> m_extDrainTimer;
+   std::chrono::milliseconds m_extKeepConfig;

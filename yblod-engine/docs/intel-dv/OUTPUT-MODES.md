@@ -15,7 +15,7 @@ renderer.
 | Off | Kodi's ordinary playback of the base layer: HDR10 or SDR as the stream's base layer is, without the enhancement layer. Profile 5 has no compatible base layer and its colours are wrong. |
 
 **Convert to HDR10** is offered only where it can be had: an HDR10 display
-on a connector with linux-9928's `DVBRIDGE_TUNNEL_FORMAT` and its `hdr10`
+on a connector with `DVBRIDGE_TUNNEL_FORMAT` (linux-9901, linux-9920) and its `hdr10`
 value (native HDMI: Intel display gen12 and later, AMD), and an engine with
 HDR10 output. It is hidden on the converter routes: the DP-to-HDMI
 converters (linux-9930) have no such property; the NUC7's LSPCON in

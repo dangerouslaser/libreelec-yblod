@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 12:00:00 +0000
+Subject: [PATCH] drm/i915/hdmi: SPD InfoFrame source device type as a module
+ parameter
+
+big-fella: HDMI SPD InfoFrame source device type as a module parameter.
+
+i915 always sends the SPD InfoFrame's Source Device Information as 0x09
+"PC general", and LG webOS TVs classify the input as a PC from it
+(timingMode PC, picture processing greyed out). Make it i915.spd_sdi,
+default 1 (Digital STB, as TV boxes send); out-of-range values keep the
+upstream PC general. Applies from the next modeset. See docs/tv-pc-mode.md.
+
+Regrouped from linux-9912-big-fella-hdmi-spd-sdi (YBLOD 0.3.3 to 0.4.1);
+no code change.
+---
+ drivers/gpu/drm/i915/display/intel_hdmi.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
+index 9f4383223a56..2418e1e88d1e 100644
+--- a/drivers/gpu/drm/i915/display/intel_hdmi.c
++++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
+@@ -813,6 +813,17 @@ intel_hdmi_compute_avi_infoframe(struct intel_encoder *encoder,
+ 	return true;
+ }
+ 
++/*
++ * The SPD InfoFrame's Source Device Information. Upstream always says
++ * "PC general" (0x09), and LG webOS (and other TVs) then classify the input
++ * as a PC: timingMode PC, the PC picture dimension, most picture processing
++ * greyed out. A TV box wants Digital STB (0x01), like Android/Apple TV
++ * boxes. CTA-861 SDI codes 0x00-0x0d; anything else keeps the upstream PC.
++ */
++static int hdmi_spd_sdi = HDMI_SPD_SDI_DSTB;
++module_param_named(spd_sdi, hdmi_spd_sdi, int, 0644);
++MODULE_PARM_DESC(spd_sdi, "HDMI SPD InfoFrame source device type (CTA-861 SDI, 1 = Digital STB [default], 9 = PC general); applies from the next modeset");
++
+ static bool
+ intel_hdmi_compute_spd_infoframe(struct intel_encoder *encoder,
+ 				 struct intel_crtc_state *crtc_state,
+@@ -836,7 +847,8 @@ intel_hdmi_compute_spd_infoframe(struct intel_encoder *encoder,
+ 	if (drm_WARN_ON(encoder->base.dev, ret))
+ 		return false;
+ 
+-	frame->sdi = HDMI_SPD_SDI_PC;
++	frame->sdi = hdmi_spd_sdi >= HDMI_SPD_SDI_UNKNOWN &&
++		     hdmi_spd_sdi <= HDMI_SPD_SDI_PMP ? hdmi_spd_sdi : HDMI_SPD_SDI_PC;
+ 
+ 	ret = hdmi_spd_infoframe_check(frame);
+ 	if (drm_WARN_ON(encoder->base.dev, ret))

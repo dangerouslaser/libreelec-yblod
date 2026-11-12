@@ -419,6 +419,10 @@ mod pack_tests {
         assert_eq!(pipeline_count(&verify), 19 + 3 + OTHER_PIPELINES + 1);
         let lazy = EngineOptions { lazy_resized_pack: true, ..EngineOptions::default() };
         assert_eq!(n(&lazy), 16);
+        // dvvk-prepare: each of the 19 + 3 variants again for HDR10 and for HDR10+
+        let prepare = EngineOptions { prepare_map: true, ..EngineOptions::default() };
+        assert_eq!(n(&prepare), 19);
+        assert_eq!(pipeline_count(&prepare), 19 + 3 + OTHER_PIPELINES + 2 * (19 + 3));
         // DVVK_VERIFY's reference packs (source 0, the frame's kind) are made
         for r in routings() {
             let Some(route) = planned(&r) else { continue };
@@ -531,6 +535,69 @@ fn pack_eager(o: &crate::options::EngineOptions, source: u32, overlay: u32, kind
     pack_reachable(source, overlay, kind) && !pack_lazy(o, source, kind)
 }
 
+/// The pack variants a frame of HDR10 or HDR10+ output can take: the
+/// reachable regular ones and the Annex B ones, as select_pack names them.
+fn map_variants() -> Vec<PackVariant> {
+    let mut v = Vec::new();
+    for source in 0..PACK_SOURCES {
+        for overlay in 0..PACK_OVERLAYS {
+            for kind in 0..PACK_KINDS {
+                if pack_reachable(source, overlay, kind) {
+                    v.push(PackVariant::Regular(((source * PACK_OVERLAYS + overlay) * PACK_KINDS + kind) as usize));
+                }
+            }
+        }
+    }
+    v.extend((0..ANNEXB_OVERLAYS.len()).map(PackVariant::Annexb));
+    v
+}
+
+/// The pack's spec constants for a variant (as Engine::new makes them).
+fn pack_spec(o: &crate::options::EngineOptions, variant: PackVariant) -> Vec<(u32, u32)> {
+    let (fma, blend_fma) = (o.resize_fma, o.blend_fma);
+    match variant {
+        PackVariant::Regular(i) => {
+            let i = i as u32;
+            let (source, overlay, kind) =
+                (i / (PACK_OVERLAYS * PACK_KINDS), (i / PACK_KINDS) % PACK_OVERLAYS, i % PACK_KINDS);
+            vec![(0, kind), (1, fma), (2, overlay), (3, blend_fma), (4, source), (6, 2)]
+        }
+        PackVariant::Annexb(k) => vec![
+            (0, 0),
+            (1, fma),
+            (2, ANNEXB_OVERLAYS[k]),
+            (3, blend_fma),
+            (4, 1),
+            (5, 1),
+            (6, 8),
+            (7, o.cb1_pair_reuse as u32),
+        ],
+    }
+}
+
+/// The HDR10 pack's MAP (pack.comp): 1 LUT + map_fixup, or a diagnostic.
+fn map_spec(o: &crate::options::EngineOptions) -> u32 {
+    if o.map_direct {
+        2
+    } else if o.map_lut_only {
+        3
+    } else if o.map_inline {
+        4
+    } else {
+        1
+    }
+}
+
+/// A variant's constants with MAP (HDR10 output) and STATS (HDR10+). One
+/// place for the prepare run and a frame's first use: the pipeline cache
+/// only answers for the same constants in the same order.
+fn pack_map_spec(o: &crate::options::EngineOptions, variant: PackVariant, stats: bool) -> Vec<(u32, u32)> {
+    let mut spec = pack_spec(o, variant);
+    spec.push((8, map_spec(o)));
+    spec.push((9, stats as u32));
+    spec
+}
+
 /// How many pipelines Engine::new creates (DVVK_PREPARE progress).
 fn pipeline_count(o: &crate::options::EngineOptions) -> u32 {
     let mut packs = 0;
@@ -541,7 +608,9 @@ fn pipeline_count(o: &crate::options::EngineOptions) -> u32 {
             }
         }
     }
-    packs + ANNEXB_OVERLAYS.len() as u32 + OTHER_PIPELINES + u32::from(o.verify_every > 0)
+    // DVVK_PREPARE_MAP: each HDR10 variant without and with the statistics
+    let mapped = if o.prepare_map { 2 * map_variants().len() as u32 } else { 0 };
+    packs + ANNEXB_OVERLAYS.len() as u32 + OTHER_PIPELINES + u32::from(o.verify_every > 0) + mapped
 }
 
 // Offsets in the tables buffer (256-aligned).
@@ -770,7 +839,9 @@ pub struct Engine {
     pack_fma: (u32, u32),        // captured at creation, also used by deferred variants
     pack_annexb: Vec<Pipeline>,  // [source * 3 + overlay (none, native, prepared)]: 32x8 chroma tile
     fel_chroma: Pipeline,
-    overlay: HostBuffer,
+    // The test RGBA picture (set_overlay_rgba), made when first needed: no
+    // player gives one, and allocated memory is backed whether bound or not.
+    overlay: Option<HostBuffer>,
     gui_colours: DeviceBuffer,
     gui_retired: Vec<DeviceBuffer>,
     gui_tiles: DeviceBuffer,
@@ -1041,11 +1112,6 @@ impl Engine {
             construction.keep(DeviceBuffer::new(&d, quarter)?),
             construction.keep(DeviceBuffer::new(&d, 2 * quarter)?),
         ];
-        let overlay = construction.keep(HostBuffer::new(
-            &d,
-            (CANVAS_W * CANVAS_H * 4) as u64,
-            vk::BufferUsageFlags::STORAGE_BUFFER,
-        )?);
         // Allocated in full on the first frame that needs them (submit).
         let gui_colours = construction.keep(DeviceBuffer::new(&d, 16)?);
         let gui_tiles =
@@ -1132,6 +1198,23 @@ impl Engine {
         let map_list = ((n - 1).pow(3).div_ceil(32) * 4).next_multiple_of(256) / 4;
         let entries = (CANVAS_W / 4) * CANVAS_H.div_ceil(2);
         let map_cells = construction.keep(DeviceBuffer::new(&d, u64::from(map_list + 4 + entries) * 4)?);
+        // dvvk-prepare (DVVK_PREPARE_MAP=1): the HDR10 and HDR10+ pack variants
+        // as well, so the pipeline cache holds them and a frame's first use
+        // (ensure_pack_map) is a lookup instead of a compile on the render
+        // thread. A playing engine leaves them to first use: they would only
+        // delay its start.
+        let mut pack_map = HashMap::new();
+        if o.prepare_map {
+            // The Dolby Vision set is complete: kept if this run is cut short.
+            d.save_pipeline_cache();
+            for stats in [false, true] {
+                for variant in map_variants() {
+                    let spec = pack_map_spec(&o, variant, stats);
+                    let pipe = construction.keep(Pipeline::new(&d, "pack", &pack_bindings, pack_push, &spec)?);
+                    pack_map.insert(Self::pack_map_key(variant, stats), pipe);
+                }
+            }
+        }
         gpu::prepare_end()?;
         d.save_pipeline_cache();
         let mut ring = Vec::new();
@@ -1216,6 +1299,8 @@ impl Engine {
         if crate::fault::hit("construct-final") {
             return Err(Error::Vk(vk::Result::ERROR_UNKNOWN));
         }
+        // Before the commit: a failure after it would roll nothing back.
+        let plan_state = plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?;
         construction.commit();
         Ok(Engine {
             ring,
@@ -1234,7 +1319,7 @@ impl Engine {
             pack_fma: (fma, blend_fma),
             pack_annexb,
             fel_chroma,
-            overlay,
+            overlay: None,
             gui_colours,
             gui_retired: Vec::new(),
             gui_tiles,
@@ -1264,7 +1349,7 @@ impl Engine {
             shot,
             resize_key: None,
             plan: Plan::boxed(),
-            plan_state: plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?,
+            plan_state,
             last_error_flags: 0,
             dm_status: 0,
             last_plan_ms: 0.0,
@@ -1293,7 +1378,7 @@ impl Engine {
             map_bake,
             map_fixup,
             map_list,
-            pack_map: HashMap::new(),
+            pack_map,
             map_bakes: 0,
             map_frames: 0,
             va: va_display,
@@ -1344,14 +1429,24 @@ impl Engine {
 
     /// The overlay picture (RGBA8 premultiplied sRGB, 3840x2160, rows top
     /// first) used by frames with `overlay` set. Phase 1: copied in.
-    pub fn set_overlay_rgba(&mut self, rgba: &[u8], stride: usize) {
-        let dst = self.overlay.bytes_mut();
+    pub fn set_overlay_rgba(&mut self, rgba: &[u8], stride: usize) -> Result<()> {
+        let dst = self.overlay_rgba()?.bytes_mut();
         let row = (CANVAS_W * 4) as usize;
         for y in 0..CANVAS_H as usize {
             dst[y * row..(y + 1) * row].copy_from_slice(&rgba[y * stride..y * stride + row]);
         }
         self.overlay_dirty = true;
         self.damage.changed(None);
+        Ok(())
+    }
+
+    /// The test RGBA picture's buffer, made on first use.
+    fn overlay_rgba(&mut self) -> Result<&mut HostBuffer> {
+        if self.overlay.is_none() {
+            let bytes = (CANVAS_W * CANVAS_H * 4) as u64;
+            self.overlay = Some(HostBuffer::new(&self.d, bytes, vk::BufferUsageFlags::STORAGE_BUFFER)?);
+        }
+        Ok(self.overlay.as_mut().unwrap())
     }
 
     /// mpv's subtitles / OSD bitmaps for the following frames (none: empty).
@@ -1738,28 +1833,6 @@ impl Engine {
         Ok(())
     }
 
-    /// The pack's spec constants for a variant (as Engine::new makes them).
-    fn pack_spec(&self, variant: PackVariant) -> Vec<(u32, u32)> {
-        let (fma, blend_fma) = self.pack_fma;
-        match variant {
-            PackVariant::Regular(i) => {
-                let i = i as u32;
-                let (source, overlay, kind) = (i / (PACK_OVERLAYS * PACK_KINDS), (i / PACK_KINDS) % PACK_OVERLAYS, i % PACK_KINDS);
-                vec![(0, kind), (1, fma), (2, overlay), (3, blend_fma), (4, source), (6, 2)]
-            }
-            PackVariant::Annexb(k) => vec![
-                (0, 0),
-                (1, fma),
-                (2, ANNEXB_OVERLAYS[k]),
-                (3, blend_fma),
-                (4, 1),
-                (5, 1),
-                (6, 8),
-                (7, self.d.options.cb1_pair_reuse as u32),
-            ],
-        }
-    }
-
     fn pack_map_key(variant: PackVariant, stats: bool) -> (bool, usize, bool) {
         match variant {
             PackVariant::Annexb(k) => (true, k, stats),
@@ -1767,27 +1840,24 @@ impl Engine {
         }
     }
 
+    /// overlay_prepare's binding 0, the test RGBA picture. The variant that
+    /// composes from the sources never reads it: any small buffer there
+    /// (submit made the picture's for a frame that does read it).
+    fn rgba_bind(&self, from_sources: bool, slot: &Slot) -> Bind {
+        Bind::Buffer(match &self.overlay {
+            Some(rgba) if !from_sources => rgba.buffer,
+            _ => slot.error,
+        })
+    }
+
     /// HDR10+ output: the pack measures the film (pack.comp STATS).
     fn stats(&self) -> bool {
         self.map.as_ref().is_some_and(|m| m.signal.mode == crate::map::DVVK_OUTPUT_HDR10PLUS)
     }
 
-    /// The HDR10 pack's MAP (pack.comp): 1 LUT + map_fixup, or a diagnostic.
-    fn map_spec(&self) -> u32 {
-        let o = &self.d.options;
-        if o.map_direct {
-            2
-        } else if o.map_lut_only {
-            3
-        } else if o.map_inline {
-            4
-        } else {
-            1
-        }
-    }
-
     /// HDR10 output: the frame's pack variant with MAP, made on first use
-    /// (the pipeline cache keeps it for the next engine).
+    /// (from the pipeline cache when dvvk-prepare or an earlier engine made
+    /// it; the cache keeps it for the next engine).
     fn ensure_pack_map(&mut self) -> Result<()> {
         if self.map.is_none() {
             return Ok(());
@@ -1800,9 +1870,7 @@ impl Engine {
         let start = std::time::Instant::now();
         let Some(first) = self.pack[0].as_ref() else { return Err(Error::Missing("the first pack variant")) };
         let bindings = first.bindings.clone();
-        let mut spec = self.pack_spec(variant);
-        spec.push((8, self.map_spec()));
-        spec.push((9, key.2 as u32));
+        let spec = pack_map_spec(&self.d.options, variant, key.2);
         let pipe = Pipeline::new_deferred(&self.d, "pack", &bindings, std::mem::size_of::<PackPush>() as u32, &spec)?;
         eprintln!("dvvk HDR10 pack: {variant:?} creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
         self.pack_map.insert(key, pipe);
@@ -2086,7 +2154,16 @@ impl Engine {
         if !self.cb1_overlay() {
             self.cb1_tiles_valid = false;
         }
-        if !self.cb1_overlay() && self.plan.overlay_visible != 0 {
+        let overlay = self.pack_overlay();
+        if overlay == 1 && !self.sources_used {
+            // overlay_prepare reads the test picture (as allocated if none was set)
+            self.overlay_rgba()?;
+        }
+        // The colour cache and its keys in full: only the prepared overlay has
+        // them (overlay_prepare writes, the pack's OVERLAY 1 reads). The fused
+        // shell computes every colour (gui_flags bit 3) and never touches
+        // them; DVVK_VERIFY's reference of such a frame prepares the overlay.
+        if overlay == 1 || (overlay == 2 && self.verify.is_some()) {
             // Retain the tiny placeholders until engine teardown: earlier native
             // commands may still reference their descriptors, even though unused.
             // No GPU drain on the first subtitle or legacy overlay.
@@ -2520,7 +2597,7 @@ impl Engine {
                 cmd,
                 &self.overlay_prepare[from_sources as usize],
                 &[
-                    Bind::Buffer(self.overlay.buffer),
+                    self.rgba_bind(from_sources, &slot),
                     Bind::Range(atlas, r[0].0, r[0].1),
                     Bind::Range(atlas, r[1].0, r[1].1),
                     Bind::Range(atlas, r[2].0, r[2].1),
@@ -2599,7 +2676,7 @@ impl Engine {
         } else {
             self.map_lut.record_init(d, cmd);
         }
-        let fixup = mapped && self.map_spec() == 1;
+        let fixup = mapped && map_spec(&self.d.options) == 1;
         if fixup {
             // map_fixup's list emptied (the last frame's fix-up read it)
             gpu::indirect_barrier(d, cmd);
@@ -2875,7 +2952,7 @@ impl Engine {
                 cmd,
                 &self.overlay_prepare[from_sources as usize],
                 &[
-                    Bind::Buffer(self.overlay.buffer),
+                    self.rgba_bind(from_sources, slot),
                     Bind::Range(atlas, r[0].0, r[0].1),
                     Bind::Range(atlas, r[1].0, r[1].1),
                     Bind::Range(atlas, r[2].0, r[2].1),
@@ -3370,6 +3447,7 @@ impl Drop for Engine {
             c.gui_coeff.destroy(d);
             c.gui_error.destroy(d);
             c.map_params.destroy(d);
+            c.stats.destroy(d);
             c.bounds_result.destroy(d);
         }
         unsafe { d.device.destroy_semaphore(self.timeline, None) };
@@ -3388,7 +3466,9 @@ impl Drop for Engine {
         for lut in &self.cb1_luts {
             lut.destroy(d);
         }
-        self.overlay.destroy(d);
+        if let Some(rgba) = &self.overlay {
+            rgba.destroy(d);
+        }
         self.gui_colours.destroy(d);
         for buffer in &self.gui_retired {
             buffer.destroy(d);

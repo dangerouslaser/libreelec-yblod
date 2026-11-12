@@ -12,6 +12,10 @@
 //! - `DVVK_PIPELINE_PROFILE=1`: each pipeline's creation time.
 //! - `DVVK_PREPARE_PROGRESS=1`: `DVVK_PREPARE done total` lines on stdout
 //!   while pipelines are created (tools/dvvk-prepare, prepare-video).
+//! - `DVVK_PREPARE_MAP=1`: the engine also creates every HDR10 and HDR10+
+//!   pack variant (tools/dvvk-prepare: they land in the pipeline cache). A
+//!   player never sets it: its engine makes the one a frame needs on first
+//!   use, from that cache.
 //!
 //! Behaviour:
 //! - `DVVK_GPU_BOOST=0`: never switch AMD to the COMPUTE power profile (power.rs).
@@ -70,6 +74,7 @@ pub struct EngineOptions {
     pub verify_every: u64,
     pub pipeline_profile: bool,
     pub prepare_progress: bool,
+    pub prepare_map: bool,
     pub gpu_boost: bool,
     pub damage: bool,
     pub surface_check: bool,
@@ -104,6 +109,7 @@ impl Default for EngineOptions {
             verify_every: 0,
             pipeline_profile: false,
             prepare_progress: false,
+            prepare_map: false,
             gpu_boost: true,
             damage: true,
             surface_check: false,
@@ -140,6 +146,7 @@ impl EngineOptions {
             verify_every: number("DVVK_VERIFY", 0),
             pipeline_profile: flag("DVVK_PIPELINE_PROFILE"),
             prepare_progress: flag("DVVK_PREPARE_PROGRESS"),
+            prepare_map: flag("DVVK_PREPARE_MAP"),
             gpu_boost: not_zero("DVVK_GPU_BOOST"),
             damage: not_zero("DVVK_DAMAGE"),
             surface_check: flag("DVVK_SURFACE_CHECK"),

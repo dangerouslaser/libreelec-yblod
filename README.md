@@ -35,15 +35,16 @@ channel.
   without Dolby Vision.
 - **QMS refresh switching** on HDMI paths that support it, for fewer blackouts when the
   refresh rate changes. VRR support alone does not mean QMS support. Disable it with the
-  kernel option `i915.qms=0`.
+  kernel option `i915.qms=0` (`xe.qms=0` on Lunar Lake and Arc B-series; see
+  `yblod/docs/KERNEL-PARAMETERS.md`).
 - **Faster live TV startup**, through fewer stream opens, coordinated display changes and
   less audio buffering.
 
 ```text
-File -> Kodi / FFmpeg (decode on the Intel GPU, pair layers and metadata)
-     -> YBLOD engine (OpenCL): rebuild the Dolby Vision picture
+File -> Kodi / FFmpeg (decode on the GPU, pair layers and metadata)
+     -> YBLOD engine (Vulkan compute): rebuild the Dolby Vision picture
      -> menus/subtitles composited, packed for the Dolby Vision HDMI tunnel
-     -> patched Intel display driver -> HDMI -> TV display mapping
+     -> patched Intel or AMD display driver -> HDMI -> TV display mapping
 ```
 
 ## Settings
@@ -105,7 +106,7 @@ YBLOD's own code and docs live in two folders, which keeps it easy to follow ups
 LibreELEC:
 
 - [`yblod-engine/`](yblod-engine/README.md): the Dolby Vision pipeline (engine source,
-  tests, its Kodi, FFmpeg, libplacebo and kernel patches, tools and docs).
+  tests, its Kodi, FFmpeg and kernel patches, tools and docs).
 - [`yblod/`](yblod/README.md): the distribution (other patches, the LG edition, build and
   release tools, release notes).
 

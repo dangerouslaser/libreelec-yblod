@@ -33,11 +33,11 @@ if [ "${MEDIACENTER}" = "kodi" ]; then
   # other packages
   PKG_DEPENDS_TARGET+=" xmlstarlet"
 
-  # YBLOD default skin
-  PKG_DEPENDS_TARGET+=" skin.estuary.yblod"
-
-  # YBLOD: the box in the iPhone's Control Center remote
-  PKG_DEPENDS_TARGET+=" yblod-iphone-remote"
+  # YBLOD (x86_64 Generic): default skin, and the box in the iPhone's Control Center
+  # remote
+  if [ "${PROJECT}" = "Generic" -a "${TARGET_ARCH}" = "x86_64" ]; then
+    PKG_DEPENDS_TARGET+=" skin.estuary.yblod yblod-iphone-remote"
+  fi
 
   # YBLOD LG edition (YBLOD_EDITION=lg): webOS add-on and the dangerouslaser repository
   if [ "${YBLOD_EDITION}" = "lg" ]; then

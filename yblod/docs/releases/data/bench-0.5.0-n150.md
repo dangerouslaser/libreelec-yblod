@@ -1,0 +1,165 @@
+# Kodi playback benchmark
+
+Made by `yblod/tools/bench/report.py`; the method and every definition are in `yblod/tools/bench/README.md`. A cell is the median of the repetitions, the lowest and highest repetition in brackets. `(!)`: a repetition failed one of its checks (listed at the end).
+
+| image | profile's native-dv.env | version | kernel | CPU | GL | recorded (UTC) | display |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `y050t2` | `DVBRIDGE_DIAGNOSTICS=1` | yblod-0.5.0-t2 | 7.3.0 | Intel(R) N150 | OpenGL ES 3.2 Mesa 26.2.5 | 2026-11-11T22:09:38+00:00 | unattended run: TV power state not observed; HDMI sink DENON-AVR (AVR in the chain) connected |
+| `y050t2-nb` | `DVBRIDGE_DIAGNOSTICS=1 DV_PRIVATE_NONBLOCK=1` | yblod-0.5.0-t2 | 7.3.0 | Intel(R) N150 | OpenGL ES 3.2 Mesa 26.2.5 | 2026-11-12T02:36:03+00:00 | unattended run: TV power state not observed; HDMI sink DENON-AVR (AVR in the chain) connected |
+
+## Films
+
+What Kodi and the engine said each stream is (first image; the layer from the engine's log in scenario P: FEL has a reconstruction stage, a MEL's enhancement layer is not decoded, Profile 8 has none).
+
+| film | title | passage from | stream | enhancement layer | fps | audio | output mode |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1917 | 1917 (2019) | 0:30:40 | profile=7 level=6 compatibility=6 size=3840x2160 | FEL | 23.976 | (codec: truehd, channels: 8, sample rate: 48000, pass-through) | 3840x2160 clock_khz=296703 totals=5500x2250 |
+| spr | Saving Private Ryan (1998) | 1:49:40 | profile=7 level=6 compatibility=6 size=3840x2160 | FEL | 23.976 | (codec: truehd, channels: 8, sample rate: 48000, pass-through) | 3840x2160 clock_khz=296703 totals=5500x2250 |
+| 28yl | 28 Years Later (2025) | 0:30:40 | profile=8 level=6 compatibility=1 size=3840x2160 | none | 23.976 | (codec: eac3, channels: 6, sample rate: 48000, pass-through) | 3840x2160 clock_khz=296703 totals=5500x2250 |
+| gemini | Gemini Man (2019) | 0:30:40 | profile=7 level=9 compatibility=6 size=3840x2160 | MEL (not decoded) | 59.94 | (codec: truehd, channels: 8, sample rate: 48000, pass-through) | 3840x2160 clock_khz=593407 totals=4400x2250 |
+
+## Frame time and presentation
+
+GPU render time per presented picture (ms; the headline) and per source frame (the same unless pictures are missing), pictures presented per second, Kodi's dropped/skipped frames around the window, and the flips that were not one source frame after the one before ("late").
+
+| film | scenario | y050t2 ms/frame | y050t2 ms/source frame | y050t2 fps | y050t2 drop/skip | y050t2 late | y050t2-nb ms/frame | y050t2-nb ms/source frame | y050t2-nb fps | y050t2-nb drop/skip | y050t2-nb late |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1917 | plain | 17.53 (17.34-17.72) | 17.53 (17.34-17.72) | 23.98 (23.97-23.98) | 0 / 0 | 0 | 17.48 (17.27-17.69) | 17.48 (17.28-17.69) | 23.98 (23.97-23.98) | 0 / 0 | 0 |
+| spr | plain | 23.07 (23.04-23.10) | 23.07 (23.04-23.10) | 23.97 (23.97-23.98) | 0 / 0 | 0 | 23.17 (23.09-23.24) | 23.17 (23.09-23.25) | 23.98 (23.97-23.98) | 0 / 0 | 0 |
+| 28yl | plain | 11.86 (11.76-11.95) | 11.86 (11.76-11.95) | 23.98 (23.98-23.98) | 0 / 0 | 0 | 12.12 (12.10-12.15) | 12.12 (12.10-12.14) | 23.97 (23.97-23.98) | 0 / 0 | 0 |
+| gemini | plain | 11.60 (11.60-11.60) | 7.84 (7.84-7.84) | 40.52 (40.51-40.53) | 0 / 13-14 | 1171-1172 | 11.86 (11.86-11.87) | 11.09 (11.07-11.10) | 56.01 (55.98-56.05) | 0-1 / 0 | 235-240 |
+| 1917 | OSD open | 27.73 (27.61-27.85) | 24.54 (24.08-25.01) | 21.22 (20.91-21.53) | 0 / 27-31 | 146-185 | 28.35 (28.34-28.36) | 28.35 (28.33-28.36) | 23.98 (23.98-23.98) | 0 / 0 | 0 |
+| spr | OSD open | 31.13 (31.11-31.15) | 27.98 (27.80-28.15) | 21.55 (21.40-21.70) | 0 / 9-12 | 138-155 | 31.08 (31.07-31.09) | 31.07 (31.07-31.07) | 23.97 (23.96-23.98) | 0 / 0 | 0 |
+| 28yl | OSD open | 12.32 (12.14-12.49) | 12.32 (12.14-12.49) | 23.98 (23.97-23.98) | 0 / 0 | 0 | 12.84 (12.80-12.89) | 12.85 (12.80-12.89) | 23.98 (23.98-23.99) | 0 / 0 | 0 |
+| gemini | OSD open | 18.60 (18.57-18.63) | 9.22 | 29.70 (29.66-29.75) | 184-186 / 5 | 1791-1797 | 18.75 (18.73-18.76) | 13.05 (13.05-13.06) | 41.74 (41.72-41.77) | 766-777 / 12-14 | 1091-1092 |
+| 1917 | subtitle | 18.38 (18.35-18.41) | 18.38 (18.35-18.41) | 23.98 (23.98-23.98) | 0 / 0 | 0 | 18.48 (18.39-18.57) | 18.48 (18.38-18.57) | 23.97 (23.97-23.98) | 0 / 0 | 0 |
+| gemini | subtitle | 13.25 (13.25-13.26) | 8.76 (8.75-8.76) | 39.60 (39.60-39.61) | 2 / 37-40 | 1208-1211 | 13.46 (13.46-13.46) | 11.58 (11.58-11.58) | 51.56 (51.56-51.56) | 188-189 / 7-12 | 504-505 |
+| 1917 | DV to HDR10 | 19.01 (18.84-19.18) | 19.01 (18.84-19.18) | 23.97 (23.97-23.98) | 0 / 0 | 0 | 18.79 (18.77-18.81) | 18.79 (18.77-18.80) | 23.98 (23.97-23.98) | 0 / 0 | 0 |
+| spr | DV to HDR10 | 26.45 | 26.41 | 23.94 | 0 / 0 | 2 | 26.37 | 26.36 | 23.96 | 0 / 0 | 0 |
+| 28yl | DV to HDR10 | 12.45 | 12.45 | 23.97 | 0 / 0 | 0 | 13.27 | 13.27 | 23.98 | 0 / 0 | 0 |
+| gemini | DV to HDR10 | 14.84 (14.84-14.85) | 8.41 (8.40-8.42) | 33.96 (33.91-34.00) | 73-78 / 36-51 | 1540-1556 | 15.00 (14.99-15.00) | 11.63 (11.63-11.64) | 46.50 (46.45-46.55) | 177-192 / 68-94 | 796-798 |
+
+## Change against y050t2
+
+The same numbers as a difference from the first image: GPU time per source frame (the work a second of film costs, whatever was presented), GPU time per presented picture, and pictures presented per second. A frame-time difference under 3 % is noise (see the spread table).
+
+| film | scenario | y050t2-nb ms/source frame | y050t2-nb ms/frame | y050t2-nb fps |
+| --- | --- | --- | --- | --- |
+| 1917 | plain | -0.3 % | -0.3 % | 23.98 to 23.98 |
+| spr | plain | +0.4 % | +0.4 % | 23.97 to 23.98 |
+| 28yl | plain | +2.3 % | +2.3 % | 23.98 to 23.97 |
+| gemini | plain | +41.4 % | +2.3 % | 40.52 to 56.01 |
+| 1917 | OSD open | +15.5 % | +2.2 % | 21.22 to 23.98 |
+| spr | OSD open | +11.1 % | -0.2 % | 21.55 to 23.97 |
+| 28yl | OSD open | +4.3 % | +4.3 % | 23.98 to 23.98 |
+| gemini | OSD open | +41.6 % | +0.8 % | 29.70 to 41.74 |
+| 1917 | subtitle | +0.5 % | +0.6 % | 23.98 to 23.97 |
+| gemini | subtitle | +32.3 % | +1.6 % | 39.60 to 51.56 |
+| 1917 | DV to HDR10 | -1.2 % | -1.2 % | 23.97 to 23.98 |
+| spr | DV to HDR10 | -0.2 % | -0.3 % | 23.94 to 23.96 |
+| 28yl | DV to HDR10 | +6.6 % | +6.6 % | 23.97 to 23.98 |
+| gemini | DV to HDR10 | +38.4 % | +1.1 % | 33.96 to 46.50 |
+
+## Flip gaps
+
+Gaps between flips in refresh periods, summed over the repetitions (`1: n` only is perfect), and the display's refresh rate.
+
+| film | scenario | y050t2 gaps (Hz) | y050t2-nb gaps (Hz) |
+| --- | --- | --- | --- |
+| 1917 | plain | 1: 2890 (23.976) | 1: 2891 (23.976) |
+| spr | plain | 1: 2892 (23.976) | 1: 2893 (23.976) |
+| 28yl | plain | 1: 2886 (23.976) | 1: 2886 (23.976) |
+| gemini | plain | 1: 2550, 2: 2341, 3: 2 (59.94) | 1: 6297, 2: 475 (59.938) |
+| 1917 | OSD open | 1: 2230, 2: 331 (23.975) | 1: 2896 (23.976) |
+| spr | OSD open | 1: 2307, 2: 293 (23.975) | 1: 2895 (23.975) |
+| 28yl | OSD open | 1: 2887 (23.976) | 1: 2888 (23.976) |
+| gemini | OSD open | 2: 3525, 3: 63 (59.94) | 1: 2860, 2: 2169, 3: 14 (59.938) |
+| 1917 | subtitle | 1: 2892 (23.976) | 1: 2891 (23.976) |
+| gemini | subtitle | 1: 2364, 2: 2383, 3: 36 (59.935) | 1: 5222, 2: 1006, 3: 3 (59.938) |
+| 1917 | DV to HDR10 | 1: 2890 (23.975) | 1: 2891 (23.976) |
+| spr | DV to HDR10 | 1: 1443, 2: 2 (23.975) | 1: 1447 (23.976) |
+| 28yl | DV to HDR10 | 1: 1443 (23.975) | 1: 1444 (23.976) |
+| gemini | DV to HDR10 | 1: 1005, 2: 3055, 3: 41 (59.939) | 1: 4026, 2: 1565, 3: 28, 4: 1 (59.939) |
+
+## CPU, GPU clock and power
+
+Kodi's render (main) thread and whole process in % of one core, the GPU's actual clock while awake (MHz, not pinned), package power (W, RAPL).
+
+| film | scenario | y050t2 render thread % | y050t2 process % | y050t2 GPU MHz | y050t2 W | y050t2-nb render thread % | y050t2-nb process % | y050t2-nb GPU MHz | y050t2-nb W |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1917 | plain | 5.2 | 28.9 (28.4-29.4) | 906 (896-917) | 5.0 (5.0-5.0) | 4.5 (4.5-4.6) | 28.1 (27.6-28.7) | 899 (881-917) | 5.0 (5.0-5.0) |
+| spr | plain | 7.0 (6.9-7.1) | 28.4 (28.3-28.4) | 950 (948-953) | 5.8 (5.8-5.8) | 6.2 (6.2-6.3) | 27.9 (27.4-28.4) | 940 (933-948) | 5.8 (5.8-5.8) |
+| 28yl | plain | 3.8 | 15.6 | 626 (621-630) | 3.5 (3.5-3.5) | 3.2 (3.2-3.3) | 14.9 (14.9-15.0) | 600 (595-605) | 3.5 (3.5-3.5) |
+| gemini | plain | 7.8 (7.7-7.9) | 34.4 | 901 (900-902) | 5.4 (5.3-5.4) | 8.2 (8.1-8.2) | 34.4 (34.3-34.4) | 906 (905-907) | 5.9 |
+| 1917 | OSD open | 10.2 (10.0-10.3) | 34.6 (33.6-35.7) | 940 (927-952) | 5.7 (5.7-5.8) | 10.5 (10.4-10.6) | 35.7 (35.4-36.0) | 948 (947-950) | 6.1 (6.1-6.1) |
+| spr | OSD open | 8.8 | 29.9 (29.8-29.9) | 958 (957-958) | 6.3 (6.2-6.3) | 9.0 | 30.3 (30.2-30.4) | 954 (951-957) | 6.6 (6.6-6.7) |
+| 28yl | OSD open | 6.1 | 18.1 (18.0-18.2) | 804 (795-813) | 3.8 (3.8-3.8) | 5.5 (5.5-5.6) | 17.5 (17.4-17.6) | 790 (776-803) | 3.8 (3.8-3.9) |
+| gemini | OSD open | 8.2 | 32.5 (32.3-32.7) | 906 (895-916) | 5.6 (5.5-5.6) | 10.4 | 33.2 (33.1-33.3) | 926 (922-930) | 6.1 (6.1-6.1) |
+| 1917 | subtitle | 6.4 (6.3-6.5) | 30.2 (30.2-30.3) | 936 (926-946) | 5.2 (5.2-5.2) | 5.7 (5.6-5.7) | 30.1 (29.3-31.0) | 908 (896-921) | 5.2 (5.2-5.2) |
+| gemini | subtitle | 9.3 (9.3-9.4) | 36.5 | 914 (912-917) | 5.5 | 10.1 | 35.6 (35.6-35.7) | 914 (911-917) | 6.0 |
+| 1917 | paused | 1.0 | 6.8 (6.7-6.8) | 925 | 2.9 | 1.0 | 6.7 (6.6-6.7) | - | 3.0 (3.0-3.0) |
+| gemini | paused | 2.1 | 7.8 | 1000 | 3.2 | 2.2 | 7.9 | 1000 | 3.3 (3.3-3.3) |
+| 1917 | DV to HDR10 | 5.5 | 29.2 (28.8-29.7) | 913 (902-924) | 5.2 (5.2-5.2) | 4.8 (4.8-4.9) | 28.1 (27.9-28.3) | 891 (885-897) | 5.2 |
+| spr | DV to HDR10 | 7.4 | 29.9 | 951 | 6.3 | 6.7 | 27.9 | 941 | 6.3 |
+| 28yl | DV to HDR10 | 4.1 | 15.8 | 764 | 3.7 | 3.6 | 15.2 | 698 | 3.7 |
+| gemini | DV to HDR10 | 6.5 | 31.2 (31.1-31.4) | 906 (904-909) | 5.5 (5.5-5.5) | 7.8 (7.8-7.9) | 33.4 (33.3-33.4) | 914 (911-917) | 6.1 (6.1-6.1) |
+
+## Paused
+
+60 s paused on a film frame: GPU render busy (% of wall time) and pictures flipped per second.
+
+| film | y050t2 GPU busy % | y050t2 flips/s | y050t2 render thread % | y050t2-nb GPU busy % | y050t2-nb flips/s | y050t2-nb render thread % |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1917 | 0.7 (0.6-0.7) | 0.30 (0.27-0.33) | 1.0 | 0.8 (0.8-0.8) | 0.40 (0.38-0.41) | 1.0 |
+| gemini | 1.0 (0.9-1.0) | 0.64 (0.61-0.66) | 2.1 | 1.5 (1.4-1.5) | 0.96 (0.91-1.01) | 2.2 |
+
+## Playback start
+
+Seconds from `Player.Open` to the first flip of uninterrupted presentation (median of the repetitions' medians; lowest and highest single start).
+
+| film | y050t2 start s | y050t2-nb start s |
+| --- | --- | --- |
+| 1917 | 1.07 (1.03-1.11, n=6) | 1.06 (1.02-1.10, n=6) |
+| spr | 1.13 (1.10-1.16, n=6) | 1.12 (1.12-1.16, n=6) |
+| 28yl | 0.97 (0.96-0.99, n=6) | 1.01 (0.99-1.03, n=6) |
+| gemini | 0.99 (0.97-1.03, n=6) | 0.99 (0.96-1.01, n=6) |
+
+## The two frame-time sources
+
+Plain playback: DRM fdinfo (ms per presented picture, all of Kodi's render work) against the engine's own GPU timestamps (`DVVK_PROFILE`, mean of the 120-frame means; worst p95 and maximum), taken in a separate pass.
+
+| image | film | fdinfo, log off | fdinfo, log on | engine mean | engine p95 / max | engine vs fdinfo (same pass) |
+| --- | --- | --- | --- | --- | --- | --- |
+| y050t2 | 1917 | 17.53 (17.34-17.72) | 17.54 (17.32-17.77) | 17.52 | 20.79 / 21.98 | -0.1 % |
+| y050t2 | spr | 23.07 (23.04-23.10) | 23.07 (23.06-23.08) | 23.08 | 24.25 / 24.86 | +0.0 % |
+| y050t2 | 28yl | 11.86 (11.76-11.95) | 12.01 (11.80-12.22) | 11.98 | 14.62 / 16.17 | -0.2 % |
+| y050t2 | gemini | 11.60 (11.60-11.60) | 11.61 (11.60-11.61) | 11.55 | 11.89 / 12.27 | -0.4 % |
+| y050t2-nb | 1917 | 17.48 (17.27-17.69) | 17.50 (17.29-17.71) | 17.46 | 20.38 / 21.01 | -0.2 % |
+| y050t2-nb | spr | 23.17 (23.09-23.24) | 23.12 (23.05-23.19) | 23.09 | 24.42 / 25.53 | -0.1 % |
+| y050t2-nb | 28yl | 12.12 (12.10-12.15) | 11.99 (11.84-12.13) | 11.92 | 14.50 / 14.53 | -0.6 % |
+| y050t2-nb | gemini | 11.86 (11.86-11.87) | 11.87 (11.87-11.88) | 11.85 | 12.24 / 12.54 | -0.2 % |
+
+## Run-to-run spread
+
+Half the range between the repetitions as a share of the median, for the frame time. A difference between two images smaller than this is noise. The last rows pool plain playback with the engine-log passes (scenario P), which measure the same thing when the log costs nothing.
+
+| film | scenario | y050t2 repetitions (ms/frame) | y050t2-nb repetitions (ms/frame) | y050t2 +/- % | y050t2-nb +/- % |
+| --- | --- | --- | --- | --- | --- |
+| 1917 | plain | 17.34, 17.72 | 17.69, 17.27 | 1.1 | 1.2 |
+| spr | plain | 23.10, 23.04 | 23.09, 23.24 | 0.1 | 0.3 |
+| 28yl | plain | 11.76, 11.95 | 12.10, 12.15 | 0.8 | 0.2 |
+| gemini | plain | 11.60, 11.60 | 11.86, 11.87 | 0.0 | 0.0 |
+| 1917 | OSD open | 27.85, 27.61 | 28.34, 28.36 | 0.4 | 0.1 |
+| spr | OSD open | 31.11, 31.15 | 31.09, 31.07 | 0.1 | 0.0 |
+| 28yl | OSD open | 12.49, 12.14 | 12.80, 12.89 | 1.4 | 0.3 |
+| gemini | OSD open | 18.63, 18.57 | 18.76, 18.73 | 0.1 | 0.1 |
+| 1917 | subtitle | 18.35, 18.41 | 18.39, 18.57 | 0.2 | 0.5 |
+| gemini | subtitle | 13.25, 13.26 | 13.46, 13.46 | 0.0 | 0.0 |
+| 1917 | DV to HDR10 | 18.84, 19.18 | 18.81, 18.77 | 0.9 | 0.1 |
+| spr | DV to HDR10 | 26.45 | 26.37 | 0.0 | 0.0 |
+| 28yl | DV to HDR10 | 12.45 | 13.27 | 0.0 | 0.0 |
+| gemini | DV to HDR10 | 14.84, 14.85 | 15.00, 14.99 | 0.0 | 0.0 |
+| 1917 | plain, with the engine-log passes | 17.34, 17.72, 17.32, 17.77 | 17.69, 17.27, 17.29, 17.71 | 1.3 | 1.2 |
+| spr | plain, with the engine-log passes | 23.10, 23.04, 23.06, 23.08 | 23.09, 23.24, 23.19, 23.05 | 0.1 | 0.4 |
+| 28yl | plain, with the engine-log passes | 11.76, 11.95, 11.80, 12.22 | 12.10, 12.15, 12.13, 11.84 | 1.9 | 1.3 |
+| gemini | plain, with the engine-log passes | 11.60, 11.60, 11.60, 11.61 | 11.86, 11.87, 11.87, 11.88 | 0.1 | 0.1 |

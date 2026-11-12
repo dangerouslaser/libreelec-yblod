@@ -24,6 +24,7 @@ and `releases/releases.json` lists it for the LibreELEC updater.
 
 ## Releasing
 
+    yblod/tools/link-patches.sh           # must say "patch links OK"; build.sh runs it too
     yblod/tools/build.sh <version>
     yblod/tools/release.py <version> target
     git tag yblod-<version>; push; create the GitHub release "yblod-<version>" with the .tar, .img.gz
@@ -33,8 +34,10 @@ and `releases/releases.json` lists it for the LibreELEC updater.
 
 `yblod/tools/footprint.sh` lists everything outside `yblod-engine/` and `yblod/` that differs
 from the LibreELEC commit of the last resync. Those are the only files a merge can conflict
-on. After merging, run `yblod/tools/link-patches.sh` (patch symlinks) and pass the new
-LibreELEC commit to `footprint.sh` to check the list is still short.
+on. After merging, run `yblod/tools/link-patches.sh` (it fails on a missing or wrong patch
+link, a link without an owner patch, a dangling link and a regular patch file in a folder
+the owner folders feed; `--fix` repairs links) and pass the new LibreELEC commit to
+`footprint.sh` to check the list is still short.
 
 ## Contributing to CroqueMr's libreelec-x86-DV
 

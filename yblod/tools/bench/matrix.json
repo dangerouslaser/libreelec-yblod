@@ -1,0 +1,38 @@
+{
+  "source": "nfs://192.168.1.48/media-merged/Movies",
+  "films": {
+    "1917": {
+      "title": "1917 (2019)",
+      "file": "1917 (2019)/1917 (2019).mkv",
+      "start": "0:30:40",
+      "expect": "Profile 7 FEL, 23.976 fps"
+    },
+    "spr": {
+      "title": "Saving Private Ryan (1998)",
+      "file": "Saving Private Ryan (1998)/Saving Private Ryan (1998).mkv",
+      "start": "1:49:40",
+      "expect": "Profile 7 FEL, 23.976 fps (the heaviest FEL passage)"
+    },
+    "28yl": {
+      "title": "28 Years Later (2025)",
+      "file": "28 Years Later (2025)/28 Years Later (2025).mkv",
+      "start": "0:30:40",
+      "expect": "Profile 8.1, 23.976 fps"
+    },
+    "gemini": {
+      "title": "Gemini Man (2019)",
+      "file": "Gemini Man (2019)/Gemini Man (2019).mkv",
+      "start": "0:30:40",
+      "expect": "Profile 7 MEL, 59.94 fps"
+    }
+  },
+  "scenarios": {
+    "A": ["1917", "spr", "28yl", "gemini"],
+    "B": ["1917", "spr", "28yl", "gemini"],
+    "C": ["1917", "gemini"],
+    "D": ["1917", "gemini"],
+    "E": ["1917", "gemini"],
+    "F": ["1917", "spr", "28yl", "gemini"],
+    "P": ["1917", "spr", "28yl", "gemini"]
+  }
+}

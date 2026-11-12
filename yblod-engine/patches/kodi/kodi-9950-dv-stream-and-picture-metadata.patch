@@ -1,0 +1,242 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:40 -0500
+Subject: [PATCH] Dolby Vision: carry stream and picture metadata through
+ VideoPlayer
+
+The plumbing the rest of the Dolby Vision series builds on:
+
+- CDemuxStream and CDVDStreamInfo carry the enhancement layer's HEVC
+  configuration record (doviELConfig, from the stream's
+  AV_PKT_DATA_HEVC_CONF side data), compared and copied with the other
+  extradata. The DOVI configuration record is only taken when it is
+  whole.
+- VideoPicture carries the picture's Dolby Vision RPU metadata
+  (CDVMetadataBuffer: bounded, reference counted, sharing the frame's
+  side-data buffer instead of copying it, as FFmpeg does not write it
+  once attached), its source timestamp, its decoded enhancement-layer
+  frame and whether a Profile 7 MEL's enhancement layer was skipped.
+
+Everything but the metadata buffer and the timestamp is under
+HAVE_DVBRIDGE, which kodi-9957 defines (ENABLE_DVBRIDGE). The decoder
+(kodi-9952) fills these fields; the renderer (kodi-9956, kodi-9957)
+reads them.
+
+Formerly part of kodi-9990-native-dv, with yblod-24 (the MEL skip flag)
+and yblod-58 (sharing the side-data buffer).
+---
+ .../DVDCodecs/Video/DVDVideoCodec.cpp         |  6 ++
+ .../DVDCodecs/Video/DVDVideoCodec.h           |  8 +++
+ .../DVDCodecs/Video/DVMetadataBuffer.h        | 61 +++++++++++++++++++
+ xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h |  3 +
+ .../DVDDemuxers/DVDDemuxFFmpeg.cpp            |  8 ++-
+ xbmc/cores/VideoPlayer/DVDStreamInfo.cpp      | 13 ++++
+ xbmc/cores/VideoPlayer/DVDStreamInfo.h        |  3 +
+ 7 files changed, 101 insertions(+), 1 deletion(-)
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
+index a41939d..cb29c0a 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
+@@ -50,6 +50,12 @@ void VideoPicture::Reset()
+ 
+   hdrType = StreamHdrType::HDR_TYPE_NONE;
+   doviRpu.reset();
++  doviMetadata.Reset();
++  doviSourcePts = AV_NOPTS_VALUE;
++#ifdef HAVE_DVBRIDGE
++  doviEnhancement.reset();
++  doviElSkipped = false;
++#endif
+ 
+   hasDisplayMetadata = false;
+   hasLightMetadata = false;
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
+index 08933a0..2dc00af 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
+@@ -9,6 +9,7 @@
+ #pragma once
+ 
+ #include "DVDResource.h"
++#include "DVMetadataBuffer.h"
+ #include "cores/VideoPlayer/Buffers/VideoBuffer.h"
+ #include "cores/VideoPlayer/Interface/DemuxPacket.h"
+ #include "cores/VideoPlayer/Process/ProcessInfo.h"
+@@ -78,6 +79,13 @@ public:
+   StreamHdrType hdrTypeAlt;
+   std::string strDVELType;
+   std::shared_ptr<const DoviRpu> doviRpu;
++  CDVMetadataBuffer doviMetadata;
++  int64_t doviSourcePts = AV_NOPTS_VALUE;
++#ifdef HAVE_DVBRIDGE
++  std::shared_ptr<AVFrame> doviEnhancement;
++  // Profile 7 MEL whose enhancement layer was not decoded: render it as if paired.
++  bool doviElSkipped = false;
++#endif
+ 
+   bool hasDisplayMetadata = false;
+   AVMasteringDisplayMetadata displayMetadata;
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h
+new file mode 100644
+index 0000000..7358d66
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVMetadataBuffer.h
+@@ -0,0 +1,61 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++
++extern "C"
++{
++#include <libavutil/buffer.h>
++}
++
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <memory>
++
++class CDVMetadataBuffer
++{
++public:
++  bool Assign(const uint8_t* data, size_t size)
++  {
++    if (!data || size == 0 || size > MAX_PAYLOAD_SIZE)
++    {
++      Reset();
++      return false;
++    }
++
++    AVBufferRef* buffer = av_buffer_alloc(size);
++    if (!buffer)
++    {
++      Reset();
++      return false;
++    }
++    std::memcpy(buffer->data, data, size);
++    m_buffer = std::shared_ptr<AVBufferRef>(buffer, [](AVBufferRef* ref) { av_buffer_unref(&ref); });
++    return true;
++  }
++
++  // Shares the buffer that holds exactly data/size (a frame's side data) instead of copying it;
++  // side-data buffers are not written once attached to a frame.
++  bool Share(const AVBufferRef* buffer, const uint8_t* data, size_t size)
++  {
++    if (!buffer || buffer->data != data || buffer->size != size || size == 0 ||
++        size > MAX_PAYLOAD_SIZE)
++      return Assign(data, size);
++    AVBufferRef* ref = av_buffer_ref(buffer);
++    if (!ref)
++    {
++      Reset();
++      return false;
++    }
++    m_buffer = std::shared_ptr<AVBufferRef>(ref, [](AVBufferRef* r) { av_buffer_unref(&r); });
++    return true;
++  }
++
++  void Reset() { m_buffer.reset(); }
++  const uint8_t* Data() const { return m_buffer ? m_buffer->data : nullptr; }
++  size_t Size() const { return m_buffer ? m_buffer->size : 0; }
++
++private:
++  // Bound unexpected side data before allocating; no truncation is allowed.
++  static constexpr size_t MAX_PAYLOAD_SIZE = 1024 * 1024;
++  std::shared_ptr<AVBufferRef> m_buffer;
++};
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h
+index 5c39a4d..7207c70 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemux.h
+@@ -179,6 +179,9 @@ public:
+   std::string stereo_mode; // expected stereo mode
+   StreamHdrType hdr_type = StreamHdrType::HDR_TYPE_NONE; // type of HDR for this stream (hdr10, etc)
+   AVDOVIDecoderConfigurationRecord dovi{};
++#ifdef HAVE_DVBRIDGE
++  FFmpegExtraData doviELConfig;
++#endif
+ };
+ 
+ class CDemuxStreamAudio : public CDemuxStream
+diff --git a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+index 795b81c..1f298af 100644
+--- a/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDDemuxers/DVDDemuxFFmpeg.cpp
+@@ -1981,10 +1981,16 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
+           sideData =
+               av_packet_side_data_get(pStream->codecpar->coded_side_data,
+                                       pStream->codecpar->nb_coded_side_data, AV_PKT_DATA_DOVI_CONF);
+-          if (sideData && sideData->size)
++          if (sideData && sideData->size >= sizeof(AVDOVIDecoderConfigurationRecord))
+           {
+             st->dovi = *reinterpret_cast<const AVDOVIDecoderConfigurationRecord*>(sideData->data);
+           }
++#ifdef HAVE_DVBRIDGE
++          sideData = av_packet_side_data_get(pStream->codecpar->coded_side_data,
++                                            pStream->codecpar->nb_coded_side_data, AV_PKT_DATA_HEVC_CONF);
++          if (sideData && sideData->size >= 23 && sideData->size <= 1024 * 1024)
++            st->doviELConfig = FFmpegExtraData(sideData->data, sideData->size);
++#endif
+         }
+ 
+         sideData = av_packet_side_data_get(pStream->codecpar->coded_side_data,
+diff --git a/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp b/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp
+index 3cc705b..149666e 100644
+--- a/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp
++++ b/xbmc/cores/VideoPlayer/DVDStreamInfo.cpp
+@@ -69,6 +69,9 @@ void CDVDStreamInfo::Clear()
+   contentLightMetadata = nullptr;
+   stereo_mode.clear();
+   dovi = {};
++#ifdef HAVE_DVBRIDGE
++  doviELConfig = {};
++#endif
+ 
+   channels   = 0;
+   samplerate = 0;
+@@ -93,6 +96,10 @@ bool CDVDStreamInfo::Equal(const CDVDStreamInfo& right, int compare)
+   {
+     return false;
+   }
++#ifdef HAVE_DVBRIDGE
++  if (compare & COMPARE_EXTRADATA && doviELConfig != right.doviELConfig)
++    return false;
++#endif
+ 
+   // VIDEO
+   // clang-format off
+@@ -237,6 +244,9 @@ void CDVDStreamInfo::Assign(const CDVDStreamInfo& right, bool withextradata)
+   contentLightMetadata = right.contentLightMetadata;
+   stereo_mode = right.stereo_mode;
+   dovi = right.dovi;
++#ifdef HAVE_DVBRIDGE
++  doviELConfig = withextradata ? right.doviELConfig : FFmpegExtraData{};
++#endif
+ 
+   // AUDIO
+   channels      = right.channels;
+@@ -305,6 +315,9 @@ void CDVDStreamInfo::Assign(const CDemuxStream& right, bool withextradata)
+     contentLightMetadata = stream->contentLightMetaData;
+     stereo_mode = stream->stereo_mode;
+     dovi = stream->dovi;
++#ifdef HAVE_DVBRIDGE
++    doviELConfig = withextradata ? stream->doviELConfig : FFmpegExtraData{};
++#endif
+   }
+   else if (right.type == StreamType::SUBTITLE)
+   {
+diff --git a/xbmc/cores/VideoPlayer/DVDStreamInfo.h b/xbmc/cores/VideoPlayer/DVDStreamInfo.h
+index 609a130..56d7c32 100644
+--- a/xbmc/cores/VideoPlayer/DVDStreamInfo.h
++++ b/xbmc/cores/VideoPlayer/DVDStreamInfo.h
+@@ -80,6 +80,9 @@ public:
+   std::shared_ptr<AVContentLightMetadata> contentLightMetadata;
+   std::string stereo_mode; // stereoscopic 3d mode
+   AVDOVIDecoderConfigurationRecord dovi{};
++#ifdef HAVE_DVBRIDGE
++  FFmpegExtraData doviELConfig;
++#endif
+ 
+   // Dolby Vision profile 8 compatibility IDs 1 and 4 identify HDR10 and HLG
+   // base layers respectively.

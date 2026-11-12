@@ -5,7 +5,7 @@
 PKG_NAME="kodi"
 PKG_VERSION="e6192109e1c883cea927fbcb4c223c0f6f3a2b6b"
 PKG_SHA256="a9a1cfae4ed28d57b8b22b3fecad4952f3e2622aef7fe8ff369dba842980686f"
-PKG_LICENSE="GPL-3.0-or-later"
+PKG_LICENSE="GPL-2.0-or-later"
 PKG_SITE="http://www.kodi.tv"
 PKG_URL="https://github.com/xbmc/xbmc/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain JsonSchemaBuilder:host TexturePacker:host Python3 zlib systemd lzo pcre2 swig:host libass curl exiv2 fontconfig fribidi tinyxml tinyxml2 libjpeg-turbo freetype libcdio taglib libxml2 libxslt nlohmann-json sqlite ffmpeg crossguid libdvdnav libfmt libfstrcmp flatbuffers:host flatbuffers libudfread spdlog libxkbcommon"
@@ -43,11 +43,20 @@ configure_package() {
 
   get_graphicdrivers
 
+  # yblod: the Dolby Vision bridge (DVBridge) is built only for x86_64 Generic on GBM
+  # with OpenGL ES and Vulkan, i.e. DEVICE=Generic (which is OpenGLES): its CMake stops
+  # on any other platform. Every other build is Kodi as upstream, with the patches.
+  KODI_DVBRIDGE=""
+
   if [ "${TARGET_ARCH}" = "x86_64" ]; then
     PKG_DEPENDS_TARGET+=" pciutils"
-    if [ "${PROJECT}" = "Generic" ]; then
+    if [ "${PROJECT}" = "Generic" -a "${OPENGL}" = "no" ] &&
+       [ "${VULKAN_SUPPORT}" = "yes" -a "${DISPLAYSERVER}" != "x11" ] &&
+       [ "${DISPLAYSERVER}" != "wl" ]; then
       # The Vulkan Dolby Vision engine (yblod-engine/vk), the only one since 0.4.0.
       PKG_DEPENDS_TARGET+=" yblod-engine-vk"
+      KODI_DVBRIDGE="-DENABLE_DVBRIDGE=ON"
+      PKG_LICENSE="GPL-3.0-or-later"
     fi
   fi
 
@@ -254,7 +263,7 @@ configure_package() {
                -DLIBDVDREAD_URL=${SOURCES}/libdvdread/libdvdread-$(get_pkg_version libdvdread).tar.xz \
                -DLIBDVDREAD_HASH=SHA256=$(get_pkg_variable libdvdread PKG_SHA256)"
 
-  PKG_CMAKE_OPTS_TARGET="-DENABLE_DVBRIDGE=ON -DNATIVEPREFIX=${TOOLCHAIN} \
+  PKG_CMAKE_OPTS_TARGET="-DNATIVEPREFIX=${TOOLCHAIN} \
                          -DWITH_TEXTUREPACKER=${TOOLCHAIN}/bin/TexturePacker \
                          -DWITH_JSONSCHEMABUILDER=${TOOLCHAIN}/bin/JsonSchemaBuilder \
                          -DSWIG_EXECUTABLE=${TOOLCHAIN}/bin/swig \
@@ -271,6 +280,7 @@ configure_package() {
                          -DENABLE_DBUS=ON \
                          -DENABLE_XSLT=ON \
                          -DENABLE_CCACHE=OFF \
+                         ${KODI_DVBRIDGE} \
                          ${KODI_LIRCCLIENT} \
                          -DENABLE_EVENTCLIENTS=ON \
                          -DENABLE_DEBUGFISSION=OFF \

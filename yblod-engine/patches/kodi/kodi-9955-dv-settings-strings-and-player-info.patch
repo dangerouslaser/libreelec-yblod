@@ -1,0 +1,2128 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 14:14:41 -0500
+Subject: [PATCH] Dolby Vision: settings, strings and player information
+
+- Settings > Player > Dolby Vision (category dolbyvision): output mode
+  (Dolby Vision (TV-led), Convert to HDR10, Convert to HDR10+ or Off,
+  listed only where the connection has them: OutputModeOptions), HDR10+
+  videos, enhancement layer upscaling (Annex B Master Reference or
+  bilinear), Dolby Vision metadata (original, CM4.0 auto, CM4.0 always;
+  TV peak brightness), Remove L2 trims, enhanced player information,
+  the menu output (Dolby Vision for the menu, brightness, saturation,
+  gamma, wide colour), reuse of unchanged controls and the home screen,
+  half-resolution menus, and developer switches (verify output, frame
+  and GPU timing logs). yblod.build lets skins detect YBLOD;
+  dvbridge.settingsversion records settings migrations.
+- DVOutputSettings.h latches the output preferences when playback is
+  prepared (SelectOutputSettings), so an open settings dialog cannot
+  change a running title; DVEngineSettings.h applies the engine's
+  settings as environment overrides at start and on every change,
+  taking precedence over native-dv.env.
+- The fork's strings use ids 45000 to 45999, a block Kodi does not use,
+  so that they cannot collide with strings Kodi adds. #40818 ("Player
+  information") is kept beside #45018: the pre-installed
+  skin.estuary.yblod add-on shows $LOCALIZE[40818] and updates on its
+  own schedule.
+- Player information (O): Estuary's panel (IncludesDVProcessInfo.xml)
+  shows video, audio, Dolby Vision metadata and the GPU's render usage;
+  turning enhanced player information off restores Kodi's panel.
+  RenderUsage (DVRenderUsage.cpp) reads the i915/xe engine time of
+  Kodi's own DRM descriptors from fdinfo, opening only descriptors known
+  to be DRM files. VideoGUIInfo reports HDMI Dolby Vision only for
+  output that was presented (CDVPlaybackInfo), not for the source's
+  format.
+- Telemetry: DVStreamTelemetry follows the stream, its decoded format
+  and the drop and skip counters for the panel. VideoPlayerVideo writes
+  a "DVBridge playback health" line every 10 s of native playback only
+  with DVBRIDGE_DIAGNOSTICS=1 (at INFO) or debug logging (at DEBUG), and
+  samples nothing otherwise.
+
+Settings.cpp registers the options filler and the HDR10+ condition
+under HAVE_DVBRIDGE. The renderer, window and engine adapter
+(kodi-9956, kodi-9957) read these settings; the panel shows what the
+decoder (kodi-9952) and the window report.
+
+Formerly kodi-9996-output-modes-and-info (most of it) and the playback
+information of kodi-9990-native-dv, with yblod-02 (menu output), -18
+(Dolby Vision category), -21 (engine settings), -23, -31, -32 (Dolby
+Vision menu), -34 (HDR10+), -54 (string ids), -57 (diagnostics cost)
+and -59 (the render code's strings by their new ids).
+---
+ .../resources/strings.po                      | 404 +++++++++++++++++-
+ .../xml/DialogPlayerProcessInfo.xml           |   2 +
+ .../xml/IncludesDVProcessInfo.xml             | 150 +++++++
+ system/settings/settings.xml                  | 233 ++++++++++
+ .../DVDCodecs/Video/DVOutputSettings.h        | 211 +++++++++
+ .../DVDCodecs/Video/DVPlaybackInfo.h          |  22 +
+ .../DVDCodecs/Video/DVStreamTelemetry.h       | 154 +++++++
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp        |   6 +
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp   |  58 +++
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.h     |   9 +
+ .../VideoRenderers/DVEngineSettings.h         | 182 ++++++++
+ xbmc/dialogs/DVPixelFormat.h                  |  29 ++
+ xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp   | 128 ++++++
+ xbmc/dialogs/GUIDialogPlayerProcessInfo.h     |  12 +
+ xbmc/guilib/guiinfo/VideoGUIInfo.cpp          |  11 +
+ xbmc/settings/Settings.cpp                    |  15 +
+ xbmc/utils/CMakeLists.txt                     |   5 +
+ xbmc/utils/DVRenderUsage.cpp                  | 130 ++++++
+ xbmc/utils/DVRenderUsage.h                    |  38 ++
+ 19 files changed, 1798 insertions(+), 1 deletion(-)
+ create mode 100644 addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h
+ create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+ create mode 100644 xbmc/dialogs/DVPixelFormat.h
+ create mode 100644 xbmc/utils/DVRenderUsage.cpp
+ create mode 100644 xbmc/utils/DVRenderUsage.h
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index ede07a7..b27330b 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -18266,7 +18266,6 @@ msgctxt "#34118"
+ msgid "100%"
+ msgstr ""
+ 
+-
+ #empty strings from id 34114 to 34119
+ #34119 reserved for future use
+ 
+@@ -25968,3 +25967,406 @@ msgstr ""
+ msgctxt "#40804"
+ msgid "{0:.1f} dB"
+ msgstr ""
++
++#. Old id of #45018: the pre-installed skin.estuary.yblod uses $LOCALIZE[40818] and updates on its own schedule
++msgctxt "#40818"
++msgid "Player information"
++msgstr ""
++
++# YBLOD: the fork's strings use ids 45000 to 45999, a block Kodi does not use, so that
++# they cannot collide with strings Kodi adds.
++
++#: system/settings/settings.xml
++msgctxt "#45010"
++msgid "Dolby Vision"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45011"
++msgid "Output mode"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45012"
++msgid "Dolby Vision (TV-led)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45013"
++msgid "Convert to HDR10"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45014"
++msgid "Off"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45015"
++msgid "Dolby Vision (TV-led): the TV maps the picture with its own Dolby Vision processing. Convert to HDR10: YBLOD converts Dolby Vision to HDR10 (the Master Reference conversion), for TVs without Dolby Vision. Convert to HDR10+: YBLOD sends the Master Reference picture with HDR10+ metadata made for each picture from its Dolby Vision metadata and the picture itself, and the TV applies its HDR10+ tone mapping; the HDR10+ curve is an approximation of the Dolby Vision trims by design, and a film whose metadata cannot be represented continues as HDR10. The conversions are shown only on HDMI outputs that carry them (Intel gen12 and later, AMD), not on DisplayPort or converter outputs; HDR10+ only with a TV that reports HDR10+. Off: Kodi plays the HDR10 or SDR base layer itself, without the enhancement layer (Profile 5 colours are wrong). Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45016"
++msgid "Enhanced player information"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45017"
++msgid "Show video, audio, metadata and GPU render usage when pressing O. Disable to restore Kodi's original panel."
++msgstr ""
++
++#: addons/skin.estuary/xml/IncludesDVProcessInfo.xml
++msgctxt "#45018"
++msgid "Player information"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45037"
++msgid "Dolby Vision for the menu"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45038"
++msgid "Keep the Dolby Vision output on while the menu is shown, so Dolby Vision videos start without the TV switching picture format. Needs a 3840x2160 desktop resolution. Other videos switch the output back to their own format. The menu settings below change only how the menu looks."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45039"
++msgid "Menu brightness"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45040"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Brightness of white in the menu. 203 nits is the HDR reference white the on-screen display uses over videos; Dolby Vision players use about 300 nits for their menus. Higher levels suit bright rooms."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45041"
++msgid "Reference (203 nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45042"
++msgid "300 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45043"
++msgid "400 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45044"
++msgid "500 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45045"
++msgid "600 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45046"
++msgid "800 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45047"
++msgid "Menu saturation"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45048"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Colour saturation of the menu. 100% shows the skin's colours as authored."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45049"
++msgid "80%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45050"
++msgid "90%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45051"
++msgid "100%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45052"
++msgid "110%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45053"
++msgid "120%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45054"
++msgid "130%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45055"
++msgid "150%"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45056"
++msgid "Menu gamma"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45057"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. How dark the darker greys of the menu look. sRGB is the flattest; 2.4 gives the deepest shadows and the most contrast."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45058"
++msgid "sRGB"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45059"
++msgid "2.2"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45060"
++msgid "2.4"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45061"
++msgid "Menu wide colour"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45062"
++msgid "Dolby Vision menu only: videos and the on-screen display over videos are not affected. Show the menu's colours on the TV's full wide colour range instead of accurate standard colours, like a TV's vivid colour mode."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45067"
++msgid "Dolby Vision output for videos and the menu, on YBLOD's Vulkan engine."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45068"
++msgid "Video"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45069"
++msgid "Menu output"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45070"
++msgid "Performance"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45071"
++msgid "Diagnostics"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45080"
++msgid "Reuse unchanged controls"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45081"
++msgid "Reuse the drawn playback controls and menus while they do not change instead of drawing them again for every video frame. Dolby Vision and HDR10 outputs."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45082"
++msgid "Reuse the home screen over video"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45083"
++msgid "Also reuse an unchanged home screen while a video plays in the background. Dolby Vision and HDR10 outputs."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45086"
++msgid "Half-resolution menus"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45087"
++msgid "Draw the menus and playback controls over videos at 1920x1080 and upscale them. Faster with controls open, especially for 4K 50/60 fps video, but menu text is softer. The video itself is not affected. Dolby Vision and HDR10 outputs."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45088"
++msgid "Verify output"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45089"
++msgid "Render every 60th frame again with the engine's reference route and compare the two; differences are written to the log. For troubleshooting: costs GPU time. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45090"
++msgid "Frame timing log"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45091"
++msgid "Write Kodi's startup timing for the first frames and the engine's per-frame timing to the log. For troubleshooting only. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45092"
++msgid "GPU timing log"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45093"
++msgid "Write the GPU time of each engine pass (averaged over 120 frames) to the log. For troubleshooting only. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45094"
++msgid "YBLOD build"
++msgstr ""
++
++#: xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++msgctxt "#45100"
++msgid "The Dolby Vision engine (Vulkan) could not start. Dolby Vision videos play without Dolby Vision until Kodi restarts."
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45101"
++msgid "This connection does not take HDR10 from Dolby Vision. Videos play without conversion until Kodi restarts."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45102"
++msgid "Enhancement layer upscaling"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45103"
++msgid "How a Profile 7 full enhancement layer is upscaled to the picture. Annex B (Master Reference): the filters of Dolby's published reference (ETSI CCM Annex B), with CB1 Master Reference's processing for pictures shown at their own size. Bilinear: YBLOD's own processing with a bilinear upscale for every picture. Dolby Vision and HDR10 outputs. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45104"
++msgid "Annex B (Master Reference)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45105"
++msgid "Bilinear"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45106"
++msgid "Dolby Vision metadata"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45107"
++msgid "What the TV's Dolby Vision processing gets with each picture. Original: the film's metadata as it is. CM4.0 auto: neutral CM4.0 levels added to CM2.9 films where CroqueMr's CB1 rules call for it: scenes within the TV's peak brightness (below), or, when the TV's peak is unknown, films mastered at up to 1000 nits. CM4.0 always: added to every CM2.9 film. No trims are made up. Dolby Vision output only. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45108"
++msgid "Original"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45109"
++msgid "CM4.0 auto"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45110"
++msgid "CM4.0 always"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45111"
++msgid "Remove L2 trims"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45112"
++msgid "Leave the film's CM2.9 trims (L2) out of the metadata, so the TV maps those scenes with its own processing. Dolby Vision output only. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45113"
++msgid "TV peak brightness"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45114"
++msgid "The TV's peak brightness, for CM4.0 auto. From the TV: the peak the TV reports in its EDID; if it reports none, CM4.0 auto decides by the film's mastering instead. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45115"
++msgid "From the TV"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45116"
++msgid "1000 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45117"
++msgid "1500 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45118"
++msgid "2000 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45119"
++msgid "4000 nits"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45120"
++msgid "Convert to HDR10+"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45121"
++msgid "HDR10+ videos"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45122"
++msgid "How videos with HDR10+ are played. Native HDR10+: as Kodi plays them (HDR10; YBLOD does not pass HDR10+ through in this release). Dolby Vision: the TV gets them as Dolby Vision Profile 8.1, with Dolby Vision metadata made for each picture from its HDR10+ (brightness levels L1 and L6; the HDR10+ curve and its trims are not translated, so the TV's own Dolby Vision mapping replaces them). A video whose HDR10+ cannot be represented (several processing windows, no usable peak) plays as HDR10. Dolby Vision output only. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45123"
++msgid "Native HDR10+"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45124"
++msgid "Dolby Vision"
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45125"
++msgid "This connection does not take HDR10+ packets. The video continues as HDR10."
++msgstr ""
+diff --git a/addons/skin.estuary/xml/DialogPlayerProcessInfo.xml b/addons/skin.estuary/xml/DialogPlayerProcessInfo.xml
+index c4f1c10..fc33e70 100644
+--- a/addons/skin.estuary/xml/DialogPlayerProcessInfo.xml
++++ b/addons/skin.estuary/xml/DialogPlayerProcessInfo.xml
+@@ -6,7 +6,9 @@
+ 	<animation effect="fade" start="100" end="0" time="200">WindowClose</animation>
+ 	<onunload>ClearProperty(PlayerInfoDialogFocus,Home)</onunload>
+ 	<controls>
++		<include file="IncludesDVProcessInfo.xml">DVProcessPanel</include>
+ 		<control type="group">
++			<visible>!String.IsEqual(Window(playerprocessinfo).Property(DV.Enhanced),true)</visible>
+ 			<bottom>0</bottom>
+ 			<height>250</height>
+ 			<animation effect="slide" end="0,-20" time="150" condition="VideoPlayer.Content(LiveTV)">conditional</animation>
+diff --git a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+new file mode 100644
+index 0000000..1282f4b
+--- /dev/null
++++ b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+@@ -0,0 +1,150 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<includes>
++  <variable name="DVAudioOutput">
++    <value condition="Player.Passthrough">Passthrough</value>
++    <value>Decoded PCM</value>
++  </variable>
++  <variable name="DVSourceFormat">
++    <value condition="String.IsEqual(VideoPlayer.HdrType,dolbyvision)">Dolby Vision</value>
++    <value condition="String.IsEqual(VideoPlayer.HdrType,hdr10)">HDR10</value>
++    <value condition="String.IsEqual(VideoPlayer.HdrType,hlg)">HLG</value>
++    <value condition="!String.IsEmpty(VideoPlayer.HdrType)">$INFO[VideoPlayer.HdrType]</value>
++    <value>SDR</value>
++  </variable>
++  <variable name="DVPanelMode">
++    <value condition="!String.IsEqual(Window(playerprocessinfo).Property(DV.Mode),Kodi default)">$INFO[Window(playerprocessinfo).Property(DV.Mode)]</value>
++    <value>$VAR[DVSourceFormat] / Kodi playback</value>
++  </variable>
++  <variable name="DVSubtitleLanguage">
++    <value condition="VideoPlayer.HasSubtitles + VideoPlayer.SubtitlesEnabled">$INFO[VideoPlayer.SubtitlesLanguage]</value>
++    <value>Off</value>
++  </variable>
++  <include name="DVInfoRow">
++    <param name="label"/><param name="value"/><param name="visible" default="true"/>
++    <definition>
++      <control type="group"><height>30</height><visible>$PARAM[visible]</visible>
++        <control type="label"><width>230</width><height>30</height>
++          <font>font10</font><textcolor>FFBFC8CC</textcolor><label>$PARAM[label]</label>
++        </control>
++        <control type="label"><left>234</left><right>0</right><height>30</height>
++          <font>font10</font><textcolor>FFF4F6F6</textcolor><align>right</align><label>$PARAM[value]</label>
++        </control>
++      </control>
++    </definition>
++  </include>
++  <include name="DVSection">
++    <param name="label"/><param name="gap" default="0"/><param name="height" default="42"/><param name="visible" default="true"/>
++    <definition>
++      <control type="group"><height>$PARAM[height]</height><visible>$PARAM[visible]</visible>
++        <control type="label"><top>$PARAM[gap]</top><width>550</width><height>34</height>
++          <font>font12</font><textcolor>FFF4F6F6</textcolor><label>[B]$PARAM[label][/B]</label>
++        </control>
++      </control>
++    </definition>
++  </include>
++  <include name="DVVideoFields"><definition>
++      <include content="DVSection"><param name="label" value="VIDEO"/><param name="gap" value="0"/><param name="height" value="42"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Format"/><param name="value" value="$VAR[DVSourceFormat]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Display output"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Display)]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Video stream"/><param name="value" value="$INFO[Player.Process(videowidth)]x$INFO[Player.Process(videoheight)] / $INFO[Player.Process(videofps)] fps"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Decoder"/><param name="value" value="$INFO[Player.Process(videodecoder)]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Pixel format"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.SourcePixelFormat)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourcePixelFormat))"/></include>
++      <include content="DVInfoRow"><param name="label" value="Source bit depth"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.SourceBits)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceBits)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceBits),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Aspect ratio"/><param name="value" value="$INFO[Player.Process(videodar)]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Video bitrate"/><param name="value" value="$INFO[Player.Process(videolivebitrate)]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Playback time"/><param name="value" value="$INFO[Player.Time] / $INFO[Player.Duration]"/><param name="visible" value="true"/></include>
++    </definition></include>
++  <include name="DVAudioFields"><definition>
++      <include content="DVSection"><param name="label" value="AUDIO"/><param name="gap" value="0"/><param name="height" value="42"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Track"/><param name="value" value="No audio track"/><param name="visible" value="!Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Codec"/><param name="value" value="$INFO[Player.Process(audiodecoder)]"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Resolution"/><param name="value" value="$INFO[Player.Process(audiobitspersample)] bit / $INFO[Player.Process(audiosamplerate)] Hz"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Source channels"/><param name="value" value="$INFO[Player.Process(audiochannels)]"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Output"/><param name="value" value="$VAR[DVAudioOutput]"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Bitrate"/><param name="value" value="$INFO[Player.Process(audiolivebitrate)]"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Language"/><param name="value" value="$INFO[VideoPlayer.AudioLanguage]"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Subtitles"/><param name="value" value="$VAR[DVSubtitleLanguage]"/><param name="visible" value="true"/></include>
++    </definition></include>
++  <include name="DVStaticHDRFields"><definition>
++      <include content="DVInfoRow"><param name="label" value="Mastering max / min"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.SourceMastering)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceMastering)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceMastering),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="MaxCLL / MaxFALL"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.SourceLight)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceLight)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceLight),N/A)"/></include>
++    </definition></include>
++  <include name="DVRenderingFields"><param name="gauge"/><definition>
++      <include content="DVSection"><param name="label" value="RENDERING &amp; SYSTEM"/><param name="gap" value="0"/><param name="height" value="42"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="GPU render (Kodi)"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.GPURender)]"/><param name="visible" value="String.IsEqual(Window(playerprocessinfo).Property(DV.GPUAvailable),true)"/></include>
++      <control type="group"><height>24</height><visible>String.IsEqual(Window(playerprocessinfo).Property(DV.GPUAvailable),true)</visible>
++        <control type="progress" id="$PARAM[gauge]"><top>8</top><width>564</width><height>8</height>
++          <texturebg colordiffuse="FF343E42">colors/white.png</texturebg>
++          <lefttexture/><midtexture colordiffuse="FFB9D8C7">colors/white.png</midtexture><righttexture/><overlaytexture/>
++        </control>
++      </control>
++      <include content="DVInfoRow"><param name="label" value="CPU"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.CPU)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.CPU)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.CPU),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Temperature"/><param name="value" value="$INFO[System.CPUTemperature]"/><param name="visible" value="!String.IsEmpty(System.CPUTemperature)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Memory"/><param name="value" value="$INFO[System.Memory(used.percent)]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Drop / skip"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.DroppedSkipped)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.DroppedSkipped)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.DroppedSkipped),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Player cache"/><param name="value" value="$INFO[Player.CacheLevel] %"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Video queue / data"/><param name="value" value="$INFO[Player.Process(videoqueuelevel)] % / $INFO[Player.Process(videoqueuedatalevel)] %"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Audio queue / data"/><param name="value" value="$INFO[Player.Process(audioqueuelevel)] % / $INFO[Player.Process(audioqueuedatalevel)] %"/><param name="visible" value="Integer.IsGreater(VideoPlayer.AudioStreamCount,0)"/></include>
++      <include content="DVSection"><param name="label" value="OUTPUT &amp; PROCESSING"/><param name="gap" value="18"/><param name="height" value="60"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Playback"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Mode)]"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Signal"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Transport)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Transport)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Transport),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Precision"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Precision)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Precision)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Precision),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="FEL reconstructed"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.FEL)]"/><param name="visible" value="String.IsEqual(VideoPlayer.HdrType,dolbyvision) + !String.IsEmpty(Window(playerprocessinfo).Property(DV.FEL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.FEL),N/A)"/></include>
++    </definition></include>
++  <include name="DVDynamicFields"><definition>
++      <include content="DVSection"><param name="label" value="DOLBY VISION"/><param name="gap" value="0"/><param name="height" value="42"/><param name="visible" value="true"/></include>
++      <include content="DVInfoRow"><param name="label" value="Profile"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Profile)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Profile)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Profile),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Level"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Level)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Level)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Level),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Version"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Version)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Version)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Version),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="CM metadata"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.CM)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.CM)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.CM),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="RPU"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.RPU)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.RPU)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.RPU),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Base layer"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.BL)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.BL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.BL),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Enhancement layer"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.EL)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.EL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.EL),N/A)"/></include>
++      <include content="DVSection"><param name="label" value="METADATA"/><param name="gap" value="18"/><param name="height" value="60"/><param name="visible" value="[!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceMastering)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceMastering),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceLight)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceLight),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.Mastering)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Mastering),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.CLL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.CLL),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.L1PQ)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.L1PQ),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.L1Nits)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.L1Nits),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.L5)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.L5),N/A)]"/></include>
++      <include>DVStaticHDRFields</include>
++      <include content="DVInfoRow"><param name="label" value="RPU max / min"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Mastering)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Mastering)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Mastering),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="RPU CLL / FALL"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.CLL)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.CLL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.CLL),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="L1 PQ min/max/avg"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.L1PQ)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.L1PQ)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.L1PQ),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="L1 nits min/max/avg"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.L1Nits)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.L1Nits)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.L1Nits),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="L5 L/R/T/B"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.L5)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.L5)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.L5),N/A)"/></include>
++    </definition></include>
++  <include name="DVProcessLayout"><param name="height"/><param name="background"/><param name="panel"/><param name="surface"/><param name="col1"/><param name="col2"/><param name="col3"/><param name="dv"/><param name="gauge"/><definition>
++      <control type="group" id="$PARAM[panel]">
++        <left>32</left><right>32</right><bottom>24</bottom><height>$PARAM[height]</height>
++        <control type="image" id="$PARAM[surface]"><left>-20</left><top>-20</top><width>1896</width><height>$PARAM[background]</height>
++          <texture border="60">buttons/roundbutton-fo.png</texture><colordiffuse>FF1E2428</colordiffuse>
++        </control>
++        <control type="label"><left>36</left><top>22</top><width>820</width><height>48</height>
++          <font>font30_title</font><textcolor>FFF4F6F6</textcolor><label>$LOCALIZE[45018]</label>
++        </control>
++        <control type="label"><left>880</left><top>27</top><right>36</right><height>40</height>
++          <font>font10</font><textcolor>FFB9D8C7</textcolor><align>right</align><label>$VAR[DVPanelMode]</label>
++        </control>
++        <control type="image"><left>36</left><top>88</top><right>36</right><height>1</height>
++          <texture>colors/white.png</texture><colordiffuse>28FFFFFF</colordiffuse>
++        </control>
++        <control type="grouplist" id="$PARAM[col1]"><left>36</left><top>108</top><width>548</width><height>700</height><itemgap>0</itemgap>
++          <include>DVVideoFields</include>
++          <control type="group"><height>24</height><visible>$PARAM[dv]</visible></control>
++          <include condition="$PARAM[dv]">DVAudioFields</include>
++          <include content="DVSection"><param name="label" value="HDR METADATA"/><param name="gap" value="24"/><param name="height" value="66"/><param name="visible" value="![$PARAM[dv]] + [[!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceMastering)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceMastering),N/A)] | [!String.IsEmpty(Window(playerprocessinfo).Property(DV.SourceLight)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.SourceLight),N/A)]]"/></include>
++          <include condition="![$PARAM[dv]]">DVStaticHDRFields</include>
++        </control>
++        <control type="grouplist" id="$PARAM[col2]"><left>630</left><top>108</top><width>580</width><height>700</height><itemgap>0</itemgap>
++          <include condition="$PARAM[dv]">DVDynamicFields</include>
++          <include condition="![$PARAM[dv]]">DVAudioFields</include>
++        </control>
++        <control type="grouplist" id="$PARAM[col3]"><left>1256</left><top>108</top><width>564</width><height>700</height><itemgap>0</itemgap>
++          <include content="DVRenderingFields"><param name="gauge" value="$PARAM[gauge]"/></include>
++        </control>
++      </control>
++    </definition></include>
++  <include name="DVProcessPanel">
++    <control type="group" id="9500"><visible>String.IsEqual(Window(playerprocessinfo).Property(DV.Enhanced),true) + String.IsEqual(VideoPlayer.HdrType,dolbyvision)</visible>
++      <include content="DVProcessLayout"><param name="height" value="774"/><param name="background" value="814"/><param name="panel" value="9600"/><param name="surface" value="9610"/><param name="col1" value="9620"/><param name="col2" value="9621"/><param name="col3" value="9622"/><param name="dv" value="true"/><param name="gauge" value="9400"/></include>
++    </control>
++    <control type="group" id="9501"><visible>String.IsEqual(Window(playerprocessinfo).Property(DV.Enhanced),true) + !String.IsEqual(VideoPlayer.HdrType,dolbyvision)</visible>
++      <include content="DVProcessLayout"><param name="height" value="620"/><param name="background" value="660"/><param name="panel" value="9601"/><param name="surface" value="9611"/><param name="col1" value="9630"/><param name="col2" value="9631"/><param name="col3" value="9632"/><param name="dv" value="false"/><param name="gauge" value="9401"/></include>
++    </control>
++  </include>
++</includes>
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index fe9c117..9174d79 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -331,6 +331,239 @@
+         </setting>
+       </group>
+     </category>
++    <category id="dolbyvision" label="45010" help="45067">
++      <group id="1" label="45068">
++        <setting id="dvbridge.outputmode" type="integer" label="45011" help="45015">
++          <level>0</level>
++          <default>0</default>
++          <constraints>
++            <options>dvbridgeoutputmodes</options>
++          </constraints>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.hdr10plussources" type="integer" label="45121" help="45122">
++          <level>0</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45123">0</option>
++              <option label="45124">1</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgehdr10plustodv" />
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.elupscaler" type="integer" label="45102" help="45103">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45104">0</option>
++              <option label="45105">1</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.dvmetadata" type="integer" label="45106" help="45107">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45108">0</option>
++              <option label="45109">1</option>
++              <option label="45110">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.tvpeak" type="integer" parent="dvbridge.dvmetadata" label="45113" help="45114">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45115">0</option>
++              <option label="45043">400</option>
++              <option label="45045">600</option>
++              <option label="45046">800</option>
++              <option label="45116">1000</option>
++              <option label="45117">1500</option>
++              <option label="45118">2000</option>
++              <option label="45119">4000</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" setting="dvbridge.dvmetadata" operator="is">1</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.removel2" type="boolean" label="45111" help="45112">
++          <level>1</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.enhancedinfo" type="boolean" label="45016" help="45017">
++          <level>0</level>
++          <default>true</default>
++          <control type="toggle" />
++        </setting>
++      </group>
++      <group id="2" label="45069">
++        <setting id="dvbridge.menumode" type="boolean" label="45037" help="45038">
++          <level>0</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="is">0</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.menubrightness" type="integer" label="45039" help="45040">
++          <level>0</level>
++          <default>400</default>
++          <constraints>
++            <options>
++              <option label="45041">203</option>
++              <option label="45042">300</option>
++              <option label="45043">400</option>
++              <option label="45044">500</option>
++              <option label="45045">600</option>
++              <option label="45046">800</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menusaturation" type="integer" label="45047" help="45048">
++          <level>0</level>
++          <default>100</default>
++          <constraints>
++            <options>
++              <option label="45049">80</option>
++              <option label="45050">90</option>
++              <option label="45051">100</option>
++              <option label="45052">110</option>
++              <option label="45053">120</option>
++              <option label="45054">130</option>
++              <option label="45055">150</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menugamma" type="integer" label="45056" help="45057">
++          <level>0</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45058">0</option>
++              <option label="45059">1</option>
++              <option label="45060">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.menuwidecolour" type="boolean" label="45061" help="45062">
++          <level>0</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.menumode">true</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++      </group>
++      <group id="3" label="45070">
++        <setting id="dvbridge.guicache" type="boolean" label="45080" help="45081">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.homecache" type="boolean" parent="dvbridge.guicache" label="45082" help="45083">
++          <level>3</level>
++          <default>true</default>
++          <dependencies>
++            <dependency type="enable">
++              <and>
++                <condition setting="dvbridge.outputmode" operator="!is">2</condition>
++                <condition setting="dvbridge.guicache">true</condition>
++              </and>
++            </dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.halfgui" type="boolean" label="45086" help="45087">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++      </group>
++      <group id="4" label="45071">
++        <setting id="dvbridge.verify" type="boolean" label="45088" help="45089">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.frametrace" type="boolean" label="45090" help="45091">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++        <setting id="dvbridge.gputiming" type="boolean" label="45092" help="45093">
++          <level>3</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
++      </group>
++      <group id="5">
++        <!-- Lets skins detect YBLOD: System.GetBool(yblod.build) is false on other Kodi builds. -->
++        <setting id="yblod.build" type="boolean" label="45094">
++          <level>4</level>
++          <default>true</default>
++          <visible>false</visible>
++          <control type="toggle" />
++        </setting>
++        <!-- Settings migrations done (DVEngineSettings.h kSettingsVersion). -->
++        <setting id="dvbridge.settingsversion" type="integer" label="45094">
++          <level>4</level>
++          <default>0</default>
++          <visible>false</visible>
++          <control type="edit" format="integer" />
++        </setting>
++      </group>
++    </category>
+     <category id="musicplayer" label="14216" help="38104">
+       <group id="1" label="14230">
+         <setting id="musicplayer.autoplaynextitem" type="boolean" label="489" help="36265">
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+new file mode 100644
+index 0000000..3aa8f33
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -0,0 +1,211 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++
++#include "ServiceBroker.h"
++#include "settings/Settings.h"
++#include "settings/SettingsComponent.h"
++#include "settings/lib/SettingDefinitions.h"
++#include <atomic>
++#include <cstdint>
++#include <mutex>
++#include <string>
++
++namespace DVBRIDGE
++{
++// Settings > Player > Dolby Vision > Output mode (dvbridge.outputmode). The values are stored in
++// guisettings.xml, so they keep their meaning: a new output takes the next free value, is offered
++// by OutputModeOptions where the connection has it, and is accepted by SelectOutputSettings below.
++enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2, HDR10Plus = 3 };
++
++// Playback preparation latches the preferences. An open settings dialog must not
++// change the output encoding of an already running playback session.
++inline std::atomic<OutputMode> playbackMode{OutputMode::Standard};
++
++// HDR10 output through the tunnel: the Vulkan engine's HDR10 (the Master
++// Reference conversion, dvvk_set_output_mode) sent as the tunnel's 12-bit
++// YCbCr 4:2:2 with DVBRIDGE_TUNNEL_FORMAT hdr10 (linux-9928). The window sets
++// it for the output it begins (OutputMode HDR10 where the connector has it)
++// and clears it at the end; the engine reads it for every frame.
++inline std::atomic<bool> playbackTunnelHDR10{false};
++
++// Dolby Vision -> HDR10+ (OutputMode HDR10Plus): the tunnel's HDR10 output
++// (playbackTunnelHDR10 is set too) with the engine in DVVK_OUTPUT_HDR10PLUS and
++// each picture's HDR10+ vendor InfoFrame in the connector's HDR10PLUS_METADATA
++// (linux-9932), committed with that picture. The window sets it with
++// playbackTunnelHDR10 where the TV and the connector have HDR10+, and
++// playbackHDR10PlusFlags (DVVK_HDR10PLUS_*) from the TV's HDR10+ VSVDB.
++inline std::atomic<bool> playbackTunnelHDR10Plus{false};
++inline std::atomic<uint32_t> playbackHDR10PlusFlags{0};
++// Set once the engine could not represent a picture as HDR10+ (or the kernel
++// refused the packets): the rest of the title is HDR10 (the Master Reference
++// conversion) and the property is cleared. Cleared when the output ends.
++inline std::atomic<bool> playbackHDR10PlusFallback{false};
++
++// Settings > Player > Dolby Vision > HDR10+ videos (dvbridge.hdr10plussources), latched per
++// video: 1 plays HDR10+ titles as Dolby Vision (Profile 8.1 with metadata made from each
++// picture's HDR10+, dvvk_hdr10plus_to_dovi), 0 as Kodi plays them today.
++inline std::atomic<bool> playbackHDR10PlusToDV{false};
++
++// The HDR static metadata (CTA-861.3 type 1 units) of the last tunnel picture
++// the engine made in HDR10, for the HDR_OUTPUT_METADATA the tunnel's link
++// carries. The film's (L6 or its source peak, L9's primaries), so it changes
++// with the film, not the scene.
++struct TunnelHDR10Signal
++{
++  uint16_t primaries[3][2]{}; // R, G, B x, y in 0.00002
++  uint16_t white[2]{};
++  uint16_t maxLuminance{0};   // cd/m2
++  uint16_t minLuminance{0};   // 0.0001 cd/m2
++  uint16_t maxCll{0}, maxFall{0};
++  bool operator==(const TunnelHDR10Signal&) const = default;
++};
++
++namespace detail
++{
++inline std::mutex tunnelSignalLock;
++inline TunnelHDR10Signal tunnelSignal;
++inline bool tunnelSignalValid{false};
++} // namespace detail
++
++// The engine, after each frame: the picture's signal, or nullptr (a Dolby Vision picture).
++inline void PublishTunnelHDR10(const TunnelHDR10Signal* signal)
++{
++  std::lock_guard lock(detail::tunnelSignalLock);
++  detail::tunnelSignalValid = signal != nullptr;
++  detail::tunnelSignal = signal ? *signal : TunnelHDR10Signal{};
++}
++
++// The window, at the flip: whether the last picture is HDR10, and its signal.
++inline bool CurrentTunnelHDR10(TunnelHDR10Signal& signal)
++{
++  std::lock_guard lock(detail::tunnelSignalLock);
++  signal = detail::tunnelSignal;
++  return detail::tunnelSignalValid;
++}
++
++// The HDR10+ packet of the last tunnel picture (DVVK_OUTPUT_HDR10PLUS), for the
++// HDR10PLUS_METADATA of the commit that shows it.
++struct TunnelHDR10PlusPacket
++{
++  enum class State
++  {
++    None, // no HDR10+ (not an HDR10+ picture, or the fallback to HDR10): the property is 0
++    Keep, // no statistics for this picture yet: the property stays as it is
++    Send, // vsif: the picture's 31-byte HDR10+ vendor InfoFrame
++  };
++  State state{State::None};
++  uint8_t vsif[31]{};
++};
++
++namespace detail
++{
++inline TunnelHDR10PlusPacket tunnelPacket;
++} // namespace detail
++
++// The engine, after each frame.
++inline void PublishTunnelHDR10Plus(const TunnelHDR10PlusPacket& packet)
++{
++  std::lock_guard lock(detail::tunnelSignalLock);
++  detail::tunnelPacket = packet;
++}
++
++// The window, at the flip.
++inline TunnelHDR10PlusPacket CurrentTunnelHDR10Plus()
++{
++  std::lock_guard lock(detail::tunnelSignalLock);
++  return detail::tunnelPacket;
++}
++
++// Settings > Player > Dolby Vision > Output mode: the values this connection
++// has (settings.xml's "dvbridgeoutputmodes" filler, WinSystemGbmGLESContext).
++void OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
++                       IntegerSettingOptions& list,
++                       int& current);
++
++// Settings > Player > Dolby Vision > HDR10+ videos is shown: a Dolby Vision TV on this
++// connection and an engine that converts HDR10+ (settings condition "dvbridgehdr10plustodv",
++// WinSystemGbmGLESContext).
++bool HDR10PlusToDVAvailable(const std::string& condition,
++                            const std::string& value,
++                            const std::shared_ptr<const CSetting>& setting);
++
++inline void SelectOutputSettings()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int mode = settings ? settings->GetInt("dvbridge.outputmode") : 0;
++  switch (static_cast<OutputMode>(mode))
++  {
++    case OutputMode::Standard:
++    case OutputMode::HDR10:
++    case OutputMode::Disabled:
++    case OutputMode::HDR10Plus:
++      playbackMode.store(static_cast<OutputMode>(mode));
++      break;
++    default:
++      playbackMode.store(OutputMode::Standard);
++      break;
++  }
++  playbackHDR10PlusToDV.store(settings && settings->GetInt("dvbridge.hdr10plussources") == 1);
++}
++
++// GUI white in the menu output (dvbridge.menubrightness). Read live, as the setting can change while
++// the menu is shown.
++inline float MenuWhiteNits()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int nits = settings ? settings->GetInt("dvbridge.menubrightness") : 400;
++  switch (nits)
++  {
++    case 203:
++    case 300:
++    case 500:
++    case 600:
++    case 800:
++      return static_cast<float>(nits);
++    default:
++      return 400.0f;
++  }
++}
++
++// Read live: the menu output follows the settings without a playback.
++inline bool MenuModeEnabled()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  return settings && settings->GetBool("dvbridge.menumode") &&
++         settings->GetInt("dvbridge.outputmode") == static_cast<int>(OutputMode::Standard);
++}
++
++// Menu look (Dolby Vision menu only), read live like the brightness.
++inline float MenuSaturation()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int percent = settings ? settings->GetInt("dvbridge.menusaturation") : 100;
++  return percent >= 50 && percent <= 200 ? percent / 100.0f : 1.0f;
++}
++
++inline unsigned MenuGamma()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  const int gamma = settings ? settings->GetInt("dvbridge.menugamma") : 0;
++  return gamma >= 0 && gamma <= 2 ? static_cast<unsigned>(gamma) : 0u;
++}
++
++inline bool MenuWideColour()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  return settings && settings->GetBool("dvbridge.menuwidecolour");
++}
++
++inline bool EnhancedInfoEnabled()
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  return settings && settings->GetBool("dvbridge.enhancedinfo");
++}
++} // namespace DVBRIDGE
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+new file mode 100644
+index 0000000..f15d49a
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+@@ -0,0 +1,22 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++#include <atomic>
++#include <string>
++
++// The render thread publishes one coherent snapshot only after presentation.
++// This is output telemetry, never a source-format or TV certification flag.
++struct CDVPlaybackInfo
++{
++  enum : unsigned { HDMI = 1, FEL = 2, CM4 = 4, HDR10 = 8 };
++  inline static std::atomic<unsigned> presented{0};
++
++  static std::string Detail(std::string source, unsigned output)
++  {
++    if (!(output & (HDMI | HDR10)))
++      return source;
++    if ((output & FEL) && source.find("FEL") == std::string::npos)
++      source += " FEL";
++    source += (output & CM4) ? " · CM4" : " · CM2.9";
++    return source + ((output & HDR10) ? " · HDR10 output" : " · HDMI DV");
++  }
++};
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h
+new file mode 100644
+index 0000000..691c40a
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h
+@@ -0,0 +1,154 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++
++#include <array>
++#include <atomic>
++#include <chrono>
++#include <mutex>
++
++extern "C"
++{
++#include <libavutil/dovi_meta.h>
++#include <libavutil/mastering_display_metadata.h>
++#include <libavutil/pixfmt.h>
++}
++
++namespace DVBRIDGE
++{
++struct StreamSnapshot
++{
++  unsigned profile{}, level{}, major{}, minor{};
++  bool bl{}, el{}, rpu{}, metadata{}, cm4{}, fel{};
++  bool l1{}, l5{}, l6{};
++  std::array<unsigned, 3> pq{};
++  std::array<unsigned, 4> area{};
++  unsigned maxMaster{}, minMaster{}, maxCLL{}, maxFALL{};
++  unsigned framebufferBits{}, sourceBits{};
++  AVPixelFormat sourceFormat{AV_PIX_FMT_NONE};
++  int dropped{}, skipped{};
++  bool counters{};
++  bool sourceMastering{}, sourceLight{};
++  double sourceMax{}, sourceMin{};
++  unsigned sourceCLL{}, sourceFALL{};
++};
++
++class StreamTelemetry
++{
++public:
++  inline static std::atomic<bool> observing{false};
++
++  static void SourceBits(unsigned bits, AVPixelFormat format)
++  {
++    m_sourceBits.store(bits, std::memory_order_relaxed);
++    m_sourceFormat.store(format, std::memory_order_relaxed);
++  }
++
++  static void Counters(int dropped, int skipped)
++  {
++    m_dropped.store(dropped, std::memory_order_relaxed);
++    m_skipped.store(skipped, std::memory_order_relaxed);
++    m_counters.store(true, std::memory_order_relaxed);
++  }
++
++  static void StaticMetadata(const AVMasteringDisplayMetadata* mastering,
++                             const AVContentLightMetadata* light)
++  {
++    std::lock_guard<std::mutex> lock(m_mutex);
++    if (mastering && mastering->has_luminance &&
++        mastering->max_luminance.den > 0 && mastering->min_luminance.den > 0)
++    {
++      m_snapshot.sourceMastering = true;
++      m_snapshot.sourceMax = av_q2d(mastering->max_luminance);
++      m_snapshot.sourceMin = av_q2d(mastering->min_luminance);
++    }
++    if (light)
++    {
++      m_snapshot.sourceLight = true;
++      m_snapshot.sourceCLL = light->MaxCLL;
++      m_snapshot.sourceFALL = light->MaxFALL;
++    }
++  }
++
++  static void Begin(unsigned profile, unsigned level, unsigned major, unsigned minor,
++                    bool bl, bool el, bool rpu)
++  {
++    std::lock_guard<std::mutex> lock(m_mutex);
++    m_snapshot = {};
++    m_counters.store(false, std::memory_order_relaxed);
++    m_sourceBits.store(0, std::memory_order_relaxed);
++    m_sourceFormat.store(AV_PIX_FMT_NONE, std::memory_order_relaxed);
++    m_snapshot.profile = profile;
++    m_snapshot.level = level;
++    m_snapshot.major = major;
++    m_snapshot.minor = minor;
++    m_snapshot.bl = bl;
++    m_snapshot.el = el;
++    m_snapshot.rpu = rpu;
++    m_next = {};
++  }
++
++  // Called on the renderer thread only, after its metadata bounds validation.
++  static void Metadata(const AVDOVIMetadata* data, bool fel, unsigned bits)
++  {
++    if (!observing.load(std::memory_order_relaxed))
++      return;
++    const auto now = std::chrono::steady_clock::now();
++    std::lock_guard<std::mutex> lock(m_mutex);
++    if (now < m_next)
++      return;
++    m_next = now + std::chrono::milliseconds(500);
++    auto& out = m_snapshot;
++    out.metadata = true;
++    out.fel = fel;
++    out.framebufferBits = bits;
++    out.l1 = out.l5 = out.l6 = out.cm4 = false;
++    for (int i = 0; i < data->num_ext_blocks; ++i)
++    {
++      const auto* ext = av_dovi_get_ext(data, i);
++      switch (ext->level)
++      {
++        case 1:
++          out.l1 = true;
++          out.pq = {ext->l1.min_pq, ext->l1.max_pq, ext->l1.avg_pq};
++          break;
++        case 5:
++          out.l5 = true;
++          out.area = {ext->l5.left_offset, ext->l5.right_offset,
++                      ext->l5.top_offset, ext->l5.bottom_offset};
++          break;
++        case 6:
++          out.l6 = true;
++          out.maxMaster = ext->l6.max_luminance;
++          out.minMaster = ext->l6.min_luminance;
++          out.maxCLL = ext->l6.max_cll;
++          out.maxFALL = ext->l6.max_fall;
++          break;
++        case 3: case 8: case 9: case 10: case 11: case 254:
++          out.cm4 = true;
++          break;
++      }
++    }
++  }
++
++  static StreamSnapshot Read()
++  {
++    std::lock_guard<std::mutex> lock(m_mutex);
++    auto result = m_snapshot;
++    result.counters = m_counters.load(std::memory_order_relaxed);
++    result.dropped = m_dropped.load(std::memory_order_relaxed);
++    result.skipped = m_skipped.load(std::memory_order_relaxed);
++    result.sourceBits = m_sourceBits.load(std::memory_order_relaxed);
++    result.sourceFormat = m_sourceFormat.load(std::memory_order_relaxed);
++    return result;
++  }
++
++private:
++  inline static std::atomic<int> m_dropped{}, m_skipped{};
++  inline static std::atomic<unsigned> m_sourceBits{0};
++  inline static std::atomic<AVPixelFormat> m_sourceFormat{AV_PIX_FMT_NONE};
++  inline static std::atomic<bool> m_counters{false};
++  inline static std::mutex m_mutex;
++  inline static StreamSnapshot m_snapshot;
++  inline static std::chrono::steady_clock::time_point m_next;
++};
++} // namespace DVBRIDGE
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index 6256fb3..c0812b6 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -7,6 +7,9 @@
+  */
+ 
+ #include "VideoPlayer.h"
++#ifdef HAVE_DVBRIDGE
++#include "DVDCodecs/Video/DVOutputSettings.h"
++#endif
+ 
+ #include "DVDCodecs/DVDCodecUtils.h"
+ #include "DVDDemuxers/DVDDemux.h"
+@@ -1425,6 +1428,9 @@ void CVideoPlayer::CheckBetterStream(CCurrentStream& current, CDemuxStream* stre
+ 
+ void CVideoPlayer::Prepare()
+ {
++#ifdef HAVE_DVBRIDGE
++  DVBRIDGE::SelectOutputSettings();
++#endif
+   CFFmpegLog::SetLogLevel(1);
+   SetPlaySpeed(DVD_PLAYSPEED_NORMAL);
+   m_processInfo->SetSpeed(1.0);
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index 063adee..8fa8647 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -7,6 +7,12 @@
+  */
+ 
+ #include "VideoPlayerVideo.h"
++#ifdef HAVE_DVBRIDGE
++#include "DVDCodecs/Video/DVStreamTelemetry.h"
++#include "DVDCodecs/Video/DVPlaybackInfo.h"
++#include "utils/DVBridgeDiagnosticState.h"
++#include "utils/StringUtils.h"
++#endif
+ 
+ #include "DVDCodecs/DVDCodecUtils.h"
+ #include "DVDCodecs/DVDFactoryCodec.h"
+@@ -168,6 +174,12 @@ bool CVideoPlayerVideo::OpenStream(CDVDStreamInfo hint)
+ 
+ void CVideoPlayerVideo::OpenStream(CDVDStreamInfo& hint, std::unique_ptr<CDVDVideoCodec> codec)
+ {
++#ifdef HAVE_DVBRIDGE
++  m_diagnosticRender.Reset();
++  m_diagnosticTime = m_diagnosticPictures = 0;
++  m_diagnosticDropped = m_diagnosticSkipped = 0;
++  m_diagnosticTransitions = 0;
++#endif
+   CLog::Log(LOGDEBUG, "CVideoPlayerVideo::OpenStream - open stream with codec: {}",
+             avcodec_get_name(hint.codec));
+ 
+@@ -361,6 +373,15 @@ void CVideoPlayerVideo::Process()
+ 
+     onlyPrioMsgs = false;
+ 
++#ifdef HAVE_DVBRIDGE
++    if (pMsg && (pMsg->IsType(CDVDMsg::GENERAL_RESYNC) ||
++                 pMsg->IsType(CDVDMsg::GENERAL_RESET) ||
++                 pMsg->IsType(CDVDMsg::GENERAL_FLUSH) ||
++                 pMsg->IsType(CDVDMsg::GENERAL_PAUSE) ||
++                 pMsg->IsType(CDVDMsg::PLAYER_SETSPEED)))
++      ++m_diagnosticTransitions;
++#endif
++
+     if (MSGQ_IS_ERROR(ret))
+     {
+       if (!m_messageQueue.ReceivedAbortRequest())
+@@ -912,6 +933,43 @@ void CVideoPlayerVideo::ProcessOverlays(const VideoPicture* pSource, double pts)
+ 
+ CVideoPlayerVideo::EOutputState CVideoPlayerVideo::OutputPicture(const VideoPicture* pPicture)
+ {
++#ifdef HAVE_DVBRIDGE
++  DVBRIDGE::StreamTelemetry::SourceBits(pPicture->colorBits, pPicture->pixelFormat);
++  // The health line samples every DRM descriptor's fdinfo: only when someone reads it.
++  const bool healthLog = DVBRIDGE::DiagnosticsRequested() ||
++                         CServiceBroker::GetLogging().IsLogLevelLogged(LOGDEBUG);
++  if (healthLog && DVBRIDGE::DiagnosticsEnabled() && CDVPlaybackInfo::presented.load())
++  {
++    ++m_diagnosticPictures;
++    const auto now = DVBRIDGE::DiagnosticNowMs();
++    if (!m_diagnosticTime || now - m_diagnosticTime >= 10000)
++    {
++      const auto gpu = m_diagnosticRender.Sample(60000000000ULL);
++      const auto elapsed = m_diagnosticTime ? now - m_diagnosticTime : 0;
++      const int skipped = m_renderManager.GetSkippedFrames();
++      const bool reset = m_iDroppedFrames < m_diagnosticDropped || skipped < m_diagnosticSkipped;
++      // Native counters are aggregated, not a decoder-versus-renderer attribution.
++      CLog::Log(DVBRIDGE::DiagnosticsRequested() ? LOGINFO : LOGDEBUG,
++          "DVBridge playback health: interval_ms={} output_attempts={} source_fps={:.3f} speed={} stalled={} pts_s={:.3f} drop_total={} skip_total={} drop_delta={} skip_delta={} counters_reset={} video_queue_pct={} video_queue_s={:.3f} bitrate_mbps={:.2f} render_avg_pct={} transitions={} pts_valid={} (speed 1000=normal; attempts are not display flips)",
++          elapsed, m_diagnosticPictures, m_fFrameRate, m_speed, m_stalled.load(),
++          pPicture->pts == DVD_NOPTS_VALUE ? 0.0 : pPicture->pts / DVD_TIME_BASE,
++          m_iDroppedFrames, skipped,
++          reset ? 0 : m_iDroppedFrames - m_diagnosticDropped,
++          reset ? 0 : skipped - m_diagnosticSkipped, reset,
++          m_processInfo.GetLevelVQ(), m_messageQueue.GetTimeSize(),
++          GetVideoBitrate() / 1000000.0, gpu ? StringUtils::Format("{:.1f}", *gpu) : "unavailable",
++          m_diagnosticTransitions,
++          pPicture->pts != DVD_NOPTS_VALUE);
++      m_diagnosticTime = now;
++      m_diagnosticPictures = 0;
++      m_diagnosticDropped = m_iDroppedFrames;
++      m_diagnosticSkipped = skipped;
++      m_diagnosticTransitions = 0;
++    }
++  }
++  if (DVBRIDGE::StreamTelemetry::observing.load(std::memory_order_relaxed))
++    DVBRIDGE::StreamTelemetry::Counters(m_iDroppedFrames, m_renderManager.GetSkippedFrames());
++#endif
+   m_bAbortOutput = false;
+ 
+   if (m_processInfo.GetVideoStereoMode() != pPicture->stereoMode)
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.h b/xbmc/cores/VideoPlayer/VideoPlayerVideo.h
+index 1cf373a..14a4f1e 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.h
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.h
+@@ -20,6 +20,9 @@
+ #include "utils/BitstreamStats.h"
+ 
+ #include <atomic>
++#ifdef HAVE_DVBRIDGE
++#include "utils/DVRenderUsage.h"
++#endif
+ 
+ #define DROP_DROPPED 1
+ #define DROP_VERYLATE 2
+@@ -125,6 +128,12 @@ protected:
+   bool m_bRenderSubs;
+   float m_fForcedAspectRatio;
+   int m_speed;
++#ifdef HAVE_DVBRIDGE
++  DVBRIDGE::RenderUsage m_diagnosticRender;
++  uint64_t m_diagnosticTime{0}, m_diagnosticPictures{0};
++  int m_diagnosticDropped{0}, m_diagnosticSkipped{0};
++  unsigned m_diagnosticTransitions{0};
++#endif
+   std::atomic_bool m_stalled = false;
+   std::atomic_bool m_rewindStalled;
+   bool m_paused;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+new file mode 100644
+index 0000000..81b5476
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+@@ -0,0 +1,182 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++#pragma once
++
++#include "ServiceBroker.h"
++#include "settings/Settings.h"
++#include "settings/SettingsComponent.h"
++#include "settings/lib/ISettingCallback.h"
++#include "settings/lib/Setting.h"
++#include "settings/SettingsContainer.h"
++#include "utils/log.h"
++
++#include <cstdlib>
++#include <cstring>
++#include <memory>
++#include <string>
++#include <utility>
++#include <vector>
++
++/*!
++ * Settings > Player > Dolby Vision: the settings the Vulkan engine path reads
++ * through the environment (normally set by native-dv.env). The values are
++ * applied once at window-system start, before any playback, and again whenever
++ * a setting changes; they take precedence over native-dv.env. Every managed
++ * variable is defined at start, so a later change only replaces an existing
++ * value and never grows the environment table that other threads may be
++ * reading. Each is read when a video starts (the engine is made per video).
++ *
++ * The other Dolby Vision settings are read by Kodi itself: dvbridge.outputmode
++ * and dvbridge.enhancedinfo (DVOutputSettings.h, per video), the menu output's
++ * (live).
++ */
++namespace DVEngineSettings
++{
++using Values = std::vector<std::pair<const char*, std::string>>;
++using Settings = std::shared_ptr<CSettings>;
++struct Mapping
++{
++  const char* setting;
++  Values (*values)(const Settings& settings);
++};
++
++inline Values Bool(const Settings& settings, const char* id, const Values& on, const Values& off)
++{
++  return settings->GetBool(id) ? on : off;
++}
++
++inline const std::vector<Mapping>& Mappings()
++{
++  static const std::vector<Mapping> mappings = {
++      // Video
++      // Enhancement layer upscaling: Annex B (Master Reference) or Bilinear (DVPrivateVulkan:
++      // cb1_contract and plan.el_scaler).
++      {"dvbridge.elupscaler",
++       [](const Settings& s) -> Values {
++         return {{"DV_EL_SCALER", s->GetInt("dvbridge.elupscaler") == 1 ? "bilinear" : "annexb"}};
++       }},
++      // Dolby Vision metadata: Original, CM4.0 auto (CB1's Auto 2 with the TV's peak; Auto by
++      // the mastering peak without one), CM4.0 always (DVPrivateVulkan DmOptions).
++      {"dvbridge.dvmetadata",
++       [](const Settings& s) -> Values {
++         switch (s->GetInt("dvbridge.dvmetadata"))
++         {
++           case 1:
++             return {{"DV_VULKAN_CM4", "auto2"}};
++           case 2:
++             return {{"DV_VULKAN_CM4", "always"}};
++           default:
++             return {{"DV_VULKAN_CM4", "off"}};
++         }
++       }},
++      {"dvbridge.removel2",
++       [](const Settings& s) { return Bool(s, "dvbridge.removel2", {{"DV_VULKAN_NO_L2", "1"}},
++                                           {{"DV_VULKAN_NO_L2", "0"}}); }},
++      // 0: from the TV's EDID (DVPrivateVulkan).
++      {"dvbridge.tvpeak",
++       [](const Settings& s) -> Values {
++         const int nits = s->GetInt("dvbridge.tvpeak");
++         return {{"DV_VULKAN_TV_PEAK",
++                  std::to_string(nits > 0 && nits <= 10000 ? nits : 0)}};
++       }},
++      // Performance (Kodi's GUI composition over the video)
++      {"dvbridge.guicache",
++       [](const Settings& s) { return Bool(s, "dvbridge.guicache", {{"DV_PRIVATE_GUI_CACHE", "1"}},
++                                           {{"DV_PRIVATE_GUI_CACHE", "0"}}); }},
++      {"dvbridge.homecache",
++       [](const Settings& s) { return Bool(s, "dvbridge.homecache",
++                                           {{"DV_PRIVATE_GUI_CACHE_HOME", "1"}},
++                                           {{"DV_PRIVATE_GUI_CACHE_HOME", "0"}}); }},
++      {"dvbridge.halfgui",
++       [](const Settings& s) { return Bool(s, "dvbridge.halfgui", {{"DV_PRIVATE_GUI_HALF", "1"}},
++                                           {{"DV_PRIVATE_GUI_HALF", "0"}}); }},
++      // Diagnostics (the Vulkan engine's own, options.rs; read when an engine is made)
++      // Every 60th frame rendered again by the engine's staged reference route and compared.
++      {"dvbridge.verify",
++       [](const Settings& s) { return Bool(s, "dvbridge.verify", {{"DVVK_VERIFY", "60"}},
++                                           {{"DVVK_VERIFY", "0"}}); }},
++      // Kodi's first-480-frame startup timing lines and the engine's per-frame deadline JSON.
++      {"dvbridge.frametrace",
++       [](const Settings& s) { return Bool(s, "dvbridge.frametrace",
++                                           {{"DV_PRIVATE_FRAME_TIMING", "1"}, {"DVVK_DEADLINE_TRACE", "1"}},
++                                           {{"DV_PRIVATE_FRAME_TIMING", "0"}, {"DVVK_DEADLINE_TRACE", "0"}}); }},
++      // GPU time per pass over 120 frames.
++      {"dvbridge.gputiming",
++       [](const Settings& s) { return Bool(s, "dvbridge.gputiming", {{"DVVK_PROFILE", "1"}},
++                                           {{"DVVK_PROFILE", "0"}}); }},
++  };
++  return mappings;
++}
++
++/*!
++ * Settings of YBLOD 0.3 that 0.4.0 removed with the OpenCL engine and the
++ * compatibility renderer. Kodi keeps no values for settings it does not
++ * define; the migration below saves the settings once so these are dropped
++ * from guisettings.xml instead of lingering until the next change.
++ */
++inline constexpr const char* kRemovedSettings[] = {
++    "dvbridge.engine",        "dvbridge.vulkan",     "dvbridge.elnearest",
++    "dvbridge.letterboxskip", "dvbridge.inlineoverlay", "dvbridge.tablecache",
++    "dvbridge.packahead",     "dvbridge.chromaupscaler", "dvbridge.qsvmode",
++    "dvbridge.matchhardware",
++};
++inline constexpr int kSettingsVersion = 2; // 0.4.0: the Vulkan-only menu
++
++inline void Apply(const Values& values)
++{
++  for (const auto& [name, value] : values)
++  {
++    const char* current = std::getenv(name);
++    if (!current || value != current)
++      setenv(name, value.c_str(), 1);
++  }
++}
++
++class Callback : public ISettingCallback
++{
++public:
++  void OnSettingChanged(const std::shared_ptr<const CSetting>& setting) override
++  {
++    if (!setting)
++      return;
++    const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
++    for (const auto& mapping : Mappings())
++      if (setting->GetId() == mapping.setting)
++      {
++        const Values values = mapping.values(settings);
++        Apply(values);
++        for (const auto& [name, value] : values)
++          CLog::Log(LOGINFO, "Dolby Vision setting {}: {}={}", mapping.setting, name, value);
++      }
++  }
++};
++
++//! Apply all settings and watch for changes. Call once settings are loaded.
++inline void Register()
++{
++  static bool registered = false;
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  if (registered || !settings)
++    return;
++  registered = true;
++  SettingsContainer ids;
++  for (const auto& mapping : Mappings())
++  {
++    Apply(mapping.values(settings));
++    ids.insert(mapping.setting);
++  }
++  static Callback callback;
++  settings->RegisterCallback(&callback, ids);
++  CLog::Log(LOGINFO, "Dolby Vision settings applied ({} settings)", ids.size());
++  if (settings->GetInt("dvbridge.settingsversion") < kSettingsVersion)
++  {
++    settings->SetInt("dvbridge.settingsversion", kSettingsVersion);
++    settings->Save();
++    std::string removed;
++    for (const char* id : kRemovedSettings)
++      removed += std::string(removed.empty() ? "" : ", ") + id;
++    CLog::Log(LOGINFO, "Dolby Vision settings migrated to version {}: removed {}", kSettingsVersion,
++              removed);
++  }
++}
++} // namespace DVEngineSettings
+diff --git a/xbmc/dialogs/DVPixelFormat.h b/xbmc/dialogs/DVPixelFormat.h
+new file mode 100644
+index 0000000..17d77b4
+--- /dev/null
++++ b/xbmc/dialogs/DVPixelFormat.h
+@@ -0,0 +1,29 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++#include <string>
++extern "C"
++{
++#include <libavutil/pixdesc.h>
++}
++
++namespace DVBRIDGE
++{
++// Describe the decoded source, never the opaque hardware surface or HDMI tunnel.
++inline std::string SourcePixelFormat(AVPixelFormat format)
++{
++  const auto* desc = av_pix_fmt_desc_get(format);
++  if (!desc || (desc->flags & AV_PIX_FMT_FLAG_HWACCEL))
++    return {};
++  if (desc->flags & AV_PIX_FMT_FLAG_RGB)
++    return "RGB 4:4:4";
++  if (desc->nb_components < 3)
++    return "Grayscale";
++  if (desc->log2_chroma_w == 1 && desc->log2_chroma_h == 1)
++    return "YUV 4:2:0";
++  if (desc->log2_chroma_w == 1 && desc->log2_chroma_h == 0)
++    return "YUV 4:2:2";
++  if (desc->log2_chroma_w == 0 && desc->log2_chroma_h == 0)
++    return "YUV 4:4:4";
++  return desc->name ? desc->name : "";
++}
++}
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+index 87ec544..dad24d2 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+@@ -10,6 +10,21 @@
+ 
+ #include "input/actions/Action.h"
+ #include "input/actions/ActionIDs.h"
++#ifdef HAVE_DVBRIDGE
++#include "DVPixelFormat.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVStreamTelemetry.h"
++#include "utils/StringUtils.h"
++#include "utils/Variant.h"
++#include "utils/CPUInfo.h"
++#include "guilib/GUIMessage.h"
++#include "guilib/GUIControlGroupList.h"
++#include "windowing/WinSystem.h"
++#include "windowing/GraphicContext.h"
++#include <algorithm>
++#include <cmath>
++#endif
+ 
+ CGUIDialogPlayerProcessInfo::CGUIDialogPlayerProcessInfo(void)
+     : CGUIDialog(WINDOW_DIALOG_PLAYER_PROCESS_INFO, "DialogPlayerProcessInfo.xml")
+@@ -19,6 +34,119 @@ CGUIDialogPlayerProcessInfo::CGUIDialogPlayerProcessInfo(void)
+ 
+ CGUIDialogPlayerProcessInfo::~CGUIDialogPlayerProcessInfo(void) = default;
+ 
++void CGUIDialogPlayerProcessInfo::OnInitWindow()
++{
++#ifdef HAVE_DVBRIDGE
++  const bool enhanced = DVBRIDGE::EnhancedInfoEnabled();
++  SetProperty("DV.Enhanced", enhanced);
++  DVBRIDGE::StreamTelemetry::observing.store(enhanced);
++  m_nextRefresh = 0;
++  m_renderUsage.Reset();
++  SetProperty("DV.GPUAvailable", false);
++  SetProperty("DV.GPURender", "N/A");
++#endif
++  CGUIDialog::OnInitWindow();
++}
++
++void CGUIDialogPlayerProcessInfo::OnDeinitWindow(int nextWindowID)
++{
++#ifdef HAVE_DVBRIDGE
++  DVBRIDGE::StreamTelemetry::observing.store(false);
++  m_renderUsage.Reset();
++#endif
++  CGUIDialog::OnDeinitWindow(nextWindowID);
++}
++
++void CGUIDialogPlayerProcessInfo::Process(unsigned int currentTime, CDirtyRegionList& dirtyregions)
++{
++#ifdef HAVE_DVBRIDGE
++  const bool refresh = DVBRIDGE::StreamTelemetry::observing.load() && currentTime >= m_nextRefresh;
++  if (refresh)
++  {
++    m_nextRefresh = currentTime + 500;
++    const auto render = m_renderUsage.Sample();
++    SetProperty("DV.GPUAvailable", render.has_value());
++    SetProperty("DV.GPURender", render ? StringUtils::Format("{:.0f} %", *render) : "N/A");
++    for (const int gauge : {9400, 9401})
++    {
++      CGUIMessage usage(GUI_MSG_ITEM_SELECT, GetID(), gauge, render ? std::lround(*render) : 0);
++      OnMessage(usage);
++    }
++    const auto data = DVBRIDGE::StreamTelemetry::Read();
++    SetProperty("DV.SourcePixelFormat", DVBRIDGE::SourcePixelFormat(data.sourceFormat));
++    SetProperty("DV.SourceBits", data.sourceBits ? StringUtils::Format("{}-bit", data.sourceBits) : "N/A");
++    const auto active = CDVPlaybackInfo::presented.load();
++    const bool metadata = active && data.metadata;
++    const auto yesno = [](bool value) { return value ? "Yes" : "No"; };
++    const auto resolution = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo();
++    SetProperty("DV.Display", StringUtils::Format("{}x{} / {:.3f} Hz",
++        resolution.iScreenWidth, resolution.iScreenHeight, resolution.fRefreshRate));
++    const auto cpu = CServiceBroker::GetCPUInfo();
++    SetProperty("DV.CPU", cpu ? StringUtils::Format("{} %", cpu->GetUsedPercentage()) : "N/A");
++    SetProperty("DV.DroppedSkipped", data.counters ?
++        StringUtils::Format("{} / {}", data.dropped, data.skipped) : "N/A");
++    SetProperty("DV.SourceMastering", data.sourceMastering ?
++        StringUtils::Format("{:.0f} / {:.4f} nits", data.sourceMax, data.sourceMin) : "N/A");
++    SetProperty("DV.SourceLight", data.sourceLight ?
++        StringUtils::Format("{} / {} nits", data.sourceCLL, data.sourceFALL) : "N/A");
++    SetProperty("DV.Profile", data.profile ? StringUtils::Format("{}", data.profile) : "N/A");
++    SetProperty("DV.Level", data.profile ? StringUtils::Format("{}", data.level) : "N/A");
++    SetProperty("DV.Version", data.profile ? StringUtils::Format("{}.{}", data.major, data.minor) : "N/A");
++    SetProperty("DV.CM", metadata ? (data.cm4 ? "CM4" : "CM2.9") : "N/A");
++    SetProperty("DV.RPU", data.profile ? yesno(data.rpu) : "N/A");
++    SetProperty("DV.BL", data.profile ? yesno(data.bl) : "N/A");
++    SetProperty("DV.EL", data.profile ? yesno(data.el) : "N/A");
++    SetProperty("DV.FEL", active ? yesno(active & CDVPlaybackInfo::FEL) : "N/A");
++    const bool hdr10plus = DVBRIDGE::playbackTunnelHDR10Plus.load() &&
++                           !DVBRIDGE::playbackHDR10PlusFallback.load();
++    SetProperty("DV.Mode", active & CDVPlaybackInfo::HDR10
++        ? (hdr10plus ? "HDR10+ conversion (Master Reference)" : "HDR10 conversion (Master Reference)") :
++        active & CDVPlaybackInfo::HDMI ? "Dolby Vision (TV-Led)" : "Kodi default");
++    SetProperty("DV.Transport", active & CDVPlaybackInfo::HDMI ? "RGB 8-bit (DV tunnel)" :
++        active & CDVPlaybackInfo::HDR10 ? "PQ / BT.2020, YCbCr 4:2:2 12-bit (tunnel)" : "N/A");
++    SetProperty("DV.Precision", metadata ? StringUtils::Format("{}-bit framebuffer", data.framebufferBits) : "N/A");
++    SetProperty("DV.L1PQ", metadata && data.l1 ? StringUtils::Format("{} | {} | {}", data.pq[0], data.pq[1], data.pq[2]) : "N/A");
++    const auto nits = [](unsigned pq) {
++      const double p = std::pow(pq / 4095.0, 32.0 / 2523.0);
++      return 10000.0 * std::pow(std::max(p - 3424.0 / 4096.0, 0.0) /
++          (2413.0 / 128.0 - 2392.0 / 128.0 * p), 16384.0 / 2610.0);
++    };
++    SetProperty("DV.L1Nits", metadata && data.l1 ? StringUtils::Format("{:.1f} | {:.1f} | {:.1f} nits",
++        nits(data.pq[0]), nits(data.pq[1]), nits(data.pq[2])) : "N/A");
++    SetProperty("DV.L5", metadata && data.l5 ? StringUtils::Format("{} | {} | {} | {}",
++        data.area[0], data.area[1], data.area[2], data.area[3]) : "N/A");
++    SetProperty("DV.Mastering", metadata && data.l6 ? StringUtils::Format("{} | {:.4f} nits",
++        data.maxMaster, data.minMaster / 10000.0) : "N/A");
++    SetProperty("DV.CLL", metadata && data.l6 ? StringUtils::Format("{} | {} nits", data.maxCLL, data.maxFALL) : "N/A");
++  }
++#endif
++  CGUIDialog::Process(currentTime, dirtyregions);
++#ifdef HAVE_DVBRIDGE
++  if (refresh)
++  {
++    // Measure native grouplists after hidden rows have collapsed.
++    for (int layout = 0; layout < 2; ++layout)
++    {
++      auto* panel = GetControl(9600 + layout);
++      auto* surface = GetControl(9610 + layout);
++      if (!panel || !surface)
++        continue;
++      float content = 0.0f;
++      for (int column = 0; column < 3; ++column)
++        if (const auto* list = dynamic_cast<const CGUIControlGroupList*>(
++                GetControl(9620 + layout * 10 + column)))
++          content = std::max(content, list->GetTotalSize());
++      if (content <= 0.0f)
++        continue;
++      const float height = 108.0f + content + 16.0f;
++      panel->SetHeight(height);
++      panel->SetPosition(panel->GetXPosition(), GetCoordsRes().iHeight - 24.0f - height);
++      surface->SetHeight(height + 40.0f);
++    }
++  }
++#endif
++}
++
+ bool CGUIDialogPlayerProcessInfo::OnAction(const CAction &action)
+ {
+   if (action.GetID() == ACTION_PLAYER_PROCESS_INFO)
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.h b/xbmc/dialogs/GUIDialogPlayerProcessInfo.h
+index 7413770..2690c94 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.h
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.h
+@@ -9,6 +9,9 @@
+ #pragma once
+ 
+ #include "guilib/GUIDialog.h"
++#ifdef HAVE_DVBRIDGE
++#include "utils/DVRenderUsage.h"
++#endif
+ 
+ class CGUIDialogPlayerProcessInfo : public CGUIDialog
+ {
+@@ -17,4 +20,13 @@ public:
+   ~CGUIDialogPlayerProcessInfo(void) override;
+ 
+   bool OnAction(const CAction &action) override;
++  void OnInitWindow() override;
++  void OnDeinitWindow(int nextWindowID) override;
++  void Process(unsigned int currentTime, CDirtyRegionList& dirtyregions) override;
++
++private:
++#ifdef HAVE_DVBRIDGE
++  DVBRIDGE::RenderUsage m_renderUsage;
++#endif
++  unsigned int m_nextRefresh{0};
+ };
+diff --git a/xbmc/guilib/guiinfo/VideoGUIInfo.cpp b/xbmc/guilib/guiinfo/VideoGUIInfo.cpp
+index b36bbe1..61e467d 100644
+--- a/xbmc/guilib/guiinfo/VideoGUIInfo.cpp
++++ b/xbmc/guilib/guiinfo/VideoGUIInfo.cpp
+@@ -18,6 +18,9 @@
+ #include "application/ApplicationPlayer.h"
+ #include "cores/DataCacheCore.h"
+ #include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
++#endif
+ #include "guilib/GUIComponent.h"
+ #include "guilib/GUIWindowManager.h"
+ #include "guilib/StereoscopicsManager.h"
+@@ -702,6 +705,14 @@ bool CVideoGUIInfo::GetLabel(std::string& value,
+       return true;
+     case VIDEOPLAYER_HDR_DETAIL:
+       value = m_videoInfo.hdrDetail;
++#ifdef HAVE_DVBRIDGE
++      if (m_videoInfo.hdrType == StreamHdrType::HDR_TYPE_DOLBYVISION)
++      {
++        const unsigned output = CDVPlaybackInfo::presented.load();
++        // Do not turn source-format metadata into a claim of active HDMI DV.
++        value = CDVPlaybackInfo::Detail(value, output);
++      }
++#endif
+       return true;
+     case VIDEOPLAYER_AUDIO_CODEC:
+       value = m_audioInfo.codecName;
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index d26cd00..e3db0b8 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -15,6 +15,9 @@
+ #include "addons/Skin.h"
+ #include "application/AppParams.h"
+ #include "cores/VideoPlayer/VideoRenderers/BaseRenderer.h"
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#endif
+ #include "filesystem/File.h"
+ #include "guilib/GUIFontManager.h"
+ #include "guilib/StereoscopicsManager.h"
+@@ -376,6 +379,10 @@ void CSettings::InitializeOptionFillers()
+       "audiocdactions", MEDIA_DETECT::CAutorun::SettingOptionAudioCdActionsFiller);
+   GetSettingsManager()->RegisterSettingOptionsFiller(
+       "videodiscactions", MEDIA_DETECT::CAutorun::SettingOptionVideoDiscActionsFiller);
++#endif
++#ifdef HAVE_DVBRIDGE
++  GetSettingsManager()->RegisterSettingOptionsFiller("dvbridgeoutputmodes",
++                                                     DVBRIDGE::OutputModeOptions);
+ #endif
+   GetSettingsManager()->RegisterSettingOptionsFiller("charsets", CCharsetConverter::SettingOptionsCharsetsFiller);
+   GetSettingsManager()->RegisterSettingOptionsFiller("fonts", GUIFontManager::SettingOptionsFontsFiller);
+@@ -460,6 +467,9 @@ void CSettings::UninitializeOptionFillers()
+   GetSettingsManager()->UnregisterSettingOptionsFiller("audiocdactions");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("videodiscactions");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("audiocdencoders");
++#ifdef HAVE_DVBRIDGE
++  GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgeoutputmodes");
++#endif
+   GetSettingsManager()->UnregisterSettingOptionsFiller("charsets");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("fontheights");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("fonts");
+@@ -526,6 +536,11 @@ void CSettings::InitializeConditions()
+       CSettingConditions::GetComplexConditions();
+   for (const auto& [identifier, condition] : complexConditions)
+     GetSettingsManager()->AddDynamicCondition(identifier, condition);
++#ifdef HAVE_DVBRIDGE
++  // Settings > Player > Dolby Vision > HDR10+ videos
++  GetSettingsManager()->AddDynamicCondition("dvbridgehdr10plustodv",
++                                            DVBRIDGE::HDR10PlusToDVAvailable);
++#endif
+ }
+ 
+ void CSettings::UninitializeConditions()
+diff --git a/xbmc/utils/CMakeLists.txt b/xbmc/utils/CMakeLists.txt
+index cf60d5f..751e777 100644
+--- a/xbmc/utils/CMakeLists.txt
++++ b/xbmc/utils/CMakeLists.txt
+@@ -258,6 +258,11 @@ if("gbm" IN_LIST CORE_PLATFORM_NAME_LC OR "wayland" IN_LIST CORE_PLATFORM_NAME_L
+   endif()
+ endif()
+ 
++if(ENABLE_DVBRIDGE)
++  list(APPEND SOURCES DVRenderUsage.cpp)
++  list(APPEND HEADERS DVRenderUsage.h)
++endif()
++
+ core_add_library(utils)
+ 
+ if(NOT CORE_SYSTEM_NAME STREQUAL windows AND NOT CORE_SYSTEM_NAME STREQUAL windowsstore)
+diff --git a/xbmc/utils/DVRenderUsage.cpp b/xbmc/utils/DVRenderUsage.cpp
+new file mode 100644
+index 0000000..ae425a4
+--- /dev/null
++++ b/xbmc/utils/DVRenderUsage.cpp
+@@ -0,0 +1,130 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#include "DVRenderUsage.h"
++
++#include <algorithm>
++#include <chrono>
++#include <filesystem>
++#include <fstream>
++#include <sstream>
++#include <utility>
++
++namespace DVBRIDGE
++{
++namespace
++{
++constexpr uint64_t RESCAN_NS = 30000000000ULL;
++}
++
++bool RenderUsage::Parse(std::istream& input, Clients& clients)
++{
++  std::string line, driver, device, id;
++  Client client;
++  bool engine = false;
++  for (unsigned count = 0; count < 128 && std::getline(input, line); ++count)
++  {
++    const auto colon = line.find(':');
++    if (colon == std::string::npos)
++      continue;
++    const auto key = line.substr(0, colon);
++    std::istringstream value(line.substr(colon + 1));
++    if (key == "drm-driver") value >> driver;
++    else if (key == "drm-pdev") value >> device;
++    else if (key == "drm-client-id") value >> id;
++    else if (key == "drm-engine-render")
++    {
++      std::string unit;
++      engine = bool(value >> client.busy >> unit) && unit == "ns";
++    }
++    else if (key == "drm-engine-capacity-render")
++    {
++      if (!(value >> client.capacity) || !client.capacity)
++        return true;
++    }
++  }
++  if (!engine || id.empty() || device.empty() || (driver != "i915" && driver != "xe"))
++    return !driver.empty();
++  client.device = device;
++  const auto key = driver + ":" + device + ":" + id;
++  auto found = clients.find(key);
++  if (found == clients.end() || found->second.busy < client.busy)
++    clients[key] = client; // Shared/duplicated descriptors count only once.
++  return true;
++}
++
++std::optional<double> RenderUsage::Update(const Clients& current, uint64_t now, uint64_t maxGap)
++{
++  if (current.empty())
++  {
++    Reset();
++    return {};
++  }
++  const auto& device = current.begin()->second.device;
++  const auto capacity = current.begin()->second.capacity;
++  bool valid = m_time && now > m_time && now - m_time <= maxGap &&
++               current.size() == m_previous.size();
++  long double busy = 0;
++  Clients next = current;
++  for (const auto& [id, client] : current)
++  {
++    const auto previous = m_previous.find(id);
++    if (client.device != device || client.capacity != capacity ||
++        previous == m_previous.end() || previous->second.capacity != capacity)
++      valid = false;
++    else
++    {
++      // The kernel permits temporarily decreasing counters; retain the high-water mark.
++      next[id].busy = std::max(client.busy, previous->second.busy);
++      busy += next[id].busy - previous->second.busy;
++    }
++  }
++  const auto elapsed = now - m_time;
++  m_previous = std::move(next);
++  m_time = now;
++  if (!valid)
++    return {};
++  return std::clamp(double(100.0L * busy / elapsed / capacity), 0.0, 100.0);
++}
++
++std::optional<double> RenderUsage::Sample(uint64_t maxGap)
++{
++  const uint64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                           std::chrono::steady_clock::now().time_since_epoch())
++                           .count();
++  if (!m_scanTime || now - m_scanTime >= RESCAN_NS)
++  {
++    m_drm.clear();
++    m_scanTime = now;
++  }
++  Clients clients;
++  std::map<std::string, bool> drm;
++  std::error_code error;
++  std::filesystem::directory_iterator it("/proc/self/fdinfo", error), end;
++  unsigned count = 0;
++  while (!error && it != end && count++ < 512)
++  {
++    auto name = it->path().filename().string();
++    const auto known = m_drm.find(name);
++    if (known != m_drm.end() && !known->second)
++      drm.emplace(std::move(name), false);
++    else
++    {
++      std::ifstream input(it->path());
++      drm.emplace(std::move(name), Parse(input, clients));
++    }
++    it.increment(error);
++  }
++  if (error || it != end)
++  {
++    Reset();
++    return {};
++  }
++  m_drm = std::move(drm);
++  return Update(clients, now, maxGap);
++}
++
++void RenderUsage::Reset()
++{
++  m_previous.clear();
++  m_time = 0;
++}
++}
+diff --git a/xbmc/utils/DVRenderUsage.h b/xbmc/utils/DVRenderUsage.h
+new file mode 100644
+index 0000000..0fc06fb
+--- /dev/null
++++ b/xbmc/utils/DVRenderUsage.h
+@@ -0,0 +1,38 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#pragma once
++
++#include <cstdint>
++#include <iosfwd>
++#include <map>
++#include <optional>
++#include <string>
++
++namespace DVBRIDGE
++{
++// Shared by playback diagnostics and the information panel. No GPU synchronization.
++class RenderUsage
++{
++public:
++  struct Client
++  {
++    std::string device;
++    uint64_t busy{};
++    unsigned capacity{1};
++  };
++  using Clients = std::map<std::string, Client>;
++
++  // Adds the i915/xe render client an fdinfo describes; true if it describes a DRM file.
++  static bool Parse(std::istream& input, Clients& clients);
++  std::optional<double> Update(const Clients& current, uint64_t now, uint64_t maxGap = 3000000000ULL);
++  std::optional<double> Sample(uint64_t maxGap = 3000000000ULL);
++  void Reset();
++
++private:
++  Clients m_previous;
++  uint64_t m_time{};
++  // Which of the process's descriptors are DRM files, by fdinfo name, so a sample opens only
++  // those; forgotten every RESCAN_NS, as a descriptor number can be reused for another file.
++  std::map<std::string, bool> m_drm;
++  uint64_t m_scanTime{};
++};
++}
