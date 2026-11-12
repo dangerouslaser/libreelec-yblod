@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 11 Nov 2026 18:31:43 -0500
+Subject: [PATCH] videoplayer: Hable is the default tone mapping method
+
+An HDR10 video on an SDR display plays through Kodi's tone mapping
+shader. Upstream made Hable the method for a saved file without the key
+(0bb1747a9a4b) but left the constructor's default at off, and a new
+profile's first save writes the constructor's value: every profile ends
+up with the method off, and such a video is washed out until the viewer
+finds the video settings.
+
+The constructor's default is Hable now, the one method of the three
+that is close to a reference (yblod/docs/plans/SDR-OUTPUT-PLAN.md).
+---
+ xbmc/cores/VideoSettings.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/cores/VideoSettings.cpp b/xbmc/cores/VideoSettings.cpp
+index 0589484..8448497 100644
+--- a/xbmc/cores/VideoSettings.cpp
++++ b/xbmc/cores/VideoSettings.cpp
+@@ -39,7 +39,7 @@ CVideoSettings::CVideoSettings()
+   m_StereoMode = 0;
+   m_StereoInvert = false;
+   m_VideoStream = -1;
+-  m_ToneMapMethod = VS_TONEMAPMETHOD_OFF;
++  m_ToneMapMethod = VS_TONEMAPMETHOD_HABLE;
+   m_ToneMapParam = 1.0f;
+   m_Orientation = 0;
+   m_CenterMixLevel = 0;

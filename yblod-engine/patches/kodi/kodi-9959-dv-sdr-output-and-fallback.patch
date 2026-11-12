@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Bryan Hoban <bryan.hoban@gmail.com>
-Date: Wed, 11 Nov 2026 18:12:19 -0500
+Date: Wed, 11 Nov 2026 18:35:30 -0500
 Subject: [PATCH] Dolby Vision: SDR output and automatic fallback
 
 A Dolby Vision video on a display without Dolby Vision and without HDR
@@ -19,7 +19,8 @@ from the Dolby Vision metadata, and the bridge shows the result:
   FlipDVBridgePage takes buffers of the mode's size and requires
   3840x2160 at a CTA-861 rate only for the tunnel. The engine composes
   Kodi's GUI over the converted picture as it does for Dolby Vision.
-  The menu output and the held stop are the tunnel's alone.
+  The menu output, the held stop and the mode change left to the
+  bridge's first commit are the tunnel's alone.
 - The adapter asks the engine for SDR with the display described by
   DV_SDR_WHITE, DV_SDR_GAMMA, DV_SDR_RANGE (auto: Kodi's limited range
   setting), DV_SDR_DITHER and DV_SDR_BLACK, set by the new settings SDR
@@ -29,30 +30,34 @@ from the Dolby Vision metadata, and the bridge shows the result:
 - Automatic fallback (dvbridge.outputfallback, on): where the display
   does not have the selected output, CWinSystemGbmGLESContext::DVOutput
   picks the next one it has, Dolby Vision, then the HDR10 conversion,
-  then SDR; a display that shows HDR still gets an HDR10 or HLG base
-  layer from Kodi itself rather than an SDR picture. A notification
-  says once which output is used. DV_SDR_OUTPUT=0 removes the SDR
-  output altogether.
+  then SDR; a display Kodi sends HDR to (ShowsHDR: CWinSystemGbm::
+  SetHDR's conditions) still gets an HDR10 or HLG base layer from Kodi
+  itself rather than an SDR picture. A notification says once which
+  output is used. DV_SDR_OUTPUT=0 removes the SDR output altogether.
+- An HDR10+ video is played as Dolby Vision (dvbridge.hdr10plussources)
+  only where the output is Dolby Vision itself, not one of the
+  conversions the fallback puts in its place.
 - Player process info names the SDR conversion and its transport.
 
 Strings 45126 to 45137.
 ---
- .../resources/strings.po                      |  62 +++++++-
+ .../resources/strings.po                      |  62 ++++++-
  system/settings/settings.xml                  |  40 +++++
- .../DVDCodecs/Video/DVOutputSettings.h        |  28 +++-
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp   |   3 +-
+ .../DVDCodecs/Video/DVOutputSettings.h        |  34 +++-
  .../DVDCodecs/Video/DVPlaybackInfo.h          |   7 +-
  .../VideoRenderers/DVBridgeGLES.cpp           |   7 +-
  .../VideoRenderers/DVEngineSettings.h         |  10 ++
- .../VideoRenderers/DVPrivateVulkan.cpp        |  84 ++++++++++-
+ .../VideoRenderers/DVPrivateVulkan.cpp        |  84 ++++++++-
  .../VideoRenderers/DVPrivateVulkan.h          |   7 +-
  xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp   |   6 +-
  xbmc/settings/Settings.cpp                    |   2 +
  xbmc/windowing/gbm/WinSystemGbm.cpp           |  10 +-
- .../windowing/gbm/WinSystemGbmGLESContext.cpp | 142 ++++++++++++++----
- xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  18 +++
- xbmc/windowing/gbm/drm/DVBridgeState.cpp      |  34 ++++-
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 166 ++++++++++++++----
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  22 +++
+ xbmc/windowing/gbm/drm/DVBridgeState.cpp      |  34 +++-
  xbmc/windowing/gbm/drm/DVBridgeState.h        |  12 +-
- 15 files changed, 406 insertions(+), 63 deletions(-)
+ 16 files changed, 440 insertions(+), 66 deletions(-)
 
 diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
 index b27330b..5d84322 100644
@@ -182,11 +187,25 @@ index 9174d79..b6f51d4 100755
          <setting id="dvbridge.hdr10plussources" type="integer" label="45121" help="45122">
            <level>0</level>
            <default>0</default>
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index 9cf6f1b..6ee8abd 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -388,8 +388,7 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+   // HDR10+ -> Dolby Vision: an HDR10 stream (no Dolby Vision of its own) whose pictures carry
+   // HDR10+, with the setting on, the Dolby Vision output and the engine's converter. Whether a
+   // picture is shown as Dolby Vision is then decided as for any Dolby Vision picture.
+-  m_dvHDR10Plus = DVBRIDGE::playbackHDR10PlusToDV.load() &&
+-                          DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::Standard &&
++  m_dvHDR10Plus = DVBRIDGE::playbackHDR10PlusToDV.load() && DVBRIDGE::DolbyVisionOutput() &&
+                           hints.dovi.dv_profile == 0 && DVHDR10PlusToDovi::Available()
+                       ? HDR10PlusToDV::Untried
+                       : HDR10PlusToDV::Off;
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
-index 3aa8f33..1640fd2 100644
+index 3aa8f33..dcf10bd 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
-@@ -15,12 +15,30 @@ namespace DVBRIDGE
+@@ -15,12 +15,31 @@ namespace DVBRIDGE
  // Settings > Player > Dolby Vision > Output mode (dvbridge.outputmode). The values are stored in
  // guisettings.xml, so they keep their meaning: a new output takes the next free value, is offered
  // by OutputModeOptions where the connection has it, and is accepted by SelectOutputSettings below.
@@ -203,11 +222,12 @@ index 3aa8f33..1640fd2 100644
 +// DVOutput()), so a display without Dolby Vision or HDR shows a Dolby Vision video rightly
 +// without a visit to the settings.
 +inline std::atomic<bool> playbackFallback{true};
-+// The video's base layer is one Kodi itself shows as HDR on an HDR display (HDR10 or HLG:
-+// every profile but 5, whose base layer has Dolby's own colours, and the SDR-compatible
-+// ones). The stream probe sets it; with it and an HDR display, a video whose selected
-+// output is missing plays as its base layer rather than converted to SDR.
-+inline std::atomic<bool> playbackBaseLayerHDR{true};
++// The video's base layer is one Kodi itself shows as HDR on an HDR display: 1 HDR10, 2 HLG
++// (every profile but 5, whose base layer has Dolby's own colours, and the SDR-compatible
++// ones: 0). The stream probe sets it; with it and a display Kodi sends that to as HDR, a
++// video whose selected output is missing plays as its base layer rather than converted to
++// SDR.
++inline std::atomic<int> playbackBaseLayerHDR{1};
 +
 +// SDR output (OutputMode SDR, or the fallback to it): the Vulkan engine converts to the
 +// picture of an SDR display (DVVK_OUTPUT_SDR), shown by the bridge's direct scanout as an
@@ -218,10 +238,15 @@ index 3aa8f33..1640fd2 100644
  // HDR10 output through the tunnel: the Vulkan engine's HDR10 (the Master
  // Reference conversion, dvvk_set_output_mode) sent as the tunnel's 12-bit
  // YCbCr 4:2:2 with DVBRIDGE_TUNNEL_FORMAT hdr10 (linux-9928). The window sets
-@@ -129,6 +147,12 @@ bool HDR10PlusToDVAvailable(const std::string& condition,
+@@ -129,6 +148,17 @@ bool HDR10PlusToDVAvailable(const std::string& condition,
                              const std::string& value,
                              const std::shared_ptr<const CSetting>& setting);
  
++// A Dolby Vision video's output here is Dolby Vision itself (the window's DVOutput): not
++// one of the conversions the fallback puts in its place, which an HDR10+ video played as
++// Dolby Vision (dvbridge.hdr10plussources) must not get instead of its own HDR10+.
++bool DolbyVisionOutput();
++
 +// The SDR output's settings are shown: this connection and the engine have it (settings
 +// condition "dvbridgesdroutput", WinSystemGbmGLESContext).
 +bool SDROutputAvailable(const std::string& condition,
@@ -231,7 +256,7 @@ index 3aa8f33..1640fd2 100644
  inline void SelectOutputSettings()
  {
    const auto component = CServiceBroker::GetSettingsComponent();
-@@ -140,12 +164,14 @@ inline void SelectOutputSettings()
+@@ -140,12 +170,14 @@ inline void SelectOutputSettings()
      case OutputMode::HDR10:
      case OutputMode::Disabled:
      case OutputMode::HDR10Plus:
@@ -523,10 +548,22 @@ index c0f39a5..086e2c9 100644
        const double rate = mode->htotal && mode->vtotal
                                ? mode->clock * 1000.0 / mode->htotal / mode->vtotal : 0.0;
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-index ed5c61c..8caeef2 100644
+index ed5c61c..03e09ee 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
-@@ -276,7 +276,8 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+@@ -176,8 +176,10 @@ bool CWinSystemGbmGLESContext::SetFullScreen(bool fullScreen,
+     m_dvBridge.reset();
+   }
+   m_dvMenuModeset = keepMenu;
++  // (SDR output has no signal change to join with the mode's: its mode is set as any other.)
+   m_dvModesetDeferred = !keepMenu && !m_dvRestoreWithModeset && sameSize && res.iWidth == 3840 &&
+-                        res.iHeight == 2160 && DVBRIDGE::NativeOutputExpected();
++                        res.iHeight == 2160 && DVBRIDGE::NativeOutputExpected() &&
++                        DVOutput() != DVBRIDGE::OutputMode::SDR;
+   swap = !m_dvRestoreWithModeset && !m_dvModesetDeferred && !keepMenu;
+ #endif
+   if (res.iWidth != m_nWidth || res.iHeight != m_nHeight)
+@@ -276,7 +278,8 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
      }
      else if (m_dvFrame && m_dvBridge && m_dvBridge->GetPrivateScanout())
      {
@@ -536,7 +573,7 @@ index ed5c61c..8caeef2 100644
        DVBRIDGE::TunnelHDR10Signal signal;
        const bool hdr10 = DVBRIDGE::playbackTunnelHDR10.load() && DVBRIDGE::CurrentTunnelHDR10(signal);
        if (DVBRIDGE::playbackTunnelHDR10.load() && !hdr10 && !m_dvTunnelHDR10Warned)
-@@ -950,23 +951,11 @@ bool NativeDVEligible(bool source, bool software, bool interlaced, bool stereo)
+@@ -950,23 +953,11 @@ bool NativeDVEligible(bool source, bool software, bool interlaced, bool stereo)
    if (!source || software)
      return false;
    auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
@@ -564,22 +601,26 @@ index ed5c61c..8caeef2 100644
    return DVBRIDGE::Eligible(available, available, source, software, interlaced, stereo);
  }
  } // namespace
-@@ -1011,6 +1000,14 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
+@@ -1011,6 +1002,18 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
  {
    const bool software = (stream.codecOptions & CODEC_FORCE_SOFTWARE) != 0;
    const bool sized = SourceSizeSupported(stream.width, stream.height, stream.dovi.dv_profile == 7);
 +  // A base layer Kodi shows as HDR itself: Profile 7 (HDR10), and Profile 8 with an HDR10 (1,
 +  // 6) or HLG (4) compatible one. Not Profile 5 (Dolby's own colours) nor the SDR-compatible ones.
 +  if (stream.dovi.dv_profile)
++  {
++    const unsigned compatible = stream.dovi.dv_bl_signal_compatibility_id;
 +    DVBRIDGE::playbackBaseLayerHDR.store(
-+        stream.dovi.dv_profile == 7 ||
-+        (stream.dovi.dv_profile != 5 && (stream.dovi.dv_bl_signal_compatibility_id == 1 ||
-+                                         stream.dovi.dv_bl_signal_compatibility_id == 4 ||
-+                                         stream.dovi.dv_bl_signal_compatibility_id == 6)));
++        stream.dovi.dv_profile == 7 ? 1
++        : stream.dovi.dv_profile == 5 ? 0
++        : compatible == 1 || compatible == 6 ? 1
++        : compatible == 4 ? 2
++        : 0);
++  }
    const bool eligible = sized && NativeDVEligible(stream.dovi.dv_profile != 0, software,
                            stream.interlaced, !stream.stereo_mode.empty());
    AnnouncedStream now;
-@@ -1029,7 +1026,8 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
+@@ -1029,7 +1032,8 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
    now.interlaced = stream.interlaced;
    now.stereo = !stream.stereo_mode.empty();
    now.eligible = eligible;
@@ -589,7 +630,7 @@ index ed5c61c..8caeef2 100644
    if (const auto* mastering = stream.masteringMetadata.get(); mastering && mastering->has_luminance)
    {
      now.mastering = true;
-@@ -1062,11 +1060,11 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
+@@ -1062,11 +1066,11 @@ bool DVBRIDGE::WantsNativeOutput(const CDVDStreamInfo& stream)
      CLog::Log(LOGWARNING, "DVBridge: the Vulkan engine does not take {}x{} Dolby Vision pictures; playing the base layer",
                stream.width, stream.height);
    if (stream.dovi.dv_profile && DiagnosticsEnabled())
@@ -603,7 +644,7 @@ index ed5c61c..8caeef2 100644
    return eligible;
  }
  
-@@ -1178,9 +1176,70 @@ bool CWinSystemGbmGLESContext::SupportsTunnelHDR10Plus()
+@@ -1178,9 +1182,86 @@ bool CWinSystemGbmGLESContext::SupportsTunnelHDR10Plus()
  
  bool CWinSystemGbmGLESContext::TunnelHDR10Selected()
  {
@@ -612,6 +653,16 @@ index ed5c61c..8caeef2 100644
 -         SupportsTunnelHDR10();
 +  const auto mode = DVOutput();
 +  return mode == DVBRIDGE::OutputMode::HDR10 || mode == DVBRIDGE::OutputMode::HDR10Plus;
++}
++
++bool CWinSystemGbmGLESContext::ShowsHDR(bool hlg)
++{
++  const auto component = CServiceBroker::GetSettingsComponent();
++  const auto settings = component ? component->GetSettings() : nullptr;
++  if (!settings || !settings->GetBool(SETTING_WINSYSTEM_IS_HDR_DISPLAY) || !IsHDRDisplay())
++    return false;
++  const auto display = GetDisplayHDRCapabilities();
++  return hlg ? display.SupportsHLG() : display.SupportsHDR10();
 +}
 +
 +bool CWinSystemGbmGLESContext::SupportsSDROutput()
@@ -629,6 +680,12 @@ index ed5c61c..8caeef2 100644
 +         sized(mode->vdisplay) &&
 +         !(mode->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN)) &&
 +         CDVPrivateVulkan::HasSDR();
++}
++
++bool DVBRIDGE::DolbyVisionOutput()
++{
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  return window && window->DVOutput() == OutputMode::Standard;
 +}
 +
 +bool DVBRIDGE::SDROutputAvailable(const std::string& /*condition*/, const std::string& /*value*/,
@@ -654,8 +711,8 @@ index ed5c61c..8caeef2 100644
 +    if (!fallback)
 +      return Mode::Disabled;
 +    // A display that shows HDR gets an HDR base layer from Kodi as it is: more of the
-+    // picture than its SDR conversion. (winsystem.ishdrdisplay off makes the display SDR.)
-+    if (DVBRIDGE::playbackBaseLayerHDR.load() && IsHDRDisplay())
++    // picture than its SDR conversion.
++    if (const int base = DVBRIDGE::playbackBaseLayerHDR.load(); base && ShowsHDR(base == 2))
 +      return Mode::Disabled;
 +  }
 +  return SupportsSDROutput() ? Mode::SDR : Mode::Disabled;
@@ -677,7 +734,7 @@ index ed5c61c..8caeef2 100644
  }
  
  void CWinSystemGbmGLESContext::TunnelHDR10PlusPresented(bool presented)
-@@ -1241,6 +1300,8 @@ void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
+@@ -1241,6 +1322,8 @@ void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
      list.emplace_back(strings.Get(45013), static_cast<int>(OutputMode::HDR10));
    if (window && window->SupportsTunnelHDR10Plus())
      list.emplace_back(strings.Get(45120), static_cast<int>(OutputMode::HDR10Plus));
@@ -686,7 +743,7 @@ index ed5c61c..8caeef2 100644
    list.emplace_back(strings.Get(45014), static_cast<int>(OutputMode::Disabled));
  }
  
-@@ -1264,8 +1325,14 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+@@ -1264,8 +1347,14 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
            GetOutputBitDepth(), m_renderableType);
      return false;
    };
@@ -703,7 +760,7 @@ index ed5c61c..8caeef2 100644
      return failure("output-format");
    if (m_dvState.Captured())
    {
-@@ -1283,10 +1350,16 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+@@ -1283,10 +1372,16 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
    if (!m_dvBridge->Initialize())
      return failure("renderer-init");
    m_dvBridge->SetCanvas(m_nWidth, m_nHeight);
@@ -722,7 +779,7 @@ index ed5c61c..8caeef2 100644
    // HDR10+ on top where asked for and the TV has it (else HDR10), with the TV's version.
    const bool tunnelHDR10Plus = tunnelHDR10 &&
                                 DVBRIDGE::playbackMode.load() == DVBRIDGE::OutputMode::HDR10Plus &&
-@@ -1294,7 +1367,7 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+@@ -1294,7 +1389,7 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
    DVBRIDGE::playbackHDR10PlusFlags.store(
        DisplayHDR10PlusVersion() >= 1 ? static_cast<uint32_t>(DVVK_HDR10PLUS_V1) : 0u);
    const bool plusChanged = DVBRIDGE::playbackTunnelHDR10Plus.exchange(tunnelHDR10Plus) != tunnelHDR10Plus;
@@ -731,7 +788,7 @@ index ed5c61c..8caeef2 100644
      CLog::Log(LOGINFO, "DVBridge output: {}", tunnelHDR10Plus
                ? "HDR10+ through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10, HDR10PLUS_METADATA)"
                : tunnelHDR10
-@@ -1326,7 +1399,7 @@ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
+@@ -1326,7 +1421,7 @@ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
    // The menu output continues into native DV video, and through the teardown that handed it back.
    const bool keepMenu = (m_dvMenu || m_dvStartup) && sameDepth &&
                          (!picture || (DVBridgeRequested(picture) &&
@@ -740,7 +797,7 @@ index ed5c61c..8caeef2 100644
    if (keepMenu && picture)
    {
      m_dvMenu = false;
-@@ -1412,6 +1485,7 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+@@ -1412,6 +1507,7 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
  
  bool CWinSystemGbmGLESContext::EndDVBridge()
  {
@@ -748,7 +805,7 @@ index ed5c61c..8caeef2 100644
    DVBRIDGE::playbackTunnelHDR10.store(false);
    DVBRIDGE::PublishTunnelHDR10(nullptr);
    // HDR10+ ends with the output (the restore commit clears HDR10PLUS_METADATA).
-@@ -1472,8 +1546,9 @@ bool CWinSystemGbmGLESContext::EndDVBridge()
+@@ -1472,8 +1568,9 @@ bool CWinSystemGbmGLESContext::EndDVBridge()
  bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
  {
    m_dvState.RestoreSDR();
@@ -760,7 +817,7 @@ index ed5c61c..8caeef2 100644
        DVBRIDGE::MenuModeEnabled())
    {
      m_dvMenu = true;
-@@ -1490,7 +1565,8 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
+@@ -1490,7 +1587,8 @@ bool CWinSystemGbmGLESContext::EndDVBridgeAtStop()
    }
    // Kodi restores the desktop refresh rate right after a stop when it switched for the video.
    // Keep the DV signal (and the last frame) until then, so the restore is one HDMI change.
@@ -770,7 +827,7 @@ index ed5c61c..8caeef2 100644
    {
      auto& gfx = GetGfxContext();
      const RESOLUTION desktop = CDisplaySettings::GetInstance().GetCurrentResolution();
-@@ -1533,7 +1609,7 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
+@@ -1533,7 +1631,7 @@ bool CWinSystemGbmGLESContext::CompleteModeset()
    {
      const char* startup = std::getenv("DV_PRIVATE_STARTUP_SIGNAL");
      if ((!startup || std::strcmp(startup, "0") != 0) &&
@@ -780,7 +837,7 @@ index ed5c61c..8caeef2 100644
        m_dvModesetDeferred = false;
        m_dvModesetDeadline.Set(10000ms);
 diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
-index 59fc3e7..ad34096 100644
+index 59fc3e7..bf677b7 100644
 --- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
 +++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
 @@ -20,6 +20,11 @@
@@ -795,7 +852,7 @@ index 59fc3e7..ad34096 100644
  #endif
  
  class CGuiCompositeShaderGLES;
-@@ -71,6 +76,17 @@ public:
+@@ -71,6 +76,21 @@ public:
     * plus linux-9932's HDR10PLUS_METADATA on this connector, an HDR10+ VSVDB in
     * the TV's EDID and the engine's HDR10+ output. */
    bool SupportsTunnelHDR10Plus();
@@ -803,6 +860,10 @@ index 59fc3e7..ad34096 100644
 +   * output on the bridge's scanout as an ordinary RGB picture. Any connector,
 +   * any progressive mode of a size the engine takes; no kernel support needed. */
 +  bool SupportsSDROutput();
++  /* Kodi sends a PQ (or HLG) video to this display as HDR instead of tone
++   * mapping it: CWinSystemGbm::SetHDR's conditions (the display's HDR setting,
++   * the connector's HDR metadata, the EDID's static metadata and that EOTF). */
++  bool ShowsHDR(bool hlg);
 +  /* The output a Dolby Vision video gets (DVBRIDGE::playbackMode is what was
 +   * selected): the selected one where this connection has it; else, with
 +   * Automatic fallback, the next one it has: Dolby Vision, the HDR10
@@ -813,7 +874,7 @@ index 59fc3e7..ad34096 100644
    bool TunnelHDR10Selected();  void SetDVBridgeOverlays(bool visible, bool hdr, bool debug)
    {
      m_dvOverlays = visible;
-@@ -143,6 +159,8 @@ private:
+@@ -143,6 +163,8 @@ private:
    bool DVQueueing() const;
    void TunnelHDR10Presented(bool presented);
    void TunnelHDR10PlusPresented(bool presented);
