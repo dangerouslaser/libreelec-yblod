@@ -94,7 +94,8 @@ def summarise(session, runs):
             "gl_version", "kodi_version", "engine_sha256", "kodi_sha256", "kernel_md5",
             "system_md5", "env_override", "sinks", "display_note", "recorded", "harness",
             "gt_RP0_freq_mhz", "gt_min_freq_mhz", "gt_max_freq_mhz", "rapl_long_term_uw",
-            "rapl_short_term_uw", "dv_prepare_marker", "outputmode_options", "settings"]
+            "rapl_short_term_uw", "dv_prepare_marker", "outputmode_options", "settings",
+            "profile", "env_image"]
     return {"session": {k: session.get(k) for k in keep}, "rows": rows}
 
 
@@ -143,13 +144,21 @@ def markdown(summaries):
               "lowest and highest repetition in brackets. `(!)`: a repetition failed one of "
               "its checks (listed at the end).\n")
     lines = []
+    # A variant (bench.py --label) is a profile measured with another native-dv.env.
+    variants = any(s["session"].get("profile") not in (None, s["session"]["image"])
+                   for s in summaries)
     for s in summaries:
         x = s["session"]
-        lines.append([f"`{x['image']}`", str(x["os_version"]), str(x["kernel"]),
-                      str(x["cpu"]), str(x["gl_version"]), str(x["recorded"]),
-                      str(x["display_note"])])
-    md.append(table(["image", "version", "kernel", "CPU", "GL", "recorded (UTC)", "display"],
-                    lines))
+        line = [f"`{x['image']}`", str(x["os_version"]), str(x["kernel"]),
+                str(x["cpu"]), str(x["gl_version"]), str(x["recorded"]),
+                str(x["display_note"])]
+        if variants:
+            line.insert(1, f"`{str(x.get('env_override')).strip()}`")
+        lines.append(line)
+    header = ["image", "version", "kernel", "CPU", "GL", "recorded (UTC)", "display"]
+    if variants:
+        header.insert(1, "profile's native-dv.env")
+    md.append(table(header, lines))
 
     md.append("## Films\n")
     md.append("What Kodi and the engine said each stream is (first image; the layer from the "
@@ -197,6 +206,33 @@ def markdown(summaries):
                      total(r["gaps_off_cadence"])]
         lines.append(line)
     md.append(table(header, lines))
+
+    if len(summaries) > 1:
+        base = summaries[0]
+        md.append(f"## Change against {names[0]}\n")
+        md.append("The same numbers as a difference from the first image: GPU time per source "
+                  "frame (the work a second of film costs, whatever was presented), GPU time per "
+                  "presented picture, and pictures presented per second. A frame-time difference "
+                  "under 3 % is noise (see the spread table).\n")
+        header = ["film", "scenario"]
+        for n in names[1:]:
+            header += [f"{n} ms/source frame", f"{n} ms/frame", f"{n} fps"]
+        lines = []
+        for key in row_keys(summaries, "ABCE"):
+            film, scenario = key.rsplit("-", 1)
+            b = base["rows"].get(key)
+            line = [film, SCENARIO_NAMES[scenario]]
+            for s in summaries[1:]:
+                r = s["rows"].get(key)
+                if not r or not b:
+                    line += ["-"] * 3
+                    continue
+                for k in ("ms_per_source_frame", "ms_per_frame"):
+                    line.append(f"{100 * (r[k]['median'] / b[k]['median'] - 1):+.1f} %")
+                line.append(f"{b['presented_fps']['median']:.2f} to "
+                            f"{r['presented_fps']['median']:.2f}")
+            lines.append(line)
+        md.append(table(header, lines))
 
     md.append("## Flip gaps\n")
     md.append("Gaps between flips in refresh periods, summed over the repetitions "

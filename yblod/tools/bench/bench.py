@@ -7,8 +7,9 @@ Kodi's JSON-RPC forwarded) and leaves all timing-critical sampling to
 box/sample.sh. Python 3.9+, standard library only.
 
   bench.py prepare --host root@BOX --image NAME
+  bench.py env     --host root@BOX --image NAME [KEY=VALUE ...]
   bench.py run     --host root@BOX --image NAME --out RESULTS [--scenarios A,B]
-                   [--films 1917,spr] [--reps 2] [--force]
+                   [--films 1917,spr] [--reps 2] [--force] [--label VARIANT]
   bench.py analyse RESULTS/NAME          (recompute the JSON from the raw files)
 """
 
@@ -419,7 +420,9 @@ def session_info(box, args):
         ([o["label"] for o in s.get("options", [])] for s in options
          if s["id"] == "dvbridge.outputmode"), [])
     info["settings"] = settings
-    info["image"] = args.image
+    # A variant (--label) is the same profile measured with another environment.
+    info["image"] = args.label or args.image
+    info["profile"] = args.image
     info["display_note"] = args.display_note
     info["harness"] = {"settle_s": SETTLE, "window_s": args.window, "post_s": POST,
                        "start_observe_s": START_OBSERVE, "starts": STARTS}
@@ -444,11 +447,68 @@ def cmd_prepare(args):
                   "cat /storage/.cache/dv-engine-vk/.prepared", check=False), end="")
 
 
+ENV_FILE = "/storage/.config/native-dv.env"
+# The profile's own line (prepare-profile.sh) stays in every variant.
+ENV_PROFILE = "DVBRIDGE_DIAGNOSTICS=1"
+IDLE_REPLY = '{"id":1,"jsonrpc":"2.0","result":[]}'
+
+
+def set_env(box, pairs, restart=False):
+    """The profile's native-dv.env becomes the profile's line plus `pairs`.
+
+    Kodi reads the file when it starts, so Kodi is restarted, on the box in
+    one command with the check that nothing is playing. Returns False when
+    the file already held exactly this (nothing is restarted then, unless
+    `restart`: for a change Kodi reads at start, advancedsettings.xml say)."""
+    for p in pairs:
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]*=[A-Za-z0-9_.,:/-]*", p):
+            raise BenchError(f"not KEY=VALUE: {p!r}")
+    want = "\n".join([ENV_PROFILE, *pairs]) + "\n"
+    if box.ssh(f"cat {ENV_FILE}", check=False) == want and not restart:
+        return False
+    box.ssh(f"""players=$(curl -s -m 5 -u {RPC_AUTH} -H 'Content-Type: application/json' \
+  -d '{{"jsonrpc":"2.0","method":"Player.GetActivePlayers","id":1}}' http://127.0.0.1:8080/jsonrpc)
+[ "$players" = '{IDLE_REPLY}' ] || {{ echo "Kodi is playing or does not answer: $players" >&2; exit 1; }}
+cat > {ENV_FILE}.new && mv {ENV_FILE}.new {ENV_FILE} && systemctl restart kodi""", stdin=want.encode())
+    return True
+
+
+def wait_home(box):
+    """Kodi answers and shows its home screen (after a restart)."""
+    deadline = time.time() + 120
+    while time.time() < deadline:
+        try:
+            if box.rpc("GUI.GetProperties", {"properties": ["currentwindow"]}, retries=1)[
+                    "currentwindow"]["id"] == 10000:
+                time.sleep(10)  # add-on services and the audio engine settle
+                return
+        except BenchError:
+            pass
+        time.sleep(2)
+    raise BenchError("Kodi did not come back to its home screen in 120 s")
+
+
+def cmd_env(args):
+    box = Box(args.host, args.image, args.port)
+    name = box.ssh("cat /flash/bench-name 2>/dev/null", check=False).strip()
+    if name != args.image:
+        raise BenchError(f"the box runs bench image {name!r}, not {args.image!r}")
+    changed = set_env(box, args.pairs, args.restart)
+    if changed:
+        box.open_tunnel()
+        try:
+            wait_home(box)
+        finally:
+            box.close()
+    log(("Kodi restarted with " if changed else "unchanged: ") +
+        box.ssh(f"cat {ENV_FILE}").replace("\n", " "))
+
+
 def cmd_run(args):
     with open(args.matrix) as f:
         cfg = json.load(f)
     cfg["window_s"] = args.window
-    out = os.path.join(args.out, args.image)
+    out = os.path.join(args.out, args.label or args.image)
     os.makedirs(os.path.join(out, "raw"), exist_ok=True)
     box = Box(args.host, args.image, args.port)
     name = box.ssh("cat /flash/bench-name 2>/dev/null", check=False).strip()
@@ -591,6 +651,10 @@ def trace(raw):
     v = sorted((s, t) for (c, s), t in vblank.items() if c == crtc)
     periods = [(b[1] - a[1]) / (b[0] - a[0]) for a, b in zip(v, v[1:]) if 0 < b[0] - a[0] <= 4]
     period_ms = statistics.median(periods) / 1e6 if periods else None
+    if period_ms is None and len(flips) > 1 and flips[-1][1] > flips[0][1]:
+        # No vertical blank was traced with its timestamp (queued flips complete
+        # without one): the flips' own trace times over their sequence numbers.
+        period_ms = (flips[-1][0] - flips[0][0]) * 1000 / (flips[-1][1] - flips[0][1])
     return marks, flips, lost, period_ms
 
 
@@ -912,12 +976,22 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="command", required=True)
-    for name in ("prepare", "run"):
+    for name in ("prepare", "env", "run"):
         p = sub.add_parser(name)
         p.add_argument("--host", required=True, help="root@BOX")
         p.add_argument("--image", required=True, help="the bench profile's name (bench-name)")
         p.add_argument("--port", type=int, default=18080, help="local port for Kodi's JSON-RPC")
+        if name == "prepare":
+            continue
+        if name == "env":
+            p.add_argument("pairs", nargs="*", metavar="KEY=VALUE",
+                           help="the profile's native-dv.env besides its own line (none: only that)")
+            p.add_argument("--restart", action="store_true",
+                           help="restart Kodi also when the file is unchanged")
+            continue
     p.add_argument("--out", required=True, help="results directory (a folder per image)")
+    p.add_argument("--label", help="the results folder and the image's name in the report, for a "
+                   "variant of the profile (another native-dv.env); default: --image")
     p.add_argument("--matrix", default=os.path.join(HERE, "matrix.json"))
     p.add_argument("--scenarios", help="comma-separated, default: all in the matrix")
     p.add_argument("--films", help="comma-separated, default: all of each scenario")
@@ -933,7 +1007,8 @@ def main():
     p.add_argument("--matrix", default=os.path.join(HERE, "matrix.json"))
     args = ap.parse_args()
     try:
-        return {"prepare": cmd_prepare, "run": cmd_run, "analyse": cmd_analyse}[args.command](args)
+        return {"prepare": cmd_prepare, "env": cmd_env, "run": cmd_run,
+                "analyse": cmd_analyse}[args.command](args)
     except BenchError as e:
         print(f"bench: {e}", file=sys.stderr)
         return 1
