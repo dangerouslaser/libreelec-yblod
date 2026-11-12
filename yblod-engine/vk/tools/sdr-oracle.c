@@ -15,7 +15,13 @@
  *     PARAMS     dvvk-map-test --oracle FILE's text: the frame's matrices,
  *                source luminance, L1, primaries and the display; with
  *                --plain or --hlg also that the picture is a plain HDR10 or
- *                HLG video's, which libplacebo then decodes by itself
+ *                HLG video's, which libplacebo then decodes by itself;
+ *                optionally "hdr10plus R G B AVG" (cd/m2: the picture's
+ *                HDR10+ MaxSCL and average maxRGB, with "l1 0 0"): the
+ *                curve from libplacebo's own reading of HDR10+ instead of
+ *                an L1 (pl_hdr_metadata scene_max/scene_avg, metadata
+ *                PL_HDR_METADATA_HDR10PLUS), as a player using libplacebo
+ *                directly would show the title
  *     DV.dump    the picture as the Dolby Vision tunnel carries it
  *                (dvvk-bench --dump, output dv): 12-bit 4:2:2 Y'CbCr
  *     OUT.f32    the display's R'G'B', float, 12 bytes a pixel, rows top
@@ -31,6 +37,13 @@
  *                  filter or by its own default: what a renderer that owns
  *                  the chroma would show.
  *     --size W,H   the dump's size (default 3840,2160)
+ *     --reshape FIXTURE.bin  DV.dump is the base layer as the tunnel carries
+ *                  it with an identity composer (dvvk-bench --source hlg or
+ *                  hdr10, output dv) and FIXTURE.bin the picture's own
+ *                  AVDOVIMetadata (dvvk-bench --metadata of the Dolby Vision
+ *                  run): libplacebo reshapes it itself (pl_map_dovi_metadata),
+ *                  a reconstruction independent of the engine's. Needs
+ *                  libavutil (built with -DORACLE_RESHAPE)
  *     --node PATH  render node (default /dev/dri/renderD128)
  */
 #define _GNU_SOURCE
@@ -38,6 +51,9 @@
 #include <libplacebo/renderer.h>
 #include <libplacebo/tone_mapping.h>
 #include <libplacebo/gamut_mapping.h>
+#ifdef ORACLE_RESHAPE
+#include <libplacebo/utils/libav.h>
+#endif
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #include <gbm.h>
@@ -93,13 +109,15 @@ static void read_params(const char *path)
 
 int main(int argc, char **argv)
 {
-    const char *node = "/dev/dri/renderD128", *chroma = "pair", *args[3];
+    const char *node = "/dev/dri/renderD128", *chroma = "pair", *reshape = NULL, *args[3];
     int nargs = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--chroma") && i + 1 < argc)
             chroma = argv[++i];
         else if (!strcmp(argv[i], "--node") && i + 1 < argc)
             node = argv[++i];
+        else if (!strcmp(argv[i], "--reshape") && i + 1 < argc)
+            reshape = argv[++i];
         else if (!strcmp(argv[i], "--size") && i + 1 < argc)
             sscanf(argv[++i], "%d,%d", &W, &H);
         else if (nargs < 3)
@@ -227,6 +245,31 @@ int main(int argc, char **argv)
                 .hdr = {.prim = image_color.hdr.prim},
             };
     }
+    const double *h10p = opt("hdr10plus");
+    if (h10p) {
+        for (int i = 0; i < 3; i++)
+            image.color.hdr.scene_max[i] = (float)h10p[i];
+        image.color.hdr.scene_avg = (float)h10p[3];
+    }
+    if (reshape) {
+#ifdef ORACLE_RESHAPE
+        static _Alignas(64) unsigned char md[16384];
+        FILE *mf = fopen(reshape, "rb");
+        size_t mn = mf ? fread(md, 1, sizeof(md), mf) : 0;
+        if (mf)
+            fclose(mf);
+        if (!mn)
+            return fprintf(stderr, "%s: can't read\n", reshape), 1;
+        static struct pl_dovi_metadata full;
+        pl_map_dovi_metadata(&full, (const AVDOVIMetadata *)md);
+        image.repr = (struct pl_color_repr) {
+            .sys = PL_COLOR_SYSTEM_DOLBYVISION, .levels = PL_COLOR_LEVELS_FULL,
+            .bits = {.sample_depth = 16, .color_depth = 16}, .dovi = &full,
+        };
+#else
+        return fprintf(stderr, "--reshape: built without ORACLE_RESHAPE\n"), 2;
+#endif
+    }
     struct pl_frame target = {
         .num_planes = 1,
         .planes = {{.texture = out, .components = 4, .component_mapping = {0, 1, 2, 3}}},
@@ -254,7 +297,7 @@ int main(int argc, char **argv)
         .lut3d_size = {48, 32, 256}, .lut_size = 256,
         .contrast_smoothness = 3.5f,
         .inverse_tone_mapping = false,
-        .metadata = l1[0] > 0 ? PL_HDR_METADATA_CIE_Y : PL_HDR_METADATA_HDR10,
+        .metadata = l1[0] > 0 ? PL_HDR_METADATA_CIE_Y : h10p ? PL_HDR_METADATA_HDR10PLUS : PL_HDR_METADATA_HDR10,
     };
     if (!(l1[0] > 0))
         image.color.hdr.max_pq_y = image.color.hdr.avg_pq_y = 0;
@@ -283,7 +326,8 @@ int main(int argc, char **argv)
         fwrite(rgba + 4 * i, sizeof(float), 3, of);
     fclose(of);
     printf("sdr-oracle: %s chroma, target %s %.4g..%.4g cd/m2, metadata %s -> %s\n", chroma,
-           display[2] != 0 ? "gamma 2.2" : "BT.1886", display[1], display[0], l1[0] > 0 ? "L1" : "static", args[2]);
+           display[2] != 0 ? "gamma 2.2" : "BT.1886", display[1], display[0],
+           l1[0] > 0 ? "L1" : h10p ? "HDR10+" : "static", args[2]);
     pl_renderer_destroy(&rr);
     pl_tex_destroy(gpu, &ytex);
     pl_tex_destroy(gpu, &ctex);
