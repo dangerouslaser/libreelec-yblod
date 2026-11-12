@@ -54,6 +54,19 @@ set_value() {
     die "could not set $1 to $2"
 }
 
+# A passthrough format's setting exists for JSON-RPC only once Kodi's audio
+# engine has opened the passthrough device and knows what it takes: some
+# seconds after Kodi's start or a change of device.
+set_value_wait() {
+  n=0
+  until call Settings.SetSettingValue "{\"setting\":\"$1\",\"value\":$2}" |
+    grep -q '"result":true'; do
+    n=$((n + 1))
+    [ "${n}" -lt 30 ] || die "could not set $1 to $2 in 60 s"
+    sleep 2
+  done
+}
+
 get_value() {
   call Settings.GetSettingValue "{\"setting\":\"$1\"}" |
     sed -n 's/.*"value":"\{0,1\}\([^"}]*\)"\{0,1\}}.*/\1/p'
@@ -114,23 +127,30 @@ if [ "${rpc}" != http ] || ! wizard_closed || ! diagnostics_on; then
 fi
 
 set_value videoplayer.adjustrefreshrate 2
-for s in passthrough ac3passthrough eac3passthrough dtspassthrough truehdpassthrough \
-         dtshdpassthrough; do
-  set_value "audiooutput.${s}" true
-done
 
 # The HDMI device Kodi labels with a sink's name ("..., DENON-AVR on HDMI #0").
-device="${BENCH_AUDIO_DEVICE:-}"
-if [ -z "${device}" ]; then
-  device=$(call Settings.GetSettings \
+# The list is complete once the audio engine has enumerated its devices.
+hdmi_device() {
+  call Settings.GetSettings \
       '{"filter":{"section":"system","category":"audio"},"level":"expert"}' |
     sed 's/.*"id":"audiooutput.passthroughdevice"//; s/\].*//' | tr '{' '\n' |
     sed -n 's/.*"label":"[^"]*, [^"]* on HDMI #[0-9]*","value":"\(ALSA:hdmi:[^"]*\)".*/\1/p' |
-    head -n 1)
-fi
+    head -n 1
+}
+device="${BENCH_AUDIO_DEVICE:-}"
+n=0
+while [ -z "${device}" ] && [ "${n}" -lt 30 ]; do
+  device=$(hdmi_device)
+  [ -n "${device}" ] || sleep 2
+  n=$((n + 1))
+done
 [ -n "${device}" ] || die "no HDMI ALSA device with a sink; set BENCH_AUDIO_DEVICE"
+set_value audiooutput.passthrough true
 set_value audiooutput.audiodevice "\"${device}\""
 set_value audiooutput.passthroughdevice "\"${device}\""
+for s in ac3passthrough eac3passthrough dtspassthrough truehdpassthrough dtshdpassthrough; do
+  set_value_wait "audiooutput.${s}" true
+done
 
 window=$(call GUI.GetProperties '{"properties":["currentwindow"]}' |
   sed -n 's/.*"currentwindow":{"id":\([0-9]*\).*/\1/p')

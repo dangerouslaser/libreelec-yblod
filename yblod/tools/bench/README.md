@@ -8,13 +8,18 @@ only one image logs is a primary source.
 | File | Runs on | Does |
 | :--- | :--- | :--- |
 | `install-image.sh` | workstation | puts an image on the N150 as a bench profile and boots it |
+| `reboot-image.sh` | workstation | boots the installed profile once more (through big-fella) |
 | `bench.py prepare` | workstation | copies `box/` to the box and prepares the profile |
+| `bench.py env` | workstation | sets the profile's `native-dv.env` and restarts Kodi |
 | `bench.py run` | workstation | plays the matrix and writes one JSON per run |
+| `checks.py` | workstation | functional checks: pause, steps, seeks, OSD, subtitles, verify |
 | `bench.py analyse` | workstation | recomputes the JSON files from the raw files |
 | `report.py` | workstation | Markdown comparison and summary JSON from result folders |
 | `box/prepare-profile.sh` | box (busybox sh) | the profile settings, identical for every image |
 | `box/sample.sh` | box (busybox sh) | one measurement window: raw counters only |
+| `box/ktrace.sh` | box (busybox sh) | a few seconds of GPU requests, fences and flips, for a late flip's cause |
 | `matrix.json` | | films, passages, which film plays in which scenario |
+| `matrix-hdr10-extra.json` | | `--matrix` for HDR10 output (scenario E) on the two films the matrix leaves out |
 
 The workstation needs Python 3.9+, `ssh` and key access to the box as root.
 Nothing is installed on the box; `box/` lives in `/storage/yblod-bench`.
@@ -45,11 +50,60 @@ rsync -a "${RESULTS}/${NAME}" ollie:yblod-050/bench/results/
 `bench.py run` continues where it stopped: a run that has its JSON is
 skipped (`--force` measures again), so after a `FAILED` line (the
 workstation lost the network for longer than a minute, say) the same
-command measures what is missing. `--scenarios A,B`, `--films 1917` and
+command measures what is missing. A driver that is killed leaves the film
+playing and a scenario's setting (`dvbridge.gputiming`, `dvbridge.outputmode`)
+on: stop the player and check both before the next run. `--scenarios A,B`, `--films 1917` and
 `--reps 1 --first-rep 3` select part of the matrix. Keep the workstation
-awake (`caffeinate -i` on a Mac): a repetition takes 66 minutes. The 0.4.1 baseline's raw
+awake (`caffeinate -i` on a Mac): a repetition takes 66 minutes. Under a
+supervisor that stops a job after two hours, run one repetition per job
+(`--reps 1`, then `--reps 1 --first-rep 2`). The 0.4.1 baseline's raw
 files are on Ollie in `~/yblod-050/bench/results/y041`; its summary is in
 `yblod/docs/releases/data/`.
+
+## A variant of an image
+
+A variant is the same profile with another environment, measured into its
+own results folder:
+
+```sh
+./bench.py env --host "${BOX}" --image "${NAME}" DV_PRIVATE_NONBLOCK=1
+./bench.py run --host "${BOX}" --image "${NAME}" --label "${NAME}-nb" --out "${RESULTS}"
+./bench.py env --host "${BOX}" --image "${NAME}"        # back to the profile's own line
+```
+
+`env` writes `/storage/.config/native-dv.env` (the profile's
+`DVBRIDGE_DIAGNOSTICS=1` plus the pairs given) and restarts Kodi, on the box
+in one command with the check that nothing is playing (`--restart`: also
+when the file already says so). `session.json` of
+the variant records the file. The variables Kodi's Dolby Vision settings set
+(`DVVK_VERIFY`, `DVVK_PROFILE`, `DV_VULKAN_CM4`, the GUI cache ones: see
+`DVEngineSettings.h`) cannot be set this way: Kodi overwrites them from its
+settings when it starts. `DVVK_VERIFY` is 60 with "Verify output" on and 0
+with it off.
+
+## Functional checks
+
+```sh
+./checks.py --host "${BOX}" --image "${NAME}" --out "${RESULTS}" [--label "${NAME}-nb"]
+```
+
+writes `RESULTS/LABEL/checks/CHECK-FILM.json` (`passed`, `problems`, the
+evidence) and the raw files (flip trace, Kodi's log, Kodi's journal, the
+kernel log of the check) under `checks/raw/`. `--only` and `--films` select;
+a check that has its JSON is skipped unless `--force`.
+
+| Check | Films | What it does and what it passes on |
+| :--- | :--- | :--- |
+| `pause` | 1917, Gemini Man | pause, ten frame steps (`PlayerControl(FrameAdvance(1))` by `kodi-send`), resume, a 1.5 s pause; then 30 s paused. Every step flips at least once and moves the position; presentation is on cadence again after each resume; no surface pool reset without a seek. Reports the paused GPU busy % and flips/s. |
+| `seek` | 1917, Saving Private Ryan | +30 s, -30 s, +10 min, -10 min, next and previous chapter, an absolute seek, -10 s, 10 s apart. Per seek: how long no picture was flipped, the cadence afterwards, the "decoded surfaces come from a new pool" resets; any FEL message fails. |
+| `gui` | 1917, Gemini Man | OSD opened and closed, a generated subtitle on and off, with the engine's GPU timing log: per phase the frames that scanned the GUI again (`overlay prepare ... (N of 120 frames)`), the engine's GPU ms and the flip cadence. Fails if the GUI is scanned in plain playback or on nearly every frame with the OSD open. |
+| `cadence` | 1917 | a 24p film on the menu's 60 Hz mode ("adjust display refresh rate" off for the run): one matrix window (scenario A) with the held-repeat count from "renderer closed". |
+| `sequence` | | SDR, 1917, plain HDR10, Gemini Man, SDR, 28 Years Later, Saving Private Ryan and 1917 opened over it: each plays at its rate, the engine starts for Dolby Vision titles only. |
+| `verify`, `verify-osd`, `verify-subtitle`, `verify-transport`, `verify-hdr10` | see `CHECKS` | "Verify output" on (every 60th frame rendered again by the engine's reference route and compared on the GPU) through plain playback, the OSD opening and closing, a subtitle, pause/steps/seeks, HDR10 output. The engine prints its count every 120 checked frames, so a 24p pass plays 312 s. Any differing frame fails. |
+
+Every check also fails on an error line in Kodi's log, an engine failure, a
+failed commit or a DRM error in the kernel log. Nobody looks at the TV:
+what only eyes can confirm stays open.
 
 ## The box
 
@@ -175,7 +229,9 @@ counter. `flips` and `presented_fps` count the events in the window;
 `gap_histogram` is the difference of consecutive sequence numbers, in
 refresh periods (`{"1": n}` alone is a new picture every refresh;
 `gap_sequence_head` shows the pattern). `refresh_hz` comes from the
-vertical blank timestamps of `drm:drm_vblank_event`.
+vertical blank timestamps of `drm:drm_vblank_event` (with queued flips the
+kernel traces none: then from the flips' trace times over their sequence
+numbers).
 `gaps_off_cadence` counts gaps that are not one source frame long. The
 tracepoint is DRM core, the same on i915 and amdgpu, and independent of
 Kodi's counters and of whether a commit blocks or is queued. The number of
