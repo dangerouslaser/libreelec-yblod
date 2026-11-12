@@ -2463,8 +2463,11 @@ impl Engine {
         let el_w = if p.el_scale == 2 { w / 2 } else { w };
         let el_h = if p.el_scale == 2 { h / 2 } else { h };
         let needs_el = route == plan::ROUTE_DUAL;
-        if route == plan::ROUTE_PIECEWISE && (p.layout == 0) != (p.depth == 8) {
-            return Ok((-2, 0)); // the 4:2:0 P010 kernel isn't built with the production settings either
+        // Piecewise layouts: 4:2:2 P010 (1), and 4:2:0 (0) for NV12 and for
+        // P010 under the CB1 contract (piecewise[3], CB1's contract 1 luma
+        // guide); full-height 8-bit has no kernel (the planner refuses it too).
+        if route == plan::ROUTE_PIECEWISE && p.layout == 1 && p.depth == 8 {
+            return Ok((-2, 0));
         }
         self.surface(f.bl_surface, w, h)?;
         if needs_el {

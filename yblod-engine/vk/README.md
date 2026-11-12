@@ -113,6 +113,18 @@ symbols and enum values only, the layouts and the soname unchanged):
   [OUTPUT-MODES.md](../docs/intel-dv/OUTPUT-MODES.md#convert-to-sdr) has the
   results and the cost.
 
+**0.5.1 fixes** (ABI 3, layouts unchanged):
+- *HDR10+ from stock FFmpeg.* `dvvk_hdr10plus_to_dovi` reads an
+  `itu_t_t35_country_code` of 0 as 0xB5: stock FFmpeg makes the side data
+  only from a T.35 header it checked to be ST 2094-40's but leaves the field
+  0, CB1's FFmpeg writes 0xB5, and CB1's `cb1_hdr10plus_dovi_describe`
+  (unchanged) wants 0xB5. Before, every real HDR10+ picture was refused.
+- *Single-layer MMR under the CB1 contract.* A picture with MMR reshaping
+  and no EL (Profile 8.x, a Profile 7 base layer alone) under `cb1_contract`
+  takes the 4:2:0 P010 piecewise kernel (`piecewise[3]`, CB1's contract 1
+  luma guide), which a guard from the OpenCL port refused (-2) at 4K.
+  dvvk-mr-compare: CB1's Master Reference byte for byte.
+
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
 headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus|sdr`,
 `--canvas W,H`, `--source hdr10|hlg`) with `golden.sh` and
