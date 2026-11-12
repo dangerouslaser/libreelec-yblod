@@ -15,8 +15,8 @@ libplacebo compatibility renderer in Kodi were removed in 0.4.0, and so were
 their sources in `src/` and the OpenCL GPU tests in `tests/`.
 
 Everything specific to the Dolby Vision pipeline lives in this folder: the engine
-(`src/`, `tests/`, `integration/`), its patches for Kodi, FFmpeg, libplacebo and the
-kernel (`patches/<package>/`, linked into LibreELEC's patch folders), tools (`tools/`),
+(`src/`, `tests/`, `integration/`), its patches for Kodi, FFmpeg and the kernel
+(`patches/<package>/`, linked into LibreELEC's patch folders), tools (`tools/`),
 docs (`docs/`) and licences (`licenses/`, `LICENSES/`). See `../yblod/README.md`.
 
 `CMakeLists.txt` builds only the host C's CPU contract tests (no playback

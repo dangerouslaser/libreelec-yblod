@@ -27,9 +27,9 @@ whose sink has a FreeSync range reaching 60 Hz is vrr_capable; its
 a longer vertical front porch (47.952, 48, 50, 59.94 on a 40-120 Hz TV); and
 FreeSync is on while the CRTC's VRR_ENABLED is set. Rates below the range
 keep QMS or a mode change; Kodi plays 24p at twice its rate. Never with the
-Dolby Vision tunnel (dv_lab_standard). i915.hdmi_freesync: 0 off, 1 with
-VRR_ENABLED (default), 2 also without it. Where QMS is possible (display
-version 12 to 29).
+Dolby Vision tunnel (dv_lab_standard). i915.hdmi_freesync: 0 off (the
+default until it has run on hardware), 1 with VRR_ENABLED, 2 also without
+it. Where QMS is possible (display version 12 to 29).
 
 Validation: this patch has not been run on hardware. It was merged as a
 test build after YBLOD 0.4.1 and is compile-checked only. The signalling
@@ -43,6 +43,8 @@ Regrouped from linux-9933-hdmi-freesync (merged after YBLOD 0.4.1, in no
 release).
 
 Changed since YBLOD 0.4.1:
+- Off by default (hdmi_freesync=0): the test build's commit said it was
+  not for a release until tested on hardware, and it has not been.
 - vrr_capable and the FreeSync modes only where QMS is possible (display
   version 12 to 29; it was 10 and later).
 - VRR_ENABLED is no longer cleared around intel_vrr_compute_config():
@@ -93,14 +95,14 @@ index c50213893a30..08715c0743f8 100644
 + * tell it switches between without a modeset), and FreeSync is on while the
 + * CRTC's VRR_ENABLED is set. Rates below the range (24p on a 40-120 Hz TV)
 + * keep QMS or a mode change; userspace plays them at twice their rate. Never
-+ * with the Dolby Vision tunnel. hdmi_freesync: 0 off, 1 with VRR_ENABLED
-+ * (default), 2 also without it.
++ * with the Dolby Vision tunnel. hdmi_freesync: 0 off (default), 1 with
++ * VRR_ENABLED, 2 also without it.
 + */
-+static int hdmi_freesync = 1;
++static int hdmi_freesync;
 +module_param(hdmi_freesync, int, 0644);
 +MODULE_PARM_DESC(hdmi_freesync,
-+	"HDMI FreeSync on sinks with a FreeSync range (0 = off, 1 = with VRR_ENABLED "
-+	"[default], 2 = also without it); modes and vrr_capable at the next probe");
++	"HDMI FreeSync on sinks with a FreeSync range (0 = off [default], 1 = with "
++	"VRR_ENABLED, 2 = also without it); modes and vrr_capable at the next probe");
 +
 +/*
 + * The FreeSync range of the AMD VSDB (OUI 00-00-1a; 7.3's drm doesn't parse
