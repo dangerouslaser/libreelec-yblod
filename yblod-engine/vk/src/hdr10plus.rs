@@ -32,7 +32,8 @@ pub struct Hdr10Static {
     pub min_luminance: f32,
     pub max_cll: u16,
     pub max_fall: u16,
-    pub reserved: [u32; 2],
+    pub primaries: u32,
+    pub reserved: u32,
 }
 
 /// include/dv_engine_vk.h dvvk_hdr10plus_dovi_info.
@@ -58,6 +59,7 @@ const _: () = {
     assert!(offset_of!(Packet, statistics_ticket) == 32);
     assert!(offset_of!(Packet, average_maxrgb) == 72);
     assert!(size_of::<Hdr10Static>() == 20);
+    assert!(offset_of!(Hdr10Static, primaries) == 12);
     assert!(size_of::<DoviInfo>() == 36);
 };
 
@@ -83,6 +85,7 @@ extern "C" {
         out_size: *mut usize,
         info: *mut DoviInfo,
     ) -> i32;
+    fn yb_hdr10_to_dovi(hdr10: *const Hdr10Static, out: *mut u8, capacity: usize, out_size: *mut usize) -> i32;
 }
 
 /// The packet of a frame with this AVDOVIMetadata (8-aligned) and statistics record.
@@ -104,6 +107,12 @@ pub unsafe fn to_dovi(
     info: *mut DoviInfo,
 ) -> i32 {
     yb_hdr10plus_to_dovi(hdr10plus, size, hdr10, previous, out, capacity, out_size, info)
+}
+
+/// # Safety
+/// The pointers as dvvk_hdr10_to_dovi documents them.
+pub unsafe fn static_to_dovi(hdr10: *const Hdr10Static, out: *mut u8, capacity: usize, out_size: *mut usize) -> i32 {
+    yb_hdr10_to_dovi(hdr10, out, capacity, out_size)
 }
 
 #[cfg(test)]
@@ -140,7 +149,7 @@ mod tests {
         assert!(size > 0);
         let mut out = vec![0u64; DOVI_BYTES / 8];
         let (mut n, mut info) = (0usize, DoviInfo::default());
-        let st = Hdr10Static { max_luminance: 1000.0, min_luminance: 0.005, max_cll: 900, max_fall: 200, reserved: [0; 2] };
+        let st = Hdr10Static { max_luminance: 1000.0, min_luminance: 0.005, max_cll: 900, max_fall: 200, primaries: 0, reserved: 0 };
         let r = unsafe {
             to_dovi(src.as_ptr() as *const u8, size, &st, std::ptr::null(), out.as_mut_ptr() as *mut u8, DOVI_BYTES, &mut n, &mut info)
         };
@@ -188,5 +197,60 @@ mod tests {
         assert_eq!([u16::from_be_bytes([f[0], f[1]]), u16::from_be_bytes([f[2], f[3]]), u16::from_be_bytes([f[4], f[5]])], [0, 3079, 1738]);
         // and the mastering display (source_max_pq at payload bytes 66-67)
         assert_eq!(u16::from_be_bytes([payload[66], payload[67]]), 3079);
+    }
+
+    /// A plain HDR10 or HLG video: dvvk_hdr10_to_dovi's metadata goes through
+    /// the planner (its L9 block as a parsed one) and through the SDR map,
+    /// as PQ with a static curve or, with DVVK_SDR_HLG, as HLG; the HDR10
+    /// outputs take no HLG.
+    #[test]
+    fn static_to_dovi_plans() {
+        use crate::map::{Map, OutputMode, DVVK_OUTPUT_HDR10, DVVK_OUTPUT_SDR};
+        let mut out = vec![0u64; DOVI_BYTES / 8];
+        let mut n = 0usize;
+        let st = Hdr10Static { max_luminance: 1000.0, min_luminance: 0.005, max_cll: 900, max_fall: 200, primaries: 1, reserved: 0 };
+        assert_eq!(unsafe { static_to_dovi(&st, out.as_mut_ptr() as *mut u8, DOVI_BYTES, &mut n) }, 0);
+        let md = unsafe { std::slice::from_raw_parts(out.as_ptr() as *const u8, n) };
+        let input = PlanIn {
+            width: 3840,
+            height: 2160,
+            x: 0,
+            y: 0,
+            dw: 0,
+            dh: 0,
+            chroma_top_left: 0,
+            has_el: 0,
+            nv12: 0,
+            el_scaler: EL_ANNEXB,
+            fel: 1,
+            packet_id: 0,
+            refresh: 0,
+            overlay: 0,
+            overlay_visible_before: 0,
+            pts: 0,
+            rgb_to_lms: [0.0; 9],
+            white_nits: 203.0,
+            cb1_contract: 1,
+            dm_options: 0,
+        };
+        let mut plan = Plan::boxed();
+        let mut state = PlanState::new().unwrap();
+        assert_eq!(plan.fill(&input, None, &mut state, md), 0);
+        assert_eq!(plan.route, ROUTE_SINGLE);
+        let flags = |m: &Map| u32::from_le_bytes(m.gpu.bytes[336..340].try_into().unwrap());
+        let mut mode = OutputMode { mode: DVVK_OUTPUT_SDR, ..Default::default() };
+        // PQ: the curve (1), not L1's (2), SDR (4), the gamut LUT (8), dither (16)
+        let pq = Map::plan(&mode, md).expect("the SDR map of a plain HDR10 video");
+        assert_eq!(flags(&pq), 1 | 4 | 8 | 16);
+        mode.flags = 8; // DVVK_SDR_HLG
+        assert!(crate::map::mode_supported(&mode));
+        let hlg = Map::plan(&mode, md).expect("the SDR map of a plain HLG video");
+        assert_eq!(flags(&hlg), 1 | 4 | 8 | 16 | 32);
+        assert_ne!(pq.key, hlg.key);
+        // BT.2100's 1000 cd/m2 display: system gamma 1.2, peak 0.1 of 10000 cd/m2
+        let f = |at: usize| f32::from_le_bytes(hlg.gpu.bytes[at..at + 4].try_into().unwrap());
+        assert!((f(1476) - 0.2).abs() < 1e-6 && (f(1480) - 0.1).abs() < 1e-6 && (f(1492) - 0.678).abs() < 1e-4);
+        mode.mode = DVVK_OUTPUT_HDR10;
+        assert!(!crate::map::mode_supported(&mode));
     }
 }

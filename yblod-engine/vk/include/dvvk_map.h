@@ -37,6 +37,7 @@ enum {
     DVVK_MAP_SDR = 4u,         /* the output is the display's R'G'B' (else BT.2020 PQ Y'CbCr) */
     DVVK_MAP_GAMUT = 8u,       /* SDR: the gamut mapping LUT is applied */
     DVVK_MAP_DITHER_ON = 16u,  /* SDR: the codes are dithered (else rounded) */
+    DVVK_MAP_HLG = 32u,        /* SDR: the source's R'G'B' is HLG (else PQ): src_trc, src_luma */
 };
 
 /* The GPU's parameters (std430: vec3s padded to vec4; matrices row-major,
@@ -67,6 +68,12 @@ typedef struct {
     float out_code[4];       /* the output codes: x * clamp(V, 0, 1) + y */
     uint32_t gamut_key[2];   /* names the gamut LUT's contents (dvvk_map.gamut_key) */
     uint32_t pad2[2];
+    /* an HLG source (DVVK_MAP_HLG; all 0 otherwise): libplacebo's
+     * pl_shader_linearize, the inverse OETF of x: (1 - b) V + b, then the OOTF:
+     * light (1 = 10000 cd/m2) = z * E * pow(src_luma . E, y), E the scene's
+     * light over 12 */
+    float src_trc[4];        /* x: b (the black lift), y: the system gamma - 1, z: the peak */
+    float src_luma[4];       /* the source primaries' luminance coefficients */
 } dvvk_map_gpu;
 
 typedef struct {
@@ -99,7 +106,8 @@ void dvvk_map_tables(const dvvk_map *map, uint32_t *tables);
  * dvvk-hdr10-compare and dvvk-sdr-compare. */
 void dvvk_map_sample(const dvvk_map_gpu *p, const uint32_t *tables, const double codes[3], double out[3]);
 /* Its three steps, as the GPU splits them: the RPU's affine decode to the
- * source's nonlinear R'G'B' (L'M'S' for IPT, profile 5), clamped to 0..1
+ * source's nonlinear R'G'B' (L'M'S' for IPT, profile 5; HLG's R'G'B' with
+ * DVVK_MAP_HLG), clamped to 0..1
  * (the 3D LUT's domain; PQ's EOTF clamps there anyway); the 3D LUT's
  * function, nonlinear source to the output's R'G'B' (PQ, or the display's,
  * clamped to 0..1); Y'CbCr of that (not for SDR). */
@@ -119,12 +127,13 @@ void dvvk_map_set_black(dvvk_map_gpu *p, const uint32_t *tables, const uint32_t 
 
 #if UINTPTR_MAX == UINT64_MAX
 #ifdef __cplusplus
-static_assert(sizeof(dvvk_map_gpu) == 1472, "dvvk_map_gpu layout");
+static_assert(sizeof(dvvk_map_gpu) == 1504, "dvvk_map_gpu layout");
 #else
-_Static_assert(sizeof(dvvk_map_gpu) == 1472, "dvvk_map_gpu layout");
+_Static_assert(sizeof(dvvk_map_gpu) == 1504, "dvvk_map_gpu layout");
 _Static_assert(offsetof(dvvk_map_gpu, tone_lut) == 384, "dvvk_map_gpu layout");
 _Static_assert(offsetof(dvvk_map_gpu, gamut_at) == 1408, "dvvk_map_gpu layout");
-_Static_assert(sizeof(dvvk_map) == 1608, "dvvk_map layout");
-_Static_assert(offsetof(dvvk_map, gamut_prim) == 1528, "dvvk_map layout");
+_Static_assert(offsetof(dvvk_map_gpu, src_trc) == 1472, "dvvk_map_gpu layout");
+_Static_assert(sizeof(dvvk_map) == 1640, "dvvk_map layout");
+_Static_assert(offsetof(dvvk_map, gamut_prim) == 1560, "dvvk_map layout");
 #endif
 #endif

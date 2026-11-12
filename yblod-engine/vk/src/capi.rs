@@ -411,6 +411,24 @@ pub unsafe extern "C" fn dvvk_hdr10plus_to_dovi(
     })
 }
 
+/// dvvk_hdr10_to_dovi (optional symbol, with DVVK_OUTPUT_SDR): a plain HDR10
+/// or HLG video's static metadata as Profile 8.1 Dolby Vision metadata
+/// without L1 (include/dv_engine_vk.h).
+///
+/// # Safety
+/// The pointers as the header documents them.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_hdr10_to_dovi(
+    hdr10: *const crate::hdr10plus::Hdr10Static,
+    out: *mut c_void,
+    capacity: usize,
+    out_size: *mut usize,
+) -> i32 {
+    guarded("hdr10_to_dovi", DVVK_BACKEND, || {
+        crate::hdr10plus::static_to_dovi(hdr10, out as *mut u8, capacity, out_size)
+    })
+}
+
 /// The CM4 / L2 result of the last frame planned (dvvk_plan.dm_status:
 /// DVVK_CM4_STATUS_* | L2 blocks removed << 8; dv-engine-vk 0.1.0-18, an
 /// optional symbol). UINT32_MAX for NULL or a panic.

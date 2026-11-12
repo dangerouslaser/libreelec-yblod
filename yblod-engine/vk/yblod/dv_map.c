@@ -11,7 +11,8 @@
  * pl_shader_color_map_ex's gamut mapping (pl_gamut_map_perceptual from the
  * source's primaries, sampled from pl_gamut_map_generate's LUT as its shader
  * samples the 16-bit texture) and pl_shader_delinearize follow it. CB1 has
- * no SDR circuit: this one is YBLOD's.
+ * no SDR circuit: this one is YBLOD's. A plain HLG video is a source of it
+ * too (DVVK_SDR_HLG): pl_shader_linearize's HLG in place of PQ's EOTF.
  * SPDX-License-Identifier: GPL-3.0-or-later */
 #include "dvvk_map.h"
 #include <libavutil/dovi_meta.h>
@@ -127,7 +128,7 @@ static int sdr_display(const dvvk_output_mode *mode, float *white, float *black)
     *white = mode->peak_nits > 0 ? mode->peak_nits : PL_COLOR_SDR_WHITE;
     *black = mode->min_nits > 0 ? mode->min_nits : *white / PL_COLOR_SDR_CONTRAST;
     return isfinite(*white) && isfinite(*black) && *white >= 40 && *white <= 1000 && *black < *white / 20 &&
-           !(mode->flags & ~(DVVK_SDR_GAMMA22 | DVVK_SDR_LIMITED | DVVK_SDR_NO_DITHER));
+           !(mode->flags & ~(DVVK_SDR_GAMMA22 | DVVK_SDR_LIMITED | DVVK_SDR_NO_DITHER | DVVK_SDR_HLG));
 }
 
 int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t metadata_size, dvvk_map *out)
@@ -165,8 +166,13 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
             .max_luma = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, colour->source_max_pq / 4095.0f),
         },
     };
+    /* A plain HLG video (dvvk_hdr10_to_dovi's metadata): no mastering display
+     * and no L1; libplacebo's HLG is BT.2100's 1000 cd/m2 display. */
+    const int hlg = sdr && (mode->flags & DVVK_SDR_HLG);
+    if (hlg)
+        src = (struct pl_color_space) {.primaries = PL_COLOR_PRIM_BT_2020, .transfer = PL_COLOR_TRC_HLG};
     enum pl_hdr_metadata_type meta;
-    if (l1 && l1->l1.min_pq <= l1->l1.avg_pq && l1->l1.avg_pq <= l1->l1.max_pq && l1->l1.max_pq <= 4095 &&
+    if (!hlg && l1 && l1->l1.min_pq <= l1->l1.avg_pq && l1->l1.avg_pq <= l1->l1.max_pq && l1->l1.max_pq <= 4095 &&
         l1->l1.max_pq) {
         src.hdr.max_pq_y = l1->l1.max_pq / 4095.0f;
         src.hdr.avg_pq_y = l1->l1.avg_pq / 4095.0f;
@@ -288,6 +294,20 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
         g->tone_out[0] = tone.output_min;
         g->tone_out[1] = tone.output_max;
         pl_tone_map_generate(g->tone_lut, &tone);
+    }
+    if (hlg) {
+        /* pl_shader_linearize's HLG, on light where 1 is 10000 cd/m2 */
+        float lo, hi;
+        pl_color_space_nominal_luma_ex(pl_nominal_luma_params(.color = &src, .metadata = PL_HDR_METADATA_HDR10,
+                                                              .scaling = PL_HDR_NORM, .out_min = &lo, .out_max = &hi));
+        const float y = 1.2f * powf(1.111f, log2f(hi / (PL_COLOR_HLG_PEAK / PL_COLOR_SDR_WHITE)));
+        const pl_matrix3x3 xyz = pl_get_rgb2xyz_matrix(pl_raw_primaries_get(src.primaries));
+        g->flags |= DVVK_MAP_HLG;
+        g->src_trc[0] = sqrtf(3 * powf(lo / hi, 1 / y));
+        g->src_trc[1] = y - 1;
+        g->src_trc[2] = hi * (PL_COLOR_SDR_WHITE / 10000.0f);
+        for (int i = 0; i < 3; i++)
+            g->src_luma[i] = xyz.m[1][i];
     }
     if (sdr) {
         g->flags |= DVVK_MAP_SDR;
@@ -475,8 +495,21 @@ uint32_t dvvk_map_rgb(const dvvk_map_gpu *p, const uint32_t *tables, const doubl
 {
     double n[3], lin[3];
     uint32_t regime = 0;
-    for (int i = 0; i < 3; i++)
-        n[i] = pq_eotf(nl[i]);
+    if (p->flags & DVVK_MAP_HLG) {
+        /* pl_shader_linearize: HLG's inverse OETF (the scene's light over 12),
+         * then its OOTF */
+        double y = 0;
+        for (int i = 0; i < 3; i++) {
+            double x = (1.0 - p->src_trc[0]) * nl[i] + p->src_trc[0];
+            n[i] = (x > 0.5 ? exp((x - 0.55991073) / 0.17883277) + 0.28466892 : 4.0 * x * x) / 12.0;
+            y += p->src_luma[i] * n[i];
+        }
+        y = p->src_trc[2] * pow(fmax(y, 0.0), p->src_trc[1]);
+        for (int i = 0; i < 3; i++)
+            n[i] *= y;
+    } else
+        for (int i = 0; i < 3; i++)
+            n[i] = pq_eotf(nl[i]);
     mul(p->src_lms2rgb, n, lin);
     /* pl_shader_decode_color's PQ OETF, then the renderer's linearisation:
      * negative light is gone after the first */

@@ -14,6 +14,9 @@
 // 8-bit codes. The includer then declares MAP_TABLES_BINDING
 // (dvvk_map_tables' words: the dither pattern) and MAP_GAMUT_BINDING (the
 // gamut LUT, the tables' second part as an RGBA16 UNORM 3D texture).
+// MAP_SDR 2: SDR output of an HLG source (DVVK_MAP_HLG). A constant and not
+// the parameters' flag, so that the pipelines of PQ sources are compiled
+// from the code they had before there was HLG: their bytes stay.
 struct DvMap {
     vec4 ycc[3];
     vec4 ycc_offset;
@@ -36,6 +39,8 @@ struct DvMap {
     vec4 out_code;   // codes: x * V + y
     uvec2 gamut_key;
     uvec2 pad2;
+    vec4 src_trc;    // an HLG source: x the black lift, y gamma - 1, z the peak
+    vec4 src_luma;
 };
 layout(binding = MAP_PARAMS_BINDING, std430) readonly buffer MapParams { DvMap mp; };
 #ifdef MAP_SDR_ID
@@ -79,6 +84,15 @@ float map_tone(float x)
 }
 
 #ifdef MAP_SDR_ID
+// An HLG source's R'G'B' to light (dv_map.c dvvk_map_rgb; pl_shader_linearize):
+// the inverse OETF, the scene's light over 12, then the OOTF.
+vec3 map_hlg(vec3 v)
+{
+    v = (1.0 - mp.src_trc.x) * v + mp.src_trc.x;
+    v = mix(4.0 * v * v, exp((v - 0.55991073) * (1.0 / 0.17883277)) + 0.28466892, lessThan(vec3(0.5), v)) * (1.0 / 12.0);
+    return v * (mp.src_trc.z * pow(max(dot(mp.src_luma.xyz, v), 0.0), mp.src_trc.y));
+}
+
 // pl_shader_color_map_ex's gamut LUT lookup (dv_map.c gamut_map), as its
 // shader does it: the texture sampled linearly at I, 2 C, h / 2 pi + 0.5
 // (texel centres at the ends of each axis), P and T stored with an offset.
@@ -118,6 +132,12 @@ vec3 map_sdr(vec3 lin)
 uint map_rgb(vec3 nl, out vec3 rgb)
 {
     uint regime = 0u;
+#ifdef MAP_SDR_ID
+    if (MAP_SDR == 2u) {
+        rgb = map_sdr(max(map_m3(mp.src_lms2rgb, map_hlg(nl)), 0.0));
+        return regime;
+    }
+#endif
     vec3 lin = map_m3(mp.src_lms2rgb, map_pq_eotf(nl));
     regime |= uint(lin.x < 0.0) | uint(lin.y < 0.0) << 1 | uint(lin.z < 0.0) << 2;
     lin = max(lin, 0.0);

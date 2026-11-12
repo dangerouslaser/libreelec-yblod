@@ -638,6 +638,9 @@ fn map_spec(o: &crate::options::EngineOptions) -> u32 {
 /// the shell's layer blended after the map (OVERLAY 4), or without.
 const SDR_PLAIN: u32 = 1;
 const SDR_LAYER: u32 = 2;
+/// Added to either: the source is HLG (the shaders' MAP_SDR 2). Made on
+/// first use, never by the prepare run: an HLG video is rare.
+const SDR_HLG: u32 = 4;
 
 /// A variant's constants with MAP (HDR10 output) and STATS (HDR10+), or for
 /// SDR output (`sdr`: 0 not, SDR_PLAIN, SDR_LAYER). One place for the
@@ -646,7 +649,7 @@ const SDR_LAYER: u32 = 2;
 /// SDR: nothing is added to them).
 fn pack_map_spec(o: &crate::options::EngineOptions, variant: PackVariant, stats: bool, sdr: u32) -> Vec<(u32, u32)> {
     let mut spec = pack_spec(o, variant);
-    if sdr == SDR_LAYER {
+    if sdr & !SDR_HLG == SDR_LAYER {
         for c in spec.iter_mut().filter(|c| c.0 == 2) {
             c.1 = 4;
         }
@@ -654,7 +657,7 @@ fn pack_map_spec(o: &crate::options::EngineOptions, variant: PackVariant, stats:
     spec.push((8, map_spec(o)));
     spec.push((9, stats as u32));
     if sdr != 0 {
-        spec.push((10, 1));
+        spec.push((10, if sdr & SDR_HLG != 0 { 2 } else { 1 }));
     }
     spec
 }
@@ -988,6 +991,7 @@ pub struct Engine {
     // the gamut LUT) as the GPU reads them and as set_black does, and the
     // gamut they are for.
     map_sdr: Option<[Pipeline; 4]>,
+    map_sdr_hlg: Option<[Pipeline; 4]>, // the same for an HLG source (MAP_SDR 2)
     map_tables: Option<HostBuffer>,
     map_table_words: Vec<u32>,
     map_tables_key: Option<u64>,
@@ -1496,6 +1500,7 @@ impl Engine {
             map_list,
             pack_map,
             map_sdr,
+            map_sdr_hlg: None,
             map_tables: None,
             map_table_words: Vec::new(),
             map_tables_key: None,
@@ -1992,7 +1997,8 @@ impl Engine {
             (true, false) => SDR_PLAIN,
             (true, true) => SDR_LAYER,
         };
-        Self::pack_map_key(variant, self.stats(), sdr)
+        let hlg = if self.map.as_ref().is_some_and(|m| m.hlg()) { SDR_HLG } else { 0 };
+        Self::pack_map_key(variant, self.stats(), sdr | hlg)
     }
 
     /// SDR output's pipelines and tables, before a frame of it is recorded:
@@ -2000,15 +2006,17 @@ impl Engine {
     /// they are made from changes (a title, a setting; the GPU is idle
     /// meanwhile: frames in flight read them).
     fn ensure_sdr(&mut self, map: &crate::map::Map) -> Result<()> {
-        if self.map_sdr.is_none() {
+        // the shaders' MAP_SDR: 1, or 2 for an HLG source
+        let kind = if map.hlg() { 2 } else { 1 };
+        if (if map.hlg() { &self.map_sdr_hlg } else { &self.map_sdr }).is_none() {
             let storage = self.map_fixup.bindings.clone();
             let start = std::time::Instant::now();
             let mut made = Vec::new();
             let result = (|| {
                 for pass in 0..3 {
-                    made.push(Pipeline::new_deferred(&self.d, "map_bake", &storage, 8, &[(0, pass), (1, 1)])?);
+                    made.push(Pipeline::new_deferred(&self.d, "map_bake", &storage, 8, &[(0, pass), (1, kind)])?);
                 }
-                made.push(Pipeline::new_deferred(&self.d, "map_fixup", &storage, 8, &[(0, 1)])?);
+                made.push(Pipeline::new_deferred(&self.d, "map_fixup", &storage, 8, &[(0, kind)])?);
                 Ok(())
             })();
             if let Err(e) = result {
@@ -2019,7 +2027,12 @@ impl Engine {
             }
             eprintln!("dvvk SDR bake and fix-up: creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
             let mut p = made.into_iter();
-            self.map_sdr = Some([p.next().unwrap(), p.next().unwrap(), p.next().unwrap(), p.next().unwrap()]);
+            let set = Some([p.next().unwrap(), p.next().unwrap(), p.next().unwrap(), p.next().unwrap()]);
+            if map.hlg() {
+                self.map_sdr_hlg = set;
+            } else {
+                self.map_sdr = set;
+            }
             self.d.save_pipeline_cache();
         }
         // map_fixup's list with an entry a pair (HDR10's has one a 4x2 block)
@@ -2929,7 +2942,8 @@ impl Engine {
             }
             _ => self.map_lut.view,
         };
-        let (map_bake, map_fixup) = match (&self.map_sdr, sdr) {
+        let hlg = self.map.as_ref().is_some_and(|m| m.hlg());
+        let (map_bake, map_fixup) = match (if hlg { &self.map_sdr_hlg } else { &self.map_sdr }, sdr) {
             (Some(p), true) => (&p[..3], &p[3]),
             // submit made them (ensure_sdr) before a frame of SDR output got here
             (None, true) => return Err(Error::Missing("the SDR bake pipelines")),
@@ -3774,7 +3788,7 @@ impl Drop for Engine {
         for p in self.pack_map.values().chain(self.map_bake.iter()).chain(std::iter::once(&self.map_fixup)) {
             p.destroy(d);
         }
-        for p in self.map_sdr.iter().flatten() {
+        for p in self.map_sdr.iter().chain(self.map_sdr_hlg.iter()).flatten() {
             p.destroy(d);
         }
         if let Some(t) = &self.map_tables {
