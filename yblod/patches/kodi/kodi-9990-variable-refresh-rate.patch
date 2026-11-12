@@ -17,9 +17,11 @@ ported:
   frame rate or twice it first (24p as 47.952 on a 40-120 Hz TV),
   except for native Dolby Vision, which keeps its CTA-861 modes;
   FindBestMatchingResolution prefers a VRR mode on ties;
-- System > Display > "Variable refresh rate" (winsystem.vrr, default
-  on, shown on a VRR display; applies at the next flip), with its two
-  strings in the fork's block (#45000, #45001).
+- System > Display > "Variable refresh rate" (winsystem.vrr, shown on a
+  VRR display; applies at the next flip), with its two strings in the
+  fork's block (#45000, #45001). Off by default: none of this has run on
+  hardware, on Intel (linux-9933, itself off by default) or on amdgpu's
+  own FreeSync.
 
 General in purpose, but it changes code the Dolby Vision series adds
 (the native mode choice in the whitelist search, CDRMAtomic and
@@ -83,7 +85,7 @@ index 9c7b440..d60c8df 100644
 +            </dependency>
 +          </dependencies>
 +          <level>1</level>
-+          <default>true</default>
++          <default>false</default>
 +          <control type="toggle" />
 +        </setting>
          <setting id="videoscreen.limitedrange" type="boolean" label="36042" help="36359">
