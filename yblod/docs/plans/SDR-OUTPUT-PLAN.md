@@ -2,6 +2,8 @@
 
 Written 2026-11-11. Research and scope only: nothing is implemented, no build was run, no box was contacted. Base: `feature/yblod-0.5.0` at `8b5608259b`.
 
+**Status, 2026-11-11 (later the same day):** built on branch `yblod-sdr/work`, carried onto 0.5.0 as `yblod-051/sdr`, including the run-time canvas (work item 7) and HDR10, HDR10+ and HLG through the engine (work item 10); checked on the build host's GPU, compiled in Kodi, not yet on a display. Section 8 says what was built, what was decided and what differs from the sections before it, which are left as they were written.
+
 The request: GPU tone mapping of HDR and Dolby Vision to SDR for local playback on a display that is SDR (an SDR TV, a projector), with Intel QSV / AMD AMF suggested as the means. The finding: the vendor paths cannot do it for Dolby Vision at all, and the fork already has the hard part (the reconstruction and a baked 3D-LUT colour map) in its Vulkan engine. The recommendation is a third output mode of that engine. What Kodi does today, with numbers, is in section 0; the decisions that are the owner's are in section 1.
 
 Every statement below is from the code at that commit (Kodi `e6192109` with the fork's 18 patches replayed, the engine in `yblod-engine/vk`), from the numeric work described in 0.3, or from the cited public sources. What could not be established without hardware is listed in section 7.
@@ -219,6 +221,71 @@ Risks:
 - **Mode switching.** In SDR the whitelist may pick a mode smaller than the canvas the engine was created with; the engine then has to be recreated at the new size, or the mode pinned as the tunnel modes are.
 - **Trims off** means a title graded with a strong 100-nit trim will not look like Dolby's SDR. That is the accepted position for HDR10; it is more visible in SDR.
 - **Expectations.** This is not Dolby's content mapping and must not be called Dolby Vision in the menu: "Convert to SDR".
+
+## 8. What was built
+
+Branch `yblod-051/sdr` (`yblod-sdr/work` carried onto 0.5.0). Not part of 0.5.0. User-facing description: `yblod-engine/docs/intel-dv/OUTPUT-MODES.md` (Convert to SDR); hardware checklist: `yblod-engine/integration/README.md` (SDR output).
+
+### 8.1 The owner's decisions (section 1)
+
+| # | Decision | Built |
+| --- | --- | --- |
+| 1 | Presentation | A: the bridge's direct scanout as an ordinary XRGB8888 framebuffer, the engine composing the GUI, the tunnel off. No kernel change was needed. |
+| 2 | 1080p displays | In the first release. The canvas is a run-time size (`dvvk_create_canvas`): both sides multiples of 4, 64 to 4096. Checked at 3840x2160, 1920x1080, 1280x720 and 4096x2160. |
+| 3 | Target white | Setting "SDR display brightness" 100 / 150 / 203 / 300, default 203; 100 named for projectors. |
+| 4 | Transfer | Setting "SDR gamma": BT.1886 (default) or 2.2. |
+| 5 | Tone curve | `spline` on L1, as the HDR10 mode. |
+| 6 | 100-nit trims | Off. |
+| 7 | Automatic fallback | On by default, with a setting. The order is Dolby Vision, then Convert to HDR10 (an HDR10 display on a tunnel connector), then Convert to SDR. Between the last two: a display Kodi sends HDR to still gets an HDR10 or HLG base layer from Kodi itself; only Profile 5 and SDR-compatible base layers are converted to SDR there. |
+| 8 | HDR10, HDR10+, HLG | Through the engine on a display Kodi does not send HDR to, default on, with the setting "HDR videos on an SDR display" to go back to Kodi's shader. Kodi's shader stays for what the engine refuses, with Hable as its default (and a one-time change of a saved "off"). |
+| 9 | Dither | Fixed: libplacebo's 64x64 blue noise as a checked-in table (its generator uses `rand()`), the same pattern for R, G and B, not changing with time. |
+| 10 | Names | "Convert to SDR", "SDR display brightness", "SDR gamma"; also "Automatic fallback" and "HDR videos on an SDR display". Strings 45126 to 45141. |
+| 11 | Chroma | Linear interpolation for the odd pixel. Measured on a 28 Years Later frame against libplacebo with its bilinear chroma: the pair's chroma for both pixels differs by more than 3 dE ITP on 7.9 % of pixels, interpolation on none (identical); against libplacebo's default scaler 0.89 %. |
+
+### 8.2 Decisions the plan left open
+
+- **Gamut mapper's input:** L9's mastering primaries, P3-D65 when a title has none (as CB1's Expert does). For a video without Dolby Vision: its mastering display's primaries (P3-D65, BT.709 or BT.2020 by the nearest), BT.2020 when it names none (libplacebo's behaviour).
+- **Gamut LUT on the GPU:** an RGBA16 3D texture with the sampler's linear filter, as libplacebo's shader; the CPU reference interpolates exactly. Reading eight nodes by hand was 40 % of the exact pass's time.
+- **Marking:** a cell is computed exactly when the LUT is off by more than 0.35 of an 8-bit code at any of 19 points (the worst unmarked sample on the test frames is then 0.71 of a code). Section 2's guess that far fewer cells would need the exact pass was wrong: 8-bit steps are coarse where the display curve is steep, and 0.65 to 1.6 million pairs a frame are exact on 28 Years Later. This is the cost in 8.4.
+- **Exact pass:** a list entry a pair (HDR10's has one a 4x2 block), the next pair's chroma as a 7-bit difference in the pair's words; pairs whose difference does not fit, and pairs under the GUI, are computed in the pack.
+- **Black:** the stream's black is its exact code and never dithered, so bars are one value. `min_nits` is accepted as the display's black (default white / 1000).
+- **GUI:** only the `dvvk_set_overlay` buffer (8-bit, the canvas's size), blended after the map on the output codes; limited range scales it too. A frame with another kind of overlay is refused rather than shown without it. Kodi hands the engine exactly that buffer.
+- **Range:** follows Kodi's "Use limited colour range", for the film and the GUI, as Kodi's own pages; `max bpc` and `Broadcast RGB` are not touched.
+- **HLG:** libplacebo's own rendering, including its rule that a display above 203 cd/m2 gets the HLG system gamma of its own peak and no tone curve, while one at or below it gets BT.2100's 1000 cd/m2 picture tone-mapped. So "300 nits" and "203 nits" differ in kind for HLG. An HLG source is a compile-time constant of the shaders, so that adding it changed no byte of the PQ pictures.
+- **Static HDR10:** the curve's input ends at the mastering display's peak, not MaxCLL (libplacebo's behaviour; MaxCLL only when there is no mastering peak). A title mastered at 4000 cd/m2 with little above 600 is therefore darker than it could be.
+- **"The display is SDR":** Kodi's own conditions for sending HDR (`CWinSystemGbm::SetHDR`): its "Adjust display HDR mode" setting, HDR metadata on the connector, the EDID's static metadata and the video's EOTF. A projector that advertises HDR and shows it badly: turn that setting off (HDR10, HDR10+ and HLG are then converted) and select "Convert to SDR" for Dolby Vision.
+- **Mode changes:** SDR output leaves no mode change to the bridge's first commit and has no menu output or held stop; a mode change during a video ends the bridge, which begins again at the new size.
+- **Tone mapping default for existing installs** (work item 9's open point): changed once to Hable where it was saved as off (settings version 3). A viewer who chose off on purpose has to choose it again.
+
+### 8.3 Differences from the plan's text
+
+- Work item 8: the oracle is a new small tool in the engine's tools (`sdr-oracle.c`, real `pl_render_image` on the engine's reconstructed picture) instead of an SDR target in the owner's `cb1-hdr10-ref`. It compares the colour mapping alone, without a second reconstruction in between.
+- Work item 4: SDR pictures are checked by tolerance against the CPU map on any GPU, and by hash on the GPU the hashes were recorded on (`sdr-check.sh`, `sdr.sha256`), beside golden.sh rather than in it.
+- Work item 6: the settings are `dvbridge.sdrbrightness`, `dvbridge.sdrgamma`, `dvbridge.outputfallback`, `dvbridge.sdrsources`. The enhanced panel names the SDR conversion; the skin lists no modes and was not changed.
+- Work item 10: no separate `yblod_hdr10_dovi.c`; the HDR10+ conversion's writer serves both (`yblod_hdr10plus.c`).
+- Section 2's "later, optional" 12-bit SDR through the tunnel: not built.
+- Section 6's cost estimate (1.5 to 3 ms over the tunnel on the N150) was too low; see 8.4.
+- The Kodi patches are new files (`kodi-9958` to `kodi-9960`, `kodi-9909`); the 18 existing ones are untouched.
+
+### 8.4 Results
+
+On the build host (Raptor Lake UHD 770, Mesa 26.2.6). Nothing below was measured on an N150 or seen on a display.
+
+- Other outputs unchanged: golden.sh 102 hashes and 18 FLIP_Y twins identical, 15 HDR10 dumps identical, `cargo test` 39 passed.
+- Tier 1: 78 pictures (39 configurations, four canvases, HDR10 and HLG sources), every sample within one code of the CPU map.
+- Tier 2 (libplacebo, rounded output, same chroma), per title at 203 / 203 with gamma 2.2 / 100 cd/m2, mean and largest dE ITP: 1917 1.03 / 3.2, 1.03 / 2.4, 0.82 / 2.7; 28 Years Later 0.72 / 2.6, 0.73 / 2.2, 0.57 / 2.1; Gemini Man 0.62 / 2.7, 0.65 / 2.4, 0.51 / 2.1; the landscape demo 0.50 / 2.9, 0.53 / 2.3, 0.41 / 2.1. Largest code difference 1.1 (BT.1886), 3.0 (2.2, near black). Over 3 dE: 0.0002 % of one frame (1917's first picture row). HDR10 and HLG sources: 0.55 to 0.81 mean, 2.7 largest. Section 5's proposed tolerance (mean 0.25 of a code and 1 dE, none over 3 outside the first and last rows) holds for the dithered picture's 2x2 means (0.12 to 0.16 of a code) and for the mean dE of every title but 1917 at 203 (1.03, with either gamma); the rounded picture's mean code difference is the rounding itself.
+- Tier 3: ramps for titles of 1000, 4000 and 10000 cd/m2 at 100 and 203 within 0.07 cd/m2 of the research table, all checks passing.
+- Cost, GPU ms a frame as fast as it goes, Dolby Vision / Convert to HDR10 / Convert to SDR at 3840x2160, and SDR at 1920x1080: 1917 8.3 / 10.2 / 11.7, 3.7; 28 Years Later 3.7 / 4.6 / 9.6, 4.0; Gemini Man 5.7 / 7.1 / 11.1, 5.2; the landscape demo (Profile 5) 5.6 / 12.3 / 18.0, 8.0. The GUI adds 1.2 to 2.9. Plain HDR10 12.5, HLG 9.7.
+- Kodi: the 22 patches replay from the pristine tree with no fuzz or offset, and the tree compiles and links `kodi.bin` with no warning in the files the new patches touch.
+
+### 8.5 Not done
+
+- Anything on a display or on the test boxes (section 7 stands in full; the checklist is in `integration/README.md`).
+- Cost on the N150. From the UHD 770's numbers and the usual factor of about two between them: 24p at 3840x2160 should fit, 60p and Profile 5 at 3840x2160 should not; 1920x1080 should.
+- Speeding the SDR map up. What is left on the table: the exact path's power functions (about 21 a sample), a finer or non-uniform LUT (tried: no gain at 97 and 129 points for the bake's cost), and L1 from measured statistics for static HDR10.
+- HDR10+ and HLG test clips: none in the set. HDR10+ uses the existing conversion's metadata (unit-tested) and the same map as Profile 8.1; HLG was checked on a PQ clip's codes read as HLG, which tests the arithmetic, not a real HLG picture.
+- Profile 8.4 (an HLG base layer with Dolby Vision) is played as any Dolby Vision title; no clip was available.
+- Release notes and `VALIDATION.md` (work item 11): left for the release this goes into.
 
 ## Sources
 

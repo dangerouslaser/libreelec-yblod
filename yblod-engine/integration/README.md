@@ -2,7 +2,7 @@
 
 The Kodi side of YBLOD's Dolby Vision output is the patch series in
 `yblod-engine/patches/kodi/` (Kodi `e6192109`, linked into
-`projects/Generic/patches/kodi/`), `kodi-9950` to `kodi-9957`; see
+`projects/Generic/patches/kodi/`), `kodi-9950` to `kodi-9960`; see
 [KODI-PATCHES.md](../../yblod/docs/KODI-PATCHES.md) for what each holds and
 where the older patch numbers below went. Since 0.4.0 it drives one renderer,
 the Vulkan engine (`yblod-engine/vk`). The engine's adapter
@@ -36,6 +36,94 @@ fails more often than it is started again (below), costs only the title that
 tried it: that title restarts as plain playback and the next one tries the
 engine again. After three such titles in one Kodi run the engine stays off
 until Kodi restarts, with the notification.
+
+## SDR output
+
+After 0.5.0 (kodi-9958 to kodi-9960; the engine's `DVVK_OUTPUT_SDR`):
+Dolby Vision, and HDR10, HDR10+ and HLG videos, converted by the engine for
+a display without HDR and shown by the bridge as an ordinary RGB picture.
+[OUTPUT-MODES.md](../docs/intel-dv/OUTPUT-MODES.md#convert-to-sdr) says what
+it does and how it was checked. How it differs from the tunnel outputs in
+Kodi:
+
+- The bridge runs at the display mode's size (kodi-9958): scanout buffers,
+  the GUI raster and the engine's canvas (`dvvk_create_canvas`). The tunnel
+  outputs are still only begun at 3840x2160.
+- `CDVBridgeState::Capture(drm, false)`: no tunnel property is needed; where
+  the connector has one it is staged off, with no HDR metadata and default
+  colorimetry. `max bpc` and `Broadcast RGB` are left as the desktop has
+  them. The restore after the video puts back what was captured, as for the
+  tunnel.
+- No menu output, no held stop, no mode change left to the bridge's first
+  commit: those exist to make one HDMI signal change of several, and SDR
+  output changes no signal.
+- Which output a video gets is `CWinSystemGbmGLESContext::DVOutput()`
+  (Dolby Vision videos: the selected mode, or the fallback order) and
+  `PlainSourceSDR()` (videos without Dolby Vision). The log says so:
+  `DVBridge output: SDR (...)`, `Vulkan engine output: SDR (...)`, and
+  `DVBridge output: mode N is not available on this display; using M`.
+
+Switches (`runtime.env`; the settings for brightness, gamma and HDR videos
+take precedence over their entries):
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `DV_SDR_OUTPUT` | 1 | 0: no SDR output at all, selected or as the fallback. The way back to 0.5.0's behaviour. |
+| `DV_SDR_HDR_SOURCES` | 1 | 0: HDR10, HDR10+ and HLG videos stay with Kodi's tone mapping. |
+| `DV_SDR_WHITE`, `DV_SDR_BLACK` | 203, 0 | The display's white (40 to 1000) and black (0: white / 1000) in cd/m2. |
+| `DV_SDR_GAMMA` | bt1886 | `2.2` for a 2.2 power. |
+| `DV_SDR_RANGE` | auto | `auto` follows Kodi's "Use limited colour range"; `full`, `limited`. |
+| `DV_SDR_DITHER` | 1 | 0: rounded codes. |
+
+### To check on a display
+
+Nothing of this has been on a display. An SDR-only TV is not needed: any TV
+shows an SDR signal, and an HDFury Arcana can present an EDID without HDR and
+Dolby Vision blocks, which is what the fallback has to see. A projector is a
+separate check.
+
+1. **It starts.** A Dolby Vision title (Profile 5, 7 FEL, 8.1) with Output
+   mode "Convert to SDR", on native HDMI (Intel gen12+, AMD), on a
+   DP-to-HDMI converter route, on the NUC7's LSPCON and on DisplayPort. The
+   first flip without the tunnel property is the open question on each.
+2. **Fallback.** EDID without HDR and Dolby Vision: the same titles with
+   Output mode left at Dolby Vision (TV-led) play as SDR, with one
+   notification. EDID with HDR10 but no Dolby Vision: Convert to HDR10 is
+   used; a Profile 8.1 title with "Automatic fallback" off plays as its
+   HDR10 base layer. `DV_SDR_OUTPUT=0`: the base layer, as in 0.5.0.
+3. **Levels.** Black bars and a ramp with Kodi's limited range setting off
+   and on, against Kodi's own SDR playback of an SDR video on the same
+   input: bars, the GUI and the film must sit at the same levels as Kodi's
+   pages (the kernel's `Broadcast RGB` is not touched). If only the film is
+   off, `DV_SDR_RANGE=full|limited` says which way.
+4. **Gamma and brightness.** BT.1886 against 2.2, and 100 / 203 / 300 nits,
+   on a TV in a dim room; 100 nits on the projector. Shadows too dark with
+   BT.1886 on a bright TV is the case for 2.2.
+5. **Banding and dither.** Slow gradients (sky, fades) at 8 bits; the
+   dither pattern is fixed, so look for a visible static texture on flat
+   areas at 1080p. `DV_SDR_DITHER=0` for comparison.
+6. **GUI over the film.** OSD, seek bar, subtitles (text and PGS): placed
+   and coloured as on Kodi's own pages, steady through scene changes, and
+   right with limited range.
+7. **Modes.** A 1920x1080 display; a 3840x2160 one; a 4K title on the
+   1080p display; a 1080p title on the 4K one; refresh-rate switching
+   (24p, 60p) and a resolution switch through the whitelist during a video
+   (the bridge ends and begins again at the new size); a mode the engine
+   does not take (1366x768) plays through Kodi.
+8. **Stop, seek, next title.** The desktop comes back with its own levels;
+   Dolby Vision then HDR10 then SDR titles in one session; a title after an
+   engine restart.
+9. **HDR videos.** An HDR10, an HDR10+ and an HLG video with "HDR videos on
+   an SDR display" on each setting: the picture against Kodi's Hable, and
+   the dropped-frame counter. A software-decoded HDR10 video still plays
+   (Kodi's shader). On an HDR TV with Kodi's "Adjust display HDR mode" off,
+   HDR10 is converted; with it on, it is passed through as before.
+10. **Speed** (`DVVK_PROFILE=1`): the N150 at 3840x2160 24p (1917, 28 Years
+    Later), 60p (Gemini Man) and Profile 5; the same at 1920x1080; the
+    first SDR picture's hitch when `yblod-dv-prepare` has not run.
+11. **VRR** (kodi-9990). On a FreeSync display with Kodi's variable refresh
+    rate setting on: the refresh-rate changes before and after an SDR-output
+    video, which the tunnel outputs have been through and SDR output has not.
 
 ## Presentation (0.5.0)
 

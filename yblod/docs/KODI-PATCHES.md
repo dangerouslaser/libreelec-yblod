@@ -35,6 +35,7 @@ A new patch takes the next free number in its range.
 | `yblod/patches/kodi/kodi-9906-vaapi-depth-and-chroma-from-sw-pix-fmt.patch` | VAAPI: take the surface bit depth and chroma from sw_pix_fmt | +14 / -12 |
 | `yblod/patches/kodi/kodi-9907-ffmpeg-keep-draining-hardware-decoder.patch` | FFmpeg: keep draining a hardware decoder until it reaches EOF | +4 / -0 |
 | `yblod/patches/kodi/kodi-9908-live-tv-start.patch` | VideoPlayer: start live TV sooner | +44 / -11 |
+| `yblod/patches/kodi/kodi-9909-videoplayer-hable-default-tone-mapping.patch` | VideoPlayer: Hable is the default tone mapping method (it was off) | +1 / -1 |
 | `yblod-engine/patches/kodi/kodi-9950-dv-stream-and-picture-metadata.patch` | Dolby Vision: carry stream and picture metadata through VideoPlayer | +101 / -1 |
 | `yblod-engine/patches/kodi/kodi-9951-dv-dvbridge-library.patch` | Dolby Vision: add the tools/dvbridge library | +1571 / -1 |
 | `yblod-engine/patches/kodi/kodi-9952-dv-decoder.patch` | Dolby Vision: decode both layers and the metadata in the FFmpeg decoder | +618 / -2 |
@@ -43,11 +44,25 @@ A new patch takes the next free number in its range.
 | `yblod-engine/patches/kodi/kodi-9955-dv-settings-strings-and-player-info.patch` | Dolby Vision: settings, strings and player information | +1798 / -1 |
 | `yblod-engine/patches/kodi/kodi-9956-dv-vulkan-engine-adapter.patch` | Dolby Vision: the Vulkan engine adapter | +2112 / -0 |
 | `yblod-engine/patches/kodi/kodi-9957-dv-renderer-window-and-build.patch` | Dolby Vision: renderer, window and build switch | +2247 / -22 |
+| `yblod-engine/patches/kodi/kodi-9958-dv-bridge-at-the-mode-size.patch` | Dolby Vision: the bridge (scanout, GUI raster, engine canvas) at the display mode's size | +84 / -34 |
+| `yblod-engine/patches/kodi/kodi-9959-dv-sdr-output-and-fallback.patch` | Dolby Vision: "Convert to SDR" (the engine's SDR output as an ordinary RGB picture), its settings, automatic fallback | +440 / -66 |
+| `yblod-engine/patches/kodi/kodi-9960-dv-hdr-videos-through-the-sdr-output.patch` | Dolby Vision: HDR10, HDR10+ and HLG videos through the SDR output, with the switch back to Kodi's tone mapping | +288 / -46 |
 | `yblod/patches/kodi/kodi-9990-variable-refresh-rate.patch` | windowing: variable refresh rate (FreeSync) for refresh rate changes | +251 / -2 |
 
-Together they add the 10538 lines and remove the 109 lines that separate
-LibreELEC's Kodi from YBLOD's; no line is added by one patch and removed by
-another.
+The patches up to `kodi-9957` and `kodi-9990` add the 10538 lines and remove
+the 109 lines that separated LibreELEC's Kodi from YBLOD 0.5.0's; no line is
+added by one of them and removed by another.
+
+`kodi-9909` and `kodi-9958` to `kodi-9960` are the SDR output (after 0.5.0;
+[OUTPUT-MODES.md](../../yblod-engine/docs/intel-dv/OUTPUT-MODES.md#convert-to-sdr)).
+They are a layer on the series as it was, written without touching the
+earlier files, so the three Dolby Vision ones do change lines that 9950 to
+9957 added (132 of them); with them the whole series is +11205 / -110 against
+LibreELEC's Kodi. `kodi-9990` still applies after them with no offset: what
+they change in the files it patches is above its hunks and line for line.
+When the series is next regrouped they fold into 9953 (DRM state), 9955
+(settings and strings, 45126 to 45141), 9956 (the adapter) and 9957 (the
+window and renderer).
 
 ## Where the old patches went
 
