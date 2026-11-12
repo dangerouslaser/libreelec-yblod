@@ -61,6 +61,14 @@
  *     --gamma22          sdr: a 2.2 power instead of BT.1886
  *     --limited          sdr: codes 16..235
  *     --no-dither        sdr: rounded codes
+ *     --source KIND      hdr10 or hlg: the video played as a plain one, its
+ *                        Dolby Vision metadata and enhancement layer left
+ *                        aside (a Dolby Vision file's base layer stands in
+ *                        for an HDR10 video; hlg reads the same codes as
+ *                        HLG): every picture takes dvvk_hdr10_to_dovi's
+ *                        metadata, made from the stream's mastering display
+ *                        and light levels (hlg: none), and hlg sets
+ *                        DVVK_SDR_HLG. For --output sdr
  *     --hdr10plus-v0     HDR10+ application version 0 (default 1)
  *     --no-l2            L2 trims left out of the metadata
  *     --dump FILE        the last picture's XRGB8888 bytes
@@ -74,6 +82,7 @@
 #define _GNU_SOURCE
 #include "decode.h"
 #include "../include/dv_engine_vk.h"
+#include <libavutil/mastering_display_metadata.h>
 #include <gbm.h>
 #include <drm_fourcc.h>
 #include <fcntl.h>
@@ -247,6 +256,9 @@ int main(int argc, char **argv)
     const char *metadata_prefix = NULL;
     double start = 0, rate = 23.976, white = 203.0, black = 0;
     unsigned sdr_flags = 0;
+    int source = 0;   /* 1 hdr10, 2 hlg: dvvk_hdr10_to_dovi's metadata */
+    static _Alignas(16) uint8_t plain[DVVK_HDR10PLUS_DOVI_BYTES];
+    size_t plain_size = 0;
     unsigned dx = 0, dy = 0, dwid = 0, dhei = 0;
     const char *file = NULL, *overlay_path = NULL, *mode = "none", *dump = NULL;
     for (int i = 1; i < argc; i++) {
@@ -324,7 +336,14 @@ int main(int argc, char **argv)
             sdr_flags |= DVVK_SDR_LIMITED;
         else if (!strcmp(argv[i], "--no-dither"))
             sdr_flags |= DVVK_SDR_NO_DITHER;
-        else if (!strcmp(argv[i], "--hdr10plus-v0"))
+        else if (!strcmp(argv[i], "--source") && i + 1 < argc) {
+            const char *k = argv[++i];
+            source = !strcmp(k, "hdr10") ? 1 : !strcmp(k, "hlg") ? 2 : 0;
+            if (!source)
+                return fprintf(stderr, "--source: hdr10 or hlg\n"), 2;
+            if (source == 2)
+                sdr_flags |= DVVK_SDR_HLG;
+        } else if (!strcmp(argv[i], "--hdr10plus-v0"))
             hdr10plus_v0 = 1;
         else if (!strcmp(argv[i], "--no-l2"))
             no_l2 = 1;
@@ -445,10 +464,41 @@ int main(int argc, char **argv)
     double t0 = now_ms();
     struct dv_pair p;
     while (n < frames && dv_decoder_next(&dec, &p) == 1) {
-        if (!p.dovi) {
+        if (!p.dovi && !source) {
             dv_pair_free(&p);
             continue;
         }
+        if (source && !plain_size) {
+            /* the stream's static metadata, as Kodi's adapter reads it */
+            dvvk_hdr10_static st = {0};
+            const AVFrameSideData *sd = av_frame_get_side_data(p.bl, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
+            if (sd) {
+                const AVMasteringDisplayMetadata *md = (const AVMasteringDisplayMetadata *)sd->data;
+                if (md->has_luminance) {
+                    st.max_luminance = (float)av_q2d(md->max_luminance);
+                    st.min_luminance = (float)av_q2d(md->min_luminance);
+                }
+                if (md->has_primaries) {
+                    const double rx = av_q2d(md->display_primaries[0][0]), gy = av_q2d(md->display_primaries[1][1]);
+                    st.primaries = fabs(rx - 0.680) < 0.01 && fabs(gy - 0.690) < 0.01 ? DVVK_PRIMARIES_P3D65
+                                   : fabs(rx - 0.640) < 0.01 && fabs(gy - 0.600) < 0.01 ? DVVK_PRIMARIES_BT709
+                                   : DVVK_PRIMARIES_BT2020;
+                }
+            }
+            if ((sd = av_frame_get_side_data(p.bl, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL))) {
+                const AVContentLightMetadata *cl = (const AVContentLightMetadata *)sd->data;
+                st.max_cll = (uint16_t)(cl->MaxCLL > 65535 ? 65535 : cl->MaxCLL);
+                st.max_fall = (uint16_t)(cl->MaxFALL > 65535 ? 65535 : cl->MaxFALL);
+            }
+            if (dvvk_hdr10_to_dovi(source == 2 ? NULL : &st, plain, sizeof(plain), &plain_size) || !plain_size)
+                return fprintf(stderr, "dvvk_hdr10_to_dovi failed\n"), 1;
+            printf("dvvk-bench: --source %s: mastering %.4g..%.4g cd/m2, MaxCLL %u, MaxFALL %u, primaries %u\n",
+                   source == 2 ? "hlg" : "hdr10", (double)st.min_luminance, (double)st.max_luminance, st.max_cll,
+                   st.max_fall, st.primaries);
+        }
+        const uint8_t *md_data = source ? plain : p.dovi->data;
+        const size_t md_size = source ? plain_size : (size_t)p.dovi->size;
+        const int has_el = p.el != NULL && !source;
         int slot = n % SLOTS;
         if (have[slot]) {
             double tw = now_ms();
@@ -478,17 +528,17 @@ int main(int argc, char **argv)
             snprintf(path, sizeof(path), "%s.%d.bin", metadata_prefix, n);
             FILE *mf = fopen(path, "wb");
             if (mf) {
-                fwrite(p.dovi->data, 1, p.dovi->size, mf);
+                fwrite(md_data, 1, md_size, mf);
                 fclose(mf);
             }
             snprintf(path, sizeof(path), "%s.txt", metadata_prefix);
             if ((mf = fopen(path, n ? "a" : "w"))) {
-                fprintf(mf, "%d %u %u %d %d %d %zu\n", n, w, h, p.el != NULL, nv12, top_left, (size_t)p.dovi->size);
+                fprintf(mf, "%d %u %u %d %d %d %zu\n", n, w, h, has_el, nv12, top_left, md_size);
                 fclose(mf);
             }
         }
         int resized = dw != w || dh != h;
-        int siting = cb1_siting(p.bl->chroma_location, (const AVDOVIMetadata *)p.dovi->data);
+        int siting = cb1_siting(p.bl->chroma_location, (const AVDOVIMetadata *)md_data);
         int contract = cb1 && !resized && siting >= 0;
         if (contract) {
             if (!cb1_sent)
@@ -515,14 +565,14 @@ int main(int argc, char **argv)
         dvvk_frame f = {.plan = {.width = w, .height = h, .x = x, .y = y, .dw = dw == w && dh == h ? 0 : dw,
                                  .dh = dw == w && dh == h ? 0 : dh,
                                  .chroma_top_left = (uint32_t)(contract ? siting == 1 : top_left),
-                                 .has_el = p.el != NULL, .nv12 = (uint32_t)nv12,
+                                 .has_el = (uint32_t)has_el, .nv12 = (uint32_t)nv12,
                                  .el_scaler = (uint32_t)(contract ? DVVK_EL_ANNEXB : scaler), .fel = (uint32_t)fel,
                                  .packet_id = packet_id, .refresh = (uint32_t)(contract ? cb1_refresh : n == 0),
                                  .cb1_contract = (uint32_t)contract, .overlay = (uint32_t)use_overlay,
                                  .overlay_visible_before = (uint32_t)ov_before, .pts = p.bl->pts, .white_nits = white,
                                  .dm_options = DVVK_DM_OPTIONS(cm4, cm4_trigger, cm4_headroom, no_l2, tv_peak)},
-                        .bl_surface = p.bl_surface, .el_surface = p.el ? p.el_surface : 0xffffffffu,
-                        .metadata = p.dovi->data, .metadata_size = p.dovi->size, .output = (uint32_t)slot,
+                        .bl_surface = p.bl_surface, .el_surface = has_el ? p.el_surface : 0xffffffffu,
+                        .metadata = md_data, .metadata_size = md_size, .output = (uint32_t)slot,
                         .flags = (use_overlay ? DVVK_FRAME_AUTO_OVERLAY : 0) | (desktop ? DVVK_FRAME_DESKTOP : 0)};
         memcpy(f.plan.rgb_to_lms, rgb_to_lms, sizeof(rgb_to_lms));
         packet_id = (packet_id + 1) & 0xf;

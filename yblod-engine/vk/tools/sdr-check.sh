@@ -17,7 +17,8 @@
 # and the overlay stored bottom first (DVVK_OVERLAY_FLIP_Y) must give its
 # twin's bytes. `update` rewrites sdr.sha256 from this run. The canvas is
 # 3840x2160, then 1920x1080, 1280x720 and 4096x2160 (dvvk_create_canvas: the
-# film fitted into it, i.e. resized in the smaller two).
+# film fitted into it, i.e. resized in the smaller two). The P8.1 clip also
+# plays as a video without Dolby Vision (HDR10, and its codes read as HLG).
 #
 # BENCH, MAPTEST, COMPARE: dvvk-bench, dvvk-map-test, dvvk-sdr-compare
 # (default: next to this script, else PATH). WORK: scratch directory (default
@@ -165,6 +166,17 @@ if [ -n "$P5" ]; then
   run p5-cb1          "$P5" "--cb1 --start $P" "" ""
   run p5-cb1-100      "$P5" "--cb1 --start $P" "--white 100" "--white 100"
 fi
+# Videos without Dolby Vision (dvvk_hdr10_to_dovi's metadata, dvvk-bench
+# --source): the Profile 8.1 clip's base layer as the HDR10 video it is, and
+# the same codes read as an HLG video's
+if [ -n "$P81" ]; then
+  run hdr10           "$P81" "--cb1 --source hdr10" "" ""
+  run hdr10-100       "$P81" "--cb1 --source hdr10" "--white 100" "--white 100"
+  run hdr10-static    "$P81" "--cb1 --source hdr10" "" "" "$S"
+  run hlg             "$P81" "--cb1 --source hlg" "" "--hlg"
+  run hlg-100         "$P81" "--cb1 --source hlg" "--white 100" "--hlg --white 100"
+  run hlg-g22-static  "$P81" "--cb1 --source hlg" "--gamma22" "--hlg --gamma22" "$S"
+fi
 
 # Other canvases: the film fitted (a 3840 wide one resized into the smaller
 # two, unscaled and pillarboxed in 4096x2160)
@@ -177,6 +189,8 @@ run fel-1080-static   "$FEL" "$B" "" "" "$S"
 [ -z "$P81" ] || run p81-1080 "$P81" "$B" "" ""
 [ -z "$P81" ] || run p81-1080-static "$P81" "$B" "--limited" "--limited" "$S"
 [ -z "$P5" ] || run p5-1080 "$P5" "--cb1 --start ${P5_START:-34.6}" "" ""
+[ -z "$P81" ] || run hdr10-1080 "$P81" "$B --source hdr10" "" ""
+[ -z "$P81" ] || run hlg-1080 "$P81" "$B --source hlg" "--limited" "--hlg --limited" "$S"
 canvas 1280 720
 run fel-720           "$FEL" "$B" "" ""
 [ -z "$P81" ] || run p81-720-static "$P81" "$B" "" "" "$S"

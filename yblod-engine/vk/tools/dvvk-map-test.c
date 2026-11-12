@@ -14,6 +14,8 @@
  *     --gamma22          SDR: a 2.2 power instead of BT.1886
  *     --limited          SDR: codes 16..235
  *     --no-dither        SDR: rounded codes in --out
+ *     --hlg              SDR: the source is HLG (DVVK_SDR_HLG; a fixture of
+ *                        dvvk_hdr10_to_dovi: dvvk-bench --source hlg --metadata)
  *     --frame DUMP       a Dolby Vision tunnel dump (dvvk-bench --dump, output
  *                        dv) mapped pixel by pixel: the share of its pixels
  *                        in cells the bake would mark, the LUT's error on it.
@@ -34,6 +36,10 @@
  *     --oracle FILE      SDR: what tools/sdr-oracle (libplacebo itself)
  *                        needs to render the same frame: the RPU's matrices,
  *                        the source's luminance, L1, the primaries, the display
+ *     --plain            with --oracle: the fixture is dvvk_hdr10_to_dovi's of
+ *                        an HDR10 video, for libplacebo to decode as plain
+ *                        BT.2020 Y'CbCr instead of with the RPU's matrices
+ *                        (--hlg says so by itself)
  *   The fixture's metadata changed before the plan (the research harness's
  *   titles, SDR-OUTPUT-PLAN.md 0.3):
  *     --src NITS,NITS    the source display's minimum and maximum
@@ -45,8 +51,11 @@
  *     --ramp             a grey ramp 0.005 .. the source's maximum as the
  *                        display shows it (cd/m2), with the checks: monotonic,
  *                        white only at the source's peak, black at code 0
- *                        (16), greys neutral
- *     --rgb              stdin lines of BT.2020 PQ R'G'B' (0..1) -> the
+ *                        (16), greys neutral. An HLG source's levels are
+ *                        what BT.2100's 1000 cd/m2 display shows (the
+ *                        signal: its OETF of the grey with that light,
+ *                        system gamma 1.2)
+ *     --rgb              stdin lines of BT.2020 PQ (--hlg: HLG) R'G'B' (0..1) -> the
  *                        display's linear BT.709 light in cd/m2 (as the
  *                        research harness's ref printed) and the 8-bit codes
  *   THRESH=C: the marking threshold in output codes (the engine's defaults:
@@ -112,6 +121,16 @@ static double shown(double v)
     return 10000.0 * (pow(v + g->out_trc[3], 1.0 / g->out_trc[2]) - g->out_trc[1]) / g->out_trc[0];
 }
 
+/* the source's signal of a grey with this light: PQ, or HLG's on BT.2100's
+ * 1000 cd/m2 display (the OOTF's inverse for a grey, then the OETF) */
+static double source_signal(double nits)
+{
+    if (!(g->flags & DVVK_MAP_HLG))
+        return pq_oetf(nits);
+    const double e = pow(fmin(nits, 1000.0) / 1000.0, 1.0 / 1.2);
+    return e <= 1.0 / 12 ? sqrt(3.0 * e) : 0.17883277 * log(12.0 * e - 0.28466892) + 0.55991073;
+}
+
 static uint16_t pq12(double nits)
 {
     return (uint16_t)lround(pq_oetf(nits) * 4095.0);
@@ -156,7 +175,9 @@ static int ramp(void)
     printf("  grey ramp (display %.4g..%.4g cd/m2; the curve's input ends at %.0f cd/m2)\n", black, white, peak);
     printf("      in cd/m2 |  shown cd/m2 |   R'G'B' codes (rounded)\n");
     for (size_t i = 0; i < sizeof(levels) / sizeof(*levels); i++) {
-        double nl[3] = {pq_oetf(levels[i]), pq_oetf(levels[i]), pq_oetf(levels[i])}, rgb[3], c[3];
+        if ((g->flags & DVVK_MAP_HLG) && levels[i] > 1000)
+            break;
+        double nl[3] = {source_signal(levels[i]), source_signal(levels[i]), source_signal(levels[i])}, rgb[3], c[3];
         dvvk_map_rgb(g, tables, nl, rgb);
         out_codes(rgb, c);
         double y = 0.2126 * shown(rgb[0]) + 0.7152 * shown(rgb[1]) + 0.0722 * shown(rgb[2]);
@@ -178,7 +199,8 @@ static int ramp(void)
         last = y;
     }
     /* signal black and the source's peak */
-    double z[3] = {0, 0, 0}, top[3] = {g->tone_in[1], g->tone_in[1], g->tone_in[1]}, rz[3], rt[3], cz[3], ct[3];
+    const double t = g->flags & DVVK_MAP_HLG ? 1.0 : g->tone_in[1];
+    double z[3] = {0, 0, 0}, top[3] = {t, t, t}, rz[3], rt[3], cz[3], ct[3];
     dvvk_map_rgb(g, tables, z, rz);
     dvvk_map_rgb(g, tables, top, rt);
     out_codes(rz, cz);
@@ -201,7 +223,7 @@ static int ramp(void)
 
 int main(int argc, char **argv)
 {
-    int n = 65, samples = 200000, do_ramp = 0, do_rgb = 0, no_l1 = 0, l9 = -1, no_l6 = 0, pair_chroma = 0;
+    int n = 65, samples = 200000, do_ramp = 0, do_rgb = 0, no_l1 = 0, l9 = -1, no_l6 = 0, pair_chroma = 0, plain = 0;
     const char *frame = NULL, *outpath = NULL, *src = NULL, *l1 = NULL, *overlay = NULL, *oracle = NULL;
     dvvk_output_mode mode = {.mode = DVVK_OUTPUT_HDR10};
     int i = 1, failed = 0;
@@ -232,6 +254,8 @@ int main(int argc, char **argv)
             mode.flags |= DVVK_SDR_LIMITED;
         else if (!strcmp(argv[i], "--no-dither"))
             mode.flags |= DVVK_SDR_NO_DITHER;
+        else if (!strcmp(argv[i], "--hlg"))
+            mode.flags |= DVVK_SDR_HLG;
         else if (!strcmp(argv[i], "--src") && i + 1 < argc)
             src = argv[++i];
         else if (!strcmp(argv[i], "--l1") && i + 1 < argc)
@@ -242,6 +266,8 @@ int main(int argc, char **argv)
             no_l6 = 1;
         else if (!strcmp(argv[i], "--l9") && i + 1 < argc)
             l9 = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--plain"))
+            plain = 1;
         else if (!strcmp(argv[i], "--pair-chroma"))
             pair_chroma = 1;
         else if (!strcmp(argv[i], "--ramp"))
@@ -329,7 +355,15 @@ int main(int argc, char **argv)
             fprintf(f, "l1 %u %u\nprimaries", l1max, l1avg);
             for (int k = 0; k < 8; k++)
                 fprintf(f, " %.9g", map.gamut_prim[0][k]);
-            fprintf(f, "\ndisplay %.9g %.9g %d\n", shown(1.0), shown(0.0), (mode.flags & DVVK_SDR_GAMMA22) != 0);
+            /* the display as it was asked for, not as the curve's floats give
+             * it back: libplacebo decides by "above 203 cd/m2" (an HLG
+             * source's rendering), where a rounding error would change sides */
+            const double dw = mode.peak_nits > 0 ? mode.peak_nits : 203.0;
+            fprintf(f, "\ndisplay %.9g %.9g %d\n", dw, mode.min_nits > 0 ? mode.min_nits : dw / 1000.0,
+                    (mode.flags & DVVK_SDR_GAMMA22) != 0);
+            /* a plain video (dvvk_hdr10_to_dovi's metadata): 1 HLG, 2 HDR10 */
+            if (plain || (g->flags & DVVK_MAP_HLG))
+                fprintf(f, "plain %d\n", g->flags & DVVK_MAP_HLG ? 1 : 2);
             fclose(f);
         }
         if (do_ramp && sdr)

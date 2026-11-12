@@ -13,7 +13,9 @@
  *
  *   sdr-oracle [options] PARAMS DV.dump OUT.f32
  *     PARAMS     dvvk-map-test --oracle FILE's text: the frame's matrices,
- *                source luminance, L1, primaries and the display
+ *                source luminance, L1, primaries and the display; with
+ *                --plain or --hlg also that the picture is a plain HDR10 or
+ *                HLG video's, which libplacebo then decodes by itself
  *     DV.dump    the picture as the Dolby Vision tunnel carries it
  *                (dvvk-bench --dump, output dv): 12-bit 4:2:2 Y'CbCr
  *     OUT.f32    the display's R'G'B', float, 12 bytes a pixel, rows top
@@ -58,6 +60,15 @@ static const double *get(const char *k, int n)
             return val[i];
     fprintf(stderr, "PARAMS: no %s (%d values)\n", k, n);
     exit(1);
+}
+
+/* an optional line */
+static const double *opt(const char *k)
+{
+    for (int i = 0; i < nkeys; i++)
+        if (!strcmp(key[i], k))
+            return val[i];
+    return NULL;
 }
 
 static void read_params(const char *path)
@@ -200,6 +211,22 @@ int main(int argc, char **argv)
         .color = image_color,
         .crop = {0, 0, W, H},
     };
+    /* A video without Dolby Vision (PARAMS "plain": 1 HLG, 2 HDR10): decoded
+     * as what it is, BT.2020 limited-range Y'CbCr of 12-bit codes, by
+     * libplacebo's own matrix instead of the metadata's; an HLG one with
+     * libplacebo's HLG and no mastering display. */
+    const double *plain = opt("plain");
+    if (plain) {
+        image.repr = (struct pl_color_repr) {
+            .sys = PL_COLOR_SYSTEM_BT_2020_NC, .levels = PL_COLOR_LEVELS_LIMITED,
+            .bits = {.sample_depth = 12, .color_depth = 12},
+        };
+        if (plain[0] == 1)
+            image.color = (struct pl_color_space) {
+                .primaries = PL_COLOR_PRIM_BT_2020, .transfer = PL_COLOR_TRC_HLG,
+                .hdr = {.prim = image_color.hdr.prim},
+            };
+    }
     struct pl_frame target = {
         .num_planes = 1,
         .planes = {{.texture = out, .components = 4, .component_mapping = {0, 1, 2, 3}}},
