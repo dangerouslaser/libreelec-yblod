@@ -1,0 +1,65 @@
+YBLOD 0.5.0 makes Dolby Vision cheaper whenever something other than the film is on screen (pause, the on-screen display, subtitles), starts films faster, recovers from faults that used to freeze a title, and cleans up the patches underneath. Plain Dolby Vision playback is unchanged: the engine's output is byte-identical to 0.4.1 on the reference clips.
+
+What changed
+- Pause: a paused Dolby Vision film is no longer rendered again every refresh. On an Intel N150 the GPU goes from 47-75 % busy to about 1 % while paused, and the box draws about 2 W less.
+- On-screen display and subtitles: Kodi's menu layer is handed to the engine only when Kodi has drawn into it, so a still OSD or a subtitle line that stays on screen costs almost nothing. 28 Years Later with the OSD open takes a third less GPU time; 1917 with subtitles 3.7 ms less per frame. See the table.
+- 24p films on a 60 Hz mode (refresh-rate switching off): each picture is rendered once, not 2.5 times.
+- Faster start: a Dolby Vision film is on screen 0.2 to 0.5 s sooner (N150: 1.0-1.1 s from open, was 1.2-1.6 s). Decoded pictures no longer take a detour through Kodi's OpenGL renderer that the Dolby Vision path never used.
+- Faults that froze a title now recover. An enhancement-layer (Profile 7 FEL) pairing fault is logged and resynchronised at the next key frame, with the base layer shown meanwhile; an engine failure restarts the engine; a Dolby Vision decoder that fails to open falls back to Kodi's ordinary decoders; a software-decoded Dolby Vision picture plays as ordinary video; a failed return from the Dolby Vision signal is retried.
+- HDR10 and HDR10+ output: the first film in these modes, and the first time the OSD opens in them, no longer stall while a shader compiles (it took up to 30 s). The boot service that prepares the engine after an update now builds these too. HDR10+ output takes 6-18 % less GPU time (engine alone, Intel UHD 770).
+- More TVs recognised: displays whose EDID uses an HF-EEODB extension-count override were refused as "edid-invalid" and now get Dolby Vision. First-generation Dolby Vision TVs (version 0 of Dolby's EDID block) were always refused because of a wrong length check; they are now accepted. Neither has been tried on such a TV.
+- Less memory: about 190 MB less GPU memory while the OSD is over a Dolby Vision film.
+- Add-on updates: the pre-installed YBLOD add-ons (the skin, and the LG edition's webOS add-on) take updates from the dangerouslaser repository only. 0.2.3 to 0.4.1 let any installed third-party repository update any optional system add-on.
+- Kernel: QMS (seamless refresh-rate changes) engages only on the Intel graphics it can work on (Tiger Lake up to, not including, Panther Lake); on Lunar Lake an HDR mode that cannot do 10-bit falls back to 8-bit like everywhere else instead of failing; with HDR10+ output active an unrelated display change (a second monitor) no longer fails; amdgpu re-checks the HDR10 metadata on every commit. Every kernel switch the fork adds is listed in yblod/docs/KERNEL-PARAMETERS.md. On Lunar Lake and Arc B-series the switches are xe.qms=0 and so on, not i915.
+- The periodic "playback health" log line is written only with diagnostics on (DVBRIDGE_DIAGNOSTICS=1) or debug logging.
+
+To try, off by default
+- Non-blocking presentation. Kodi can now queue each Dolby Vision picture for the display and start on the next one instead of waiting. On the N150 this takes 60p Dolby Vision from 40.5 to 56 pictures a second and lets heavy Profile 7 films hold 24 fps with the OSD open; it adds one refresh of video delay, which the audio follows. It passed every check on the N150 (247,800 queued flips, none late to the kernel or timed out; pictures verified) but nobody has yet judged it on a TV and it has not run on AMD, so it ships off. To turn it on, put DV_PRIVATE_NONBLOCK=1 in /storage/.config/native-dv.env and restart Kodi.
+- FreeSync over HDMI on Intel (Settings > System > Display > Variable refresh rate, plus the kernel switch i915.hdmi_freesync=1 on Intel): refresh-rate changes without a resync on TVs with a FreeSync range. It has not run on any hardware, so both the setting and the kernel switch are off.
+
+Performance, Intel N150, real Kodi playback (films over NFS, audio passthrough, warm caches; GPU ms per presented picture and pictures per second, median of two one-minute runs; differences under 3 % are noise)
+
+Film, scenario                        0.4.1            0.5.0            0.5.0 non-blocking
+1917 (P7 FEL), plain                  17.31  23.97     17.53  23.98     17.48  23.98
+Saving Private Ryan (P7 FEL), plain   23.09  23.97     23.07  23.97     23.17  23.98
+28 Years Later (P8.1), plain          11.75  23.97     11.86  23.98     12.12  23.97
+Gemini Man (P7 MEL, 59.94), plain     11.62  40.53     11.60  40.52     11.86  56.01
+1917, OSD open                        31.39  20.75     27.73  21.22     28.35  23.98
+Saving Private Ryan, OSD open         34.16  19.15     31.13  21.55     31.08  23.97
+28 Years Later, OSD open              18.36  23.97     12.32  23.98     12.84  23.98
+Gemini Man, OSD open                  21.15  29.70     18.60  29.70     18.75  41.74
+1917, subtitle                        22.04  23.97     18.38  23.98     18.48  23.97
+Gemini Man, subtitle                  15.40  32.49     13.25  39.60     13.46  51.56
+1917, Dolby Vision to HDR10           19.11  23.98     19.01  23.97     18.79  23.98
+Gemini Man, Dolby Vision to HDR10     14.89  31.96     14.84  33.96     15.00  46.50
+
+                                      0.4.1            0.5.0            0.5.0 non-blocking
+Paused, GPU busy (1917 / Gemini Man)  46.8 % / 75.0 %  0.7 % / 1.0 %    0.8 % / 1.5 %
+Paused, package power                 4.6 W / 5.4 W    2.9 W / 3.2 W    3.0 W / 3.3 W
+Start, open to steady pictures        1.20-1.63 s      0.97-1.13 s      0.99-1.12 s
+
+The full results, the functional checks and the harness that produced them are in the repository: yblod/docs/releases/data/ and yblod/tools/bench/.
+
+Known issues
+- 60p Dolby Vision on an N150 still shows about 40 pictures a second by default (56 with non-blocking presentation on). What stops it reaching 59.94 is that decoding and the engine's work do not overlap on the GPU for that title; not yet solved.
+- Heavy Profile 7 FEL films with the OSD held open still fall short of 24 fps on an N150 by default (21-22 pictures a second, was 19-21); with non-blocking presentation on they hold it.
+- The first boot after updating builds the engine's shaders in the background: about 3 minutes on an N150 (0.4.1: about 70 s). A Dolby Vision film started before it finishes may pause while its shader compiles.
+- Switching subtitles off while a line is showing can leave Kodi's menu layer active (and possibly the line on screen) until the OSD is opened and closed. Not new in 0.5.0.
+- Frame-by-frame stepping on 24p films: the first two or three steps may show no new picture.
+- Not tested on AMD hardware in this release. Not tested on a TV by eye: the N150 results are the kernel's and Kodi's counters, and the engine's own picture verification (no differing picture in any pass).
+- HDR10+ output, the HDR10+ conversions, FreeSync, and Dolby Vision on HF-EEODB and first-generation Dolby Vision TVs are untested on such hardware.
+- QMS can corrupt SDR 24p on some set-ups (seen with an N150 through an AV receiver to an LG TV); the kernel switch i915.qms=0 turns it off. Unchanged from 0.4.1.
+- All 0.4.1 known issues still apply (Dolby Vision is sent at 3840x2160 only; HDR10 and HDR10+ outputs need a native HDMI port).
+
+If you run 0.4.1
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0). Settings are kept. The string ids of the fork's settings moved (to 45000-45999, out of the range Kodi itself is growing into); skins that show YBLOD's own strings by number, other than Estuary YBLOD, need the new numbers.
+
+For people who build from source
+- The Kodi patches are now 18 logical patches (were 48 development steps; same resulting source plus this release's changes) and the kernel patches 13 (were 30). yblod/docs/KODI-PATCHES.md maps old names to new. yblod/tools/link-patches.sh is now a gate that the build runs first.
+- libplacebo is LibreELEC's stock recipe again; the fork has not linked its patched libplacebo since 0.4.0.
+- Kodi's Dolby Vision code is built only for x86_64 Generic on GBM with OpenGL ES and Vulkan; the other Generic devices configure as upstream again.
+
+Install
+Update using the .tar of your edition in /storage/.update/, or use the .img.gz for a fresh installation. Back up your settings first. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

@@ -1,0 +1,251 @@
+YBLOD 0.5.0 validation
+
+Build source: main at 51d4343f8c (tree 7e5613d5), the merge of PR #36, tagged yblod-0.5.0. The
+images were built from 11e1d1b570, the head of PR #36, whose tree is identical.
+Changes since 0.4.1 (3d947249fb, tree d22aed1c):
+- Kodi: the Dolby Vision render and presentation path reworked (yblod-40..49: the engine reads
+  the decoded VAAPI surface directly, reset on a new surface pool, repeated pictures held without
+  rendering or committing, the GUI buffer handed over only when Kodi drew into it, recovery from
+  an engine failure, retried display restore, queued flips behind DV_PRIVATE_NONBLOCK, off by
+  default); decoder, EDID, add-on update and diagnostics fixes (yblod-50..58: FEL pairing
+  resynchronises, a failed DV decoder falls back, the EDID parser takes HF-EEODB and 25-byte v0
+  Dolby blocks, only repository.dangerouslaser may update the optional system add-ons, the fork's
+  strings moved to 45000-45999); variable refresh rate (FreeSync) for refresh rate changes
+  (kodi-9990, "Variable refresh rate", off by default until it has run on hardware). The series
+  is regrouped from 70 patches into 18 (kodi-9900..9908, 9950..9957, 9990; same tree), see
+  yblod/docs/KODI-PATCHES.md. DVBridge is only built for x86_64 Generic on GBM, GLES and Vulkan
+  (the release image's configuration).
+- Kernel: the series regrouped from 30 patches into 13 (same tree), then: QMS only on display
+  versions 12 to 29 with a per-CRTC pacer; the Dolby Vision EDID parser takes HF-EEODB EDIDs and
+  25-byte v0 blocks; DVBRIDGE_HDR10_DEEP_COLOR and the Lunar Lake HDR10 rule removed;
+  i915.enable_dv_lab an ordinary parameter (default on); the amdgpu hdr10 tunnel checks its
+  metadata on every change; HDR10+ frame rule only for a new packet; FreeSync over HDMI on i915
+  (linux-9933, i915.hdmi_freesync, off by default until it has run on hardware; 1 = while Kodi
+  sets VRR_ENABLED).
+- Vulkan engine: each frame context's statistics buffer destroyed (a leak per engine teardown);
+  cheaper HDR10+ statistics; the HDR10 and HDR10+ pack variants built by dvvk-prepare at boot (94
+  pipelines instead of 50); the overlay colour cache and test picture allocated only when used;
+  the scanout slots' queued flips and drained writes (the tested C copy of Kodi's logic).
+  native-dv.env: DVVK_SURFACE_CHECK=0 (Kodi resets the engine on a new pool), new
+  DV_PRIVATE_SKIP_REPEATS=1, DV_PRIVATE_GUI_UNCHANGED_SKIP=1, DV_PRIVATE_NONBLOCK=0,
+  DV_PRIVATE_FLIP_TRACE=0.
+- FFmpeg: the fork's three patches regrouped into two (same tree). Mesa: the Generic Vulkan
+  driver filter dropped (config/graphic already gives amd and intel; only the order changed).
+  libplacebo: the upstream recipe restored and the nine fork patches dropped (nothing in the image
+  used it; the engine compiles its own subset, yblod-engine/vk/yblod/placebo).
+- yblod/tools/link-patches.sh is a gate and yblod/tools/build.sh runs it; the N150 benchmark
+  harness (yblod/tools/bench) and its 0.4.1 and 0.5.0 results.
+
+Images
+Both editions built in the release tree on Ollie (run-release.sh 0.5.0, docker
+libreelec-dv-build, DEVICE=Generic), incremental on the second 0.5.0 build (5f4eabfa93, see
+"Rebuilds" below) of the same tree: standard 1 min 41 s, LG 47 s, no failure. The tree had no
+tracked changes before the checkout, and "sh yblod/tools/link-patches.sh" printed "patch links
+OK". Rebuilt: kodi (host and target; kodi-9990 changed) and nothing else; the LG pass built no
+package. Every other package was taken from stamps whose hashes match this commit's recipes and
+patches.
+- Patches: in this build, kodi was unpacked and its 18 fork patches applied with no fuzz and no
+  offset. LibreELEC's own 19 applied as in the earlier unpack in this tree: line offsets in
+  1006, 1007, 1008 and 9902 and one fuzzy hunk (1007-handle-SIGTERM, hunk 2, fuzz 1). Kodi was
+  then compiled: 1903 build steps, the last one linking kodi.bin. linux was unpacked in the
+  second build (13 fork patches and LibreELEC's 3, no fuzz, no offset) and is unchanged. ffmpeg,
+  mesa and LibreELEC-settings are unchanged since 75260dba1d, at which they were unpacked again
+  in a scratch tree (scripts/unpack, same container): 2 FFmpeg, 2 Mesa and 1 LibreELEC-settings
+  fork patches with no fuzz and no offset, and the patched FFmpeg and Mesa trees identical to
+  the sources the release tree compiled.
+- FFmpeg: 9.0.2 with LibreELEC's patches and 0.4.1's three fork patches gives the same tree as
+  with the two of 0.5.0. No FFmpeg file differs in SYSTEM.
+- SYSTEM compared with 0.4.1 file by file (both editions show the same 22 changed files as the
+  two earlier 0.5.0 builds; nothing added or removed):
+  - Kodi: kodi.bin, strings.po, settings.xml, linux.xml, freebsd.xml (Kodi installs it as a copy
+    of linux.xml), Estuary's IncludesDVProcessInfo.xml.
+  - Kernel: KERNEL (i915, amdgpu, drm and hdmi are built in), xe.ko, modules.builtin.modinfo (the
+    new i915.hdmi_freesync, "0 = off [default]", the reworded enable_dv_lab and qms
+    descriptions).
+  - Engine: libdv_engine_vk.so.1, dvvk-prepare, dv-prepare (a comment), native-dv.env, the
+    engine's SOURCES.md notice.
+  - Mesa: libvulkan_radeon.so (code identical, one .rodata byte and the build-id), dri_gbm.so and
+    libEGL_mesa.so.0.0.0 (code and data identical, build-id), libvulkan_intel.so and
+    libgallium-26.2.5.so (code differs). Mesa was rebuilt because its recipe changed, and is now
+    compiled against LLVM 23.1.5: 0.4.0's and 0.4.1's libgallium still name LLVM 23.1.4 although
+    the image's libLLVM was already 23.1.5 (the LLVM update did not rebuild Mesa). ANV's internal
+    kernels in .rodata are about 19 KB smaller; libgallium's and ANV's exported symbols are
+    unchanged. This Mesa is byte-identical to the one in 0.5.0-t2, which the N150 data below ran.
+  - Version stamps: os-release, issue, release, defs.pyc.
+  No libplacebo file in 0.4.1 or 0.5.0. The LG edition's add-ons (service.webostv 0.8.11,
+  repository.dangerouslaser 1.0.1) and Estuary YBLOD (4.1.0+yblod.22) are unchanged.
+- The editions differ as in 0.4.1: the LG add-ons (service.webostv, repository.dangerouslaser),
+  addon-manifest.xml and the version stamps. KERNEL, kodi.bin, the engine, dvvk-prepare,
+  native-dv.env, ANV and RADV are identical in both.
+- Against the second 0.5.0 build (5f4eabfa93, both editions; 11514 and 11633 files, none added
+  or removed, links and directories identical): KERNEL is byte-identical. SYSTEM differs in five
+  files:
+  - linux.xml and freebsd.xml: one line, winsystem.vrr's <default>true</default> is now false.
+  - kodi.bin: one byte of 35,036,936, at file offset 0x19af724 in .rodata: the build date string
+    "20261111" is now "20261112". Every other byte is the same, so every code and data section,
+    the section table and the symbols are identical.
+  - defs.pyc: three bytes, the source file's time in the .pyc header (defs.py is generated by
+    the build).
+  - os-release: BUILD_ID.
+  xe.ko, the engine, dvvk-prepare, native-dv.env, Mesa, strings.po, settings.xml and every other
+  file are byte-identical.
+- Against the first 0.5.0 build (75260dba1d, both editions): those five files, xe.ko and
+  modules.builtin.modinfo (the hdmi_freesync description); KERNEL differs.
+- Against test image 0.5.0-t2 (the earlier N150 runs): SYSTEM differs in the version stamps, the
+  native-dv.env comment, xe.ko, modules.builtin.modinfo, linux.xml, freebsd.xml and kodi.bin
+  (t2's is the second build's file, so again the one date byte); KERNEL differs (hdmi_freesync
+  defaults to 0 here, 1 in t2). The engine and Mesa are identical.
+- The .img.gz installers carry the same SYSTEM and KERNEL as the update tars (extracted with
+  mcopy).
+
+Testing
+- Engine, with the release library (96c36d71, extracted from SYSTEM; the same file in both
+  editions, in 0.5.0-t2 and in all three 0.5.0 builds), on Ollie's UHD 770. Run on the first
+  build; the library is byte-identical in this one, so the results stand and were not re-run:
+  - cargo test: 38 of 38 pass (this commit's source, yblod-040-engine-dev container, offline).
+  - CPU tests: 4 of 4 (polynomial FEL, order-2 gate, source geometry, scanout slots with 3000
+    queued-flip frames), built with the CMake file's flags. One -Wconversion warning in
+    source_geometry.c, unchanged since 0.4.1.
+  - golden.sh check with dvvk-bench and golden.sh from this commit linked against the release
+    library: identical (102 hashes) and FLIP_Y twins identical (18), on the 1917 FEL, Gemini Man
+    MEL and 28 Years Later P8.1 clips.
+  - Byte for byte against CB1's own code: dvvk-mr-compare (cb1-vk-root image) with the release
+    library mounted as its engine, every output byte including the embedded metadata packets.
+    432 of 432 frames identical, none refused, 48 per passage: 1917 (P7 FEL; from the start and
+    from 30:40), Gemini Man (P7 MEL; the same two), 28 Years Later (P8.1; the same two), 12 Angry
+    Men (P8.1, letterboxed, from 10 min), the DV NASA demo (P5) and Saving Private Ryan (P7 FEL,
+    from 1:49:40).
+  - ABI: soname libdv_engine_vk.so.1, the same NEEDED libraries and the same 25 exported symbols
+    as 0.4.1's library; dv_engine_vk.h (DVVK_ABI_VERSION 3) unchanged.
+  - dvvk-prepare from the image, run in the standard SYSTEM imported as a container (render node,
+    empty /storage): 94 of 94 pipelines, DVVK_PREPARE_READY, exit 0; 85 s from cold caches (92 s
+    on a first run), under 1 s with its 17.1 MB pipeline cache.
+- Static. Run at this commit: yblod/tools/link-patches.sh "patch links OK"; tools/pkgcheck kodi:
+  no findings; Kodi string ids (check_strings.py on this build's patched tree): 4736 unique, no
+  duplicates, the 82 added ids in 45000-45999 except 40818, kept for Estuary YBLOD yblod.22's
+  $LOCALIZE[40818], no referenced id missing; the installed native-dv.env is identical to
+  yblod-engine/integration/runtime.env. Run on 75260dba1d, their recipes and patches unchanged
+  since: tools/pkgcheck on linux (again at 5f4eabfa93), ffmpeg, mesa, shaderc, libplacebo,
+  LibreELEC-settings, yblod-engine-vk, yblod-iphone-remote, yblod-lg, skin.estuary.yblod,
+  service.webostv, repository.dangerouslaser and mediacenter: no findings but upstream's WARN 064
+  on ffmpeg's package.mk (identical to LibreELEC's).
+- Source bundle: the Kodi (e6192109) and FFmpeg (9.0.2) archives and the two add-on zips taken
+  from 0.4.1's bundle; each matches its recipe's PKG_SHA256. No libplacebo archive. repository/
+  is git archive of 11e1d1b570 (compared file by file, 4098 files). Linux 7.3 is fetched by its
+  recipe, as before.
+- Hardware, the release image: the standard edition's KERNEL and SYSTEM (from the update tar,
+  the SHA-256 below) on the owner's Intel N150 (LG TV behind a Denon AVR) as bench profile y050,
+  on 2026-11-12 with yblod/tools/bench (install-image.sh, bench.py prepare and run, checks.py):
+  a fresh /storage, the image's default settings, native-dv.env override only the profile's
+  DVBRIDGE_DIAGNOSTICS=1. Nobody looked at the TV. Raw files: Ollie,
+  ~/yblod-050/bench/results/y050.
+  - Boot: os-release reads yblod-0.5.0 with BUILD_ID 11e1d1b570f22b63269dc187fc670273464d18c2;
+    /flash/KERNEL and /flash/SYSTEM have the hashes below; kernel 7.3.0, built Nov 12 06:05:22
+    UTC (the second build's kernel, which this build did not rebuild).
+  - yblod-dv-prepare, cold cache: 185 s (184.5 s wall, 183.6 s CPU, 1.5 GB peak memory, pipeline
+    cache 17.1 MB, exit 0), finished before anything was played; 0.5.0-t2: 185 s. The profile
+    preparation restarted Kodi while it ran.
+  - Defaults: /sys/module/i915/parameters/hdmi_freesync reads 0 (t2: 1) and qms reads Y (as on
+    t2). winsystem.vrr is false: System.GetBool(winsystem.vrr) over JSON-RPC, guisettings.xml
+    and the installed linux.xml. Settings.GetSettingValue answers "Invalid params" for it,
+    because the setting is hidden on a display that is not variable-refresh capable. No "vrr"
+    or "freesync" line in Kodi's log or the kernel log.
+  - Frame time, one repetition of each (GPU ms per presented picture; y050t2's two default
+    repetitions from bench-0.5.0-n150.md in brackets; under 3 % is noise there):
+      1917, plain        17.75 (17.34, 17.72), +1.2 % on their median; 23.97 pictures/s, every
+                         flip gap 1, 0 dropped, 0 skipped
+      Gemini Man, plain  11.61 (11.60, 11.60), +0.1 %; 40.44/s (40.53, 40.51), gaps 1 and 2
+                         as before, 0 dropped, 14 skipped (13, 14)
+      1917, OSD open     27.73 (27.85, 27.61), 0.0 %; 20.96/s (21.53, 20.91), 0 dropped, 28
+                         skipped (31, 27)
+      Gemini Man, OSD    18.60 (18.63, 18.57), 0.0 %; 29.72/s (29.66, 29.75), 185 dropped
+                         (186, 184)
+    All four passes valid (stream, passthrough audio, dv=1 signal, OSD state, no trace loss).
+  - 1917 paused (pause, then a seek; 60 s), two repetitions: 0.83 % and 0.75 % GPU render busy,
+    23 and 22 flips in the minute, 2.96 and 2.85 W package, render thread 1.0 % (y050t2: 0.59 %
+    and 0.73 %, 16 and 20 flips, 2.94 W). The first is above y050t2's range by three flips of
+    the skin's seek bar; the second was run because of it. Against 0.4.1's 46.8 % this is the
+    same result.
+  - Titles in a row (checks.py sequence: Airplane! SDR, 1917, Alien HDR10, Gemini Man, Airplane!,
+    28 Years Later, Saving Private Ryan, 1917 opened over it): pass, and as on y050t2 title by
+    title. SDR and HDR10: the mode changes from the menu's 60 Hz to 3840x2160 at 23.976 Hz
+    (296703 kHz) and back, 23.95-24.04 flips/s in the 12 s window with every gap 1, VAAPI, no
+    engine, passthrough audio; HDR10 signalled with its metadata blob, colorspace=9 and
+    max_bpc=12, SDR with hdr_blob=0. Each Dolby Vision title: dv=1, the engine started (kept
+    and reset, with one surface pool reset and one FEL pairing warning, for the title opened
+    over another), 0 dropped. Open to playing 2.1-2.7 s. No error line, no engine failure, no
+    failed commit, nothing from DRM in the kernel log.
+  - Logs of the session (27 titles opened, 5 h): no failed commit, no engine failure or
+    recovery. Kodi's error lines: the 15 "Texture manager unable to load file" for
+    service.webostv's pointer images at start (the same 15 on y050t2), and five "Vulkan engine
+    range check failed ... (already presented)" at Saving Private Ryan 1:53:46-1:54:00, the
+    passage and count recorded on 0.5.0-t2 (checks-0.5.0-n150.md); it was reached because an
+    interrupted run left that film playing for 24 minutes (34,678 frames, all presented).
+    Warnings: the three known ones ("OutputPicture - timeout waiting for buffer" 27,
+    MSGQ_NOT_INITIALIZED 6, the Pulseaudio passthrough note 6), and from Kodi's start and the
+    profile preparation two that y050t2 has too (custom_sort_train, Setting.Details.SettingList)
+    and three ActiveAE lines when the audio device was set. The kernel log differs from the
+    y050t2 session's only in addresses, timings, counts, device numbers and the kernel's build
+    line; its i915 lines are the same, the only note among them the framebuffer compression
+    size, and "FAT-fs (mmcblk0p3): Volume was not properly unmounted" is there as before.
+  - The sequence check was started three times. The first two stopped when the workstation
+    driving it went to sleep (lid closed, on battery; its power log and the box's sshd log
+    agree); in Kodi's log the titles they had reached (seven and two) opened and closed
+    normally. The third ran through.
+  Not run on the release image: the rest of the matrix and of the functional checks (seeks,
+  frame steps, subtitles, verify, HDR10 output, start times, Saving Private Ryan and 28 Years
+  Later windows). Those were made on test image 0.5.0-t2, whose engine and Mesa are
+  byte-identical to this release's, whose kodi.bin differs in the build date byte and whose
+  kernel is the same source but for the hdmi_freesync default (1 there, 0 here):
+  yblod/docs/releases/data/bench-0.5.0-n150.md, bench-0.4.1-vs-0.5.0-n150.md and
+  checks-0.5.0-n150.md.
+- Not covered here: variable refresh rate has not run on hardware, on Intel or on AMD: both
+  halves are off by default (i915.hdmi_freesync=0, winsystem.vrr false), and the N150's display
+  does not offer it; the patch headers say what each kernel patch has run on. The LG edition's
+  image was not booted (it differs from the standard one in the add-ons and version stamps
+  only). AMD, Tiger Lake, the converter routes and a Dolby Vision v0 TV were not part of this
+  check.
+
+Rebuilds
+The first 0.5.0 build (75260dba1d) was checked as above and staged.
+- Second build, 5f4eabfa93: FreeSync over HDMI off by default, because it has not run on
+  hardware: linux-9933's "static int hdmi_freesync" starts at 0 and its description and header
+  say so; KERNEL-PARAMETERS.md and yblod-engine/README.md changed with it (neither is in the
+  image). Rebuilt: linux and the three packages built against it (nvidia, ipset,
+  wireguard-tools; their files in SYSTEM unchanged). SYSTEM differed from the first build in
+  xe.ko, modules.builtin.modinfo and os-release only. The default was checked without booting:
+  modules.builtin.modinfo and xe.ko's modinfo read "i915.hdmi_freesync: ... (0 = off [default],
+  1 = with VRR_ENABLED, 2 = also without it)"; in the build tree's vmlinux, whose bzImage is
+  this KERNEL, hdmi_freesync is a .bss symbol (nm: "b hdmi_freesync"), and in xe.ko it moved
+  from .data to .bss. The decompressed kernels of the first two builds have the same size and
+  section table; 304 bytes differ, among them the build host and time and the parameter
+  description.
+- Third build, 11e1d1b570 (this one): "Variable refresh rate" off by default as well.
+  kodi-9990's winsystem.vrr default is false and its header says so; with linux-9933 off the
+  setting did nothing on Intel, but amdgpu marks an HDMI FreeSync display as vrr_capable by
+  itself, so on AMD the untested path would have been used for every refresh rate change.
+  Rebuilt: kodi.
+  - Re-verified on this build: Kodi's unpack and patch log and its compile; that nothing else
+    was rebuilt and nothing failed; SYSTEM file by file against the second build, the first
+    build, 0.4.1 (the same 22 files) and 0.5.0-t2; kodi.bin byte by byte against the second
+    build's; the differences between the editions (the same as before); the installers' SYSTEM
+    and KERNEL; the source bundle's repository/ and its upstream/ archives against their
+    recipes' PKG_SHA256; SHA256SUMS; link-patches.sh, pkgcheck kodi and the Kodi string check;
+    and the release image booted on the N150 (above), which is also the first boot of the
+    second build's kernel.
+  - Carried over: the engine tests and dvvk-prepare in a container (the library and
+    dvvk-prepare are byte-identical in all three builds); the patch application of linux (second
+    build) and of ffmpeg, mesa and LibreELEC-settings (first build); pkgcheck of the packages
+    other than kodi; the N150 matrix and functional checks from 0.5.0-t2.
+
+SHA256
+Standard update tar: e8d4625af132993c39a16290efac1face347685a0b919f9231b3f95daa0010d0
+Standard install img.gz: 6bce7cea377bf503b364bda2a4ca8304f83711b87542b28cb3aa30d4a0d195be
+Standard SYSTEM: f7810952cf6086bab99957c8a563d7384629c1a2ecb5c4804a57bc4c9e5d7220
+LG update tar: 6b517c1d8a9467376408af44cbb40f01af49c44fc28ea316908350d1925abe30
+LG install img.gz: 9bf10b0d1170de8328a13c151655cb27f6072fdb8647c706ff120d4dc0fc860d
+LG SYSTEM: 08d17f31c7ea03f003b7134db67b9d18b17dd7827c89e8e726967a850d157585
+KERNEL (both): 691247fbbec50bb7930ec5f5eb4dd21829f8b9c0972cb6c0504b3f840c060275
+Kodi (both): 0cef6e1a10e4dca22bfd7024cf3a75c29f54d3e8e22ce34bd980e9da41d3b7a5
+Vulkan engine (both): 96c36d7138ec0f70476580022e5fa1aa39f665ff8deb2d2e9f3241c525c80667
+Source bundle: d1718d598a39d15728a106f95fa6bfbbcce1f8c5dd2b2ca8b8a2b86bbcf5547b
