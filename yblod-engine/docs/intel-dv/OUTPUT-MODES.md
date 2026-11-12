@@ -58,6 +58,51 @@ code of a CPU double-precision map of the same conversion; the comparison
 against CB1 Reference Basic on the four reference titles and the TV test are
 0.4.0 workstream C validation, not yet done.
 
+## Output mode during playback
+
+After 0.5.0 (0.5.1). While a video plays: OSD > **Settings** > **Video
+settings** > **Output mode**. The choice is for the playing title only: the
+settings above do not change, and the next title, or the same one played
+again, has the settings' output.
+
+| Playing video | Choices |
+| --- | --- |
+| Dolby Vision | Dolby Vision, Convert to HDR10, Convert to HDR10+, Convert to SDR |
+| HDR10+ | HDR10+ (original), Convert to Dolby Vision, Convert to SDR |
+| HDR10 | HDR10 (original), Convert to Dolby Vision, Convert to SDR |
+| HLG | HLG (original), Convert to SDR |
+| SDR | none: the entry is not shown |
+
+A choice is listed only where it can be had now, with the same tests as the
+settings: Dolby Vision on a Dolby Vision TV and connection, Convert to
+HDR10 and HDR10+ where the Output mode setting offers them, Convert to SDR
+where the engine has the SDR output for the display's mode ("HDR videos on
+an SDR display"'s `DV_SDR_HDR_SOURCES=0` removes it for videos without
+Dolby Vision), an HDR10+, HDR10 or HLG video's own format where Kodi
+sends that video to the display as HDR. With fewer than two choices the
+entry is not shown; a title that plays without the engine (it did not
+start, or it refused the title's pictures) has none.
+
+- **HDR10+ (original)** is what Kodi does with HDR10+ videos: HDR10 with
+  the static metadata (no HDR10+ passthrough), so there is no separate
+  HDR10 choice for an HDR10+ video.
+- **Convert to Dolby Vision** of an HDR10+ video is the "HDR10+ videos:
+  Dolby Vision" conversion below. Of an HDR10 video it is new: every
+  picture gets the same metadata, made from the video's static metadata
+  (`dvvk_hdr10_to_dovi`, the SDR output's: mastering range, L6, L9 from
+  the mastering primaries, no L1), and goes out as Dolby Vision Profile 8.1
+  without an enhancement layer; the TV's Dolby Vision processing maps it
+  with that range for the whole video.
+- **Convert to SDR** of a video Kodi would show as HDR uses the SDR output
+  as on an SDR display.
+
+Switching between Convert to HDR10 and Convert to HDR10+ of a Dolby Vision
+video happens while it plays (as the HDR10+ fallback does). Any other
+change restarts the title where it is, as when the engine fails to start,
+and closes the dialog. kodi.log says `DVBridge: video OSD: this title's
+output A -> B` with how it switched, and, after a restart, `DVBridge: this
+title's output from the video OSD: B`.
+
 ## Convert to SDR
 
 Not part of 0.5.0. Built and checked on the build host's GPU; **not yet seen
