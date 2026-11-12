@@ -275,6 +275,9 @@ int dvvk_hdr10plus_packet(dvvk_engine *, uint64_t ticket, uint32_t flags, dvvk_h
  *   hdr10plus  the picture's AVDynamicHDRPlus (FFmpeg side data
  *              AV_FRAME_DATA_DYNAMIC_HDR_PLUS, as the FFmpeg the engine is
  *              built with lays it out), size its size. One window only.
+ *              Its itu_t_t35_country_code 0 (stock FFmpeg leaves it so) is
+ *              taken as 0xB5, the header FFmpeg checked; CB1's FFmpeg
+ *              writes 0xB5 itself (since YBLOD 0.5.1).
  *   hdr10      the stream's static HDR10 metadata (NULL: unknown).
  *   previous   the previous picture's AVDynamicHDRPlus (NULL: none): a
  *              different scene (cb1_hdr10plus_dovi_same_scene) sets the

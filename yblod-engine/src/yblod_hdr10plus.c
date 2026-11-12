@@ -234,13 +234,30 @@ static int write_dovi(const dvvk_hdr10_static *hdr10, const uint16_t *l1, int pr
     return 0;
 }
 
+/* FFmpeg makes this side data only from a T.35 payload it has checked to be
+ * ST 2094-40's (country 0xB5, provider 0x003C, oriented code 1, application
+ * identifier 4: libavcodec/itut35.c, libavformat/matroskadec.c), but stock
+ * FFmpeg leaves itu_t_t35_country_code 0. CB1's FFmpeg copies the 0xB5 in
+ * (CB1 ffmpeg-9900-06-hdr10plus-country.patch), which CB1's code requires;
+ * a 0 is that same checked header. */
+static const AVDynamicHDRPlus *t35_header(const AVDynamicHDRPlus *m, AVDynamicHDRPlus *copy)
+{
+    if (!m || m->itu_t_t35_country_code)
+        return m;
+    *copy = *m;
+    copy->itu_t_t35_country_code = 0xb5;
+    return copy;
+}
+
 int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_static *hdr10, const void *previous,
                          void *out, size_t capacity, size_t *out_size, dvvk_hdr10plus_dovi_info *info)
 {
     if (!hdr10plus || size < sizeof(AVDynamicHDRPlus) || !out_size || (!out && capacity) ||
         (uintptr_t)out % _Alignof(dovi_buffer))
         return -1;
-    const AVDynamicHDRPlus *source = hdr10plus;
+    AVDynamicHDRPlus source_copy, previous_copy;
+    const AVDynamicHDRPlus *source = t35_header(hdr10plus, &source_copy);
+    previous = t35_header(previous, &previous_copy);
     struct cb1_hdr10plus_dovi_result result;
     switch (cb1_hdr10plus_dovi_describe(&result, source, NULL)) {
     case CB1_HDR10PLUS_DOVI_OK:
