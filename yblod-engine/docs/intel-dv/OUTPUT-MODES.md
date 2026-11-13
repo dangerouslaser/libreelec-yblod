@@ -158,7 +158,10 @@ all on the build host's UHD 770:
    limited range, with and without the GUI; canvases 3840x2160, 1920x1080,
    1280x720 and 4096x2160; HDR10 and HLG sources), every sample within one
    8-bit code of a CPU double-precision map of the same reconstructed
-   picture, and each picture's hash in `tools/sdr.sha256`.
+   picture, and each picture's hash in `tools/sdr.sha256`. Real HLG, HDR10+
+   and Profile 8.4 clips, outside the script: the same with BT.1886; with a
+   2.2 power three of nine pictures have a few samples (at most 0.00011 %)
+   two or three codes off.
 2. *libplacebo itself* (`tools/sdr-oracle.c`, real `pl_render_image` with the
    same recipe on the same reconstructed picture): four titles at three
    displays. Largest difference of a rounded sample 1.1 codes on a BT.1886
@@ -186,20 +189,19 @@ DV.dump OUT.f32` in an image root that has that libplacebo, and compare with
 
 | Title | Dolby Vision | Convert to HDR10 | Convert to SDR | SDR with the GUI | SDR at 1920x1080 |
 | --- | --- | --- | --- | --- | --- |
-| 1917 (P7 FEL, 24p) | 8.3 ms | 10.2 | 11.7 | 12.9 | 3.7 |
-| 28 Years Later (P8.1, 24p) | 3.7 | 4.6 | 9.6 | 11.0 | 4.0 |
-| Gemini Man (P7 MEL, 60p) | 5.7 | 7.1 | 11.1 | 13.7 | 5.2 |
-| Dolby Vision landscape demo (P5, 60p) | 5.6 | 12.3 | 18.0 | 20.9 | 8.0 |
-| 28 Years Later's base layer as HDR10 | | | 12.5 | | 5.8 |
-| the same codes as HLG | | | 9.7 | | |
+| 1917 (P7 FEL, 24p) | 8.4 ms | 10.5 | 10.9 | 12.4 | 3.9 |
+| 28 Years Later (P8.1, 24p) | 3.7 | 4.7 | 7.1 | 9.9 | 3.8 |
+| Gemini Man (P7 MEL, 60p) | 5.4 | 7.0 | 8.9 | 12.1 | 4.6 |
+| Dolby Vision landscape demo (P5, 60p) | 5.6 | 12.4 | 9.3 | 13.0 | 4.7 |
+| 28 Years Later's base layer as HDR10 | | | 10.5 | | |
+| the same codes as HLG | | | 9.1 | | |
 
-SDR costs more than the other outputs: 8-bit steps are coarse where the
-display curve is steep, so more samples are computed exactly instead of read
-from the 3D LUT, and every pixel has its own chroma. Profile 5 at 60 pictures
-a second and 3840x2160 does not fit one refresh even on the UHD 770 (18 ms
-of 16.7); at 1920x1080 it does. The N150 is about twice as slow (not
-measured for SDR): expect 24p titles at 3840x2160 to fit and 60p ones not
-to; "HDR videos on an SDR display" can be set to Kodi's tone mapping there.
+SDR costs more than the tunnel: every pixel has its own chroma and its own
+lookup, and the samples the 3D LUT cannot hold to a third of a code (3 to
+11 % of a frame) are computed exactly. The N150 is about twice as slow (not
+measured for SDR): expect 24p titles at 3840x2160 to fit and 60p ones to be
+at the limit (about 18 ms of 16.7); "HDR videos on an SDR display" can be
+set to Kodi's tone mapping there.
 The first SDR picture of an engine compiles its pipelines when
 `dv-prepare` has not (about 0.2 s once; cached afterwards).
 

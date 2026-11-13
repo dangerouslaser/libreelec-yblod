@@ -83,10 +83,18 @@ symbols and enum values only, the layouts and the soname unchanged):
   XRGB8888. `yblod/dv_map.c` plans it with the vendored libplacebo (spline
   on L1, `pl_gamut_map_perceptual` from L9's primaries as a 48x32x256 LUT
   the shaders sample as a 3D texture); `map_bake.comp` bakes R'G'B' codes
-  and marks the cells where the LUT is off by more than 0.35 of a code at 19
-  points; the pack interpolates each pixel's chroma, reads the LUT, and
-  hands the samples of marked cells to `map_fixup.comp` (a list entry a
-  pair, with the next pair's chroma as a 7-bit difference). Dither: a fixed
+  into a 129x65x65 LUT over the reconstructed codes themselves (luma up to
+  the scene's peak, chroma 512 codes either side of neutral, 1024 for HLG:
+  `include/dvvk_map.h`) and marks the cells where the LUT is off by more
+  than 0.35 of a code at 19 points, and those of the box's faces; the pack
+  interpolates each pixel's chroma, reads the LUT, and hands the samples
+  whose lookup has alpha 0 (the marked cells and those they enclose) to
+  `map_fixup.comp` (a list entry a pair, with the next pair's chroma as a
+  7-bit difference). Its PQ curves are written to keep a float's precision
+  (`map_pq_eotf_sdr`): a display channel near 0 is a small difference, and
+  the textbook form put it up to five codes from the CPU's double with a
+  2.2 power. A source's R'G'B' above 1 is kept (HLG's as it is, PQ's to
+  1.5), as libplacebo keeps it. Dither: a fixed
   64x64 blue-noise table (`yblod/dither_blue64.h`, made by
   `tools/dither-table.c` from libplacebo's generator, checked in because
   the generator uses `rand()`). The overlay is the `dvvk_set_overlay`
