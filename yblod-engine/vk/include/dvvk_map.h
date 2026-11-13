@@ -125,7 +125,8 @@ void dvvk_map_sample(const dvvk_map_gpu *p, const uint32_t *tables, const double
 /* Its three steps, as the GPU splits them: the RPU's affine decode to the
  * source's nonlinear R'G'B' (L'M'S' for IPT, profile 5; HLG's R'G'B' with
  * DVVK_MAP_HLG), clamped to 0..1
- * (the 3D LUT's domain; PQ's EOTF clamps there anyway); the 3D LUT's
+ * (HDR10's 3D LUT's domain; PQ's EOTF clamps there anyway; HLG's at 0 only:
+ * its signal goes on above nominal white); the 3D LUT's
  * function, nonlinear source to the output's R'G'B' (PQ, or the display's,
  * clamped to 0..1); Y'CbCr of that (not for SDR). */
 void dvvk_map_nonlinear(const dvvk_map_gpu *p, const double codes[3], double nl[3]);

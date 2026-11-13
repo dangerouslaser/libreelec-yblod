@@ -587,8 +587,12 @@ void dvvk_map_nonlinear(const dvvk_map_gpu *p, const double codes[3], double nl[
     for (int i = 0; i < 3; i++)
         v[i] = codes[i] / 4095.0;
     mul(p->ycc, v, nl);
+    /* An HLG signal goes on above its nominal white (codes up to 1019 of 10
+     * bits), and so do the R'G'B' of its Y'CbCr: pl_shader_linearize takes
+     * them as they are (it clamps at 0 only). */
+    const double top = p->flags & DVVK_MAP_HLG ? INFINITY : 1.0;
     for (int i = 0; i < 3; i++)
-        nl[i] = fmin(fmax(nl[i] + p->ycc_offset[i], 0.0), 1.0);
+        nl[i] = fmin(fmax(nl[i] + p->ycc_offset[i], 0.0), top);
 }
 
 void dvvk_map_ycc(const double rgb[3], double out[3])
