@@ -92,6 +92,33 @@ float map_tone(float x)
 }
 
 #ifdef MAP_SDR_ID
+// PQ for the SDR map: the same curves as map_pq_eotf and map_pq_oetf, to
+// more of a float's precision. A display's R'G'B' near 0 is a small
+// difference of the mapped L, M and S, and the textbook form loses it: its
+// 78.84th power of a value near 1 (and the inverse's value less 0.8359)
+// leaves the light a few parts in 100000 out, which is a display code or
+// more there (five with a 2.2 power, whose slope at black has no bound).
+// So the value near 1 is kept as its distance from 1: the OETF's base is
+// 1 - u, and its power exp(78.84 log(1 - u)) with the logarithm from u
+// (2 atanh(u / (2 - u)), its series); the EOTF's root is 1 - w with w
+// from the logarithm (expm1's series). HDR10 output keeps the textbook
+// form: its bytes are CB1's.
+vec3 map_pq_eotf_sdr(vec3 v)
+{
+    // (0 has no logarithm: any signal this small is light 0)
+    vec3 t = log(max(v, 1e-30)) * (1.0 / 78.84375);
+    vec3 w = -t * (1.0 + t * (1.0 / 2.0) * (1.0 + t * (1.0 / 3.0) * (1.0 + t * (1.0 / 4.0) * (1.0 + t * (1.0 / 5.0) *
+             (1.0 + t * (1.0 / 6.0) * (1.0 + t * (1.0 / 7.0)))))));
+    return pow(max(0.1640625 - w, 0.0) / (0.1640625 + 18.6875 * w), vec3(1.0 / 0.1593017578125));
+}
+
+vec3 map_pq_oetf_sdr(vec3 v)
+{
+    vec3 p = pow(max(v, 0.0), vec3(0.1593017578125));
+    vec3 u = 0.1640625 * (1.0 - p) / (1.0 + 18.6875 * p), z = u / (2.0 - u), z2 = z * z;
+    return exp(-157.6875 * z * (1.0 + z2 * (1.0 / 3.0 + z2 * (1.0 / 5.0 + z2 * (1.0 / 7.0 + z2 * (1.0 / 9.0))))));
+}
+
 // An HLG source's R'G'B' to light (dv_map.c dvvk_map_rgb; pl_shader_linearize):
 // the inverse OETF, the scene's light over 12, then the OOTF.
 vec3 map_hlg(vec3 v)
@@ -120,7 +147,7 @@ vec3 map_gamut_lookup(vec3 ipt)
 // IPT (the tone curve, the gamut LUT, the display's primaries).
 vec3 map_sdr(vec3 lin)
 {
-    vec3 ipt = map_m3(mp.lms2ipt, map_pq_oetf(map_m3(mp.rgb2lms, lin)));
+    vec3 ipt = map_m3(mp.lms2ipt, map_pq_oetf_sdr(map_m3(mp.rgb2lms, lin)));
     if ((mp.flags & 1u) != 0u) {
         float i0 = ipt.x;
         ipt.x = map_tone(i0);
@@ -129,7 +156,7 @@ vec3 map_sdr(vec3 lin)
     }
     if ((mp.flags & 8u) != 0u)
         ipt = map_gamut_lookup(ipt);
-    lin = map_m3(mp.lms2rgb, map_pq_eotf(map_m3(mp.ipt2lms, ipt)));
+    lin = map_m3(mp.lms2rgb, map_pq_eotf_sdr(map_m3(mp.ipt2lms, ipt)));
     return clamp(pow(max(mp.out_trc.x * lin + mp.out_trc.y, 0.0), vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0);
 }
 #endif
@@ -143,6 +170,10 @@ uint map_rgb(vec3 nl, out vec3 rgb)
 #ifdef MAP_SDR_ID
     if (MAP_SDR == 2u) {
         rgb = map_sdr(max(map_m3(mp.src_lms2rgb, map_hlg(nl)), 0.0));
+        return regime;
+    }
+    if (MAP_SDR == 1u) {
+        rgb = map_sdr(max(map_m3(mp.src_lms2rgb, map_pq_eotf_sdr(nl)), 0.0));
         return regime;
     }
 #endif
