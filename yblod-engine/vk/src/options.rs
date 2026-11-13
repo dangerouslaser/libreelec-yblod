@@ -40,14 +40,19 @@
 //!   pixel's mapping exactly instead of through the scene's 3D LUT (a check);
 //!   `DVVK_MAP_LUT_ONLY=1` the LUT everywhere, no exact cells (timing);
 //!   `DVVK_MAP_N=N` the LUT's points per axis (default 65).
-//! - `DVVK_MAP_THRESH=C`: the 3D LUT's cells interpolating worse than C 12-bit
-//!   codes (default 0.5) are computed exactly; `DVVK_MAP_STATS=1` traces bakes.
+//! - `DVVK_MAP_THRESH=C`: the 3D LUT's cells interpolating worse than C output
+//!   codes (default 0.5 of a 12-bit code; SDR output 0.35 of an 8-bit one) are
+//!   computed exactly; `DVVK_MAP_STATS=1` traces bakes and how many entries
+//!   map_fixup had a frame (pairs of SDR output, 4x2 blocks of HDR10's).
 //! - `DVVK_MAP_INLINE=1`: HDR10 output's marked LUT cells computed in the
 //!   pack instead of map_fixup's pass (a comparison).
 //! - `DVVK_HDR10PLUS_TRACE=1`: each dvvk_hdr10plus_packet call prints the
 //!   statistics record it used (stderr, JSON; the CPU reference compares it).
-//! - `DVVK_OUTPUT=hdr10` / `hdr10plus`: the engine starts in that output
-//!   mode (tools without the API, e.g. golden runs of the existing dvvk-bench).
+//! - `DVVK_OUTPUT=hdr10` / `hdr10plus` / `sdr`: the engine starts in that
+//!   output mode (tools without the API, e.g. golden runs of the existing
+//!   dvvk-bench); sdr with the default display (203 cd/m2, BT.1886, full range).
+//! - `DVVK_PREPARE_SDR=1`: with DVVK_PREPARE_MAP, the SDR pack variants and
+//!   SDR's bake and fix-up pipelines as well (tools/dvvk-prepare).
 //! - `DVVK_TEST_FAIL` (builds with the `test-faults` feature only): fault.rs.
 
 fn var(name: &str) -> Option<String> {
@@ -91,7 +96,10 @@ pub struct EngineOptions {
     /// DVVK_MAP_INLINE=1: the marked cells computed in the pack (no fix-up pass).
     pub map_inline: bool,
     pub map_n: u32,
-    pub map_thresh: f32,
+    /// DVVK_MAP_THRESH (None: the output's default, map::BAKE_THRESH*).
+    pub map_thresh: Option<f32>,
+    /// DVVK_PREPARE_SDR=1: dvvk-prepare's run also makes SDR's pipelines.
+    pub prepare_sdr: bool,
     pub map_stats: bool,
     /// The output mode the engine starts in (crate::map::DVVK_OUTPUT_*).
     pub output_mode: u32,
@@ -125,7 +133,8 @@ impl Default for EngineOptions {
             map_lut_only: false,
             map_inline: false,
             map_n: crate::map::LUT_N,
-            map_thresh: crate::map::BAKE_THRESH,
+            map_thresh: None,
+            prepare_sdr: false,
             map_stats: false,
             output_mode: crate::map::DVVK_OUTPUT_DV,
             hdr10plus_trace: false,
@@ -162,11 +171,13 @@ impl EngineOptions {
             map_lut_only: flag("DVVK_MAP_LUT_ONLY"),
             map_inline: flag("DVVK_MAP_INLINE"),
             map_n: number("DVVK_MAP_N", crate::map::LUT_N).clamp(9, 129),
-            map_thresh: number("DVVK_MAP_THRESH", crate::map::BAKE_THRESH),
+            map_thresh: var("DVVK_MAP_THRESH").and_then(|v| v.parse().ok()),
+            prepare_sdr: flag("DVVK_PREPARE_SDR"),
             map_stats: flag("DVVK_MAP_STATS"),
             output_mode: match var("DVVK_OUTPUT").as_deref() {
                 Some("hdr10") => crate::map::DVVK_OUTPUT_HDR10,
                 Some("hdr10plus") => crate::map::DVVK_OUTPUT_HDR10PLUS,
+                Some("sdr") => crate::map::DVVK_OUTPUT_SDR,
                 _ => crate::map::DVVK_OUTPUT_DV,
             },
             hdr10plus_trace: var("DVVK_HDR10PLUS_TRACE").as_deref() == Some("1"),

@@ -724,22 +724,28 @@ impl SampledImage {
 /// The output mapping's 3D LUT (map_bake.comp): RGBA16 UNORM, n^3, sampled
 /// with trilinear filtering by the pack; written by a buffer copy (no
 /// storage-image format feature needed), always in GENERAL layout after the
-/// first copy (`ready`).
+/// first copy (`ready`). Also SDR output's gamut LUT (`size` then not a cube).
 pub struct Lut3d {
     pub image: vk::Image,
     pub memory: vk::DeviceMemory,
     pub view: vk::ImageView,
     pub n: u32,
+    pub size: [u32; 3],
     pub ready: bool,
 }
 
 impl Lut3d {
     pub fn new(d: &Device, n: u32) -> Result<Self> {
+        Self::new_sized(d, [n, n, n])
+    }
+
+    pub fn new_sized(d: &Device, size: [u32; 3]) -> Result<Self> {
+        let n = size[0];
         let format = vk::Format::R16G16B16A16_UNORM;
         let info = vk::ImageCreateInfo::default()
             .image_type(vk::ImageType::TYPE_3D)
             .format(format)
-            .extent(vk::Extent3D { width: n, height: n, depth: n })
+            .extent(vk::Extent3D { width: size[0], height: size[1], depth: size[2] })
             .mip_levels(1)
             .array_layers(1)
             .samples(vk::SampleCountFlags::TYPE_1)
@@ -772,7 +778,7 @@ impl Lut3d {
                     None,
                 )
             }?;
-            Ok(Lut3d { image, memory, view, n, ready: false })
+            Ok(Lut3d { image, memory, view, n, size, ready: false })
         })();
         if result.is_err() {
             unsafe {
@@ -784,9 +790,10 @@ impl Lut3d {
         result
     }
 
-    /// Records the copy of `nodes` (n^3 RGBA16 texels, x fastest) into the
-    /// image, between the compute work before and after it.
-    pub fn record_copy(&mut self, d: &Device, cmd: vk::CommandBuffer, nodes: vk::Buffer) {
+    /// Records the copy of `nodes` (the image's RGBA16 texels, x fastest,
+    /// from byte `offset`) into the image, between the compute work before
+    /// and after it.
+    pub fn record_copy(&mut self, d: &Device, cmd: vk::CommandBuffer, nodes: vk::Buffer, offset: u64) {
         let before = [vk::ImageMemoryBarrier2::default()
             .src_stage_mask(vk::PipelineStageFlags2::COMPUTE_SHADER)
             .src_access_mask(vk::AccessFlags2::SHADER_READ)
@@ -802,13 +809,14 @@ impl Lut3d {
             .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
             .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)];
         let region = [vk::BufferImageCopy::default()
+            .buffer_offset(offset)
             .image_subresource(vk::ImageSubresourceLayers {
                 aspect_mask: vk::ImageAspectFlags::COLOR,
                 mip_level: 0,
                 base_array_layer: 0,
                 layer_count: 1,
             })
-            .image_extent(vk::Extent3D { width: self.n, height: self.n, depth: self.n })];
+            .image_extent(vk::Extent3D { width: self.size[0], height: self.size[1], depth: self.size[2] })];
         let after = [vk::ImageMemoryBarrier2::default()
             .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
             .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)

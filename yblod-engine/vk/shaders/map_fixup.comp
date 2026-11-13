@@ -6,9 +6,17 @@
 // alpha 0xff, so a pair listed twice (overlapping damage regions) is mapped
 // once (two at once compute the same words). Dispatched indirectly: the
 // list's header is the dispatch's workgroup count.
+// SDR output (MAP_SDR): the list has an entry a pair (its index in the
+// canvas's pairs), which becomes two XRGB8888 pixels, dithered as the
+// pack's. Its words carry, above the input codes, the next pair's chroma
+// less its own (7 bits each, on the even and the odd word): the odd pixel's
+// chroma is halfway to it. Bit 31 is clear until the pair is done.
 #version 460
 #define MAP_PARAMS_BINDING 1
 #define MAP_CELLS_BINDING 2
+#define MAP_TABLES_BINDING 3
+#define MAP_GAMUT_BINDING 4
+#define MAP_SDR_ID 0
 #include "dv_map.glsl"
 layout(local_size_x = 64) in;
 layout(binding = 0, std430) buffer Out { uint pixels[]; };
@@ -19,6 +27,21 @@ void main()
     uint s = gl_GlobalInvocationID.x;
     if (s >= map_cells[mp.list + 3u])
         return;
+    if (MAP_SDR != 0u) {
+        uint pair = map_cells[mp.list + 4u + s], half_w = w / 2u;
+        uvec2 at = uvec2((pair % half_w) * 2u, pair / half_w);
+        uint i = at.y * stride_words + at.x;
+        uint wa = pixels[i], wb = pixels[i + 1u];
+        // done by an entry of the same pair (overlapping damage regions):
+        // either word finished says so, whichever it wrote first
+        if (((wa | wb) >> 31) != 0u)
+            return;
+        uvec2 a = map_unword(wa), b = map_unword(wb);
+        vec2 c0 = vec2(a.y, b.y), c1 = c0 + 0.5 * vec2(int(wa << 1) >> 25, int(wb << 1) >> 25);
+        pixels[i] = map_sdr_pixel(a.x, c0, map_exact(a.x, c0), at);
+        pixels[i + 1u] = map_sdr_pixel(b.x, c1, map_exact(b.x, c1), at + uvec2(1u, 0u));
+        return;
+    }
     uint entry = map_cells[mp.list + 4u + s], idx = entry & 0x0fffffffu, q = w / 4u;
     uint x0 = (idx % q) * 4u, y0 = (idx / q) * 2u;
     for (uint k = 0u; k < 4u; k++) {

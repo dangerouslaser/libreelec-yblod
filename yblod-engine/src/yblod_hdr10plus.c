@@ -9,6 +9,8 @@
  * - yb_hdr10plus_to_dovi: HDR10+ -> Dolby Vision. cb1_hdr10plus_dovi_describe
  *   as an AVDOVIMetadata the engine plays as Profile 8.1 (an identity
  *   composer, L1 and L6; include/dv_engine_vk.h dvvk_hdr10plus_to_dovi).
+ * - yb_hdr10_to_dovi: the same metadata for a video without dynamic
+ *   metadata (HDR10, HLG), without L1 (dvvk_hdr10_to_dovi; YBLOD's own).
  *
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include "yblod_hdr10plus.h"
@@ -89,35 +91,40 @@ int yb_hdr10plus_packet(const void *metadata, size_t bytes, const uint32_t words
     return status;
 }
 
-/* av_dovi_metadata_alloc's layout (libavutil/dovi_meta.c), with the two
- * extension blocks this writes. */
+/* av_dovi_metadata_alloc's layout (libavutil/dovi_meta.c), with the
+ * extension blocks this writes: L1 and L6, L6 alone, and L9 after them when
+ * the mastering display's primaries are known. */
 typedef struct {
     AVDOVIMetadata metadata;
     AVDOVIRpuDataHeader header;
     AVDOVIDataMapping mapping;
     AVDOVIColorMetadata color;
-    AVDOVIDmData ext[2];
+    AVDOVIDmData ext[3];
 } dovi_buffer;
 _Static_assert(sizeof(dovi_buffer) <= DVVK_HDR10PLUS_DOVI_BYTES, "DVVK_HDR10PLUS_DOVI_BYTES");
 
-int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_static *hdr10, const void *previous,
-                         void *out, size_t capacity, size_t *out_size, dvvk_hdr10plus_dovi_info *info)
+/* L9's source_primary_index (dovi_tool's presets) of DVVK_PRIMARIES_*, -1: none */
+static int l9_index(const dvvk_hdr10_static *hdr10, int unknown)
 {
-    if (!hdr10plus || size < sizeof(AVDynamicHDRPlus) || !out_size || (!out && capacity) ||
-        (uintptr_t)out % _Alignof(dovi_buffer))
-        return -1;
-    const AVDynamicHDRPlus *source = hdr10plus;
-    struct cb1_hdr10plus_dovi_result result;
-    switch (cb1_hdr10plus_dovi_describe(&result, source, NULL)) {
-    case CB1_HDR10PLUS_DOVI_OK:
-        break;
-    case CB1_HDR10PLUS_DOVI_UNSUPPORTED:
-        return -2;
-    default:
-        return -1;
+    switch (hdr10 ? hdr10->primaries : DVVK_PRIMARIES_UNKNOWN) {
+    case DVVK_PRIMARIES_P3D65: return 0;
+    case DVVK_PRIMARIES_BT709: return 1;
+    case DVVK_PRIMARIES_BT2020: return 2;
+    default: return unknown;
     }
-    *out_size = sizeof(dovi_buffer);
-    if (capacity < sizeof(dovi_buffer))
+}
+
+/* The metadata of an HDR10 picture: a Profile 8.1 RPU with an identity
+ * composer, L1 when the picture has one (l1: min, max, avg), L6 and L9
+ * (primaries: its index, -1 none). */
+static int write_dovi(const dvvk_hdr10_static *hdr10, const uint16_t *l1, int primaries, int scene_refresh,
+                      void *out, size_t capacity, size_t *out_size, unsigned *source_pq)
+{
+    const unsigned blocks = (l1 ? 2 : 1) + (primaries >= 0);
+    /* the size of this struct with that many blocks */
+    const size_t align = _Alignof(dovi_buffer);
+    *out_size = (offsetof(dovi_buffer, ext) + blocks * sizeof(AVDOVIDmData) + align - 1) / align * align;
+    if (capacity < *out_size)
         return -3;
     /* the mastering display (unknown: 0.005 .. 1000 cd/m2) */
     double master_max = 1000, master_min = 0.005;
@@ -140,13 +147,13 @@ int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_st
         min_pq = 0;
 
     dovi_buffer *b = out;
-    memset(b, 0, sizeof(*b));
+    memset(b, 0, *out_size);
     b->metadata.header_offset = offsetof(dovi_buffer, header);
     b->metadata.mapping_offset = offsetof(dovi_buffer, mapping);
     b->metadata.color_offset = offsetof(dovi_buffer, color);
     b->metadata.ext_block_offset = offsetof(dovi_buffer, ext);
     b->metadata.ext_block_size = sizeof(AVDOVIDmData);
-    b->metadata.num_ext_blocks = 2;
+    b->metadata.num_ext_blocks = (int)blocks;
 
     /* Profile 8.1's RPU header: BL 10-bit limited range, VDR 12-bit, no EL */
     AVDOVIRpuDataHeader *h = &b->header;
@@ -181,7 +188,7 @@ int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_st
     static const int lms[9] = {7222, 8771, 390, 2654, 12430, 1300, 0, 422, 15962};
     AVDOVIColorMetadata *col = &b->color;
     col->dm_metadata_id = 0;
-    col->scene_refresh_flag = !previous || !cb1_hdr10plus_dovi_same_scene(previous, source);
+    col->scene_refresh_flag = scene_refresh != 0;
     for (unsigned i = 0; i < 9; i++) {
         col->ycc_to_rgb_matrix[i] = (AVRational){ycc[i], 8192};
         col->rgb_to_lms_matrix[i] = (AVRational){lms[i], 16384};
@@ -197,25 +204,92 @@ int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_st
     col->source_max_pq = (uint16_t)max_pq;
     col->source_diagonal = 42;
 
-    const struct cb1_l1l3 *l = &result.metadata;
-    b->ext[0].level = 1;
-    b->ext[0].l1.min_pq = l->l1_min;
-    b->ext[0].l1.max_pq = l->l1_max;
-    b->ext[0].l1.avg_pq = l->l1_avg;
-    b->ext[1].level = 6;
-    b->ext[1].l6.max_luminance = l6_max;
-    b->ext[1].l6.min_luminance = l6_min;
-    b->ext[1].l6.max_cll = cll;
-    b->ext[1].l6.max_fall = fall;
+    AVDOVIDmData *e = b->ext;
+    if (l1) {
+        e->level = 1;
+        e->l1.min_pq = l1[0];
+        e->l1.max_pq = l1[1];
+        e->l1.avg_pq = l1[2];
+        e++;
+    }
+    e->level = 6;
+    e->l6.max_luminance = l6_max;
+    e->l6.min_luminance = l6_min;
+    e->l6.max_cll = cll;
+    e->l6.max_fall = fall;
+    e++;
+    if (primaries >= 0) {
+        /* with the block's RPU payload (ffmpeg-9900), as a parsed one has it:
+         * the metadata path refuses an L9 without */
+        e->level = 9;
+        e->l9.source_primary_index = (uint8_t)primaries;
+        e->dvbridge_raw_magic = 0x41424456;
+        e->dvbridge_original_length = 1;
+        e->dvbridge_original_bytes[0] = (uint8_t)primaries;
+    }
+    if (source_pq) {
+        source_pq[0] = min_pq;
+        source_pq[1] = max_pq;
+    }
+    return 0;
+}
 
+/* FFmpeg makes this side data only from a T.35 payload it has checked to be
+ * ST 2094-40's (country 0xB5, provider 0x003C, oriented code 1, application
+ * identifier 4: libavcodec/itut35.c, libavformat/matroskadec.c), but stock
+ * FFmpeg leaves itu_t_t35_country_code 0. CB1's FFmpeg copies the 0xB5 in
+ * (CB1 ffmpeg-9900-06-hdr10plus-country.patch), which CB1's code requires;
+ * a 0 is that same checked header. */
+static const AVDynamicHDRPlus *t35_header(const AVDynamicHDRPlus *m, AVDynamicHDRPlus *copy)
+{
+    if (!m || m->itu_t_t35_country_code)
+        return m;
+    *copy = *m;
+    copy->itu_t_t35_country_code = 0xb5;
+    return copy;
+}
+
+int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_static *hdr10, const void *previous,
+                         void *out, size_t capacity, size_t *out_size, dvvk_hdr10plus_dovi_info *info)
+{
+    if (!hdr10plus || size < sizeof(AVDynamicHDRPlus) || !out_size || (!out && capacity) ||
+        (uintptr_t)out % _Alignof(dovi_buffer))
+        return -1;
+    AVDynamicHDRPlus source_copy, previous_copy;
+    const AVDynamicHDRPlus *source = t35_header(hdr10plus, &source_copy);
+    previous = t35_header(previous, &previous_copy);
+    struct cb1_hdr10plus_dovi_result result;
+    switch (cb1_hdr10plus_dovi_describe(&result, source, NULL)) {
+    case CB1_HDR10PLUS_DOVI_OK:
+        break;
+    case CB1_HDR10PLUS_DOVI_UNSUPPORTED:
+        return -2;
+    default:
+        return -1;
+    }
+    const struct cb1_l1l3 *l = &result.metadata;
+    const uint16_t l1[3] = {l->l1_min, l->l1_max, l->l1_avg};
+    const int refresh = !previous || !cb1_hdr10plus_dovi_same_scene(previous, source);
+    unsigned pq[2];
+    int status = write_dovi(hdr10, l1, l9_index(hdr10, -1), refresh, out, capacity, out_size, pq);
+    if (status)
+        return status;
     if (info) {
         *info = (dvvk_hdr10plus_dovi_info){
             .l1_min = l->l1_min, .l1_max = l->l1_max, .l1_avg = l->l1_avg,
-            .source_min_pq = (uint16_t)min_pq, .source_max_pq = (uint16_t)max_pq,
+            .source_min_pq = (uint16_t)pq[0], .source_max_pq = (uint16_t)pq[1],
             .source_fields = (uint8_t)result.source_fields, .estimated_fields = (uint8_t)result.estimated_fields,
             .untranslated_curve = result.untranslated_curve, .untranslated_saturation = result.untranslated_saturation,
-            .scene_refresh = col->scene_refresh_flag,
+            .scene_refresh = (uint8_t)refresh,
         };
     }
     return 0;
+}
+
+int yb_hdr10_to_dovi(const dvvk_hdr10_static *hdr10, void *out, size_t capacity, size_t *out_size)
+{
+    if (!out_size || (!out && capacity) || (uintptr_t)out % _Alignof(dovi_buffer))
+        return -1;
+    /* unknown primaries: BT.2020, the container's */
+    return write_dovi(hdr10, NULL, l9_index(hdr10, 2), 0, out, capacity, out_size, NULL);
 }

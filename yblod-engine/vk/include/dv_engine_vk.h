@@ -42,7 +42,7 @@ typedef struct {
 #define DVVK_FRAME_DESKTOP 2u
 
 typedef struct {
-    int32_t x, y;                 /* destination in the 3840x2160 canvas */
+    int32_t x, y;                 /* destination in the canvas */
     uint32_t w, h, dw, dh;        /* bitmap size; destination size (BGRA may scale) */
     uint32_t stride;
     uint32_t format;              /* 1 libass A8 with color, 2 BGRA premultiplied */
@@ -79,12 +79,24 @@ int dvvk_set_overlay_damage(dvvk_engine *, const uint32_t *rects, uint32_t count
 int dvvk_implicit_failed(dvvk_engine *);
 uint64_t dvvk_overlay_ticket(dvvk_engine *, uint64_t id);
 int dvvk_create(int drm_fd, void *va_display, dvvk_engine **out);
+/* dvvk_create with another canvas than 3840x2160 (an optional symbol, with
+ * DVVK_OUTPUT_SDR; look it up with dlsym): the size of the output buffers
+ * (dvvk_set_output), of the overlay (dvvk_set_overlay: a buffer of another
+ * size is scaled; dvvk_set_overlay_rgba's picture; subtitle destinations)
+ * and of dvvk_plan_in's destination rectangle, for a display mode of that
+ * size. Width and height are multiples of 4, 64 to 4096; -2 otherwise.
+ * Every output mode renders at any canvas; a picture larger than the canvas
+ * is placed by its destination rectangle like any resized one (yblod's own
+ * processing: CB1's contract is for unscaled pictures). Whether a display
+ * takes the Dolby Vision tunnel at another size is the caller's business. */
+int dvvk_create_canvas(int drm_fd, void *va_display, uint32_t width, uint32_t height, dvvk_engine **out);
+/* dmabuf_fd: a linear XRGB8888 buffer of the canvas's size. */
 int dvvk_set_output(dvvk_engine *, uint32_t slot, int dmabuf_fd, uint32_t stride);
 /* 0: the picture is in the output; > 0 never; < 0: a dv_status (-2: not this
  * engine's frame, show an ordinary picture; -8: engine failure). */
 int dvvk_render_sync(dvvk_engine *, const dvvk_frame *, uint32_t *error_flags);
 /* Phase 1: the overlay picture for frames with plan.overlay set (RGBA8
- * premultiplied sRGB, 3840x2160, rows top first), copied in. Error flags
+ * premultiplied sRGB, the canvas's size, rows top first), copied in. Error flags
  * bit 8: an overlay colour the source can't represent. */
 void dvvk_set_overlay_rgba(dvvk_engine *, const void *rgba, size_t stride);
 /* Asynchronous: plan and submit without waiting; 0 and *ticket, or a
@@ -143,18 +155,54 @@ void dvvk_reset(dvvk_engine *);
  * frame before the overlay (each channel's linear maximum, the average
  * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin) in the pack
  * (shaders/pack.comp STATS), read back once the frame is done. */
-enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2 };
+/*   DVVK_OUTPUT_SDR  SDR (after YBLOD 0.5.0): the engine converts to the picture
+ *                      of an SDR display (docs/intel-dv/OUTPUT-MODES.md): the
+ *                      HDR10 recipe (libplacebo's spline tone curve on IPT's I,
+ *                      scene by scene from L1) compressing to the display's
+ *                      white, libplacebo's perceptual gamut mapping from the
+ *                      source's primaries (L9) to BT.709, then the display's
+ *                      inverse EOTF. The output is ordinary 8-bit R'G'B' in
+ *                      XRGB8888 (no Dolby Vision or HDR signalling), dithered
+ *                      with a fixed pattern, each pixel from its own luma and
+ *                      chroma (the odd pixel's between its pair's sample and
+ *                      the next pair's); an overlay is blended after the
+ *                      conversion, as sRGB over the display's R'G'B', and has
+ *                      to be the dvvk_set_overlay buffer alone, 8-bit, at the
+ *                      canvas's size (a frame with subtitle bitmaps or
+ *                      another overlay is refused, -2). Sources without
+ *                      Dolby Vision play through the same conversion with
+ *                      metadata made for them: HDR10+ (dvvk_hdr10plus_to_dovi),
+ *                      HDR10 and HLG (dvvk_hdr10_to_dovi, DVVK_SDR_HLG).
+ *                      peak_nits: the display's white in cd/m2 (0: 203),
+ *                      min_nits: its black (0: white / 1000). flags
+ *                      DVVK_SDR_*. An engine without it refuses the mode
+ *                      (dvvk_set_output_mode returns -2); dvvk_output_modes
+ *                      says so before an engine exists. */
+enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2, DVVK_OUTPUT_SDR = 3 };
+/* dvvk_output_mode.flags for DVVK_OUTPUT_SDR (0 for the other modes):
+ * GAMMA22 a pure 2.2 power, black at the display's black (else BT.1886,
+ * gamma 2.4 with the display's black); LIMITED codes 16..235 (else 0..255);
+ * NO_DITHER the codes rounded; HLG the pictures are HLG (ARIB STD-B67, BT.2100)
+ * instead of PQ: a plain HLG video with dvvk_hdr10_to_dovi's metadata, shown
+ * as BT.2100's 1000 cd/m2 display would (system gamma 1.2) and converted
+ * from there. */
+enum { DVVK_SDR_GAMMA22 = 1u, DVVK_SDR_LIMITED = 2u, DVVK_SDR_NO_DITHER = 4u, DVVK_SDR_HLG = 8u };
 typedef struct {
     uint32_t mode;
-    uint32_t flags;               /* 0 */
-    float peak_nits, min_nits;    /* 0: the stream's */
+    uint32_t flags;               /* DVVK_SDR_* (SDR), else 0 */
+    float peak_nits, min_nits;    /* 0: the stream's (SDR: the default display) */
     uint32_t reserved[4];
 } dvvk_output_mode;
+/* The output modes this library has, bit 1 << DVVK_OUTPUT_*. An optional
+ * symbol (with DVVK_OUTPUT_SDR; no engine needed): a library without it has the
+ * modes its other optional symbols say (never SDR). */
+uint32_t dvvk_output_modes(void);
 /* The last frame's output: what the HDR static metadata InfoFrame (CTA-861.3)
- * says. mode DVVK_OUTPUT_DV: everything 0. */
+ * says. mode DVVK_OUTPUT_DV: everything 0. mode DVVK_OUTPUT_SDR: eotf 0, the
+ * display's primaries (BT.709) and white, no InfoFrame to send. */
 typedef struct {
     uint32_t mode;
-    uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ) */
+    uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ); 0: SDR */
     uint16_t primaries[3][2];     /* display primaries x, y (0.00002 units): R, G, B */
     uint16_t white[2];
     uint16_t max_luminance;       /* cd/m2 */
@@ -227,6 +275,9 @@ int dvvk_hdr10plus_packet(dvvk_engine *, uint64_t ticket, uint32_t flags, dvvk_h
  *   hdr10plus  the picture's AVDynamicHDRPlus (FFmpeg side data
  *              AV_FRAME_DATA_DYNAMIC_HDR_PLUS, as the FFmpeg the engine is
  *              built with lays it out), size its size. One window only.
+ *              Its itu_t_t35_country_code 0 (stock FFmpeg leaves it so) is
+ *              taken as 0xB5, the header FFmpeg checked; CB1's FFmpeg
+ *              writes 0xB5 itself (since YBLOD 0.5.1).
  *   hdr10      the stream's static HDR10 metadata (NULL: unknown).
  *   previous   the previous picture's AVDynamicHDRPlus (NULL: none): a
  *              different scene (cb1_hdr10plus_dovi_same_scene) sets the
@@ -254,8 +305,12 @@ int dvvk_hdr10plus_packet(dvvk_engine *, uint64_t ticket, uint32_t flags, dvvk_h
 typedef struct {
     float max_luminance, min_luminance;   /* mastering display, cd/m2; 0: unknown */
     uint16_t max_cll, max_fall;           /* cd/m2; 0: unknown */
-    uint32_t reserved[2];
+    uint32_t primaries;                   /* mastering display, DVVK_PRIMARIES_*; 0: unknown */
+    uint32_t reserved;
 } dvvk_hdr10_static;
+/* dvvk_hdr10_static.primaries: written as an L9 block (source primaries),
+ * which the SDR output's gamut mapping reads; unknown writes none. */
+enum { DVVK_PRIMARIES_UNKNOWN = 0, DVVK_PRIMARIES_P3D65 = 1, DVVK_PRIMARIES_BT2020 = 2, DVVK_PRIMARIES_BT709 = 3 };
 typedef struct {
     uint16_t l1_min, l1_max, l1_avg;      /* the L1 written (12-bit PQ) */
     uint16_t source_min_pq, source_max_pq;
@@ -267,6 +322,16 @@ typedef struct {
 #define DVVK_HDR10PLUS_DOVI_BYTES 8192u
 int dvvk_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_static *hdr10, const void *previous,
                            void *out, size_t capacity, size_t *out_size, dvvk_hdr10plus_dovi_info *info);
+/* A plain HDR video (HDR10 or HLG: static metadata only) as metadata the
+ * engine plays, for the SDR output (optional symbol, with DVVK_OUTPUT_SDR;
+ * no engine needed): dvvk_hdr10plus_to_dovi's metadata without L1, so the
+ * conversion's curve is the static one, from the mastering display's
+ * maximum (libplacebo's HDR10 behaviour). An HLG video's is the same (its
+ * Y'CbCr is BT.2020's too; hdr10 NULL): DVVK_SDR_HLG in the output mode says
+ * what its codes mean. Unknown primaries are written as BT.2020, the
+ * container's (L9). Every picture of the video takes the same bytes.
+ * Returns as dvvk_hdr10plus_to_dovi (0, -1, -3). */
+int dvvk_hdr10_to_dovi(const dvvk_hdr10_static *hdr10, void *out, size_t capacity, size_t *out_size);
 
 /* Decoded surfaces are imported once and then known by their VASurfaceID
  * until a reset: reset whenever the decoder's surface pool changes (a new
@@ -298,6 +363,7 @@ DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10plus_metadata) == 128, "dvvk_hdr10plus_metad
 DVVK_STATIC_ASSERT(offsetof(dvvk_hdr10plus_metadata, statistics_ticket) == 32, "dvvk_hdr10plus_metadata layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_hdr10plus_metadata, average_maxrgb) == 72, "dvvk_hdr10plus_metadata layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10_static) == 20, "dvvk_hdr10_static layout");
+DVVK_STATIC_ASSERT(offsetof(dvvk_hdr10_static, primaries) == 12, "dvvk_hdr10_static layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10plus_dovi_info) == 36, "dvvk_hdr10plus_dovi_info layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, modifier) == 16, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, num_planes) == 24, "dvvk_dmabuf layout");

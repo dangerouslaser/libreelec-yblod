@@ -1,0 +1,3932 @@
+{
+ "ryzen-y050": {
+  "session": {
+   "image": "ryzen-y050",
+   "os_version": "yblod-0.5.0",
+   "os_build_id": "11e1d1b570f22b63269dc187fc670273464d18c2",
+   "kernel": "7.3.0",
+   "kernel_build": "#1 SMP PREEMPT Thu Nov 12 06:05:22 UTC 2026",
+   "cpu": "AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx",
+   "gpu_pci": "0x1002:0x15d8",
+   "gl_version": "OpenGL ES 3.2 Mesa 26.2.5",
+   "kodi_version": "22.0-RC1 (21.90.901) Git:e6192109e1c883cea927fbcb4c223c0f6f3a2b6b",
+   "engine_sha256": "96c36d7138ec0f70476580022e5fa1aa39f665ff8deb2d2e9f3241c525c80667",
+   "kodi_sha256": "0cef6e1a10e4dca22bfd7024cf3a75c29f54d3e8e22ce34bd980e9da41d3b7a5",
+   "kernel_md5": "",
+   "system_md5": "",
+   "env_override": "DVBRIDGE_DIAGNOSTICS=1",
+   "sinks": "LG TV SSCR2;",
+   "display_note": "unattended run: TV power state not observed; HDMI sink LG TV SSCR2 connected directly (no AVR)",
+   "recorded": "2026-11-12T16:00:11+00:00",
+   "harness": {
+    "settle_s": 15,
+    "window_s": 60,
+    "post_s": 11,
+    "start_observe_s": 12,
+    "starts": 3
+   },
+   "gt_RP0_freq_mhz": null,
+   "gt_min_freq_mhz": null,
+   "gt_max_freq_mhz": null,
+   "rapl_long_term_uw": null,
+   "rapl_short_term_uw": null,
+   "dv_prepare_marker": "yblod-0.5.0 11e1d1b570f22b63269dc187fc670273464d18c2 0x1002:0x15d8",
+   "outputmode_options": [
+    "Dolby Vision (TV-led)",
+    "Convert to HDR10",
+    "Off"
+   ],
+   "settings": {
+    "videoplayer.adjustrefreshrate": 2,
+    "videoplayer.usedisplayasclock": false,
+    "videoplayer.usevaapi": true,
+    "videoplayer.prefervaapirender": true,
+    "videoscreen.resolution": 16,
+    "videoscreen.screenmode": "DESKTOP",
+    "videoscreen.limitguisize": null,
+    "videoscreen.whitelist": [],
+    "videoscreen.noofbuffers": 2,
+    "videoscreen.10bitsurfaces": 0,
+    "audiooutput.audiodevice": "ALSA:hdmi:CARD=Generic,DEV=0|HD-Audio Generic",
+    "audiooutput.passthroughdevice": "ALSA:hdmi:CARD=Generic,DEV=0|HD-Audio Generic",
+    "audiooutput.passthrough": true,
+    "audiooutput.channels": 1,
+    "audiooutput.truehdpassthrough": true,
+    "audiooutput.eac3passthrough": true,
+    "audiooutput.dtshdpassthrough": true,
+    "locale.subtitlelanguage": "forced_only",
+    "lookandfeel.skin": "skin.estuary.yblod",
+    "services.webserver": true,
+    "dvbridge.outputmode": 0,
+    "dvbridge.hdr10plussources": 0,
+    "dvbridge.elupscaler": 0,
+    "dvbridge.dvmetadata": 0,
+    "dvbridge.tvpeak": null,
+    "dvbridge.removel2": false,
+    "dvbridge.enhancedinfo": true,
+    "dvbridge.menumode": false,
+    "dvbridge.guicache": true,
+    "dvbridge.homecache": true,
+    "dvbridge.halfgui": false,
+    "dvbridge.verify": false,
+    "dvbridge.frametrace": false,
+    "dvbridge.gputiming": false
+   },
+   "profile": "y050",
+   "env_image": "DV_VULKAN_ENGINE_LIBRARY=/usr/lib/libdv_engine_vk.so.1 DV_VULKAN_ASYNC=1 DVVK_SURFACE_CHECK=0 DV_EL_SCALER=annexb DV_VULKAN_CM4=off DV_VULKAN_NO_L2=0 DV_VULKAN_TV_PEAK=0 DV_PRIVATE_SKIP_REPEATS=1 DV_PRIVATE_GUI_UNCHANGED_SKIP=1 DV_PRIVATE_NONBLOCK=0 DV_PRIVATE_FLIP_TRACE=0 DV_PRIVATE_DRAIN_EOF=1 DV_PRIVATE_STARTUP_COMMIT=1 DV_PRIVATE_STARTUP_FULLSCREEN=1 DV_PRIVATE_STARTUP_LATENCY=1 DV_PRIVATE_STARTUP_RESYNC=1 DV_PRIVATE_GUI_CACHE=1 DV_PRIVATE_GUI_CACHE_HOME=1 DV_PRIVATE_GUI_HALF=0 DV_PRIVATE_GUI_REVISION=0 DVVK_VERIFY=0 DV_PRIVATE_FRAME_TIMING=0 DVVK_DEADLINE_TRACE=0 DVVK_PROFILE=0 DV_PRIVATE_GUI_COVERAGE=0",
+   "amd_sclk_levels": "0: 200Mhz * 1: 700Mhz  2: 1200Mhz",
+   "amd_dpm_level": "auto",
+   "amd_power_profile": "BOOTUP_DEFAULT",
+   "amdgpu_enable_dv_lab": "Y"
+  },
+  "rows": {
+   "1917-A": {
+    "film": "1917",
+    "scenario": "A",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.196,
+      "source_fps": 23.976,
+      "ms_per_frame": 14.652,
+      "ms_per_source_frame": 14.65,
+      "engine_client_ms_per_frame": 14.652,
+      "video_decode_ms_per_frame": 26.392,
+      "render_busy_pct": 35.12,
+      "presented_fps": 23.973,
+      "refresh_hz": 23.975,
+      "gap_histogram": {
+       "1": 1442
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.1,
+      "process_cpu_pct": 20.4,
+      "gpu_awake_mhz_mean": 556,
+      "gpu_share_asleep": null,
+      "package_w": 12.83,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 36.0,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     },
+     {
+      "rep": 2,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.197,
+      "source_fps": 23.976,
+      "ms_per_frame": 14.676,
+      "ms_per_source_frame": 14.674,
+      "engine_client_ms_per_frame": 14.676,
+      "video_decode_ms_per_frame": 26.405,
+      "render_busy_pct": 35.18,
+      "presented_fps": 23.971,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1442
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.2,
+      "process_cpu_pct": 22.4,
+      "gpu_awake_mhz_mean": 590,
+      "gpu_share_asleep": null,
+      "package_w": 13.06,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 36.1,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 14.664,
+     "min": 14.652,
+     "max": 14.676,
+     "n": 2,
+     "half_range_pct": 0.08
+    },
+    "ms_per_source_frame": {
+     "median": 14.662,
+     "min": 14.65,
+     "max": 14.674,
+     "n": 2,
+     "half_range_pct": 0.08
+    },
+    "presented_fps": {
+     "median": 23.972,
+     "min": 23.971,
+     "max": 23.973,
+     "n": 2,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 35.15,
+     "min": 35.12,
+     "max": 35.18,
+     "n": 2,
+     "half_range_pct": 0.09
+    },
+    "render_thread_pct": {
+     "median": 3.15,
+     "min": 3.1,
+     "max": 3.2,
+     "n": 2,
+     "half_range_pct": 1.59
+    },
+    "process_cpu_pct": {
+     "median": 21.4,
+     "min": 20.4,
+     "max": 22.4,
+     "n": 2,
+     "half_range_pct": 4.67
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 573.0,
+     "min": 556,
+     "max": 590,
+     "n": 2,
+     "half_range_pct": 2.97
+    },
+    "package_w": {
+     "median": 12.945,
+     "min": 12.83,
+     "max": 13.06,
+     "n": 2,
+     "half_range_pct": 0.89
+    },
+    "kodi_dropped": {
+     "median": 0.0,
+     "min": 0,
+     "max": 0,
+     "n": 2,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0.0,
+     "min": 0,
+     "max": 0,
+     "n": 2,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0.0,
+     "min": 0,
+     "max": 0,
+     "n": 2,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-B": {
+    "film": "1917",
+    "scenario": "B",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.243,
+      "source_fps": 23.976,
+      "ms_per_frame": 22.395,
+      "ms_per_source_frame": 22.405,
+      "engine_client_ms_per_frame": 22.395,
+      "video_decode_ms_per_frame": 25.27,
+      "render_busy_pct": 53.72,
+      "presented_fps": 23.986,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 5.6,
+      "process_cpu_pct": 24.1,
+      "gpu_awake_mhz_mean": 742,
+      "gpu_share_asleep": null,
+      "package_w": 16.29,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 54.4,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 22.395,
+     "min": 22.395,
+     "max": 22.395,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 22.405,
+     "min": 22.405,
+     "max": 22.405,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.986,
+     "min": 23.986,
+     "max": 23.986,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 53.72,
+     "min": 53.72,
+     "max": 53.72,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 5.6,
+     "min": 5.6,
+     "max": 5.6,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 24.1,
+     "min": 24.1,
+     "max": 24.1,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 742,
+     "min": 742,
+     "max": 742,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 16.29,
+     "min": 16.29,
+     "max": 16.29,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-C": {
+    "film": "1917",
+    "scenario": "C",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.229,
+      "source_fps": 23.976,
+      "ms_per_frame": 14.914,
+      "ms_per_source_frame": 14.914,
+      "engine_client_ms_per_frame": 14.914,
+      "video_decode_ms_per_frame": 25.237,
+      "render_busy_pct": 35.76,
+      "presented_fps": 23.975,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1443
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.9,
+      "process_cpu_pct": 22.7,
+      "gpu_awake_mhz_mean": 590,
+      "gpu_share_asleep": null,
+      "package_w": 13.48,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 36.7,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 14.914,
+     "min": 14.914,
+     "max": 14.914,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 14.914,
+     "min": 14.914,
+     "max": 14.914,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.975,
+     "min": 23.975,
+     "max": 23.975,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 35.76,
+     "min": 35.76,
+     "max": 35.76,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 3.9,
+     "min": 3.9,
+     "max": 3.9,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 22.7,
+     "min": 22.7,
+     "max": 22.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 590,
+     "min": 590,
+     "max": 590,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 13.48,
+     "min": 13.48,
+     "max": 13.48,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-D": {
+    "film": "1917",
+    "scenario": "D",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.126,
+      "source_fps": 23.976,
+      "ms_per_frame": 10.923,
+      "ms_per_source_frame": 0.197,
+      "engine_client_ms_per_frame": 10.923,
+      "video_decode_ms_per_frame": 0.0,
+      "render_busy_pct": 0.47,
+      "presented_fps": 0.432,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 25
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": null,
+      "kodi_skipped": null,
+      "render_thread_pct": 1.3,
+      "process_cpu_pct": 7.9,
+      "gpu_awake_mhz_mean": 200,
+      "gpu_share_asleep": null,
+      "package_w": 7.32,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 0.6,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=BOOTUP_DEFAULT",
+        "level=auto"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 10.923,
+     "min": 10.923,
+     "max": 10.923,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 0.197,
+     "min": 0.197,
+     "max": 0.197,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 0.432,
+     "min": 0.432,
+     "max": 0.432,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 0.47,
+     "min": 0.47,
+     "max": 0.47,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 1.3,
+     "min": 1.3,
+     "max": 1.3,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 7.9,
+     "min": 7.9,
+     "max": 7.9,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 200,
+     "min": 200,
+     "max": 200,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 7.32,
+     "min": 7.32,
+     "max": 7.32,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": null,
+    "kodi_skipped": null,
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-E": {
+    "film": "1917",
+    "scenario": "E",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.22,
+      "source_fps": 23.976,
+      "ms_per_frame": 14.717,
+      "ms_per_source_frame": 14.719,
+      "engine_client_ms_per_frame": 14.717,
+      "video_decode_ms_per_frame": 26.427,
+      "render_busy_pct": 35.29,
+      "presented_fps": 23.979,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1443
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.3,
+      "process_cpu_pct": 23.0,
+      "gpu_awake_mhz_mean": 564,
+      "gpu_share_asleep": null,
+      "package_w": 13.22,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=151 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": [
+       "DVBridge output: HDR10 through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10)",
+       "Vulkan engine output: HDR10, the Master Reference conversion (BT.2020 PQ, 12-bit 4:2:2 through the tunnel)"
+      ],
+      "amd_busy_pct_mean": 36.1,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 14.717,
+     "min": 14.717,
+     "max": 14.717,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 14.719,
+     "min": 14.719,
+     "max": 14.719,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.979,
+     "min": 23.979,
+     "max": 23.979,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 35.29,
+     "min": 35.29,
+     "max": 35.29,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 3.3,
+     "min": 3.3,
+     "max": 3.3,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 23.0,
+     "min": 23.0,
+     "max": 23.0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 564,
+     "min": 564,
+     "max": 564,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 13.22,
+     "min": 13.22,
+     "max": 13.22,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-F": {
+    "film": "1917",
+    "scenario": "F",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "start_s": 1.153,
+      "starts_s": [
+       1.149,
+       1.153,
+       1.153
+      ],
+      "kodi_first_frame_s": [
+       1.061,
+       1.051,
+       1.043
+      ]
+     }
+    ],
+    "start_s": {
+     "median": 1.153,
+     "min": 1.153,
+     "max": 1.153,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-P": {
+    "film": "1917",
+    "scenario": "P",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.215,
+      "source_fps": 23.976,
+      "ms_per_frame": 14.655,
+      "ms_per_source_frame": 14.658,
+      "engine_client_ms_per_frame": 14.655,
+      "video_decode_ms_per_frame": 26.356,
+      "render_busy_pct": 35.14,
+      "presented_fps": 23.98,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1443
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.2,
+      "process_cpu_pct": 21.8,
+      "gpu_awake_mhz_mean": 581,
+      "gpu_share_asleep": null,
+      "package_w": 12.95,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 35.9,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "engine_profile": {
+       "lines": 12,
+       "frames": 1440,
+       "gpu_ms_mean": 14.052,
+       "gpu_ms_p95_worst": 15.33,
+       "gpu_ms_max": 16.35,
+       "stages_last_line": "reconstruction 9.01 + overlay prepare 0.00 (0 of 120 frames) + pack 4.95; plan 0.21 ms CPU",
+       "fel_stages_last_line": "staged FEL (120 frames): vertical_pair 1.42 + luma_phase_guide 4.79 + phase_vertical_uv 0.60 + chroma 2.30 ms"
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 14.655,
+     "min": 14.655,
+     "max": 14.655,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 14.658,
+     "min": 14.658,
+     "max": 14.658,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.98,
+     "min": 23.98,
+     "max": 23.98,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 35.14,
+     "min": 35.14,
+     "max": 35.14,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 3.2,
+     "min": 3.2,
+     "max": 3.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 21.8,
+     "min": 21.8,
+     "max": 21.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 581,
+     "min": 581,
+     "max": 581,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 12.95,
+     "min": 12.95,
+     "max": 12.95,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "28yl-A": {
+    "film": "28yl",
+    "scenario": "A",
+    "title": "28 Years Later (2025)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.153,
+      "source_fps": 23.976,
+      "ms_per_frame": 4.075,
+      "ms_per_source_frame": 4.074,
+      "engine_client_ms_per_frame": 4.075,
+      "video_decode_ms_per_frame": 26.143,
+      "render_busy_pct": 9.77,
+      "presented_fps": 23.972,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1441
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 2.6,
+      "process_cpu_pct": 12.7,
+      "gpu_awake_mhz_mean": 353,
+      "gpu_share_asleep": null,
+      "package_w": 8.13,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=8 level=6 compatibility=1 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: eac3, channels: 6, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 10.8,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 4.075,
+     "min": 4.075,
+     "max": 4.075,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 4.074,
+     "min": 4.074,
+     "max": 4.074,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.972,
+     "min": 23.972,
+     "max": 23.972,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 9.77,
+     "min": 9.77,
+     "max": 9.77,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 2.6,
+     "min": 2.6,
+     "max": 2.6,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 12.7,
+     "min": 12.7,
+     "max": 12.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 353,
+     "min": 353,
+     "max": 353,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 8.13,
+     "min": 8.13,
+     "max": 8.13,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "28yl-B": {
+    "film": "28yl",
+    "scenario": "B",
+    "title": "28 Years Later (2025)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.161,
+      "source_fps": 23.976,
+      "ms_per_frame": 5.182,
+      "ms_per_source_frame": 5.18,
+      "engine_client_ms_per_frame": 5.182,
+      "video_decode_ms_per_frame": 26.098,
+      "render_busy_pct": 12.42,
+      "presented_fps": 23.969,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1441
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.8,
+      "process_cpu_pct": 13.8,
+      "gpu_awake_mhz_mean": 403,
+      "gpu_share_asleep": null,
+      "package_w": 8.68,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=8 level=6 compatibility=1 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: eac3, channels: 6, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 12.9,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 5.182,
+     "min": 5.182,
+     "max": 5.182,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 5.18,
+     "min": 5.18,
+     "max": 5.18,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.969,
+     "min": 23.969,
+     "max": 23.969,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 12.42,
+     "min": 12.42,
+     "max": 12.42,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 3.8,
+     "min": 3.8,
+     "max": 3.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 13.8,
+     "min": 13.8,
+     "max": 13.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 403,
+     "min": 403,
+     "max": 403,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 8.68,
+     "min": 8.68,
+     "max": 8.68,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "28yl-F": {
+    "film": "28yl",
+    "scenario": "F",
+    "title": "28 Years Later (2025)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "start_s": 0.89,
+      "starts_s": [
+       0.89,
+       0.882,
+       0.941
+      ],
+      "kodi_first_frame_s": [
+       0.834,
+       0.831,
+       0.875
+      ]
+     }
+    ],
+    "start_s": {
+     "median": 0.89,
+     "min": 0.89,
+     "max": 0.89,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "28yl-P": {
+    "film": "28yl",
+    "scenario": "P",
+    "title": "28 Years Later (2025)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.179,
+      "source_fps": 23.976,
+      "ms_per_frame": 4.074,
+      "ms_per_source_frame": 4.074,
+      "engine_client_ms_per_frame": 4.074,
+      "video_decode_ms_per_frame": 26.154,
+      "render_busy_pct": 9.77,
+      "presented_fps": 23.979,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1442
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 2.6,
+      "process_cpu_pct": 12.7,
+      "gpu_awake_mhz_mean": 336,
+      "gpu_share_asleep": null,
+      "package_w": 8.18,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=8 level=6 compatibility=1 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: eac3, channels: 6, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 10.6,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "engine_profile": {
+       "lines": 12,
+       "frames": 1440,
+       "gpu_ms_mean": 3.467,
+       "gpu_ms_p95_worst": 4.45,
+       "gpu_ms_max": 5.01,
+       "stages_last_line": "reconstruction 0.02 + overlay prepare 0.00 (0 of 120 frames) + pack 3.45; plan 0.03 ms CPU",
+       "fel_stages_last_line": null
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 4.074,
+     "min": 4.074,
+     "max": 4.074,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 4.074,
+     "min": 4.074,
+     "max": 4.074,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.979,
+     "min": 23.979,
+     "max": 23.979,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 9.77,
+     "min": 9.77,
+     "max": 9.77,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 2.6,
+     "min": 2.6,
+     "max": 2.6,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 12.7,
+     "min": 12.7,
+     "max": 12.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 336,
+     "min": 336,
+     "max": 336,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 8.18,
+     "min": 8.18,
+     "max": 8.18,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-A": {
+    "film": "gemini",
+    "scenario": "A",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.268,
+      "source_fps": 59.94,
+      "ms_per_frame": 6.822,
+      "ms_per_source_frame": 6.819,
+      "engine_client_ms_per_frame": 6.822,
+      "video_decode_ms_per_frame": 12.685,
+      "render_busy_pct": 40.87,
+      "presented_fps": 59.916,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3609,
+       "2": 1
+      },
+      "gaps_off_cadence": 1,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 6.1,
+      "process_cpu_pct": 28.9,
+      "gpu_awake_mhz_mean": 700,
+      "gpu_share_asleep": null,
+      "package_w": 16.88,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 43.8,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 6.822,
+     "min": 6.822,
+     "max": 6.822,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 6.819,
+     "min": 6.819,
+     "max": 6.819,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 59.916,
+     "min": 59.916,
+     "max": 59.916,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 40.87,
+     "min": 40.87,
+     "max": 40.87,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 6.1,
+     "min": 6.1,
+     "max": 6.1,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 28.9,
+     "min": 28.9,
+     "max": 28.9,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 700,
+     "min": 700,
+     "max": 700,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 16.88,
+     "min": 16.88,
+     "max": 16.88,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 1,
+     "min": 1,
+     "max": 1,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-B": {
+    "film": "gemini",
+    "scenario": "B",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.313,
+      "source_fps": 59.94,
+      "ms_per_frame": 9.991,
+      "ms_per_source_frame": 9.278,
+      "engine_client_ms_per_frame": 9.991,
+      "video_decode_ms_per_frame": 14.639,
+      "render_busy_pct": 55.61,
+      "presented_fps": 55.659,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3099,
+       "2": 257
+      },
+      "gaps_off_cadence": 257,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": 22,
+      "kodi_skipped": 0,
+      "render_thread_pct": 9.8,
+      "process_cpu_pct": 33.5,
+      "gpu_awake_mhz_mean": 861,
+      "gpu_share_asleep": null,
+      "package_w": 19.57,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 58.5,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 9.991,
+     "min": 9.991,
+     "max": 9.991,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 9.278,
+     "min": 9.278,
+     "max": 9.278,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 55.659,
+     "min": 55.659,
+     "max": 55.659,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 55.61,
+     "min": 55.61,
+     "max": 55.61,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 9.8,
+     "min": 9.8,
+     "max": 9.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 33.5,
+     "min": 33.5,
+     "max": 33.5,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 861,
+     "min": 861,
+     "max": 861,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 19.57,
+     "min": 19.57,
+     "max": 19.57,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 22,
+     "min": 22,
+     "max": 22,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 257,
+     "min": 257,
+     "max": 257,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-C": {
+    "film": "gemini",
+    "scenario": "C",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.291,
+      "source_fps": 59.94,
+      "ms_per_frame": 7.203,
+      "ms_per_source_frame": 7.175,
+      "engine_client_ms_per_frame": 7.203,
+      "video_decode_ms_per_frame": 12.863,
+      "render_busy_pct": 43.01,
+      "presented_fps": 59.711,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3586,
+       "2": 13
+      },
+      "gaps_off_cadence": 13,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 7.8,
+      "process_cpu_pct": 32.1,
+      "gpu_awake_mhz_mean": 734,
+      "gpu_share_asleep": null,
+      "package_w": 17.15,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 46.2,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 7.203,
+     "min": 7.203,
+     "max": 7.203,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 7.175,
+     "min": 7.175,
+     "max": 7.175,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 59.711,
+     "min": 59.711,
+     "max": 59.711,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 43.01,
+     "min": 43.01,
+     "max": 43.01,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 7.8,
+     "min": 7.8,
+     "max": 7.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 32.1,
+     "min": 32.1,
+     "max": 32.1,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 734,
+     "min": 734,
+     "max": 734,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 17.15,
+     "min": 17.15,
+     "max": 17.15,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 13,
+     "min": 13,
+     "max": 13,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-D": {
+    "film": "gemini",
+    "scenario": "D",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.118,
+      "source_fps": 59.94,
+      "ms_per_frame": 6.451,
+      "ms_per_source_frame": 0.118,
+      "engine_client_ms_per_frame": 6.451,
+      "video_decode_ms_per_frame": 0.0,
+      "render_busy_pct": 0.71,
+      "presented_fps": 1.098,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 64,
+       "2": 1
+      },
+      "gaps_off_cadence": 1,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": null,
+      "kodi_skipped": null,
+      "render_thread_pct": 2.8,
+      "process_cpu_pct": 9.4,
+      "gpu_awake_mhz_mean": 208,
+      "gpu_share_asleep": null,
+      "package_w": 7.86,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 1.1,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=BOOTUP_DEFAULT",
+        "level=auto"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 6.451,
+     "min": 6.451,
+     "max": 6.451,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 0.118,
+     "min": 0.118,
+     "max": 0.118,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 1.098,
+     "min": 1.098,
+     "max": 1.098,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 0.71,
+     "min": 0.71,
+     "max": 0.71,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 2.8,
+     "min": 2.8,
+     "max": 2.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 9.4,
+     "min": 9.4,
+     "max": 9.4,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 208,
+     "min": 208,
+     "max": 208,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 7.86,
+     "min": 7.86,
+     "max": 7.86,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": null,
+    "kodi_skipped": null,
+    "gaps_off_cadence": {
+     "median": 1,
+     "min": 1,
+     "max": 1,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-E": {
+    "film": "gemini",
+    "scenario": "E",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.301,
+      "source_fps": 59.94,
+      "ms_per_frame": 7.972,
+      "ms_per_source_frame": 7.971,
+      "engine_client_ms_per_frame": 7.972,
+      "video_decode_ms_per_frame": 13.164,
+      "render_busy_pct": 47.78,
+      "presented_fps": 59.932,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3612,
+       "2": 1
+      },
+      "gaps_off_cadence": 1,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 6.4,
+      "process_cpu_pct": 28.3,
+      "gpu_awake_mhz_mean": 776,
+      "gpu_share_asleep": null,
+      "package_w": 18.47,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=151 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": [
+       "DVBridge output: HDR10 through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10)",
+       "Vulkan engine output: HDR10, the Master Reference conversion (BT.2020 PQ, 12-bit 4:2:2 through the tunnel)"
+      ],
+      "amd_busy_pct_mean": 50.7,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 7.972,
+     "min": 7.972,
+     "max": 7.972,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 7.971,
+     "min": 7.971,
+     "max": 7.971,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 59.932,
+     "min": 59.932,
+     "max": 59.932,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 47.78,
+     "min": 47.78,
+     "max": 47.78,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 6.4,
+     "min": 6.4,
+     "max": 6.4,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 28.3,
+     "min": 28.3,
+     "max": 28.3,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 776,
+     "min": 776,
+     "max": 776,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 18.47,
+     "min": 18.47,
+     "max": 18.47,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 1,
+     "min": 1,
+     "max": 1,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-F": {
+    "film": "gemini",
+    "scenario": "F",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "start_s": 1.188,
+      "starts_s": [
+       1.188,
+       1.168,
+       1.191
+      ],
+      "kodi_first_frame_s": [
+       1.141,
+       1.112,
+       1.141
+      ]
+     }
+    ],
+    "start_s": {
+     "median": 1.188,
+     "min": 1.188,
+     "max": 1.188,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-P": {
+    "film": "gemini",
+    "scenario": "P",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.301,
+      "source_fps": 59.94,
+      "ms_per_frame": 6.863,
+      "ms_per_source_frame": 6.862,
+      "engine_client_ms_per_frame": 6.863,
+      "video_decode_ms_per_frame": 12.718,
+      "render_busy_pct": 41.13,
+      "presented_fps": 59.933,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3612,
+       "2": 1
+      },
+      "gaps_off_cadence": 1,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 6.1,
+      "process_cpu_pct": 28.8,
+      "gpu_awake_mhz_mean": 742,
+      "gpu_share_asleep": null,
+      "package_w": 16.77,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 44.2,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "engine_profile": {
+       "lines": 30,
+       "frames": 3600,
+       "gpu_ms_mean": 6.23,
+       "gpu_ms_p95_worst": 7.87,
+       "gpu_ms_max": 8.58,
+       "stages_last_line": "reconstruction 0.02 + overlay prepare 0.00 (0 of 120 frames) + pack 6.14; plan 0.03 ms CPU",
+       "fel_stages_last_line": null
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 6.863,
+     "min": 6.863,
+     "max": 6.863,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 6.862,
+     "min": 6.862,
+     "max": 6.862,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 59.933,
+     "min": 59.933,
+     "max": 59.933,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 41.13,
+     "min": 41.13,
+     "max": 41.13,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 6.1,
+     "min": 6.1,
+     "max": 6.1,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 28.8,
+     "min": 28.8,
+     "max": 28.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 742,
+     "min": 742,
+     "max": 742,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 16.77,
+     "min": 16.77,
+     "max": 16.77,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 1,
+     "min": 1,
+     "max": 1,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "spr-A": {
+    "film": "spr",
+    "scenario": "A",
+    "title": "Saving Private Ryan (1998)",
+    "start": "1:49:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.244,
+      "source_fps": 23.976,
+      "ms_per_frame": 18.679,
+      "ms_per_source_frame": 18.686,
+      "engine_client_ms_per_frame": 18.679,
+      "video_decode_ms_per_frame": 20.846,
+      "render_busy_pct": 44.8,
+      "presented_fps": 23.986,
+      "refresh_hz": 23.975,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.8,
+      "process_cpu_pct": 20.1,
+      "gpu_awake_mhz_mean": 675,
+      "gpu_share_asleep": null,
+      "package_w": 15.3,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 45.7,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     },
+     {
+      "rep": 2,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.272,
+      "source_fps": 23.976,
+      "ms_per_frame": 18.683,
+      "ms_per_source_frame": 18.682,
+      "engine_client_ms_per_frame": 18.683,
+      "video_decode_ms_per_frame": 20.838,
+      "render_busy_pct": 44.79,
+      "presented_fps": 23.975,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 4.0,
+      "process_cpu_pct": 20.8,
+      "gpu_awake_mhz_mean": 692,
+      "gpu_share_asleep": null,
+      "package_w": 15.41,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 45.8,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 18.681,
+     "min": 18.679,
+     "max": 18.683,
+     "n": 2,
+     "half_range_pct": 0.01
+    },
+    "ms_per_source_frame": {
+     "median": 18.684,
+     "min": 18.682,
+     "max": 18.686,
+     "n": 2,
+     "half_range_pct": 0.01
+    },
+    "presented_fps": {
+     "median": 23.98,
+     "min": 23.975,
+     "max": 23.986,
+     "n": 2,
+     "half_range_pct": 0.02
+    },
+    "render_busy_pct": {
+     "median": 44.795,
+     "min": 44.79,
+     "max": 44.8,
+     "n": 2,
+     "half_range_pct": 0.01
+    },
+    "render_thread_pct": {
+     "median": 3.9,
+     "min": 3.8,
+     "max": 4.0,
+     "n": 2,
+     "half_range_pct": 2.56
+    },
+    "process_cpu_pct": {
+     "median": 20.45,
+     "min": 20.1,
+     "max": 20.8,
+     "n": 2,
+     "half_range_pct": 1.71
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 683.5,
+     "min": 675,
+     "max": 692,
+     "n": 2,
+     "half_range_pct": 1.24
+    },
+    "package_w": {
+     "median": 15.355,
+     "min": 15.3,
+     "max": 15.41,
+     "n": 2,
+     "half_range_pct": 0.36
+    },
+    "kodi_dropped": {
+     "median": 0.0,
+     "min": 0,
+     "max": 0,
+     "n": 2,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0.0,
+     "min": 0,
+     "max": 0,
+     "n": 2,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0.0,
+     "min": 0,
+     "max": 0,
+     "n": 2,
+     "half_range_pct": 0.0
+    }
+   },
+   "spr-B": {
+    "film": "spr",
+    "scenario": "B",
+    "title": "Saving Private Ryan (1998)",
+    "start": "1:49:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.269,
+      "source_fps": 23.976,
+      "ms_per_frame": 20.905,
+      "ms_per_source_frame": 20.905,
+      "engine_client_ms_per_frame": 20.905,
+      "video_decode_ms_per_frame": 20.789,
+      "render_busy_pct": 50.12,
+      "presented_fps": 23.976,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 5.3,
+      "process_cpu_pct": 22.2,
+      "gpu_awake_mhz_mean": 717,
+      "gpu_share_asleep": null,
+      "package_w": 16.8,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 51.1,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ]
+     }
+    ],
+    "ms_per_frame": {
+     "median": 20.905,
+     "min": 20.905,
+     "max": 20.905,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 20.905,
+     "min": 20.905,
+     "max": 20.905,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.976,
+     "min": 23.976,
+     "max": 23.976,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 50.12,
+     "min": 50.12,
+     "max": 50.12,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 5.3,
+     "min": 5.3,
+     "max": 5.3,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 22.2,
+     "min": 22.2,
+     "max": 22.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 717,
+     "min": 717,
+     "max": 717,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 16.8,
+     "min": 16.8,
+     "max": 16.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "spr-F": {
+    "film": "spr",
+    "scenario": "F",
+    "title": "Saving Private Ryan (1998)",
+    "start": "1:49:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "start_s": 1.139,
+      "starts_s": [
+       1.102,
+       1.194,
+       1.139
+      ],
+      "kodi_first_frame_s": [
+       1.029,
+       1.093,
+       1.054
+      ]
+     }
+    ],
+    "start_s": {
+     "median": 1.139,
+     "min": 1.139,
+     "max": 1.139,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "spr-P": {
+    "film": "spr",
+    "scenario": "P",
+    "title": "Saving Private Ryan (1998)",
+    "start": "1:49:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.261,
+      "source_fps": 23.976,
+      "ms_per_frame": 18.681,
+      "ms_per_source_frame": 18.684,
+      "engine_client_ms_per_frame": 18.681,
+      "video_decode_ms_per_frame": 20.807,
+      "render_busy_pct": 44.8,
+      "presented_fps": 23.979,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 4.0,
+      "process_cpu_pct": 20.7,
+      "gpu_awake_mhz_mean": 649,
+      "gpu_share_asleep": null,
+      "package_w": 15.36,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 45.7,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "engine_profile": {
+       "lines": 12,
+       "frames": 1440,
+       "gpu_ms_mean": 18.125,
+       "gpu_ms_p95_worst": 21.04,
+       "gpu_ms_max": 23.85,
+       "stages_last_line": "reconstruction 12.15 + overlay prepare 0.00 (0 of 120 frames) + pack 5.98; plan 0.48 ms CPU",
+       "fel_stages_last_line": "staged FEL (120 frames): vertical_pair 1.70 + luma_phase_guide 6.69 + phase_vertical_uv 0.77 + chroma 3.00 ms"
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 18.681,
+     "min": 18.681,
+     "max": 18.681,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 18.684,
+     "min": 18.684,
+     "max": 18.684,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.979,
+     "min": 23.979,
+     "max": 23.979,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 44.8,
+     "min": 44.8,
+     "max": 44.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 4.0,
+     "min": 4.0,
+     "max": 4.0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 20.7,
+     "min": 20.7,
+     "max": 20.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 649,
+     "min": 649,
+     "max": 649,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 15.36,
+     "min": 15.36,
+     "max": 15.36,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   }
+  }
+ },
+ "ryzen-y050-nb": {
+  "session": {
+   "image": "ryzen-y050-nb",
+   "os_version": "yblod-0.5.0",
+   "os_build_id": "11e1d1b570f22b63269dc187fc670273464d18c2",
+   "kernel": "7.3.0",
+   "kernel_build": "#1 SMP PREEMPT Thu Nov 12 06:05:22 UTC 2026",
+   "cpu": "AMD Ryzen 5 3500U with Radeon Vega Mobile Gfx",
+   "gpu_pci": "0x1002:0x15d8",
+   "gl_version": "OpenGL ES 3.2 Mesa 26.2.5",
+   "kodi_version": "22.0-RC1 (21.90.901) Git:e6192109e1c883cea927fbcb4c223c0f6f3a2b6b",
+   "engine_sha256": "96c36d7138ec0f70476580022e5fa1aa39f665ff8deb2d2e9f3241c525c80667",
+   "kodi_sha256": "0cef6e1a10e4dca22bfd7024cf3a75c29f54d3e8e22ce34bd980e9da41d3b7a5",
+   "kernel_md5": "",
+   "system_md5": "",
+   "env_override": "DVBRIDGE_DIAGNOSTICS=1 DV_PRIVATE_NONBLOCK=1",
+   "sinks": "LG TV SSCR2;",
+   "display_note": "unattended run: TV power state not observed; HDMI sink LG TV SSCR2 connected directly (no AVR)",
+   "recorded": "2026-11-12T17:29:33+00:00",
+   "harness": {
+    "settle_s": 15,
+    "window_s": 60,
+    "post_s": 11,
+    "start_observe_s": 12,
+    "starts": 3
+   },
+   "gt_RP0_freq_mhz": null,
+   "gt_min_freq_mhz": null,
+   "gt_max_freq_mhz": null,
+   "rapl_long_term_uw": null,
+   "rapl_short_term_uw": null,
+   "dv_prepare_marker": "yblod-0.5.0 11e1d1b570f22b63269dc187fc670273464d18c2 0x1002:0x15d8",
+   "outputmode_options": [
+    "Dolby Vision (TV-led)",
+    "Convert to HDR10",
+    "Off"
+   ],
+   "settings": {
+    "videoplayer.adjustrefreshrate": 2,
+    "videoplayer.usedisplayasclock": false,
+    "videoplayer.usevaapi": true,
+    "videoplayer.prefervaapirender": true,
+    "videoscreen.resolution": 16,
+    "videoscreen.screenmode": "DESKTOP",
+    "videoscreen.limitguisize": null,
+    "videoscreen.whitelist": [],
+    "videoscreen.noofbuffers": 2,
+    "videoscreen.10bitsurfaces": 0,
+    "audiooutput.audiodevice": "ALSA:hdmi:CARD=Generic,DEV=0|HD-Audio Generic",
+    "audiooutput.passthroughdevice": "ALSA:hdmi:CARD=Generic,DEV=0|HD-Audio Generic",
+    "audiooutput.passthrough": true,
+    "audiooutput.channels": 1,
+    "audiooutput.truehdpassthrough": true,
+    "audiooutput.eac3passthrough": true,
+    "audiooutput.dtshdpassthrough": true,
+    "locale.subtitlelanguage": "forced_only",
+    "lookandfeel.skin": "skin.estuary.yblod",
+    "services.webserver": true,
+    "dvbridge.outputmode": 0,
+    "dvbridge.hdr10plussources": 0,
+    "dvbridge.elupscaler": 0,
+    "dvbridge.dvmetadata": 0,
+    "dvbridge.tvpeak": null,
+    "dvbridge.removel2": false,
+    "dvbridge.enhancedinfo": true,
+    "dvbridge.menumode": false,
+    "dvbridge.guicache": true,
+    "dvbridge.homecache": true,
+    "dvbridge.halfgui": false,
+    "dvbridge.verify": false,
+    "dvbridge.frametrace": false,
+    "dvbridge.gputiming": false
+   },
+   "profile": "y050",
+   "env_image": "DV_VULKAN_ENGINE_LIBRARY=/usr/lib/libdv_engine_vk.so.1 DV_VULKAN_ASYNC=1 DVVK_SURFACE_CHECK=0 DV_EL_SCALER=annexb DV_VULKAN_CM4=off DV_VULKAN_NO_L2=0 DV_VULKAN_TV_PEAK=0 DV_PRIVATE_SKIP_REPEATS=1 DV_PRIVATE_GUI_UNCHANGED_SKIP=1 DV_PRIVATE_NONBLOCK=0 DV_PRIVATE_FLIP_TRACE=0 DV_PRIVATE_DRAIN_EOF=1 DV_PRIVATE_STARTUP_COMMIT=1 DV_PRIVATE_STARTUP_FULLSCREEN=1 DV_PRIVATE_STARTUP_LATENCY=1 DV_PRIVATE_STARTUP_RESYNC=1 DV_PRIVATE_GUI_CACHE=1 DV_PRIVATE_GUI_CACHE_HOME=1 DV_PRIVATE_GUI_HALF=0 DV_PRIVATE_GUI_REVISION=0 DVVK_VERIFY=0 DV_PRIVATE_FRAME_TIMING=0 DVVK_DEADLINE_TRACE=0 DVVK_PROFILE=0 DV_PRIVATE_GUI_COVERAGE=0",
+   "amd_sclk_levels": "0: 200Mhz * 1: 700Mhz  2: 1200Mhz",
+   "amd_dpm_level": "auto",
+   "amd_power_profile": "BOOTUP_DEFAULT",
+   "amdgpu_enable_dv_lab": "Y"
+  },
+  "rows": {
+   "1917-A": {
+    "film": "1917",
+    "scenario": "A",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.242,
+      "source_fps": 23.976,
+      "ms_per_frame": 14.655,
+      "ms_per_source_frame": 14.662,
+      "engine_client_ms_per_frame": 14.655,
+      "video_decode_ms_per_frame": 26.441,
+      "render_busy_pct": 35.15,
+      "presented_fps": 23.987,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 2.9,
+      "process_cpu_pct": 20.7,
+      "gpu_awake_mhz_mean": 556,
+      "gpu_share_asleep": null,
+      "package_w": 12.84,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 35.9,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 4200,
+       "on_time": 4197,
+       "late": 3,
+       "blocking": 5,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 14.655,
+     "min": 14.655,
+     "max": 14.655,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 14.662,
+     "min": 14.662,
+     "max": 14.662,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.987,
+     "min": 23.987,
+     "max": 23.987,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 35.15,
+     "min": 35.15,
+     "max": 35.15,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 2.9,
+     "min": 2.9,
+     "max": 2.9,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 20.7,
+     "min": 20.7,
+     "max": 20.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 556,
+     "min": 556,
+     "max": 556,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 12.84,
+     "min": 12.84,
+     "max": 12.84,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "1917-B": {
+    "film": "1917",
+    "scenario": "B",
+    "title": "1917 (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.252,
+      "source_fps": 23.976,
+      "ms_per_frame": 22.334,
+      "ms_per_source_frame": 22.34,
+      "engine_client_ms_per_frame": 22.334,
+      "video_decode_ms_per_frame": 25.266,
+      "render_busy_pct": 53.56,
+      "presented_fps": 23.982,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 5.2,
+      "process_cpu_pct": 23.0,
+      "gpu_awake_mhz_mean": 759,
+      "gpu_share_asleep": null,
+      "package_w": 16.35,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 54.7,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 27000,
+       "on_time": 26988,
+       "late": 12,
+       "blocking": 29,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 22.334,
+     "min": 22.334,
+     "max": 22.334,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 22.34,
+     "min": 22.34,
+     "max": 22.34,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.982,
+     "min": 23.982,
+     "max": 23.982,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 53.56,
+     "min": 53.56,
+     "max": 53.56,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 5.2,
+     "min": 5.2,
+     "max": 5.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 23.0,
+     "min": 23.0,
+     "max": 23.0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 759,
+     "min": 759,
+     "max": 759,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 16.35,
+     "min": 16.35,
+     "max": 16.35,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "28yl-A": {
+    "film": "28yl",
+    "scenario": "A",
+    "title": "28 Years Later (2025)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.177,
+      "source_fps": 23.976,
+      "ms_per_frame": 4.111,
+      "ms_per_source_frame": 4.111,
+      "engine_client_ms_per_frame": 4.111,
+      "video_decode_ms_per_frame": 22.431,
+      "render_busy_pct": 9.86,
+      "presented_fps": 23.98,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1442
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 2.2,
+      "process_cpu_pct": 12.2,
+      "gpu_awake_mhz_mean": 327,
+      "gpu_share_asleep": null,
+      "package_w": 8.16,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=8 level=6 compatibility=1 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: eac3, channels: 6, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 10.8,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 12600,
+       "on_time": 12593,
+       "late": 7,
+       "blocking": 17,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 4.111,
+     "min": 4.111,
+     "max": 4.111,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 4.111,
+     "min": 4.111,
+     "max": 4.111,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.98,
+     "min": 23.98,
+     "max": 23.98,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 9.86,
+     "min": 9.86,
+     "max": 9.86,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 2.2,
+     "min": 2.2,
+     "max": 2.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 12.2,
+     "min": 12.2,
+     "max": 12.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 327,
+     "min": 327,
+     "max": 327,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 8.16,
+     "min": 8.16,
+     "max": 8.16,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "28yl-B": {
+    "film": "28yl",
+    "scenario": "B",
+    "title": "28 Years Later (2025)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.173,
+      "source_fps": 23.976,
+      "ms_per_frame": 5.462,
+      "ms_per_source_frame": 5.463,
+      "engine_client_ms_per_frame": 5.462,
+      "video_decode_ms_per_frame": 22.55,
+      "render_busy_pct": 13.1,
+      "presented_fps": 23.981,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1442
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.5,
+      "process_cpu_pct": 13.7,
+      "gpu_awake_mhz_mean": 412,
+      "gpu_share_asleep": null,
+      "package_w": 8.76,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=8 level=6 compatibility=1 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: eac3, channels: 6, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 15.4,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 35400,
+       "on_time": 35384,
+       "late": 16,
+       "blocking": 41,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 5.462,
+     "min": 5.462,
+     "max": 5.462,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 5.463,
+     "min": 5.463,
+     "max": 5.463,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.981,
+     "min": 23.981,
+     "max": 23.981,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 13.1,
+     "min": 13.1,
+     "max": 13.1,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 3.5,
+     "min": 3.5,
+     "max": 3.5,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 13.7,
+     "min": 13.7,
+     "max": 13.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 412,
+     "min": 412,
+     "max": 412,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 8.76,
+     "min": 8.76,
+     "max": 8.76,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-A": {
+    "film": "gemini",
+    "scenario": "A",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.258,
+      "source_fps": 59.94,
+      "ms_per_frame": 6.853,
+      "ms_per_source_frame": 6.853,
+      "engine_client_ms_per_frame": 6.853,
+      "video_decode_ms_per_frame": 12.709,
+      "render_busy_pct": 41.08,
+      "presented_fps": 59.942,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3611
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 5.0,
+      "process_cpu_pct": 27.4,
+      "gpu_awake_mhz_mean": 751,
+      "gpu_share_asleep": null,
+      "package_w": 16.82,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 44.0,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 22800,
+       "on_time": 22791,
+       "late": 9,
+       "blocking": 23,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 6.853,
+     "min": 6.853,
+     "max": 6.853,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 6.853,
+     "min": 6.853,
+     "max": 6.853,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 59.942,
+     "min": 59.942,
+     "max": 59.942,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 41.08,
+     "min": 41.08,
+     "max": 41.08,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 5.0,
+     "min": 5.0,
+     "max": 5.0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 27.4,
+     "min": 27.4,
+     "max": 27.4,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 751,
+     "min": 751,
+     "max": 751,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 16.82,
+     "min": 16.82,
+     "max": 16.82,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-B": {
+    "film": "gemini",
+    "scenario": "B",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.344,
+      "source_fps": 59.94,
+      "ms_per_frame": 9.909,
+      "ms_per_source_frame": 9.695,
+      "engine_client_ms_per_frame": 9.909,
+      "video_decode_ms_per_frame": 14.057,
+      "render_busy_pct": 58.11,
+      "presented_fps": 58.646,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3462,
+       "2": 74,
+       "3": 2
+      },
+      "gaps_off_cadence": 76,
+      "longest_gap_refreshes": 3,
+      "kodi_dropped": 22,
+      "kodi_skipped": 9,
+      "render_thread_pct": 9.9,
+      "process_cpu_pct": 33.3,
+      "gpu_awake_mhz_mean": 883,
+      "gpu_share_asleep": null,
+      "package_w": 20.18,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 61.1,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 45600,
+       "on_time": 44952,
+       "late": 648,
+       "blocking": 47,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 9.909,
+     "min": 9.909,
+     "max": 9.909,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 9.695,
+     "min": 9.695,
+     "max": 9.695,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 58.646,
+     "min": 58.646,
+     "max": 58.646,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 58.11,
+     "min": 58.11,
+     "max": 58.11,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 9.9,
+     "min": 9.9,
+     "max": 9.9,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 33.3,
+     "min": 33.3,
+     "max": 33.3,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 883,
+     "min": 883,
+     "max": 883,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 20.18,
+     "min": 20.18,
+     "max": 20.18,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 22,
+     "min": 22,
+     "max": 22,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 9,
+     "min": 9,
+     "max": 9,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 76,
+     "min": 76,
+     "max": 76,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "gemini-E": {
+    "film": "gemini",
+    "scenario": "E",
+    "title": "Gemini Man (2019)",
+    "start": "0:30:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.261,
+      "source_fps": 59.94,
+      "ms_per_frame": 7.968,
+      "ms_per_source_frame": 7.966,
+      "engine_client_ms_per_frame": 7.968,
+      "video_decode_ms_per_frame": 13.133,
+      "render_busy_pct": 47.75,
+      "presented_fps": 59.923,
+      "refresh_hz": 59.94,
+      "gap_histogram": {
+       "1": 3609,
+       "2": 1
+      },
+      "gaps_off_cadence": 1,
+      "longest_gap_refreshes": 2,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 5.2,
+      "process_cpu_pct": 26.7,
+      "gpu_awake_mhz_mean": 785,
+      "gpu_share_asleep": null,
+      "package_w": 19.24,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=151 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=593407 totals=4400x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=9 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": "Dolby Vision MEL: the enhancement layer adds nothing; not decoding it",
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": [
+       "DVBridge output: HDR10 through the tunnel (Vulkan engine, DVBRIDGE_TUNNEL_FORMAT hdr10)",
+       "Vulkan engine output: HDR10, the Master Reference conversion (BT.2020 PQ, 12-bit 4:2:2 through the tunnel)"
+      ],
+      "amd_busy_pct_mean": 50.6,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 55800,
+       "on_time": 55150,
+       "late": 650,
+       "blocking": 51,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 7.968,
+     "min": 7.968,
+     "max": 7.968,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 7.966,
+     "min": 7.966,
+     "max": 7.966,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 59.923,
+     "min": 59.923,
+     "max": 59.923,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 47.75,
+     "min": 47.75,
+     "max": 47.75,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 5.2,
+     "min": 5.2,
+     "max": 5.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 26.7,
+     "min": 26.7,
+     "max": 26.7,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 785,
+     "min": 785,
+     "max": 785,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 19.24,
+     "min": 19.24,
+     "max": 19.24,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 1,
+     "min": 1,
+     "max": 1,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "spr-A": {
+    "film": "spr",
+    "scenario": "A",
+    "title": "Saving Private Ryan (1998)",
+    "start": "1:49:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.265,
+      "source_fps": 23.976,
+      "ms_per_frame": 18.636,
+      "ms_per_source_frame": 18.637,
+      "engine_client_ms_per_frame": 18.636,
+      "video_decode_ms_per_frame": 20.979,
+      "render_busy_pct": 44.68,
+      "presented_fps": 23.977,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 3.5,
+      "process_cpu_pct": 21.2,
+      "gpu_awake_mhz_mean": 641,
+      "gpu_share_asleep": null,
+      "package_w": 15.36,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 45.6,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 8400,
+       "on_time": 8395,
+       "late": 5,
+       "blocking": 11,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 18.636,
+     "min": 18.636,
+     "max": 18.636,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 18.637,
+     "min": 18.637,
+     "max": 18.637,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.977,
+     "min": 23.977,
+     "max": 23.977,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 44.68,
+     "min": 44.68,
+     "max": 44.68,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 3.5,
+     "min": 3.5,
+     "max": 3.5,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 21.2,
+     "min": 21.2,
+     "max": 21.2,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 641,
+     "min": 641,
+     "max": 641,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 15.36,
+     "min": 15.36,
+     "max": 15.36,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   },
+   "spr-B": {
+    "film": "spr",
+    "scenario": "B",
+    "title": "Saving Private Ryan (1998)",
+    "start": "1:49:40",
+    "reps": [
+     {
+      "rep": 1,
+      "valid": true,
+      "failed_checks": [],
+      "window_s": 60.255,
+      "source_fps": 23.976,
+      "ms_per_frame": 20.878,
+      "ms_per_source_frame": 20.882,
+      "engine_client_ms_per_frame": 20.878,
+      "video_decode_ms_per_frame": 20.792,
+      "render_busy_pct": 50.07,
+      "presented_fps": 23.981,
+      "refresh_hz": 23.976,
+      "gap_histogram": {
+       "1": 1444
+      },
+      "gaps_off_cadence": 0,
+      "longest_gap_refreshes": 1,
+      "kodi_dropped": 0,
+      "kodi_skipped": 0,
+      "render_thread_pct": 4.8,
+      "process_cpu_pct": 21.3,
+      "gpu_awake_mhz_mean": 700,
+      "gpu_share_asleep": null,
+      "package_w": 17.05,
+      "signal": "connector=111 crtc=91 dv=1 hdr_blob=0 colorspace=0 max_bpc=8 rgb=1 mode=3840x2160 clock_khz=296703 totals=5500x2250 flags=5 vscan=0 active=1",
+      "stream": "profile=7 level=6 compatibility=6 size=3840x2160",
+      "engine": "el_scaler=1 fel=true async=true cb1_reference=true dm_options=0x0",
+      "enhancement_layer": null,
+      "audio_stream": "(codec: truehd, channels: 8, sample rate: 48000, pass-through)",
+      "output": null,
+      "amd_busy_pct_mean": 51.2,
+      "amd_profile": [
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ],
+       [
+        "profile=COMPUTE",
+        "level=manual"
+       ]
+      ],
+      "kodi_flips": {
+       "queued": 31200,
+       "on_time": 31186,
+       "late": 14,
+       "blocking": 35,
+       "busy": 0,
+       "timeouts": 0
+      }
+     }
+    ],
+    "ms_per_frame": {
+     "median": 20.878,
+     "min": 20.878,
+     "max": 20.878,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "ms_per_source_frame": {
+     "median": 20.882,
+     "min": 20.882,
+     "max": 20.882,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "presented_fps": {
+     "median": 23.981,
+     "min": 23.981,
+     "max": 23.981,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_busy_pct": {
+     "median": 50.07,
+     "min": 50.07,
+     "max": 50.07,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "render_thread_pct": {
+     "median": 4.8,
+     "min": 4.8,
+     "max": 4.8,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "process_cpu_pct": {
+     "median": 21.3,
+     "min": 21.3,
+     "max": 21.3,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gpu_awake_mhz_mean": {
+     "median": 700,
+     "min": 700,
+     "max": 700,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "package_w": {
+     "median": 17.05,
+     "min": 17.05,
+     "max": 17.05,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_dropped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "kodi_skipped": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    },
+    "gaps_off_cadence": {
+     "median": 0,
+     "min": 0,
+     "max": 0,
+     "n": 1,
+     "half_range_pct": 0.0
+    }
+   }
+  }
+ }
+}

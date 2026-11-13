@@ -152,6 +152,38 @@ static void to_dovi(void)
     /* the same scene: no refresh */
     assert(yb_hdr10plus_to_dovi(&s, sizeof(s), &st, &before, buf, sizeof(buf), &size, &info) == 0);
     assert(info.scene_refresh == 0 && av_dovi_get_color(m)->scene_refresh_flag == 0);
+    /* as stock FFmpeg delivers it: the checked T.35 header's country code
+     * left 0. The same bytes as with 0xB5 (CB1's FFmpeg), the input
+     * untouched, the scene test as before; another country is refused */
+    {
+        _Alignas(16) unsigned char ref[DVVK_HDR10PLUS_DOVI_BYTES];
+        size_t ref_size = 0, ffmpeg_size = 0;
+        assert(yb_hdr10plus_to_dovi(&s, sizeof(s), &st, NULL, ref, sizeof(ref), &ref_size, &info) == 0);
+        AVDynamicHDRPlus ffmpeg = s, ffmpeg_before;
+        ffmpeg.itu_t_t35_country_code = 0;
+        ffmpeg_before = ffmpeg;
+        dvvk_hdr10plus_dovi_info i0;
+        assert(yb_hdr10plus_to_dovi(&ffmpeg, sizeof(ffmpeg), &st, NULL, buf, sizeof(buf), &ffmpeg_size, &i0) == 0);
+        assert(ffmpeg_size == ref_size && !memcmp(buf, ref, ref_size));
+        assert(i0.l1_min == info.l1_min && i0.l1_max == info.l1_max && i0.l1_avg == info.l1_avg &&
+               i0.source_fields == info.source_fields && i0.estimated_fields == info.estimated_fields &&
+               i0.scene_refresh == 1);
+        assert(!memcmp(&ffmpeg, &ffmpeg_before, sizeof(ffmpeg)));
+        assert(yb_hdr10plus_to_dovi(&ffmpeg, sizeof(ffmpeg), &st, &ffmpeg_before, buf, sizeof(buf), &ffmpeg_size,
+                                    &i0) == 0 &&
+               i0.scene_refresh == 0);
+        assert(yb_hdr10plus_to_dovi(&ffmpeg, sizeof(ffmpeg), &st, &s, buf, sizeof(buf), &ffmpeg_size, &i0) == 0 &&
+               i0.scene_refresh == 0);
+        assert(yb_hdr10plus_to_dovi(&s, sizeof(s), &st, &ffmpeg, buf, sizeof(buf), &ffmpeg_size, &i0) == 0 &&
+               i0.scene_refresh == 0);
+        AVDynamicHDRPlus other = ffmpeg;
+        other.params[0].maxscl[1] = (AVRational){2, 100};
+        assert(yb_hdr10plus_to_dovi(&other, sizeof(other), &st, &ffmpeg, buf, sizeof(buf), &ffmpeg_size, &i0) == 0 &&
+               i0.scene_refresh == 1);
+        other = ffmpeg;
+        other.itu_t_t35_country_code = 0x26;
+        assert(yb_hdr10plus_to_dovi(&other, sizeof(other), &st, NULL, buf, sizeof(buf), &ffmpeg_size, &i0) == -1);
+    }
     /* unknown static metadata: 0.005 .. 1000 cd/m2, no L6 values */
     assert(yb_hdr10plus_to_dovi(&s, sizeof(s), NULL, NULL, buf, sizeof(buf), &size, &info) == 0);
     assert(av_dovi_get_color(m)->source_max_pq == 3079 && av_dovi_get_ext(m, 1)->l6.max_luminance == 0);
@@ -164,6 +196,40 @@ static void to_dovi(void)
     s.num_windows = 1;
     w->maxscl[0] = (AVRational){1, 3};   /* off the 0.00001 grid */
     assert(yb_hdr10plus_to_dovi(&s, sizeof(s), &st, NULL, buf, sizeof(buf), &size, &info) == -1);
+    w->maxscl[0] = (AVRational){1, 10};
+    /* the mastering display's primaries: an L9 block after L1 and L6, with
+     * its RPU payload as a parsed block has it; without them the two blocks
+     * and their size as before */
+    assert(yb_hdr10plus_to_dovi(&s, sizeof(s), &st, NULL, buf, sizeof(buf), &size, &info) == 0);
+    const size_t two = size;
+    /* (the size of the buffer's struct: its blocks, padded to its alignment) */
+    assert(m->num_ext_blocks == 2 && two >= m->ext_block_offset + 2 * sizeof(AVDOVIDmData) &&
+           two < m->ext_block_offset + 2 * sizeof(AVDOVIDmData) + 8 && two % 8 == 0);
+    dvvk_hdr10_static p3 = st;
+    p3.primaries = DVVK_PRIMARIES_P3D65;
+    assert(yb_hdr10plus_to_dovi(&s, sizeof(s), &p3, NULL, buf, sizeof(buf), &size, &info) == 0);
+    assert(m->num_ext_blocks == 3 && size >= m->ext_block_offset + 3 * sizeof(AVDOVIDmData) &&
+           size < m->ext_block_offset + 3 * sizeof(AVDOVIDmData) + 8 && size % 8 == 0);
+    const AVDOVIDmData *l9 = av_dovi_get_ext(m, 2);
+    assert(av_dovi_get_ext(m, 0)->level == 1 && av_dovi_get_ext(m, 1)->level == 6 && l9->level == 9 &&
+           l9->l9.source_primary_index == 0 && l9->dvbridge_raw_magic == 0x41424456 &&
+           l9->dvbridge_original_length == 1 && l9->dvbridge_original_bytes[0] == 0);
+    /* a plain HDR10 video (yb_hdr10_to_dovi): L6 and L9, no L1 */
+    p3.primaries = DVVK_PRIMARIES_BT709;
+    assert(yb_hdr10_to_dovi(&p3, buf, sizeof(buf), &size) == 0 && size == two);
+    assert(m->num_ext_blocks == 2 && av_dovi_get_ext(m, 0)->level == 6 &&
+           av_dovi_get_ext(m, 0)->l6.max_luminance == 4000 && av_dovi_get_ext(m, 0)->l6.max_cll == 1200 &&
+           av_dovi_get_ext(m, 1)->level == 9 && av_dovi_get_ext(m, 1)->l9.source_primary_index == 1);
+    assert(av_dovi_get_color(m)->source_max_pq == 3696 && av_dovi_get_color(m)->scene_refresh_flag == 0 &&
+           av_dovi_get_header(m)->vdr_rpu_profile == 1 && av_dovi_get_mapping(m)->curves[0].num_pivots == 2);
+    /* unknown: 0.005 .. 1000 cd/m2, the container's primaries (BT.2020) */
+    assert(yb_hdr10_to_dovi(NULL, buf, sizeof(buf), &size) == 0 && m->num_ext_blocks == 2 &&
+           av_dovi_get_color(m)->source_max_pq == 3079 && av_dovi_get_ext(m, 0)->l6.max_luminance == 0 &&
+           av_dovi_get_ext(m, 1)->l9.source_primary_index == 2 &&
+           av_dovi_get_ext(m, 1)->dvbridge_original_bytes[0] == 2);
+    assert(yb_hdr10_to_dovi(&st, buf, 16, &size) == -3 && size == two);
+    assert(yb_hdr10_to_dovi(&st, buf + 1, sizeof(buf) - 1, &size) == -1);
+    assert(yb_hdr10_to_dovi(&st, buf, sizeof(buf), NULL) == -1);
 }
 
 int yb_test_yblod(void)

@@ -94,8 +94,41 @@ pub unsafe extern "C" fn dvvk_create(drm_fd: i32, va_display: *mut c_void, out: 
     })
 }
 
+/// dvvk_create_canvas (optional symbol): dvvk_create with a canvas of
+/// `width` x `height` instead of 3840x2160.
+///
 /// # Safety
-/// `e` from dvvk_create; `fd` a linear XRGB8888 3840x2160 dmabuf (dup'd).
+/// As dvvk_create.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_create_canvas(
+    drm_fd: i32,
+    va_display: *mut c_void,
+    width: u32,
+    height: u32,
+    out: *mut *mut Engine,
+) -> i32 {
+    if out.is_null() {
+        return DVVK_INVALID;
+    }
+    *out = std::ptr::null_mut();
+    if !crate::engine::canvas_valid([width, height]) {
+        log_error("create", format_args!("canvas {width}x{height}"));
+        return DVVK_UNSUPPORTED;
+    }
+    guarded("create", DVVK_BACKEND, || match Engine::new_canvas(drm_fd, va_display, [width, height]) {
+        Ok(e) => {
+            *out = Box::into_raw(Box::new(e));
+            0
+        }
+        Err(e) => {
+            log_error("create", e);
+            DVVK_BACKEND
+        }
+    })
+}
+
+/// # Safety
+/// `e` from dvvk_create; `fd` a linear XRGB8888 dmabuf of the canvas's size (dup'd).
 #[no_mangle]
 pub unsafe extern "C" fn dvvk_set_output(e: *mut Engine, slot: u32, fd: i32, stride: u32) -> i32 {
     with_engine(e, "output", DVVK_INVALID, DVVK_BACKEND, |e| match e.set_output(slot, fd, stride) {
@@ -296,6 +329,14 @@ pub unsafe extern "C" fn dvvk_set_output_mode(e: *mut Engine, mode: *const crate
     })
 }
 
+/// dvvk_output_modes (optional symbol): the output modes this library has,
+/// bit 1 << DVVK_OUTPUT_*.
+#[no_mangle]
+pub extern "C" fn dvvk_output_modes() -> u32 {
+    use crate::map::*;
+    1 << DVVK_OUTPUT_DV | 1 << DVVK_OUTPUT_HDR10 | 1 << DVVK_OUTPUT_HDR10PLUS | 1 << DVVK_OUTPUT_SDR
+}
+
 /// dvvk_output_signal (optional symbol): the last frame's HDR static metadata.
 ///
 /// # Safety
@@ -370,6 +411,24 @@ pub unsafe extern "C" fn dvvk_hdr10plus_to_dovi(
     })
 }
 
+/// dvvk_hdr10_to_dovi (optional symbol, with DVVK_OUTPUT_SDR): a plain HDR10
+/// or HLG video's static metadata as Profile 8.1 Dolby Vision metadata
+/// without L1 (include/dv_engine_vk.h).
+///
+/// # Safety
+/// The pointers as the header documents them.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_hdr10_to_dovi(
+    hdr10: *const crate::hdr10plus::Hdr10Static,
+    out: *mut c_void,
+    capacity: usize,
+    out_size: *mut usize,
+) -> i32 {
+    guarded("hdr10_to_dovi", DVVK_BACKEND, || {
+        crate::hdr10plus::static_to_dovi(hdr10, out as *mut u8, capacity, out_size)
+    })
+}
+
 /// The CM4 / L2 result of the last frame planned (dvvk_plan.dm_status:
 /// DVVK_CM4_STATUS_* | L2 blocks removed << 8; dv-engine-vk 0.1.0-18, an
 /// optional symbol). UINT32_MAX for NULL or a panic.
@@ -435,14 +494,15 @@ pub unsafe extern "C" fn dvvk_decode_waits(e: *mut Engine, fence: *mut u64, vasy
 }
 
 /// # Safety
-/// `e` from dvvk_create; `rgba` 2160 rows of `stride` bytes.
+/// `e` from dvvk_create; `rgba` as many rows of `stride` bytes as the canvas has.
 #[no_mangle]
 pub unsafe extern "C" fn dvvk_set_overlay_rgba(e: *mut Engine, rgba: *const u8, stride: usize) {
     with_engine(e, "overlay rgba", (), (), |e| {
-        if stride < crate::engine::CANVAS_W as usize * 4 {
+        let [canvas_w, canvas_h] = e.canvas();
+        if stride < canvas_w as usize * 4 {
             return log_error("overlay rgba", "stride below a row");
         }
-        match stride.checked_mul(crate::engine::CANVAS_H as usize).and_then(|n| slice(rgba, n)) {
+        match stride.checked_mul(canvas_h as usize).and_then(|n| slice(rgba, n)) {
             Some(bytes) => {
                 if let Err(err) = e.set_overlay_rgba(bytes, stride) {
                     log_error("overlay rgba", err);

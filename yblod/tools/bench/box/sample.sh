@@ -48,7 +48,10 @@ GT=""
 for d in /sys/class/drm/card?; do
   [ -r "${d}/gt_act_freq_mhz" ] && GT="${d}"
 done
+# amdgpu: the shader clock (hwmon freq1_input, Hz) and the busy %.
 AMD=$(ls /sys/class/drm/card?/device/gpu_busy_percent 2>/dev/null | head -n 1)
+AMD_DEV=${AMD%/gpu_busy_percent}
+AMD_SCLK=$(ls "${AMD_DEV}"/hwmon/hwmon*/freq1_input 2>/dev/null | head -n 1)
 
 events() {
   for e in ${EVENTS}; do
@@ -80,6 +83,12 @@ snapshot() {
     [ -r "${z}/temp" ] && echo "$(cat "${z}/type") $(cat "${z}/temp")"
   done > "${OUT}/$1.temp" 2>/dev/null
   wc -l < "${LOG}" > "${OUT}/$1.loglines"
+  # amdgpu: the power profile in use (the engine asks for COMPUTE) and the
+  # DPM level. Read only.
+  if [ -n "${AMD}" ]; then
+    echo "profile=$(sed -n 's/^ *[0-9]* *\([A-Z_0-9]*\) *\*.*/\1/p' "${AMD_DEV}/pp_power_profile_mode")"
+    echo "level=$(cat "${AMD_DEV}/power_dpm_force_performance_level")"
+  fi > "${OUT}/$1.amdpm" 2>/dev/null
 }
 
 # The display and audio state the window ran in.
@@ -94,6 +103,14 @@ snapshot() {
       break
     fi
   done
+  # amdgpu: DRM's atomic state (the CRTC's mode, the planes' buffers) and
+  # the tunnel's connector properties (atomic only: modetest -a, read only).
+  if [ -n "${AMD}" ]; then
+    grep -E '^crtc\[|^plane\[|^connector\[|enable=|active=|mode: |fb=|crtc=|format=|size=' \
+      /sys/kernel/debug/dri/0/state
+    modetest -M amdgpu -a -c | awk '/^[0-9]+\t/ { c = $4 }
+      /DVBRIDGE_/ { p = $2; getline; getline; getline; print "property", c, p, $0 }'
+  fi
 } > "${OUT}/display.txt" 2>/dev/null
 for s in /proc/asound/card*/pcm*p/sub0; do
   if grep -q RUNNING "${s}/status" 2>/dev/null; then
@@ -119,7 +136,7 @@ while [ "$(date +%s%N)" -lt "${end}" ]; do
   if [ -n "${GT}" ]; then
     echo "$(date +%s.%N) $(cat "${GT}/gt_act_freq_mhz") $(cat "${GT}/gt_cur_freq_mhz")"
   elif [ -n "${AMD}" ]; then
-    echo "$(date +%s.%N) busy $(cat "${AMD}")"
+    echo "$(date +%s.%N) $(($(cat "${AMD_SCLK}") / 1000000)) amd $(cat "${AMD}")"
   fi >> "${OUT}/freq.txt"
   sleep 0.5
 done

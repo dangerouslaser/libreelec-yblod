@@ -19,6 +19,8 @@ int main(void) {
      * first use: without them here, that is a compile in its render thread).
      * DVVK_PREPARE_MAP=0 in the environment leaves them out. */
     setenv("DVVK_PREPARE_MAP", "1", 0);
+    /* and SDR output's, last (DVVK_PREPARE_SDR=0 leaves them out) */
+    setenv("DVVK_PREPARE_SDR", "1", 0);
     setenv("DVVK_LAZY_RESIZED_PACK", "0", 1);
     setenv("DVVK_GPU_BOOST", "0", 1);
     const char *node = getenv("MPV_DV_RENDER_NODE");

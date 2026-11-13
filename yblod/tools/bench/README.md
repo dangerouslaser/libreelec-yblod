@@ -7,7 +7,7 @@ only one image logs is a primary source.
 
 | File | Runs on | Does |
 | :--- | :--- | :--- |
-| `install-image.sh` | workstation | puts an image on the N150 as a bench profile and boots it |
+| `install-image.sh` | workstation | puts an image on the N150 as a bench profile and boots it (ryzen-fella: see "The AMD box") |
 | `reboot-image.sh` | workstation | boots the installed profile once more (through big-fella) |
 | `bench.py prepare` | workstation | copies `box/` to the box and prepares the profile |
 | `bench.py env` | workstation | sets the profile's `native-dv.env` and restarts Kodi |
@@ -131,6 +131,99 @@ profile it was asked to measure (`/flash/bench-name`).
 
 Do not use `paste` on the box: in LibreELEC it uploads its input to
 paste.libreelec.tv.
+
+## The AMD box (ryzen-fella)
+
+`ryzen-fella` (Ryzen 5 3500U, Vega 8 / Raven, DCN 1.0; LG TV on its HDMI,
+no AVR) runs the owner's desktop system big-fella from one btrfs disk.
+`install-image.sh` and `reboot-image.sh` are for the N150 and do not apply.
+There a LibreELEC image boots as a bench profile without repartitioning:
+
+| | |
+| :--- | :--- |
+| `/boot/bench/NAME/KERNEL` | the image's KERNEL, on the EFI system partition |
+| btrfs subvolume `@bench-NAME` | holds `SYSTEM` (the kernel's `SYSTEM_IMAGE=/@bench-NAME/SYSTEM`) |
+| btrfs subvolume `@bench-NAME-storage` | the profile's `/storage` |
+| `/boot/loader/entries/bench-NAME.conf` | a systemd-boot entry, a copy of another profile's with the name changed |
+
+LibreELEC mounts the btrfs top level as `/flash`; `/flash/mount-storage.sh`
+there (the owner's, not changed by the harness) picks the storage
+subvolume from `SYSTEM_IMAGE`. The harness takes the profile's name from
+the same place when there is no `/flash/bench-name`.
+
+Rules of the box: the default entry stays `big-fella.conf` and a profile is
+booted **once** (`bootctl set-oneshot`), so a power cycle always lands in
+big-fella; nothing plays before a reboot or a Kodi restart; **never write
+`power_dpm_force_performance_level`, `pp_dpm_sclk`, `pp_od_clk_voltage` or
+the debugfs `amdgpu_force_sclk`**: forcing the GPU clock hangs this machine
+hard. While a Dolby Vision title plays the engine itself selects the
+`COMPUTE` power profile (the level then reads `manual`); both are back to
+`auto`/`BOOTUP_DEFAULT` when it stops. big-fella has a login user with sudo
+(root login refused); LibreELEC is `root` with another host key in every
+profile, so ssh to it with `-o UserKnownHostsFile=/dev/null -o
+StrictHostKeyChecking=no` (`YBLOD_BENCH_KNOWN_HOSTS=/dev/null` for the
+scripts).
+
+A new image as profile NAME, from big-fella (release `.tar` checked against
+`SHA256SUMS` first; `target/KERNEL` and `target/SYSTEM` from it in
+`/var/tmp/NAME-image/`; FROM is a profile whose storage has the NFS source
+and the closed wizard, e.g. `y050`):
+
+```sh
+ssh USER@AMD_BOX 'sudo sh -euc "
+mkdir -p /run/btrtop-rw; mount -o subvolid=5,rw /dev/nvme0n1p2 /run/btrtop-rw
+T=/run/btrtop-rw
+test ! -e \$T/@bench-NAME && test ! -e /boot/bench/NAME
+mkdir /boot/bench/NAME && cp /var/tmp/NAME-image/KERNEL /boot/bench/NAME/KERNEL
+btrfs subvolume create \$T/@bench-NAME
+cp /var/tmp/NAME-image/SYSTEM \$T/@bench-NAME/SYSTEM
+btrfs subvolume snapshot \$T/@bench-FROM-storage \$T/@bench-NAME-storage
+rm -rf \$T/@bench-NAME-storage/.cache/dv-engine-vk \$T/@bench-NAME-storage/.cache/mesa_shader_cache \$T/@bench-NAME-storage/.cache/radv_builtin_shaders
+sed s/FROM/NAME/g /boot/loader/entries/bench-FROM.conf > /boot/loader/entries/bench-NAME.conf
+sync; umount /run/btrtop-rw"'
+```
+
+(The caches are removed so that `yblod-dv-prepare` builds the pipeline
+cache from scratch and its time means something.) To boot a profile, from
+big-fella, after checking that nothing plays (no `RUNNING` in
+`/proc/asound/card*/pcm*p/sub*/status`, `gpu_busy_percent` near 0):
+
+```sh
+ssh USER@AMD_BOX 'sudo bootctl set-oneshot bench-NAME.conf && sudo systemctl reboot'
+```
+
+From LibreELEC, `reboot` (after `Player.GetActivePlayers` answered `[]`)
+lands in big-fella. Boot to SSH takes about a minute.
+
+Drive long runs from Ollie, not from a laptop that sleeps: Ollie's
+passphrase-less key `~/.ssh/id_ollie_auto` goes into the profile's
+`/storage/.ssh/authorized_keys`, and `~/yblod-051/bench-amd/env.sh` there
+puts an `ssh` wrapper using it first on `PATH`, sets
+`YBLOD_BENCH_KNOWN_HOSTS=/dev/null`, `BOX` and `RESULTS`; start a run under
+`setsid nohup` and read its log.
+
+What differs in the numbers on amdgpu:
+
+- GPU time is fdinfo `drm-engine-gfx` (+ `compute`, unused by Kodi and the
+  engine here); video decoding is `drm-engine-dec` (VCN). Kodi and the
+  engine share one DRM client on this box, so
+  `engine_client_ms_per_presented_frame` equals the total.
+- `freq.txt` lines are `time sclk_MHz amd busy_%` (hwmon `freq1_input`,
+  `gpu_busy_percent`): `gpu_clock.awake_mhz_*` is the shader clock (it never
+  reads 0, so no `share_asleep`) and `amd_busy_pct_mean` the driver's busy
+  figure; `tN.amdpm` and `gpu_clock.amd_profile` the power profile and DPM
+  level at both snapshots. Raven's shader clock has three levels (200, 700,
+  1200 MHz).
+- `power.package_0_w` is the CPU package energy (RAPL, `package-0`), which
+  on an APU includes the GPU.
+- `display.txt` has DRM's atomic state (CRTC mode, planes) and the
+  connector's `DVBRIDGE_DV_STANDARD_LAB` and `DVBRIDGE_TUNNEL_FORMAT` (read
+  with `modetest -a -c`). amdgpu has no `infoframes/` in debugfs: the
+  Dolby Vision VSIF is logged by the kernel (`DVBridge: ... tunnel stream
+  ... VSIF ...`) only with `drm.debug=0x4`.
+- With non-blocking presentation the run JSON has `kodi.flips_summary_last`
+  (Kodi's `DV flips queued=` line, cumulative since Kodi started, every
+  600 queued flips: queued, on time, late, blocking, busy, timeouts).
 
 ## The profile
 

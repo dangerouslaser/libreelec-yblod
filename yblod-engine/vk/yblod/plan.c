@@ -56,6 +56,7 @@ typedef struct {
 } nlq_table;
 
 struct dvvk_plan_state {
+    unsigned canvas[2];     /* 0: 3840x2160 (dvvk_plan_state_canvas; kept by a reset) */
     packet_state packet;
     uint32_t generation;    /* bumped by every table planning and route change */
     uint32_t route;         /* the route of the last tables */
@@ -470,7 +471,16 @@ dvvk_plan_state *dvvk_plan_state_new(void)
 
 void dvvk_plan_state_reset(dvvk_plan_state *s)
 {
+    const unsigned w = s->canvas[0], h = s->canvas[1];
     memset(s, 0, sizeof(*s));
+    s->canvas[0] = w;
+    s->canvas[1] = h;
+}
+
+void dvvk_plan_state_canvas(dvvk_plan_state *s, unsigned width, unsigned height)
+{
+    s->canvas[0] = width;
+    s->canvas[1] = height;
 }
 
 void dvvk_plan_state_free(dvvk_plan_state *s)
@@ -596,7 +606,9 @@ int dvvk_plan_frame_state(const dvvk_plan_in *in, const dvvk_plan_desktop *deskt
     uint32_t el_method = in->cb1_contract || in->el_scaler == DVVK_EL_ANNEXB ? DVVK_EL_METHOD_ANNEXB
                                                                             : DVVK_EL_METHOD_BILINEAR;
     dv_source_geometry g = {
-        .width = in->width, .height = in->height, .canvas_width = 3840, .canvas_height = 2160,
+        .width = in->width, .height = in->height,
+        .canvas_width = state->canvas[0] ? state->canvas[0] : 3840,
+        .canvas_height = state->canvas[1] ? state->canvas[1] : 2160,
         .x = in->x, .y = in->y,
         .chroma_siting = (in->cb1_contract || !in->has_el) && in->chroma_top_left ? DV_SOURCE_CHROMA_TOP_LEFT
                                                                                   : DV_SOURCE_CHROMA_CENTER_LEFT,

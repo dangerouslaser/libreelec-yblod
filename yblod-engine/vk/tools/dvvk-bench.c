@@ -10,11 +10,14 @@
  *     --frames N         pictures (default 240)
  *     --start S          seconds into the file
  *     --rate HZ          submit rate (default 23.976; 0: as fast as possible)
+ *     --canvas W,H       the engine's canvas (dvvk_create_canvas; default
+ *                        3840,2160): the output buffers', the overlay
+ *                        file's and the dumps' size
  *     --dest X,Y,W,H     the film's rectangle (default: aspect-fit full screen)
  *     --fel 0|1          FEL off/on (default 1)
  *     --el-scaler M      annexb (1, the default) or bilinear (2): the FEL's
  *                        EL upsampling (dvvk_plan_in.el_scaler); --cb1 is Annex B
- *     --overlay FILE     the overlay: raw 3840x2160 BGRA (ARGB8888 bytes, as
+ *     --overlay FILE     the overlay: raw BGRA of the canvas's size (ARGB8888 bytes, as
  *                        `ffmpeg -i shot.png -vf scale=3840:2160 -pix_fmt bgra
  *                        -f rawvideo FILE`), premultiplied; pixels inside
  *                        --dest are made transparent (the hole)
@@ -50,6 +53,32 @@
  *                        dvvk_hdr10plus_packet as a JSON line ("hdr10plus":
  *                        right after submit, "late" statistics allowed; and
  *                        for dumped pictures once done, "own")
+ *                        sdr: the engine converts to an SDR display's picture
+ *                        (the dumps are then 8-bit R'G'B' XRGB8888)
+ *     --white NITS       sdr: the display's white (default 203); also the
+ *                        overlay's white in the other modes
+ *     --black NITS       sdr: the display's black (default white / 1000)
+ *     --gamma22          sdr: a 2.2 power instead of BT.1886
+ *     --limited          sdr: codes 16..235
+ *     --no-dither        sdr: rounded codes
+ *     --source KIND      hdr10 or hlg: the video played as a plain one, its
+ *                        Dolby Vision metadata and enhancement layer left
+ *                        aside (a Dolby Vision file's base layer stands in
+ *                        for an HDR10 video; hlg reads the same codes as
+ *                        HLG): every picture takes dvvk_hdr10_to_dovi's
+ *                        metadata, made from the stream's mastering display
+ *                        and light levels (hlg: none), and hlg sets
+ *                        DVVK_SDR_HLG. For --output sdr
+ *                        hdr10plus: as hdr10, but a picture with HDR10+
+ *                        (ST 2094-40 side data) takes dvvk_hdr10plus_to_dovi's
+ *                        metadata as Kodi's decoder makes it for the SDR
+ *                        output (the previous picture's HDR10+ for the
+ *                        scene test; one that can't be converted keeps the
+ *                        last converted picture's); a line per change of L1
+ *     --t35-country      hdr10plus: set AVDynamicHDRPlus.itu_t_t35_country_code
+ *                        to 0xB5 before the conversion, as CB1's patched FFmpeg
+ *                        does (stock FFmpeg 9.0.2 leaves it 0, and
+ *                        cb1_hdr10plus_dovi_describe refuses that)
  *     --hdr10plus-v0     HDR10+ application version 0 (default 1)
  *     --no-l2            L2 trims left out of the metadata
  *     --dump FILE        the last picture's XRGB8888 bytes
@@ -63,6 +92,8 @@
 #define _GNU_SOURCE
 #include "decode.h"
 #include "../include/dv_engine_vk.h"
+#include <libavutil/hdr_dynamic_metadata.h>
+#include <libavutil/mastering_display_metadata.h>
 #include <gbm.h>
 #include <drm_fourcc.h>
 #include <fcntl.h>
@@ -73,8 +104,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#define W 3840
-#define H 2160
+static int W = 3840, H = 2160;   /* the canvas */
 #define SLOTS 4
 
 /* One dvvk_hdr10plus_packet as a JSON line. */
@@ -235,12 +265,30 @@ int main(int argc, char **argv)
     uint32_t last_dm_status = UINT32_MAX;
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
     const char *metadata_prefix = NULL;
-    double start = 0, rate = 23.976, white = 203.0;
+    double start = 0, rate = 23.976, white = 203.0, black = 0;
+    unsigned sdr_flags = 0;
+    int source = 0;   /* 1 hdr10, 2 hlg: dvvk_hdr10_to_dovi's metadata; 3 hdr10plus */
+    static _Alignas(16) uint8_t plain[DVVK_HDR10PLUS_DOVI_BYTES];
+    size_t plain_size = 0;
+    /* --source hdr10plus: the stream's static metadata, a converted picture's metadata per
+     * slot (the engine reads it until the frame is done), the last one and the previous
+     * picture's HDR10+ */
+    static dvvk_hdr10_static hstatic;
+    static _Alignas(16) uint8_t h10p_md[SLOTS][DVVK_HDR10PLUS_DOVI_BYTES], h10p_last[DVVK_HDR10PLUS_DOVI_BYTES];
+    static _Alignas(16) uint8_t h10p_prev[sizeof(AVDynamicHDRPlus)], h10p_cur[sizeof(AVDynamicHDRPlus)];
+    int t35_country = 0;
+    size_t h10p_last_size = 0, h10p_prev_size = 0;
+    int h10p_converted = 0, h10p_failed = 0;
+    dvvk_hdr10plus_dovi_info h10p_shown = {0};
     unsigned dx = 0, dy = 0, dwid = 0, dhei = 0;
     const char *file = NULL, *overlay_path = NULL, *mode = "none", *dump = NULL;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc)
             frames = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--canvas") && i + 1 < argc) {
+            if (sscanf(argv[++i], "%d,%d", &W, &H) != 2 || W <= 0 || H <= 0)
+                return fprintf(stderr, "--canvas W,H\n"), 2;
+        }
         else if (!strcmp(argv[i], "--start") && i + 1 < argc)
             start = atof(argv[++i]);
         else if (!strcmp(argv[i], "--rate") && i + 1 < argc)
@@ -298,8 +346,26 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--output") && i + 1 < argc)
         {
             const char *m = argv[++i];
-            output = !strcmp(m, "hdr10") ? DVVK_OUTPUT_HDR10 : !strcmp(m, "hdr10plus") ? DVVK_OUTPUT_HDR10PLUS : DVVK_OUTPUT_DV;
+            output = !strcmp(m, "hdr10") ? DVVK_OUTPUT_HDR10 : !strcmp(m, "hdr10plus") ? DVVK_OUTPUT_HDR10PLUS
+                     : !strcmp(m, "sdr") ? DVVK_OUTPUT_SDR : DVVK_OUTPUT_DV;
         }
+        else if (!strcmp(argv[i], "--black") && i + 1 < argc)
+            black = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--gamma22"))
+            sdr_flags |= DVVK_SDR_GAMMA22;
+        else if (!strcmp(argv[i], "--limited"))
+            sdr_flags |= DVVK_SDR_LIMITED;
+        else if (!strcmp(argv[i], "--no-dither"))
+            sdr_flags |= DVVK_SDR_NO_DITHER;
+        else if (!strcmp(argv[i], "--source") && i + 1 < argc) {
+            const char *k = argv[++i];
+            source = !strcmp(k, "hdr10") ? 1 : !strcmp(k, "hlg") ? 2 : !strcmp(k, "hdr10plus") ? 3 : 0;
+            if (!source)
+                return fprintf(stderr, "--source: hdr10, hdr10plus or hlg\n"), 2;
+            if (source == 2)
+                sdr_flags |= DVVK_SDR_HLG;
+        } else if (!strcmp(argv[i], "--t35-country"))
+            t35_country = 1;
         else if (!strcmp(argv[i], "--hdr10plus-v0"))
             hdr10plus_v0 = 1;
         else if (!strcmp(argv[i], "--no-l2"))
@@ -335,10 +401,16 @@ int main(int argc, char **argv)
             return fprintf(stderr, "gbm_bo_create failed\n"), 1;
 
     dvvk_engine *e = NULL;
-    if (dvvk_create(drm, dec.display, &e))
+    if (W == 3840 && H == 2160 ? dvvk_create(drm, dec.display, &e)
+                               : dvvk_create_canvas(drm, dec.display, (uint32_t)W, (uint32_t)H, &e))
         return fprintf(stderr, "dvvk_create failed\n"), 1;
     if (output != DVVK_OUTPUT_DV) {
         dvvk_output_mode om = {.mode = output};
+        if (output == DVVK_OUTPUT_SDR) {
+            om.flags = sdr_flags;
+            om.peak_nits = (float)white;
+            om.min_nits = (float)black;
+        }
         if (dvvk_set_output_mode(e, &om))
             return fprintf(stderr, "dvvk_set_output_mode failed\n"), 1;
     }
@@ -350,10 +422,10 @@ int main(int argc, char **argv)
         uint8_t *a = malloc((size_t)W * H * 4), *b = malloc((size_t)W * H * 4);
         FILE *f = fopen(overlay_path, "rb");
         if (!f || fread(a, 1, (size_t)W * H * 4, f) != (size_t)W * H * 4)
-            return fprintf(stderr, "can't read %s (3840x2160 BGRA)\n", overlay_path), 1;
+            return fprintf(stderr, "can't read %s (%dx%d BGRA)\n", overlay_path, W, H), 1;
         fclose(f);
         if (have_dest)
-            for (unsigned y = dy; y < dy + dhei && y < H; y++)
+            for (unsigned y = dy; y < dy + dhei && y < (unsigned)H; y++)
                 memset(a + ((size_t)y * W + dx) * 4, 0, (size_t)dwid * 4);
         /* premultiplied: colour at most alpha */
         for (size_t i = 0; i < (size_t)W * H; i++)
@@ -362,9 +434,11 @@ int main(int argc, char **argv)
                     a[i * 4 + c] = a[i * 4 + 3];
         memcpy(b, a, (size_t)W * H * 4);
         int rect = !strcmp(mode, "rect");
+        const unsigned rect_x = (unsigned)W * 15 / 32, rect_y = (unsigned)H * 5 / 54;
         for (size_t i = 0; i < (size_t)W * H; i++) {
-            unsigned x = (unsigned)(i % W), y = (unsigned)(i / W);
-            if (rect && !(x >= 1800 && x < 2056 && y >= 200 && y < 456))
+            unsigned x = (unsigned)(i % (size_t)W), y = (unsigned)(i / (size_t)W);
+            /* (1800, 200 in a 3840x2160 canvas) */
+            if (rect && !(x >= rect_x && x < rect_x + 256 && y >= rect_y && y < rect_y + 256))
                 continue;
             uint8_t *p = b + i * 4;
             if (p[3] == 0)
@@ -376,7 +450,7 @@ int main(int argc, char **argv)
             /* rows bottom first, as a GL framebuffer's texture */
             uint8_t *row = malloc((size_t)W * 4);
             for (uint8_t *p = a; p; p = p == a ? b : NULL)
-                for (unsigned y = 0; y < H / 2; y++) {
+                for (unsigned y = 0; y < (unsigned)H / 2; y++) {
                     memcpy(row, p + (size_t)y * W * 4, (size_t)W * 4);
                     memcpy(p + (size_t)y * W * 4, p + (size_t)(H - 1 - y) * W * 4, (size_t)W * 4);
                     memcpy(p + (size_t)(H - 1 - y) * W * 4, row, (size_t)W * 4);
@@ -413,10 +487,42 @@ int main(int argc, char **argv)
     double t0 = now_ms();
     struct dv_pair p;
     while (n < frames && dv_decoder_next(&dec, &p) == 1) {
-        if (!p.dovi) {
+        if (!p.dovi && !source) {
             dv_pair_free(&p);
             continue;
         }
+        if (source && !plain_size) {
+            /* the stream's static metadata, as Kodi's adapter reads it */
+            dvvk_hdr10_static st = {0};
+            const AVFrameSideData *sd = av_frame_get_side_data(p.bl, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
+            if (sd) {
+                const AVMasteringDisplayMetadata *md = (const AVMasteringDisplayMetadata *)sd->data;
+                if (md->has_luminance) {
+                    st.max_luminance = (float)av_q2d(md->max_luminance);
+                    st.min_luminance = (float)av_q2d(md->min_luminance);
+                }
+                if (md->has_primaries) {
+                    const double rx = av_q2d(md->display_primaries[0][0]), gy = av_q2d(md->display_primaries[1][1]);
+                    st.primaries = fabs(rx - 0.680) < 0.01 && fabs(gy - 0.690) < 0.01 ? DVVK_PRIMARIES_P3D65
+                                   : fabs(rx - 0.640) < 0.01 && fabs(gy - 0.600) < 0.01 ? DVVK_PRIMARIES_BT709
+                                   : DVVK_PRIMARIES_BT2020;
+                }
+            }
+            if ((sd = av_frame_get_side_data(p.bl, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL))) {
+                const AVContentLightMetadata *cl = (const AVContentLightMetadata *)sd->data;
+                st.max_cll = (uint16_t)(cl->MaxCLL > 65535 ? 65535 : cl->MaxCLL);
+                st.max_fall = (uint16_t)(cl->MaxFALL > 65535 ? 65535 : cl->MaxFALL);
+            }
+            hstatic = st;
+            if (dvvk_hdr10_to_dovi(source == 2 ? NULL : &st, plain, sizeof(plain), &plain_size) || !plain_size)
+                return fprintf(stderr, "dvvk_hdr10_to_dovi failed\n"), 1;
+            printf("dvvk-bench: --source %s: mastering %.4g..%.4g cd/m2, MaxCLL %u, MaxFALL %u, primaries %u\n",
+                   source == 2 ? "hlg" : source == 3 ? "hdr10plus" : "hdr10", (double)st.min_luminance, (double)st.max_luminance, st.max_cll,
+                   st.max_fall, st.primaries);
+        }
+        const uint8_t *md_data = source ? plain : p.dovi->data;
+        size_t md_size = source ? plain_size : (size_t)p.dovi->size;
+        const int has_el = p.el != NULL && !source;
         int slot = n % SLOTS;
         if (have[slot]) {
             double tw = now_ms();
@@ -430,12 +536,55 @@ int main(int argc, char **argv)
             dv_pair_free(&held[slot]);
             have[slot] = 0;
         }
+        const AVFrameSideData *h10p = source == 3 ? av_frame_get_side_data(p.bl, AV_FRAME_DATA_DYNAMIC_HDR_PLUS) : NULL;
+        if (h10p && h10p->size > sizeof(h10p_prev))
+            return fprintf(stderr, "picture %d: HDR10+ side data of %zu bytes\n", n, (size_t)h10p->size), 1;
+        if (h10p) {
+            /* Kodi's CDVDVideoCodecFFmpeg::ConvertHDR10Plus for the SDR output */
+            size_t size = 0;
+            dvvk_hdr10plus_dovi_info info = {0};
+            memcpy(h10p_cur, h10p->data, h10p->size);
+            if (t35_country && !((AVDynamicHDRPlus *)h10p_cur)->itu_t_t35_country_code)
+                ((AVDynamicHDRPlus *)h10p_cur)->itu_t_t35_country_code = 0xB5;
+            int rv = dvvk_hdr10plus_to_dovi(h10p_cur, h10p->size, &hstatic, h10p_prev_size ? h10p_prev : NULL,
+                                            h10p_md[slot], sizeof(h10p_md[slot]), &size, &info);
+            memcpy(h10p_prev, h10p_cur, h10p->size);
+            h10p_prev_size = h10p->size;
+            if (rv == 0) {
+                h10p_converted++;
+                memcpy(h10p_last, h10p_md[slot], size);
+                h10p_last_size = size;
+                md_data = h10p_md[slot];
+                md_size = size;
+                if (h10p_converted == 1 || info.scene_refresh || info.l1_min != h10p_shown.l1_min ||
+                    info.l1_max != h10p_shown.l1_max || info.l1_avg != h10p_shown.l1_avg)
+                    printf("dvvk-bench: picture %d: hdr10plus L1 %u/%u/%u (12-bit PQ), source %u..%u PQ, "
+                           "estimated %u, scene refresh %u, curve/saturation not translated %u/%u\n",
+                           n, info.l1_min, info.l1_max, info.l1_avg, info.source_min_pq, info.source_max_pq,
+                           info.estimated_fields, info.scene_refresh, info.untranslated_curve,
+                           info.untranslated_saturation);
+                h10p_shown = info;
+            } else {
+                if (h10p_failed++ < 3)
+                    fprintf(stderr, "picture %d: dvvk_hdr10plus_to_dovi %d\n", n, rv);
+                if (h10p_last_size) {
+                    memcpy(h10p_md[slot], h10p_last, h10p_last_size);
+                    md_data = h10p_md[slot];
+                    md_size = h10p_last_size;
+                }
+            }
+        } else if (source == 3 && h10p_last_size) {
+            /* a picture without HDR10+ in a converted title keeps the last metadata */
+            memcpy(h10p_md[slot], h10p_last, h10p_last_size);
+            md_data = h10p_md[slot];
+            md_size = h10p_last_size;
+        }
         unsigned w = (unsigned)p.bl->width, h = (unsigned)p.bl->height;
         unsigned x = dx, y = dy, dw = dwid, dh = dhei;
         if (!have_dest) {
-            double scale = fmin(3840.0 / w, 2160.0 / h);
-            int x0 = (int)lround((3840 - w * scale) / 2), y0 = (int)lround((2160 - h * scale) / 2);
-            int x1 = (int)lround((3840 + w * scale) / 2), y1 = (int)lround((2160 + h * scale) / 2);
+            double scale = fmin((double)W / w, (double)H / h);
+            int x0 = (int)lround((W - w * scale) / 2), y0 = (int)lround((H - h * scale) / 2);
+            int x1 = (int)lround((W + w * scale) / 2), y1 = (int)lround((H + h * scale) / 2);
             x = (unsigned)x0 & ~1u, y = (unsigned)y0 & ~1u;
             dw = (unsigned)(x1 - (int)x) & ~1u, dh = (unsigned)(y1 - (int)y) & ~1u;
         }
@@ -446,17 +595,17 @@ int main(int argc, char **argv)
             snprintf(path, sizeof(path), "%s.%d.bin", metadata_prefix, n);
             FILE *mf = fopen(path, "wb");
             if (mf) {
-                fwrite(p.dovi->data, 1, p.dovi->size, mf);
+                fwrite(md_data, 1, md_size, mf);
                 fclose(mf);
             }
             snprintf(path, sizeof(path), "%s.txt", metadata_prefix);
             if ((mf = fopen(path, n ? "a" : "w"))) {
-                fprintf(mf, "%d %u %u %d %d %d %zu\n", n, w, h, p.el != NULL, nv12, top_left, (size_t)p.dovi->size);
+                fprintf(mf, "%d %u %u %d %d %d %zu\n", n, w, h, has_el, nv12, top_left, md_size);
                 fclose(mf);
             }
         }
         int resized = dw != w || dh != h;
-        int siting = cb1_siting(p.bl->chroma_location, (const AVDOVIMetadata *)p.dovi->data);
+        int siting = cb1_siting(p.bl->chroma_location, (const AVDOVIMetadata *)md_data);
         int contract = cb1 && !resized && siting >= 0;
         if (contract) {
             if (!cb1_sent)
@@ -472,7 +621,7 @@ int main(int argc, char **argv)
             /* rect: say where it changed (KWin's damage); change: nothing said
              * (everywhere) */
             if (!strcmp(mode, "rect") && n > 0) {
-                const uint32_t r[4] = {1800, 200, 256, 256};
+                const uint32_t r[4] = {(uint32_t)W * 15 / 32, (uint32_t)H * 5 / 54, 256, 256};
                 dvvk_set_overlay_damage(e, r, 1);
             }
             dvvk_dmabuf db = {.width = W, .height = H, .format = fp16 ? DRM_FORMAT_ABGR16161616F : DRM_FORMAT_ARGB8888, .modifier = DRM_FORMAT_MOD_LINEAR,
@@ -483,14 +632,14 @@ int main(int argc, char **argv)
         dvvk_frame f = {.plan = {.width = w, .height = h, .x = x, .y = y, .dw = dw == w && dh == h ? 0 : dw,
                                  .dh = dw == w && dh == h ? 0 : dh,
                                  .chroma_top_left = (uint32_t)(contract ? siting == 1 : top_left),
-                                 .has_el = p.el != NULL, .nv12 = (uint32_t)nv12,
+                                 .has_el = (uint32_t)has_el, .nv12 = (uint32_t)nv12,
                                  .el_scaler = (uint32_t)(contract ? DVVK_EL_ANNEXB : scaler), .fel = (uint32_t)fel,
                                  .packet_id = packet_id, .refresh = (uint32_t)(contract ? cb1_refresh : n == 0),
                                  .cb1_contract = (uint32_t)contract, .overlay = (uint32_t)use_overlay,
                                  .overlay_visible_before = (uint32_t)ov_before, .pts = p.bl->pts, .white_nits = white,
                                  .dm_options = DVVK_DM_OPTIONS(cm4, cm4_trigger, cm4_headroom, no_l2, tv_peak)},
-                        .bl_surface = p.bl_surface, .el_surface = p.el ? p.el_surface : 0xffffffffu,
-                        .metadata = p.dovi->data, .metadata_size = p.dovi->size, .output = (uint32_t)slot,
+                        .bl_surface = p.bl_surface, .el_surface = has_el ? p.el_surface : 0xffffffffu,
+                        .metadata = md_data, .metadata_size = md_size, .output = (uint32_t)slot,
                         .flags = (use_overlay ? DVVK_FRAME_AUTO_OVERLAY : 0) | (desktop ? DVVK_FRAME_DESKTOP : 0)};
         memcpy(f.plan.rgb_to_lms, rgb_to_lms, sizeof(rgb_to_lms));
         packet_id = (packet_id + 1) & 0xf;
@@ -552,6 +701,8 @@ int main(int argc, char **argv)
     printf("dvvk-bench: %d pictures in %.0f ms (%.2f fps), refused %d, flagged %d; submit avg %.2f max %.2f ms; "
            "slot waits %.1f ms total\n", n, total, n * 1000.0 / total, refused, flagged,
            n ? submit_sum / n : 0, submit_max, wait_sum);
+    if (source == 3)
+        printf("dvvk-bench: hdr10plus: %d pictures converted, %d not\n", h10p_converted, h10p_failed);
     if (dump && n && !dumps)
         dump_bo(&out[(n - 1) % SLOTS], dump);
     else if (dump && dumped < dumps)
@@ -559,9 +710,9 @@ int main(int argc, char **argv)
     if (output != DVVK_OUTPUT_DV) {
         dvvk_hdr_signal sig;
         if (!dvvk_output_signal(e, &sig))
-            printf("dvvk-bench: HDR10 signal: mode %u eotf %u max %u cd/m2 min %u (1e-4) cll %u fall %u "
+            printf("dvvk-bench: %s signal: mode %u eotf %u max %u cd/m2 min %u (1e-4) cll %u fall %u "
                    "R %u,%u G %u,%u B %u,%u W %u,%u\n",
-                   sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
+                   output == DVVK_OUTPUT_SDR ? "SDR" : "HDR10", sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
                    sig.primaries[0][0], sig.primaries[0][1], sig.primaries[1][0], sig.primaries[1][1],
                    sig.primaries[2][0], sig.primaries[2][1], sig.white[0], sig.white[1]);
     }

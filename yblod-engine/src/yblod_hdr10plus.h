@@ -1,6 +1,6 @@
 /* YBLOD 0.4.0: HDR10+ for the Vulkan engine (yblod_hdr10plus.c). The engine's
  * C API (vk/include/dv_engine_vk.h dvvk_hdr10plus_packet with dvvk_hdr10plus_metadata,
- * dvvk_hdr10plus_to_dovi) wraps these.
+ * dvvk_hdr10plus_to_dovi, dvvk_hdr10_to_dovi) wraps these.
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #ifndef YBLOD_HDR10PLUS_H
 #define YBLOD_HDR10PLUS_H
@@ -18,4 +18,5 @@ int yb_hdr10plus_packet(const void *metadata, size_t bytes, const uint32_t words
                         uint32_t flags, int overlay, dvvk_hdr10plus_metadata *out);
 int yb_hdr10plus_to_dovi(const void *hdr10plus, size_t size, const dvvk_hdr10_static *hdr10, const void *previous,
                          void *out, size_t capacity, size_t *out_size, dvvk_hdr10plus_dovi_info *info);
+int yb_hdr10_to_dovi(const dvvk_hdr10_static *hdr10, void *out, size_t capacity, size_t *out_size);
 #endif

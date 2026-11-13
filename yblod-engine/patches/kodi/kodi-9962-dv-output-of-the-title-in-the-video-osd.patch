@@ -1,0 +1,630 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Thu, 12 Nov 2026 13:37:32 -0500
+Subject: [PATCH] Dolby Vision: the output of the playing title in the video
+ OSD
+
+The output of a video could only be chosen in Settings > Player > Dolby
+Vision, for every video and from the next one on. Viewers coming from
+the CoreELEC forks expect to switch it while a title plays, from the
+video OSD.
+
+The video settings dialog of the OSD gets an "Output mode" list when
+the playing video has more than one output here. A Dolby Vision video
+offers Dolby Vision, Convert to HDR10, Convert to HDR10+ and Convert to
+SDR; an HDR10+ or HDR10 video itself (where Kodi shows it as HDR),
+Convert to Dolby Vision and Convert to SDR; an HLG video itself and
+Convert to SDR; an SDR video nothing. Each is offered on the terms of
+the Output mode setting's list and of the HDR10+ conversion setting:
+the display, the connector and the engine have it now.
+
+The choice is the title's alone: SelectOutputSettings applies it over
+the latched settings when that title's playback is prepared, and it is
+forgotten when playback stops or another title starts. The settings
+are not changed. A new signal restarts the title where it is (the
+restart StartFailed uses); HDR10 <-> HDR10+ of a Dolby Vision video
+switches while it plays, as the HDR10+ fallback does.
+
+Convert to Dolby Vision of an HDR10 video is new: each picture gets
+dvvk_hdr10_to_dovi's static metadata, which the SDR output already
+uses for HDR10 videos, with the Dolby Vision output, on the HDR10+
+conversion's terms. Convert to SDR of a video Kodi shows as HDR uses
+the SDR output's existing path for HDR videos.
+
+Nothing changes for a viewer who does not use the list.
+---
+ .../resources/strings.po                      |  20 ++
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp   |  29 ++-
+ .../DVDCodecs/Video/DVDVideoCodecFFmpeg.h     |   3 +
+ .../DVDCodecs/Video/DVOutputSettings.h        | 104 ++++++++-
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp        |   2 +-
+ xbmc/video/dialogs/GUIDialogVideoSettings.cpp |  19 ++
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 215 +++++++++++++++++-
+ 7 files changed, 379 insertions(+), 13 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 32161cb..ee6f8ac 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26450,3 +26450,23 @@ msgstr ""
+ msgctxt "#45141"
+ msgid "Kodi's tone mapping"
+ msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45142"
++msgid "HDR10 (original)"
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45143"
++msgid "HDR10+ (original)"
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45144"
++msgid "HLG (original)"
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45145"
++msgid "Convert to Dolby Vision"
++msgstr ""
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+index c474ec1..8bb88b9 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.cpp
+@@ -390,9 +390,13 @@ bool CDVDVideoCodecFFmpeg::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options
+   // picture is shown as Dolby Vision is then decided as for any Dolby Vision picture.
+   const bool asDolbyVision = DVBRIDGE::playbackHDR10PlusToDV.load() &&
+                              DVBRIDGE::DolbyVisionOutput();
++  // HDR10 -> Dolby Vision (the video OSD's choice): with the static metadata of the SDR
++  // output's HDR10 videos (AttachPlainMetadata), on the same terms as HDR10+ above.
++  m_dvStaticDV = hints.dovi.dv_profile == 0 && DVBRIDGE::playbackHDR10ToDV.load() &&
++                 DVBRIDGE::DolbyVisionOutput() && DVHDR10PlusToDovi::StaticFunction() != nullptr;
+   // HDR videos without Dolby Vision where the SDR output shows them: the same conversion
+   // for their HDR10+ pictures, and static metadata for the others (AttachPlainMetadata).
+-  const bool plain = hints.dovi.dv_profile == 0 && !asDolbyVision &&
++  const bool plain = hints.dovi.dv_profile == 0 && !asDolbyVision && !m_dvStaticDV &&
+                      DVBRIDGE::playbackHDRSourcesSDR.load() &&
+                      DVHDR10PlusToDovi::StaticFunction() != nullptr;
+   m_dvPlainPQ = plain && DVBRIDGE::PlainSourceOutput(false);
+@@ -1331,7 +1335,7 @@ void CDVDVideoCodecFFmpeg::AttachPlainMetadata(VideoPicture* picture)
+   const bool hlg = picture->hdrType == StreamHdrType::HDR_TYPE_HLG;
+   const auto convert = DVHDR10PlusToDovi::StaticFunction();
+   // The metadata says BT.2020 limited-range 10-bit Y'CbCr: what HDR10 and HLG videos are.
+-  if (!(hlg ? m_dvPlainHLG : m_dvPlainPQ) || !convert ||
++  if (!(hlg ? m_dvPlainHLG : (m_dvPlainPQ || m_dvStaticDV)) || !convert ||
+       picture->color_primaries != AVCOL_PRI_BT2020 || picture->color_range ||
+       picture->colorBits != 10)
+     return;
+@@ -1347,9 +1351,10 @@ void CDVDVideoCodecFFmpeg::AttachPlainMetadata(VideoPicture* picture)
+     if (result != 0 ||
+         !m_dvPlainStatic.Assign(reinterpret_cast<const uint8_t*>(buffer.data()), size))
+     {
+-      CLog::Log(LOGWARNING, "SDR output: no metadata for this {} video ({}); Kodi's tone mapping "
+-                "shows it", hlg ? "HLG" : "HDR10", result);
+-      m_dvPlainPQ = m_dvPlainHLG = false;
++      CLog::Log(LOGWARNING, "{}: no metadata for this {} video ({}); {}",
++                m_dvStaticDV ? "HDR10 to Dolby Vision" : "SDR output", hlg ? "HLG" : "HDR10",
++                result, m_dvStaticDV ? "it plays as HDR10" : "Kodi's tone mapping shows it");
++      m_dvPlainPQ = m_dvPlainHLG = m_dvStaticDV = false;
+       m_dvPlainStatic.Reset();
+       return;
+     }
+@@ -1357,14 +1362,17 @@ void CDVDVideoCodecFFmpeg::AttachPlainMetadata(VideoPicture* picture)
+     if (hlg)
+       CLog::Log(LOGINFO, "SDR output: an HLG video (the engine's conversion, static)");
+     else
+-      CLog::Log(LOGINFO, "SDR output: an HDR10 video (the engine's conversion, static): mastering "
++      CLog::Log(LOGINFO, "{}: an HDR10 video (the engine's conversion, static): mastering "
+                 "{:.4f}..{:.0f} cd/m2, MaxCLL {}, MaxFALL {}, primaries {}",
++                m_dvStaticDV ? "HDR10 to Dolby Vision Profile 8.1" : "SDR output",
+                 hdr10.min_luminance, hdr10.max_luminance, hdr10.max_cll, hdr10.max_fall,
+                 hdr10.primaries == DVVK_PRIMARIES_P3D65 ? "P3-D65"
+                 : hdr10.primaries == DVVK_PRIMARIES_BT709 ? "BT.709" : "BT.2020");
+   }
+   picture->doviMetadata = m_dvPlainStatic;
+-  picture->doviPlain = hlg ? DVBRIDGE::PLAIN_HLG : DVBRIDGE::PLAIN_PQ;
++  picture->doviPlain = m_dvStaticDV ? DVBRIDGE::PLAIN_NONE
++                       : hlg        ? DVBRIDGE::PLAIN_HLG
++                                    : DVBRIDGE::PLAIN_PQ;
+ }
+ 
+ void CDVDVideoCodecFFmpeg::ConvertHDR10Plus(VideoPicture* picture,
+@@ -1773,6 +1781,9 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+       else
+         pVideoPicture->hdrTypeAlt = StreamHdrType::HDR_TYPE_HDR10PLUS;
+ #ifdef HAVE_DVBRIDGE
++      if (pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HDR10PLUS &&
++          !DVBRIDGE::playbackSourceHDR10Plus.load())
++        DVBRIDGE::playbackSourceHDR10Plus.store(true);
+       if (pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HDR10PLUS &&
+           m_dvHDR10Plus != HDR10PlusToDV::Off && m_dvHDR10Plus != HDR10PlusToDV::Plain)
+         ConvertHDR10Plus(pVideoPicture, sd);
+@@ -1788,8 +1799,8 @@ bool CDVDVideoCodecFFmpeg::GetPictureCommon(VideoPicture* pVideoPicture)
+     pVideoPicture->doviPlain = m_dvPlainPQ ? DVBRIDGE::PLAIN_PQ : DVBRIDGE::PLAIN_NONE;
+   }
+   // The SDR output's static metadata for an HDR10 or HLG picture, and for an HDR10+ one whose
+-  // title could not be converted.
+-  if ((m_dvPlainPQ || m_dvPlainHLG) && !pVideoPicture->doviMetadata.Data() &&
++  // title could not be converted; an HDR10 one's as Dolby Vision.
++  if ((m_dvPlainPQ || m_dvPlainHLG || m_dvStaticDV) && !pVideoPicture->doviMetadata.Data() &&
+       (pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HDR10 ||
+        pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HDR10PLUS ||
+        pVideoPicture->hdrType == StreamHdrType::HDR_TYPE_HLG))
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+index cc9e3a4..6be4c47 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodecFFmpeg.h
+@@ -112,6 +112,9 @@ protected:
+   // (VideoPicture::doviPlain).
+   bool m_dvPlainPQ{false};
+   bool m_dvPlainHLG{false};
++  // An HDR10 video played as Dolby Vision (DVBRIDGE::playbackHDR10ToDV): the same static
++  // metadata, the picture a Dolby Vision one.
++  bool m_dvStaticDV{false};
+   CDVMetadataBuffer m_dvPlainStatic;   // dvvk_hdr10_to_dovi's metadata ...
+   std::vector<uint8_t> m_dvPlainKey;   // ... and what it was made from
+   void AttachPlainMetadata(VideoPicture* picture);
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index ab0bee2..a7fc3b6 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -5,6 +5,7 @@
+ #include "settings/Settings.h"
+ #include "settings/SettingsComponent.h"
+ #include "settings/lib/SettingDefinitions.h"
++#include "utils/log.h"
+ #include <atomic>
+ #include <cstdint>
+ #include <mutex>
+@@ -70,6 +71,84 @@ inline std::atomic<bool> playbackHDR10PlusToDV{false};
+ // output where Kodi would tone-map them (true), or left to Kodi's tone mapping.
+ inline std::atomic<bool> playbackHDRSourcesSDR{true};
+ 
++// The video OSD's Output mode (CGUIDialogVideoSettings, during playback): another output for
++// the playing title alone, applied over the settings above when that title's playback is
++// prepared (SelectOutputSettings) and forgotten when playback stops. The settings are not
++// changed. The choices are the outputs this display and the engine have for the video
++// (TitleOutputOptions): what it is, and the conversions to Dolby Vision, HDR10, HDR10+, SDR.
++enum class TitleOutput : int
++{
++  None = -1,
++  DolbyVision = 0,
++  HDR10 = 1,
++  HDR10Plus = 2,
++  HLG = 3,
++  SDR = 4,
++};
++inline const char* TitleOutputName(TitleOutput output)
++{
++  static constexpr const char* names[]{"Dolby Vision", "HDR10", "HDR10+", "HLG", "SDR"};
++  const int index = static_cast<int>(output);
++  return index >= 0 && index < 5 ? names[index] : "none";
++}
++
++// HDR10 videos as Dolby Vision (TitleOutput DolbyVision of an HDR10 video): each picture with
++// dvvk_hdr10_to_dovi's static metadata, where the HDR10+ conversion makes metadata from the
++// picture's HDR10+ (playbackHDR10PlusToDV). The same Dolby Vision output only.
++inline std::atomic<bool> playbackHDR10ToDV{false};
++// HDR10, HDR10+ and HLG videos through the SDR output also where Kodi would show them as HDR
++// (TitleOutput SDR of such a video).
++inline std::atomic<bool> playbackPlainSDR{false};
++// The playing video's pictures carry HDR10+ (the decoder says so): its OSD choices are an
++// HDR10+ video's.
++inline std::atomic<bool> playbackSourceHDR10Plus{false};
++
++namespace detail
++{
++struct TitleOverride
++{
++  std::string path; // the title it was chosen for
++  TitleOutput output{TitleOutput::None};
++  OutputMode mode{OutputMode::Standard};
++  bool hdr10PlusToDV{false};
++  bool hdr10ToDV{false};
++  bool plainSDR{false};
++};
++inline std::mutex titleLock;
++inline TitleOverride title;
++inline std::string titlePath; // the title whose playback was prepared last
++// 1 from a choice that restarts the title until the title has configured its video again (a
++// stop in between is the restart's), 2 while it plays: the next stop forgets the choice.
++inline std::atomic<int> titleState{0};
++} // namespace detail
++
++// The window: a video configured its output.
++inline void TitleOutputConfigured()
++{
++  int restarting = 1;
++  detail::titleState.compare_exchange_strong(restarting, 2);
++}
++
++// The window: no video is playing.
++inline void TitleOutputIdle()
++{
++  int playing = 2;
++  if (!detail::titleState.compare_exchange_strong(playing, 0))
++    return;
++  std::lock_guard lock(detail::titleLock);
++  detail::title = {};
++}
++
++// The video OSD's Output mode (WinSystemGbmGLESContext): offered (two choices or more), the
++// filler of its list, the playing title's output now (TitleOutput), and a choice made (true:
++// the title restarts).
++bool TitleOutputOffered();
++void TitleOutputOptions(const std::shared_ptr<const CSetting>& setting,
++                        IntegerSettingOptions& list,
++                        int& current);
++int TitleOutputCurrent();
++bool SelectTitleOutput(int output);
++
+ // The HDR static metadata (CTA-861.3 type 1 units) of the last tunnel picture
+ // the engine made in HDR10, for the HDR_OUTPUT_METADATA the tunnel's link
+ // carries. The film's (L6 or its source peak, L9's primaries), so it changes
+@@ -164,7 +243,8 @@ bool SDROutputAvailable(const std::string& condition,
+                         const std::string& value,
+                         const std::shared_ptr<const CSetting>& setting);
+ 
+-inline void SelectOutputSettings()
++// path: the title whose playback is prepared (the video OSD's choice is that title's).
++inline void SelectOutputSettings(const std::string& path)
+ {
+   const auto component = CServiceBroker::GetSettingsComponent();
+   const auto settings = component ? component->GetSettings() : nullptr;
+@@ -185,6 +265,28 @@ inline void SelectOutputSettings()
+   playbackFallback.store(!settings || settings->GetBool("dvbridge.outputfallback"));
+   playbackHDR10PlusToDV.store(settings && settings->GetInt("dvbridge.hdr10plussources") == 1);
+   playbackHDRSourcesSDR.store(!settings || settings->GetInt("dvbridge.sdrsources") == 0);
++  playbackHDR10ToDV.store(false);
++  playbackPlainSDR.store(false);
++  playbackSourceHDR10Plus.store(false);
++  std::lock_guard lock(detail::titleLock);
++  detail::titlePath = path;
++  if (detail::title.output == TitleOutput::None)
++    return;
++  if (detail::title.path != path)
++  {
++    // Another title (the next one of a playlist, or the restart did not happen).
++    detail::title = {};
++    detail::titleState = 0;
++    return;
++  }
++  playbackMode.store(detail::title.mode);
++  playbackHDR10PlusToDV.store(detail::title.hdr10PlusToDV);
++  playbackHDR10ToDV.store(detail::title.hdr10ToDV);
++  playbackPlainSDR.store(detail::title.plainSDR);
++  if (detail::title.plainSDR)
++    playbackHDRSourcesSDR.store(true);
++  CLog::Log(LOGINFO, "DVBridge: this title's output from the video OSD: {} (output mode {})",
++            TitleOutputName(detail::title.output), static_cast<int>(detail::title.mode));
+ }
+ 
+ // GUI white in the menu output (dvbridge.menubrightness). Read live, as the setting can change while
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index e97d259..8008920 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -1432,7 +1432,7 @@ void CVideoPlayer::CheckBetterStream(CCurrentStream& current, CDemuxStream* stre
+ void CVideoPlayer::Prepare()
+ {
+ #ifdef HAVE_DVBRIDGE
+-  DVBRIDGE::SelectOutputSettings();
++  DVBRIDGE::SelectOutputSettings(m_item.GetDynPath());
+ #endif
+   CFFmpegLog::SetLogLevel(1);
+   SetPlaySpeed(DVD_PLAYSPEED_NORMAL);
+diff --git a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
+index 4f42759..030664e 100644
+--- a/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
++++ b/xbmc/video/dialogs/GUIDialogVideoSettings.cpp
+@@ -32,6 +32,9 @@
+ #include "video/VideoStreamSelect.h"
+ #include "video/ViewModeSettings.h"
+ #include "windowing/WinSystem.h"
++#ifdef HAVE_DVBRIDGE
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#endif
+ 
+ #include <utility>
+ 
+@@ -60,6 +63,7 @@
+ #define SETTING_VIDEO_MAKE_DEFAULT        "video.save"
+ #define SETTING_VIDEO_CALIBRATION         "video.calibration"
+ #define SETTING_VIDEO_STREAM              "video.stream"
++#define SETTING_VIDEO_DVBRIDGE_OUTPUT     "video.dvbridgeoutput"
+ 
+ CGUIDialogVideoSettings::CGUIDialogVideoSettings()
+     : CGUIDialogSettingsManualBase(WINDOW_DIALOG_VIDEO_OSD_SETTINGS, "DialogSettings.xml")
+@@ -99,6 +103,15 @@ void CGUIDialogVideoSettings::OnSettingChanged(const std::shared_ptr<const CSett
+       appPlayer->SetVideoStream(m_videoStream); // Set the video stream to the one selected
+     }
+   }
++#ifdef HAVE_DVBRIDGE
++  else if (settingId == SETTING_VIDEO_DVBRIDGE_OUTPUT)
++  {
++    // This title only; a new signal restarts it, shown without the dialog over it.
++    const int output = std::static_pointer_cast<const CSettingInt>(setting)->GetValue();
++    if (DVBRIDGE::SelectTitleOutput(output))
++      Close();
++  }
++#endif
+   else if (settingId == SETTING_VIDEO_VIEW_MODE)
+   {
+     int value = std::static_pointer_cast<const CSettingInt>(setting)->GetValue();
+@@ -404,6 +417,12 @@ void CGUIDialogVideoSettings::InitializeSettings()
+   AddSpinner(groupVideo, SETTING_VIDEO_SCALINGMETHOD, 16300, SettingLevel::Basic, static_cast<int>(videoSettings.m_ScalingMethod), entries);
+ 
+   AddVideoStreams(groupVideoStream, SETTING_VIDEO_STREAM);
++#ifdef HAVE_DVBRIDGE
++  // YBLOD: the playing title's output (Dolby Vision, the conversions), where it has a choice.
++  if (DVBRIDGE::TitleOutputOffered())
++    AddList(groupVideoStream, SETTING_VIDEO_DVBRIDGE_OUTPUT, 45011, SettingLevel::Basic,
++            DVBRIDGE::TitleOutputCurrent(), DVBRIDGE::TitleOutputOptions, 45011);
++#endif
+ 
+   if (appPlayer->Supports(RENDERFEATURE_STRETCH) || appPlayer->Supports(RENDERFEATURE_PIXEL_RATIO))
+   {
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 16a3d9d..5c83249 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -39,6 +39,7 @@ extern "C"
+ #include "utils/log.h"
+ #include "windowing/WindowSystemFactory.h"
+ 
++#include <algorithm>
+ #include <mutex>
+ #include <cmath>
+ #include <cstdlib>
+@@ -1219,10 +1220,12 @@ bool CWinSystemGbmGLESContext::SupportsSDROutput()
+ 
+ bool CWinSystemGbmGLESContext::PlainSourceSDR(bool hlg)
+ {
+-  // DV_SDR_HDR_SOURCES=0 (native-dv.env): HDR10, HDR10+ and HLG videos stay Kodi's.
++  // DV_SDR_HDR_SOURCES=0 (native-dv.env): HDR10, HDR10+ and HLG videos stay Kodi's. The video
++  // OSD's SDR (playbackPlainSDR) takes them also where Kodi would show them as HDR.
+   const char* enabled = std::getenv("DV_SDR_HDR_SOURCES");
+   return !(enabled && std::strcmp(enabled, "0") == 0) && DVBRIDGE::playbackHDRSourcesSDR.load() &&
+-         !ShowsHDR(hlg) && SupportsSDROutput() && DVHDR10PlusToDovi::StaticFunction() != nullptr;
++         (DVBRIDGE::playbackPlainSDR.load() || !ShowsHDR(hlg)) && SupportsSDROutput() &&
++         DVHDR10PlusToDovi::StaticFunction() != nullptr;
+ }
+ 
+ bool DVBRIDGE::PlainSourceOutput(bool hlg)
+@@ -1355,6 +1358,208 @@ bool DVBRIDGE::HDR10PlusToDVAvailable(const std::string& /*condition*/,
+          DVHDR10PlusToDovi::Available();
+ }
+ 
++namespace
++{
++using DVBRIDGE::TitleOutput;
++
++// The video OSD's Output mode: what the playing video is, the outputs this display and the
++// engine have for it now (the tests of the Output mode setting and of the HDR10+ conversion),
++// and the one it has.
++struct TitleChoices
++{
++  TitleOutput source{TitleOutput::None}; // DolbyVision, HDR10, HDR10Plus, HLG; None: SDR
++  std::vector<TitleOutput> offered;
++  TitleOutput current{TitleOutput::None};
++};
++
++TitleChoices PlayingTitleChoices()
++{
++  TitleChoices choices;
++  const auto player = CServiceBroker::GetAppComponents().GetComponent<CApplicationPlayer>();
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  if (!window || !player || !player->IsPlayingVideo())
++    return choices;
++  VideoStreamInfo info;
++  player->GetVideoStreamInfo(CURRENT_STREAM, info);
++  // The stream says HDR10 for an HDR10+ video too: its pictures say HDR10+.
++  switch (info.hdrType)
++  {
++    case StreamHdrType::HDR_TYPE_DOLBYVISION:
++      choices.source = TitleOutput::DolbyVision;
++      break;
++    case StreamHdrType::HDR_TYPE_HDR10:
++    case StreamHdrType::HDR_TYPE_HDR10PLUS:
++      choices.source = info.hdrType == StreamHdrType::HDR_TYPE_HDR10PLUS ||
++                               DVBRIDGE::playbackSourceHDR10Plus.load()
++                           ? TitleOutput::HDR10Plus
++                           : TitleOutput::HDR10;
++      break;
++    case StreamHdrType::HDR_TYPE_HLG:
++      choices.source = TitleOutput::HLG;
++      break;
++    default:
++      return choices;
++  }
++  const bool engine = CDVPrivateVulkan::Usable();
++  const bool dolbyVision = engine && window->SupportsNativeDVOutput();
++  {
++    std::lock_guard lock(DVBRIDGE::detail::titleLock);
++    choices.current = DVBRIDGE::detail::title.output;
++  }
++  if (choices.source == TitleOutput::DolbyVision)
++  {
++    // The Output mode setting's outputs (OutputModeOptions), Dolby Vision where the TV has it.
++    if (dolbyVision)
++      choices.offered.push_back(TitleOutput::DolbyVision);
++    if (window->SupportsTunnelHDR10())
++      choices.offered.push_back(TitleOutput::HDR10);
++    if (window->SupportsTunnelHDR10Plus())
++      choices.offered.push_back(TitleOutput::HDR10Plus);
++    if (window->SupportsSDROutput())
++      choices.offered.push_back(TitleOutput::SDR);
++    if (choices.current != TitleOutput::None || !engine)
++      return choices;
++    switch (window->DVOutput())
++    {
++      case DVBRIDGE::OutputMode::Standard:
++        choices.current = TitleOutput::DolbyVision;
++        break;
++      case DVBRIDGE::OutputMode::HDR10:
++        choices.current = TitleOutput::HDR10;
++        break;
++      case DVBRIDGE::OutputMode::HDR10Plus:
++        // (HDR10 on a TV without HDR10+, or after a picture HDR10+ could not represent)
++        choices.current = window->SupportsTunnelHDR10Plus() &&
++                                  !DVBRIDGE::playbackHDR10PlusFallback.load()
++                              ? TitleOutput::HDR10Plus
++                              : TitleOutput::HDR10;
++        break;
++      case DVBRIDGE::OutputMode::SDR:
++        choices.current = TitleOutput::SDR;
++        break;
++      default:
++        break;
++    }
++    return choices;
++  }
++  // A video without Dolby Vision: itself where Kodi shows it as HDR, Dolby Vision on the
++  // HDR10+ and HDR10 conversions' terms (HDR10PlusToDVAvailable), the SDR output.
++  const bool hlg = choices.source == TitleOutput::HLG;
++  const auto convertStatic = DVHDR10PlusToDovi::StaticFunction();
++  if (window->ShowsHDR(hlg))
++    choices.offered.push_back(choices.source);
++  const bool toDolbyVision = choices.source == TitleOutput::HDR10Plus
++                                 ? DVHDR10PlusToDovi::Available()
++                                 : choices.source == TitleOutput::HDR10 && convertStatic;
++  if (dolbyVision && toDolbyVision)
++    choices.offered.push_back(TitleOutput::DolbyVision);
++  const char* sources = std::getenv("DV_SDR_HDR_SOURCES");
++  if (!(sources && std::strcmp(sources, "0") == 0) && window->SupportsSDROutput() && convertStatic)
++    choices.offered.push_back(TitleOutput::SDR);
++  if (choices.current != TitleOutput::None)
++    return choices;
++  if (choices.source == TitleOutput::HDR10Plus && DVBRIDGE::playbackHDR10PlusToDV.load() &&
++      DVBRIDGE::DolbyVisionOutput() && dolbyVision)
++    choices.current = TitleOutput::DolbyVision;
++  else if (DVBRIDGE::PlainSourceOutput(hlg))
++    choices.current = TitleOutput::SDR;
++  else if (window->ShowsHDR(hlg))
++    choices.current = choices.source;
++  return choices;
++}
++} // namespace
++
++bool DVBRIDGE::TitleOutputOffered()
++{
++  return PlayingTitleChoices().offered.size() >= 2;
++}
++
++int DVBRIDGE::TitleOutputCurrent()
++{
++  return static_cast<int>(PlayingTitleChoices().current);
++}
++
++void DVBRIDGE::TitleOutputOptions(const std::shared_ptr<const CSetting>& /*setting*/,
++                                  IntegerSettingOptions& list,
++                                  int& /*current*/)
++{
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  const auto choices = PlayingTitleChoices();
++  const bool dolbyVision = choices.source == TitleOutput::DolbyVision;
++  for (const auto output : choices.offered)
++  {
++    int label = 45126; // Convert to SDR
++    switch (output)
++    {
++      case TitleOutput::DolbyVision:
++        label = dolbyVision ? 45124 : 45145; // Dolby Vision, Convert to Dolby Vision
++        break;
++      case TitleOutput::HDR10:
++        label = dolbyVision ? 45013 : 45142; // Convert to HDR10, HDR10 (original)
++        break;
++      case TitleOutput::HDR10Plus:
++        label = dolbyVision ? 45120 : 45143; // Convert to HDR10+, HDR10+ (original)
++        break;
++      case TitleOutput::HLG:
++        label = 45144; // HLG (original)
++        break;
++      default:
++        break;
++    }
++    list.emplace_back(strings.Get(label), static_cast<int>(output));
++  }
++}
++
++bool DVBRIDGE::SelectTitleOutput(int value)
++{
++  const auto choices = PlayingTitleChoices();
++  const auto output = static_cast<TitleOutput>(value);
++  if (output == choices.current ||
++      std::find(choices.offered.begin(), choices.offered.end(), output) == choices.offered.end())
++    return false;
++  detail::TitleOverride title;
++  title.output = output;
++  if (choices.source == TitleOutput::DolbyVision)
++    title.mode = output == TitleOutput::HDR10       ? OutputMode::HDR10
++                 : output == TitleOutput::HDR10Plus ? OutputMode::HDR10Plus
++                 : output == TitleOutput::SDR       ? OutputMode::SDR
++                                                    : OutputMode::Standard;
++  else
++  {
++    // (the conversions to Dolby Vision are the Dolby Vision output's)
++    title.mode = OutputMode::Standard;
++    title.hdr10PlusToDV = output == TitleOutput::DolbyVision &&
++                          choices.source == TitleOutput::HDR10Plus;
++    title.hdr10ToDV = output == TitleOutput::DolbyVision && choices.source == TitleOutput::HDR10;
++    title.plainSDR = output == TitleOutput::SDR;
++  }
++  // HDR10 <-> HDR10+ of a Dolby Vision video through the tunnel: the engine and the window
++  // follow these within the title, as they do for the HDR10+ fallback (WantedOutputMode).
++  // Anything else is another signal: the title restarts where it is, as for StartFailed().
++  const auto tunnelHDR10 = [](TitleOutput o)
++  { return o == TitleOutput::HDR10 || o == TitleOutput::HDR10Plus; };
++  const bool live = choices.source == TitleOutput::DolbyVision && tunnelHDR10(choices.current) &&
++                    tunnelHDR10(output) && playbackTunnelHDR10.load() && !playbackSDR.load() &&
++                    !playbackHDR10PlusFallback.load();
++  {
++    std::lock_guard lock(detail::titleLock);
++    title.path = detail::titlePath;
++    detail::title = title;
++  }
++  detail::titleState = live ? 2 : 1;
++  CLog::Log(LOGINFO, "DVBridge: video OSD: this title's output {} -> {} ({}; the settings are "
++            "unchanged)", TitleOutputName(choices.current), TitleOutputName(output),
++            live ? "switched while it plays" : "the title restarts where it is");
++  if (live)
++  {
++    playbackMode.store(title.mode);
++    playbackTunnelHDR10Plus.store(output == TitleOutput::HDR10Plus);
++    return false;
++  }
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  return true;
++}
++
+ bool CWinSystemGbmGLESContext::BeginDVBridge()
+ {
+   const auto failure = [this](const char* stage) {
+@@ -1426,7 +1631,10 @@ bool CWinSystemGbmGLESContext::SetVideoOutput(const VideoPicture* picture)
+   m_dvVideo = picture != nullptr;
+   m_dvPlainVideo = picture && picture->doviPlain != DVBRIDGE::PLAIN_NONE;
+   if (picture)
++  {
+     CDVPrivateVulkan::VideoConfigured();
++    DVBRIDGE::TitleOutputConfigured();
++  }
+   else
+     ++playbacksEnded;
+   // A video that does not use the bridge after all (a software-decoded picture of a Dolby
+@@ -1718,7 +1926,10 @@ void CWinSystemGbmGLESContext::UpdateDVMenu()
+   // A title that had to play without the engine has ended: the next one tries it again.
+   if (const auto player = CServiceBroker::GetAppComponents().GetComponent<CApplicationPlayer>();
+       player && !player->IsPlaying())
++  {
+     CDVPrivateVulkan::PlaybackIdle();
++    DVBRIDGE::TitleOutputIdle();
++  }
+   if (m_dvStartup)
+   {
+     const auto player = CServiceBroker::GetAppComponents().GetComponent<CApplicationPlayer>();
+-- 
+2.50.1 (Apple Git-155)
+

@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Thu, 12 Nov 2026 12:14:00 -0500
+Subject: [PATCH] Dolby Vision: a title the engine does not take plays as the
+ base layer
+
+A picture the Vulkan engine does not take (dvvk_submit's -2) is not
+shown: no other renderer draws it, so the last picture stays on screen.
+For one odd picture that passes unseen, and so does a FEL picture shown
+without its enhancement layer while the pairing resyncs (to the next key
+frame). But when every picture of a title is refused (YBLOD 0.5.0
+refused single-layer Dolby Vision with MMR chroma at 4K under the Master
+Reference processing) the screen stayed still while the sound played,
+and a title whose scenes switch between a kind the engine takes and one
+it refuses would stop and go.
+
+After 24 refused pictures in a row covering 3 s of the video, the title
+restarts where it was as plain base-layer video, as when the engine
+does not start (CDVPrivateVulkan::TitleRefused: StartFailed's restart
+without counting against the engine), with one log line; the next title
+tries the engine again.
+---
+ .../VideoRenderers/DVPrivateSource.cpp         | 18 ++++++++++++++++++
+ .../VideoRenderers/DVPrivateSource.h           |  4 ++++
+ .../VideoRenderers/DVPrivateVulkan.cpp         | 10 ++++++++++
+ .../VideoRenderers/DVPrivateVulkan.h           |  5 +++++
+ 4 files changed, 37 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+index 1d01ec6..3acb55b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.cpp
+@@ -412,6 +412,24 @@ int CDVPrivateSource::Prepare(void* display, unsigned surface, CVideoBuffer* own
+     m_unsafe = true;
+     return -1;
+   }
++  // A picture the engine does not take is not shown (the last one stays). Now and then that
++  // passes unseen, and so does a FEL picture shown without its enhancement layer until the
++  // next key frame (a pairing resync); a run over 3 s of the video would leave a still
++  // picture for the rest of the title, which then plays as the base layer.
++  static constexpr unsigned kRefusedLimit = 24;
++  static constexpr int64_t kRefusedSpan = 3000000;
++  if (result == 0)
++    m_refused = 0;
++  else if (result == -2)
++  {
++    if (!m_refused++)
++      m_refusedFrom = pts;
++    if (m_refused >= kRefusedLimit && std::llabs(pts - m_refusedFrom) >= kRefusedSpan)
++    {
++      CDVPrivateVulkan::TitleRefused(m_refused);
++      m_refused = 0;
++    }
++  }
+   if (result == -2 && !overlay)
+     return 0;
+   if (result != 0)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+index f997688..abefecf 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateSource.h
+@@ -97,6 +97,10 @@ private:
+     int slot{-1};
+   } m_shown, m_preparing;
+   uint64_t m_held{0};
++  // Pictures the engine did not take since it last took one, from the first one's pts
++  // (CDVPrivateVulkan::TitleRefused).
++  unsigned m_refused{0};
++  int64_t m_refusedFrom{0};
+   // The number the DRM layer gave the flip the scanout slots hold as queued.
+   uint64_t m_flip{0};
+   uint64_t m_processed{0};
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 1b94e99..6ac67bc 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -162,6 +162,16 @@ void CDVPrivateVulkan::StartFailed()
+   CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
+ }
+ 
++void CDVPrivateVulkan::TitleRefused(unsigned pictures)
++{
++  int none = 0;
++  if (!titleWithout.compare_exchange_strong(none, 1))
++    return;
++  CLog::Log(LOGWARNING, "Dolby Vision: the Vulkan engine does not take this video's pictures ({} in a "
++            "row); it plays as plain base-layer video from here, the next one tries again", pictures);
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++}
++
+ void CDVPrivateVulkan::VideoConfigured()
+ {
+   int restarting = 1;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index dbc8cef..e2fbf32 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -48,6 +48,11 @@ public:
+    * next title tries the engine again. After three such titles in a Kodi run
+    * the engine stays off until Kodi restarts, with one notification. */
+   static void StartFailed();
++  /* The engine does not take this title's pictures (Render's -2, a run of
++   * them over 3 s of the video): the current title restarts as plain
++   * base-layer playback, as for StartFailed(), but nothing counts against
++   * the engine. Logged once. */
++  static void TitleRefused(unsigned pictures);
+   /* The window's view of playback, for StartFailed(): a video configured its
+    * output, and no video is playing any more. */
+   static void VideoConfigured();

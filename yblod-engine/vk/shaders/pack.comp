@@ -65,9 +65,25 @@ layout(binding = 14, std430) buffer ReconError { uint recon_error; };
 // (DVVK_MAP_LUT_ONLY=1, timing); 4 the marked cells exact here
 // (DVVK_MAP_INLINE=1, the fix-up pass's comparison).
 layout(constant_id = 8) const uint MAP = 0;
+// MAP_SDR (constant 10, with MAP != 0; docs/intel-dv/OUTPUT-MODES.md): the
+// picture converted to an SDR display's R'G'B' instead, 8-bit XRGB8888,
+// dithered. A pixel has its own luma and its own chroma: the pair's sample
+// on the even pixel, the mean of it and the next pair's on the odd one
+// (4:2:2 is sited on the even pixel; libplacebo's bilinear chroma is the
+// same numbers). map_bake's marks are the lookup's alpha, where it is 0. A pair
+// with a marked sample goes to map_fixup as in the HDR10 output, its words
+// carrying the next pair's chroma as a difference of 7 bits each; the rare
+// pair whose difference does not fit, and a pair under the overlay, is
+// computed exactly here. The overlay is OVERLAY 4: the shell's sRGB layer
+// blended over the converted picture, after the map (before it, the layer
+// would go through a curve that follows the film's scenes).
 #define MAP_PARAMS_BINDING 22
 #define MAP_CELLS_BINDING 23
+#define MAP_TABLES_BINDING 25
+#define MAP_GAMUT_BINDING 26
+#define MAP_SDR_ID 10
 #include "dv_map.glsl"
+layout(binding = MAP_TABLES_BINDING, std430) readonly buffer MapTables4 { uvec4 map_tables4[]; };   // a row's 4 ranks per load
 layout(binding = 21) uniform sampler3D map_lut;
 // STATS (MAP != 0; HDR10+ output, dvvk_output_mode DVVK_OUTPUT_HDR10PLUS): the
 // statistics CB1's DV -> HDR10+ metadata reads (cb1_hdr10plus_statistics), of
@@ -203,7 +219,7 @@ vec3 map_lane(uint yy, uint cb, uint cr, vec3 t, out bool marked)
     marked = (MAP == 1u || MAP == 4u) && v.a < 0.5;
     if (MAP == 2u || (MAP == 4u && marked))
         return map_exact(yy, cb, cr);
-    return v.rgb * 4096.0;
+    return v.rgb * map_node_scale();
 }
 
 uint packet_byte(uint i) { return (packet_words[i >> 2] >> (8 * (i & 3))) & 255u; }
@@ -469,7 +485,8 @@ uvec2 cb1_pair_blend(uint x, uint y, bool odd, uvec2 v, vec4 a, vec4 b)
 // One output pixel (x, y): the 12-bit sample pair before overlay/packets.
 // chroma_rows: for the sited 4:2:0 pack, this block's chroma rows k-3 .. k+4
 // (k = ly / 2) for the pixel's chroma column (cb, cr), fetched once per block.
-uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8])
+// want_luma false: the chroma alone (the luma left at black, not reconstructed).
+uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8], bool want_luma)
 {
     uint dw = placement.z, dh = placement.w, lx = x - placement.x, ly = y - placement.y;
     uint sw = dw, sh = dh;
@@ -484,19 +501,22 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8])
     if (inside && shown) {
         if (PACK == 2 && (sw != dw || sh != dh)) {
             if (sw == dw) {
-                yy = vertical_mapped(false, false, sw, sh, lx, ymap[2 * ly]);
+                if (want_luma)
+                    yy = vertical_mapped(false, false, sw, sh, lx, ymap[2 * ly]);
                 c = vertical_mapped(true, odd, sw / 2, sh / 2, lx / 2, ymap[2 * ly + 1]);
             } else {
                 int px = int((2 * lx + 1) * sw) - int(dw);
                 int py = int((2 * ly + 1) * sh) - int(dh);
                 int cx = int((2 * (lx & ~1u) + 1) * sw) - int(dw);
                 int cy = py - (top_left != 0u ? 0 : int(dh));
-                yy = source_linear(false, false, sw, sh, px, py, 2 * dw, 2 * dh);
+                if (want_luma)
+                    yy = source_linear(false, false, sw, sh, px, py, 2 * dw, 2 * dh);
                 c = source_linear(true, odd, sw / 2, sh / 2, cx, cy, 4 * dw, 4 * dh);
             }
         } else if (PACK == 1) {
             c = src_c(odd, lx / 2, ly, sw / 2);
-            yy = src_y(lx, ly, sw, sh);
+            if (want_luma)
+                yy = src_y(lx, ly, sw, sh);
         } else {
             int r[8];
             for (uint i = 0; i < 8; i++)
@@ -523,7 +543,8 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8])
                 if (top_left != 0u) { lo = 3u; hi = 4u; a = (ly & 1u) != 0u ? 2u : 4u; }
                 c = (a * uint(r[lo]) + (4 - a) * uint(r[hi]) + 2) / 4;
             }
-            yy = (VEC && pre_ok) ? pre_y[lx & 3u] : src_y(lx, ly, sw, sh);
+            if (want_luma)
+                yy = (VEC && pre_ok) ? pre_y[lx & 3u] : src_y(lx, ly, sw, sh);
         }
     }
     if (!shown) {
@@ -668,7 +689,26 @@ void pack_main()
                     chroma_rows_at((xj - placement.x) / 2u, ly0 / 2u, placement.z, placement.w, rows[j]);
             }
     }
+    // MAP_SDR: the next block's first pair's chroma (the last pixel's
+    // interpolation), its rows as the block's own are fetched.
+    uvec2 rows_next[8];
+    for (uint r = 0; r < 8; r++)
+        rows_next[r] = uvec2(0);
+    if (MAP != 0u && MAP_SDR != 0u && PACK == 0) {
+        uint xn = x0 + 4u;
+        if (xn >= placement.x && (xn - placement.x) / 2u < placement.z / 2u && y0 + 1u >= placement.y &&
+            y0 < placement.y + placement.w) {
+            if (ANNEXB != 0u && lx < 31u)
+                for (uint i = 0; i < 8; i++)
+                    rows_next[i] = ctile[ly + i][lx * 2u + 2u];
+            else
+                chroma_rows_at((xn - placement.x) / 2u, (y0 - placement.y) / 2u, placement.z, placement.w, rows_next);
+        }
+    }
     uint fixup = 0u;   // MAP 1: the block's pairs for map_fixup (bit row * 2 + pair)
+    vec3 sdr_scale = vec3(0.0), sdr_offset = vec3(0.0), sdr_lo = vec3(0.0);
+    if (MAP != 0u && MAP_SDR != 0u)
+        map_sdr_axes(sdr_scale, sdr_offset, sdr_lo);
     for (uint r = 0; r < 2; r++) {
         uint y = y0 + r;
         if (y >= h)
@@ -712,7 +752,7 @@ void pack_main()
             for (uint lane = 0; lane < 2; ++lane) {
                 uint x = sx * 2 + lane;
                 bool odd = (x & 1u) != 0u;
-                uvec2 v = reconstruct(x, y, odd, rows[pair]);
+                uvec2 v = reconstruct(x, y, odd, rows[pair], true);
                 film4[pair * 2u + lane] = v;
                 if (OVERLAY == 3u)
                     v = CB1_PAIR_REUSE != 0u
@@ -731,7 +771,84 @@ void pack_main()
         }
         bool raw[2] = bool[2](false, false);
         vec3 m4[4];
-        if (MAP != 0u) {
+        uint sdr4[4];
+        if (MAP != 0u && MAP_SDR != 0u) {
+            // The row's four pixels: each one's chroma, the lookups issued
+            // together, the marked ones exactly, then the display's codes
+            // (the layer over them, the dither).
+            uvec3 bi = mp.black_in.xyz;
+            vec2 cp[3], c4[4];
+            cp[0] = vec2(lv4[0].y, lv4[1].y);
+            cp[1] = vec2(lv4[2].y, lv4[3].y);
+            cp[2] = cp[1];   // the canvas's last pair: its own
+            if (x0 + 4u < w)
+                cp[2] = vec2(reconstruct(x0 + 4u, y, false, rows_next, false).y,
+                             reconstruct(x0 + 5u, y, true, rows_next, false).y);
+            c4[0] = cp[0];
+            c4[1] = 0.5 * (cp[0] + cp[1]);
+            c4[2] = cp[1];
+            c4[3] = 0.5 * (cp[1] + cp[2]);
+            vec3 t4[4];
+            vec4 layer[4];
+            for (uint i = 0u; i < 4u; i++) {
+                t4[i] = map_sdr_coord(lv4[i].x, c4[i], sdr_scale, sdr_offset, sdr_lo);
+                layer[i] = vec4(0.0);
+                if (OVERLAY == 4u) {
+                    uint v = shell_rgba(x0 + i, y);
+                    layer[i] = vec4(v & 255u, (v >> 8) & 255u, (v >> 16) & 255u, v >> 24) * (1.0 / 255.0);
+                }
+            }
+            bool black[4], need[4];
+            for (uint i = 0u; i < 4u; i++) {
+                bool marked = MAP == 2u;
+                if (MAP != 2u) {
+                    vec4 v = textureLod(map_lut, t4[i], 0.0);
+                    m4[i] = v.rgb * map_node_scale();
+                    marked = MAP != 3u && v.a == 0.0;
+                }
+                black[i] = lv4[i].x == bi.x && c4[i] == vec2(bi.yz);
+                // nothing of the film shows under an opaque layer
+                need[i] = !black[i] && layer[i].a < 1.0 && marked;
+            }
+            uint exact[4], exact_count = 0u;
+            for (uint pair = 0u; pair < 2u; pair++) {
+                uint i = 2u * pair;
+                if (!(need[i] || need[i + 1u]))
+                    continue;
+                ivec2 d = ivec2(cp[pair + 1u] - cp[pair]);
+                if (MAP == 1u && all(greaterThanEqual(d, ivec2(-64))) && all(lessThanEqual(d, ivec2(63))) &&
+                    !(layer[i].a > 0.0 || layer[i + 1u].a > 0.0)) {
+                    raw[pair] = true;
+                    fixup |= 1u << (r * 2u + pair);
+                    sdr4[i] = (map_word(lv4[i]) & 0x00ffffffu) | (uint(d.x) & 127u) << 24;
+                    sdr4[i + 1u] = (map_word(lv4[i + 1u]) & 0x00ffffffu) | (uint(d.y) & 127u) << 24;
+                    continue;
+                }
+                if (need[i])
+                    exact[exact_count++] = i;
+                if (need[i + 1u])
+                    exact[exact_count++] = i + 1u;
+            }
+            // (gathered: the loop runs as often as the row has such samples)
+            for (uint k = 0u; k < exact_count; k++) {
+                uint i = exact[k];
+                m4[i] = map_exact(lv4[i].x, c4[i]);
+            }
+            // the row's dither ranks (map_sdr_q's; x0 % 4 == 0 and the pattern's rows are 64 wide)
+            uvec4 rank = (mp.flags & 16u) != 0u ? map_tables4[((y & 63u) * 64u + (x0 & 63u)) >> 2] : uvec4(2048u);
+            for (uint i = 0u; i < 4u; i++) {
+                if (raw[i >> 1])
+                    continue;
+                // the stream's black (the letterbox) is its exact code (an
+                // integer: the dither leaves it)
+                precise vec3 c = black[i] ? vec3(mp.black_out.xyz) : m4[i];
+                vec4 g = layer[i];
+                if (g.a > 0.0)
+                    // premultiplied sRGB over the display's codes
+                    c = (mp.out_code.x * g.rgb + mp.out_code.y * g.a) + (1.0 - g.a) * c;
+                sdr4[i] = map_sdr_word(uvec3(floor(c + float(rank[i]) * (1.0 / 4096.0))));
+            }
+        } else if (MAP != 0u) {
             // The row's four samples: the lookups issued together (their
             // latency overlaps), then used. A pair's chroma is the even
             // (co-sited) sample's: Cb on the even lane, Cr on the odd one, as
@@ -791,10 +908,22 @@ void pack_main()
             }
         }
         for (uint i = 0u; i < 4u; i++)
-            out4[i] = MAP == 1u && raw[i >> 1] ? map_word(lv4[i]) & 0x00ffffffu : finish(x0 + i, y, lv4[i]);
+            out4[i] = MAP != 0u && MAP_SDR != 0u ? sdr4[i]
+                      : MAP == 1u && raw[i >> 1] ? map_word(lv4[i]) & 0x00ffffffu : finish(x0 + i, y, lv4[i]);
         pixels4[(y * stride_words + x0) / 4u] = out4;
     }
-    if (MAP == 1u && fixup != 0u) {
+    if (MAP == 1u && fixup != 0u && MAP_SDR != 0u) {
+        // SDR: an entry a pair (its index in the canvas's pairs). The marked
+        // samples lie scattered (film grain around a cell's edge), so an
+        // entry a block would have map_fixup compute most of every block.
+        uint n = uint(bitCount(fixup)), slot = atomicAdd(map_cells[mp.list + 3u], n);
+        uint groups = ((slot + n + 63u) >> 6) - ((slot + 63u) >> 6);
+        if (groups != 0u)
+            atomicAdd(map_cells[mp.list], groups);
+        for (uint k = 0u; k < 4u; k++)
+            if ((fixup >> k & 1u) != 0u)
+                map_cells[mp.list + 4u + slot++] = (y0 + (k >> 1)) * (w / 2u) + x0 / 2u + (k & 1u);
+    } else if (MAP == 1u && fixup != 0u) {
         // the list's header is map_fixup's indirect dispatch: groups of 64
         uint slot = atomicAdd(map_cells[mp.list + 3u], 1u);
         if ((slot & 63u) == 0u)

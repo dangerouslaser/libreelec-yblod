@@ -1,16 +1,43 @@
 //! The output colour mapping (include/dvvk_map.h, docs/hdr10-output.md): the
-//! output mode the caller set, and its per-frame plan from yblod/dv_map.c.
+//! output mode the caller set (HDR10, HDR10+ or SDR), and its per-frame plan
+//! from yblod/dv_map.c.
 
 use std::mem::{offset_of, size_of};
 
 pub const DVVK_OUTPUT_DV: u32 = 0;
 pub const DVVK_OUTPUT_HDR10: u32 = 1;
 pub const DVVK_OUTPUT_HDR10PLUS: u32 = 2;
+pub const DVVK_OUTPUT_SDR: u32 = 3;
+/// dvvk_output_mode.flags an SDR output takes (DVVK_SDR_*: gamma 2.2,
+/// limited range, no dither, an HLG source).
+pub const SDR_FLAGS: u32 = 15;
 /// The 3D LUT's points per axis (dvvk_map_gpu.lut_n; dv_map.c sets it).
 pub const LUT_N: u32 = 65;
 /// map_bake's threshold: cells interpolating worse than this (12-bit codes)
 /// are computed exactly.
 pub const BAKE_THRESH: f32 = 0.5;
+/// The same for SDR output, in its 8-bit codes, and at more points of each
+/// cell (map_bake.comp): on the test titles' frames the worst sample outside
+/// the marked cells is then 0.68 of a code (0.4: 0.71), and 6.7 % of a dark
+/// frame's pixels are computed exactly.
+pub const BAKE_THRESH_SDR: f32 = 0.35;
+/// SDR output's 3D LUT (include/dvvk_map.h DVVK_MAP_SDR_NY, DVVK_MAP_SDR_NC:
+/// dv_map.c sets them): its points along luma, Cb and Cr.
+pub const SDR_LUT: [u32; 3] = [129, 65, 65];
+/// SDR output's fix-up list in the cells buffer (words): after its cells'
+/// bits, 256-aligned.
+pub const fn sdr_list() -> u32 {
+    ((SDR_LUT[0] - 1) * (SDR_LUT[1] - 1) * (SDR_LUT[2] - 1)).div_ceil(32).next_multiple_of(64)
+}
+/// include/dvvk_map.h DVVK_MAP_TABLE_WORDS: SDR output's tables (the dither
+/// pattern, then the gamut LUT).
+pub const TABLE_WORDS: usize = 64 * 64 + 2 * 48 * 32 * 256;
+/// The gamut LUT in the tables: its first word, and its points (I, C, h).
+pub const GAMUT_AT: usize = 64 * 64;
+pub const GAMUT_SIZE: [u32; 3] = [48, 32, 256];
+/// dvvk_map_gpu.flags: DVVK_MAP_SDR, DVVK_MAP_HLG.
+const MAP_SDR: u32 = 4;
+const MAP_HLG: u32 = 32;
 
 /// include/dv_engine_vk.h dvvk_output_mode.
 #[repr(C)]
@@ -42,7 +69,7 @@ pub struct HdrSignal {
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct MapGpu {
-    pub bytes: [u8; 1408],
+    pub bytes: [u8; 1504],
 }
 
 /// include/dvvk_map.h dvvk_map.
@@ -52,26 +79,85 @@ pub struct Map {
     pub gpu: MapGpu,
     pub key: u64,
     pub signal: HdrSignal,
+    pub gamut_prim: [[f32; 8]; 2],
+    pub gamut_luma: [f32; 2],
+    /// Names what SDR output's gamut LUT is made from (0: none).
+    pub gamut_key: u64,
 }
 
 const _: () = {
     assert!(size_of::<OutputMode>() == 32);
     assert!(size_of::<HdrSignal>() == 48);
     assert!(offset_of!(HdrSignal, max_luminance) == 24);
-    assert!(size_of::<MapGpu>() == 1408);
-    assert!(offset_of!(Map, key) == 1408);
-    assert!(offset_of!(Map, signal) == 1416);
+    assert!(size_of::<MapGpu>() == 1504);
+    assert!(offset_of!(Map, key) == 1504);
+    assert!(offset_of!(Map, signal) == 1512);
+    assert!(offset_of!(Map, gamut_prim) == 1560);
+    assert!(offset_of!(Map, gamut_key) == 1632);
+    assert!(size_of::<Map>() == 1640);
 };
 
 extern "C" {
     fn dvvk_map_plan(mode: *const OutputMode, metadata: *const u8, size: usize, out: *mut Map) -> i32;
-    fn dvvk_map_set_black(gpu: *mut MapGpu, black: *const u32);
+    fn dvvk_map_tables(map: *const Map, tables: *mut u32);
+    fn dvvk_map_set_black(gpu: *mut MapGpu, tables: *const u32, black: *const u32);
+}
+
+/// Whether dvvk_set_output_mode takes `mode` (dv_map.c's sdr_display for
+/// SDR: a frame's plan would refuse the rest one by one).
+pub fn mode_supported(mode: &OutputMode) -> bool {
+    match mode.mode {
+        DVVK_OUTPUT_DV | DVVK_OUTPUT_HDR10 | DVVK_OUTPUT_HDR10PLUS => {
+            mode.flags == 0 && mode.peak_nits == 0.0 && mode.min_nits == 0.0
+        }
+        DVVK_OUTPUT_SDR => {
+            let white = if mode.peak_nits > 0.0 { mode.peak_nits } else { 203.0 };
+            let black = if mode.min_nits > 0.0 { mode.min_nits } else { white / 1000.0 };
+            mode.flags & !SDR_FLAGS == 0
+                && mode.peak_nits >= 0.0
+                && mode.min_nits >= 0.0
+                && (40.0..=1000.0).contains(&white)
+                && black < white / 20.0
+        }
+        _ => false,
+    }
 }
 
 impl Map {
+    /// dvvk_map_gpu.flags (offset 336).
+    fn flags(&self) -> u32 {
+        u32::from_le_bytes(self.gpu.bytes[336..340].try_into().unwrap())
+    }
+
+    /// SDR output: the display's R'G'B' (else BT.2020 PQ Y'CbCr).
+    pub fn sdr(&self) -> bool {
+        self.flags() & MAP_SDR != 0
+    }
+
+    /// SDR output of an HLG source (DVVK_SDR_HLG): its own pipelines.
+    pub fn hlg(&self) -> bool {
+        self.flags() & MAP_HLG != 0
+    }
+
+    /// SDR output's tables (TABLE_WORDS words) for this mapping: when
+    /// gamut_key changes (tens of milliseconds).
+    pub fn tables(&self, words: &mut [u32]) {
+        assert!(words.len() >= TABLE_WORDS);
+        unsafe { dvvk_map_tables(self, words.as_mut_ptr()) };
+    }
+
     /// The stream's black (12-bit Y, Cb, Cr) and its exact output codes.
-    pub fn set_black(&mut self, black: [u32; 3]) {
-        unsafe { dvvk_map_set_black(&mut self.gpu, black.as_ptr()) };
+    /// `tables`: SDR output's (current for this mapping), else unused.
+    pub fn set_black(&mut self, black: [u32; 3], tables: Option<&[u32]>) {
+        assert!(tables.is_some_and(|t| t.len() >= TABLE_WORDS) || !self.sdr());
+        let tables = tables.map_or(std::ptr::null(), |t| t.as_ptr());
+        unsafe { dvvk_map_set_black(&mut self.gpu, tables, black.as_ptr()) };
+    }
+
+    /// SDR output's LUT size (dvvk_map_gpu.lut_ny at offset 348, lut_n at 340).
+    pub fn lut_size(&self) -> [u32; 3] {
+        let word = |at: usize| u32::from_le_bytes(self.gpu.bytes[at..at + 4].try_into().unwrap());
+        [word(348), word(340), word(340)]
     }
 
     /// dvvk_map_gpu.list (offset 344): the cells buffer's fix-up list (not in the key).
@@ -87,7 +173,14 @@ impl Map {
 
     /// The frame's mapping: Ok(map), or the frame refused (dv_status).
     pub fn plan(mode: &OutputMode, metadata: &[u8]) -> Result<Box<Map>, i32> {
-        let mut out = Box::new(Map { gpu: MapGpu { bytes: [0; 1408] }, key: 0, signal: HdrSignal::default() });
+        let mut out = Box::new(Map {
+            gpu: MapGpu { bytes: [0; 1504] },
+            key: 0,
+            signal: HdrSignal::default(),
+            gamut_prim: [[0.0; 8]; 2],
+            gamut_luma: [0.0; 2],
+            gamut_key: 0,
+        });
         // AVDOVIMetadata is read in place: it must be aligned as ffmpeg allocates it.
         let r = if metadata.as_ptr() as usize % 8 == 0 {
             unsafe { dvvk_map_plan(mode, metadata.as_ptr(), metadata.len(), &mut *out) }

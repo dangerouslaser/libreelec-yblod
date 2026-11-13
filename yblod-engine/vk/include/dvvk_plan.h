@@ -129,6 +129,9 @@ typedef struct dvvk_plan_state dvvk_plan_state;
 dvvk_plan_state *dvvk_plan_state_new(void);
 void dvvk_plan_state_reset(dvvk_plan_state *state);
 void dvvk_plan_state_free(dvvk_plan_state *state);
+/* The canvas dvvk_plan_in's destination is placed in (a new state's is
+ * 3840x2160; a reset keeps it): the engine's, dvvk_create_canvas. */
+void dvvk_plan_state_canvas(dvvk_plan_state *state, unsigned width, unsigned height);
 
 /* 0 OK; else a dv_status (-1 invalid, -2 unsupported: ordinary picture, ...).
  * dvvk_plan_frame and _ex keep one state per process (tests); the engine
