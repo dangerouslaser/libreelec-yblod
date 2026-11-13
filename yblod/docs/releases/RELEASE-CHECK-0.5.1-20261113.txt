@@ -1,0 +1,149 @@
+YBLOD 0.5.1 validation
+
+Build source: feature/yblod-0.5.1 at f0f091fae6f876d3c64a3c05b84d9f074186fcbf (tree 76de91ed). The
+images were built from it (BUILD_ID f0f091fae6f876d3c64a3c05b84d9f074186fcbf).
+The checks below ran on the build of its parent a3ee503d95 (tree f0261879). f0f091fae6 changes
+only a comment in native-dv.env (runtime.env: the SDR output has now been seen on a display),
+the integration README and the bench README. Its build (run-release.sh 0.5.1, both editions,
+again rebuilding only yblod-engine-vk's install and nothing else that differs) was compared with
+a3ee503d95's file by file: KERNEL byte-identical; in SYSTEM, both editions, only
+usr/lib/kodi/native-dv.env (that comment, two lines) and etc/os-release (BUILD_ID) differ, so the
+engine library, dvvk-prepare, kodi.bin and every other file are the ones checked here.
+Changes since 0.5.0 (11e1d1b570, tree 7e5613d5), 32 commits:
+- SDR output: the Vulkan engine converts Dolby Vision, HDR10, HDR10+ and HLG to an ordinary 8-bit
+  picture for a display without Dolby Vision or HDR (DVVK_OUTPUT_SDR, any canvas size). Kodi:
+  kodi-9958 (the Dolby Vision bridge at the display mode's size), kodi-9959 (Output mode "Convert
+  to SDR" and the Automatic fallback), kodi-9960 (HDR10, HDR10+ and HLG videos through the SDR
+  output); kodi-9909 makes Hable Kodi's default tone mapping method. native-dv.env: DV_SDR_OUTPUT=1,
+  DV_SDR_WHITE=203, DV_SDR_BLACK=0, DV_SDR_GAMMA=bt1886, DV_SDR_RANGE=auto, DV_SDR_DITHER=1,
+  DV_SDR_HDR_SOURCES=1.
+- SDR speed and precision (yblod-engine/vk): the 3D LUT over the reconstructed Y'CbCr codes, a
+  row's dither ranks in one load, HLG above nominal white and PQ R'G'B' above 1 not clamped, PQ to
+  a float's precision in the SDR map.
+- Refusal fallback: kodi-9961, a title the Vulkan engine refuses (24 refused pictures over 3 s)
+  restarts as its base layer.
+- OSD output mode: kodi-9962, the playing title's output in the video OSD (Video settings >
+  Output mode), strings 45142-45145; static HDR10 to Dolby Vision for HDR10 sources.
+- HDR10+: yblod_hdr10plus.c takes an itu_t_t35_country_code of 0 (stock FFmpeg) as 0xB5.
+- MMR: engine.rs runs single-layer MMR pictures (CB1's 4:2:0 piecewise path) under the CB1
+  contract; they were refused in 0.5.0.
+- Engine ABI: dvvk_create_canvas, dvvk_output_modes and dvvk_hdr10_to_dovi added (optional
+  symbols), dvvk_hdr10_static.primaries takes one of its reserved words; DVVK_ABI_VERSION 3.
+- Docs, the SDR output plan, and the bench harness on the AMD box with its 0.5.0 results (not in
+  the image).
+
+Images
+Both editions built in the release tree on Ollie (run-release.sh 0.5.1, docker
+libreelec-dv-build, DEVICE=Generic), incremental on the earlier 0.5.1 builds in that tree:
+standard 06:51:45-06:53:39 (1 min 54 s), LG 50 s, no failure. The tree has no tracked changes,
+and "sh yblod/tools/link-patches.sh" prints "patch links OK" (24 Kodi patch links).
+- Rebuilt: kodi (host and target) and yblod-engine-vk, nothing else; the LG pass built no
+  package. Every other package came from stamps. No recipe outside yblod-engine and the Kodi
+  patch links changed since 0.5.0 (the kodi, ffmpeg and add-on recipes are byte-identical).
+- Patches: kodi was unpacked in this build and its 24 fork patches (kodi-9900..9909,
+  9950..9962, 9990) applied with no fuzz and no offset. LibreELEC's 19 applied as in 0.5.0: line
+  offsets in 1006, 1007, 1008 and 9902 and one fuzzy hunk (1007-handle-SIGTERM, hunk 2, fuzz 1).
+  Kodi was then compiled: 1903 build steps, the last one linking kodi.bin.
+- SYSTEM compared with 0.5.0 file by file (both editions the same: 11514 -> 11515 and 11633 ->
+  11634 entries hashed, no file added or removed, directories and links identical; KERNEL
+  byte-identical, 691247fb):
+  - Kodi: kodi.bin (35,036,936 -> 35,061,672 bytes; patches 9909, 9958-9962), strings.po (ids
+    45126-45145 added; 45015's help text names Convert to SDR), settings.xml (four settings in the
+    Dolby Vision group: dvbridge.outputfallback, sdrbrightness, sdrgamma, sdrsources).
+  - Engine: libdv_engine_vk.so.1 (96c36d71 -> ded12053, 1,426,128 -> 1,725,136 bytes),
+    dvvk-prepare (also builds the SDR pipelines), dv-prepare (a comment), native-dv.env (the SDR
+    block above; identical to yblod-engine/integration/runtime.env).
+  - Version stamps: os-release, issue, release, defs.pyc (three bytes, the .pyc header's source
+    time, as in every build).
+  - usr/cache/shadow: root's SHA-512 crypt hash has a new random salt. The file is mode 000, so
+    0.5.0's file list skipped it; it differs the same way between 0.4.1, 0.5.0-t1, 0.5.0-t2 and
+    0.5.0, every other line is identical, and the hash in 0.5.1 (both editions) and 0.5.0 is the
+    crypt of the default password "libreelec" (openssl passwd -6 with its salt).
+  No Mesa, kernel module, FFmpeg or skin file changed. The LG add-ons (service.webostv 0.8.11,
+  repository.dangerouslaser 1.0.1) and Estuary YBLOD (4.1.0+yblod.22) are unchanged.
+- The editions differ as in 0.5.0: the LG add-ons (118 service.webostv files, 1
+  repository.dangerouslaser), addon-manifest.xml (identical to 0.5.0-lg's), the version stamps,
+  and the shadow salt. KERNEL, kodi.bin, the engine, dvvk-prepare and native-dv.env are identical
+  in both.
+- The update tars' SYSTEM and KERNEL equal target/*.system and *.kernel, and the .img.gz
+  installers carry the same SYSTEM and KERNEL (extracted with mcopy).
+
+Testing
+- Engine, with the release library (ded12053, extracted from SYSTEM; the same file in both
+  editions), on Ollie's UHD 770 (Mesa 26.2.6 in yblod-040-engine-dev). The tools are from this
+  commit (yblod-engine archived from a3ee503d95, built with the host toolchain), linked against
+  the release library:
+  - cargo test: 39 of 39 pass (0.5.0's 38 and static_to_dovi_plans).
+  - golden.sh check on the 1917 FEL, Gemini Man MEL and 28 Years Later P8.1 clips: identical (102
+    hashes), FLIP_Y twins identical (18). The same golden.sha256 as 0.5.0.
+  - HDR10 output: the 15 dumps (cb1-hdr10-ref's frames of 1917, 28 Years Later and Gemini Man,
+    with and without --cb1, a static overlay) identical to hdr10-base.log and to the 0.5.0 release
+    library's, run beside it.
+  - sdr-check.sh check, strict, against the committed tools/sdr.sha256: every sample within 1 code
+    of the CPU map (78 pictures), FLIP_Y twins identical, hashes identical (78).
+  - Byte for byte against CB1's own code: dvvk-mr-compare (cb1-vk-root image) with the release
+    library mounted as its engine, every output byte including the embedded metadata packets, 48
+    frames per passage, none refused. 0.5.0's nine passages: 432 of 432 identical (1917 P7 FEL
+    from the start and 30:40, Gemini Man P7 MEL the same two, 28 Years Later P8.1 the same two,
+    12 Angry Men P8.1 letterboxed from 10 min, the DV NASA demo P5, Saving Private Ryan P7 FEL
+    from 1:49:40). The MMR pictures 0.5.0 refused: 144 of 144 identical (Basic Instinct P8.1 MMR
+    from 30 min, Planes, Trains and Automobiles P8.1 MMR from 20 min, the Profile 8.4 sample from
+    the start).
+  - ABI: soname libdv_engine_vk.so.1; NEEDED unchanged (libva.so.2, libgcc_s.so.1, libm.so.6,
+    libc.so.6, ld-linux-x86-64.so.2); 0.5.0's 25 exported symbols all present, plus
+    dvvk_create_canvas, dvvk_hdr10_to_dovi and dvvk_output_modes (28). dv_engine_vk.h:
+    DVVK_ABI_VERSION 3 unchanged; the changes are additive (new enum values, new functions, a
+    reserved field named; every struct's size and existing offsets unchanged, asserted in the
+    header).
+  - dvvk-prepare from the image, run in the standard SYSTEM imported as a container (render node,
+    empty /storage, nothing else on the GPU): 112 of 112 pipelines (0.5.0's 94 and 18 SDR),
+    DVVK_PREPARE_READY, exit 0; 98 s from cold caches, twice (0.5.0: 85 s), 0.46 s with its 20.9
+    MB pipeline cache (0.5.0: 17.1 MB). The SDR HLG variants are left to first use by design.
+- Static, at this commit: link-patches.sh "patch links OK"; tools/pkgcheck kodi and
+  yblod-engine-vk: no findings; Kodi string ids (check_strings.py on this build's patched tree,
+  whose strings.po is the installed one): 4756 unique, no duplicates, 102 ids added since Kodi
+  e6192109 (0.5.0: 82), all in 45000-45999 but 40818 (Estuary YBLOD's $LOCALIZE[40818]), 45142-45145
+  present once each, no referenced id missing. The checker lists 45136, 45137 and 45142-45145 as
+  unreferenced: WinSystemGbmGLESContext.cpp uses them through a conditional and a label variable,
+  which its pattern does not see.
+- Source bundle: the Kodi (e6192109) and FFmpeg (9.0.2) archives and the two add-on zips are
+  0.5.0's (hard links); the kodi, ffmpeg, skin.estuary.yblod, service.webostv,
+  repository.dangerouslaser and yblod-lg recipes and yblod/editions are unchanged since
+  11e1d1b570, and each archive matches its recipe's PKG_SHA256. repository/ is git archive of
+  f0f091fae6: its 4169 files are the commit's (git ls-tree) and identical to the release tree's
+  checkout, file by file (checked on a3ee503d95, then re-archived from f0f091fae6). Linux 7.3 is fetched by its recipe, as before.
+
+Hardware: not run on the release image. The owner chose to release without the planned
+ryzen-fella pass. Earlier, test image 0.5.1-sdr-t1 (an earlier engine of this branch, before the
+speed and real-source commits) showed Convert to SDR on ryzen-fella's LG TV (AMD Ryzen 5 3500U):
+1917 at 203 cd/m2 and BT.1886, about 15 ms GPU a frame, no dropped frames, judged good by eye by
+the owner. Not seen on any display: the OSD output mode (kodi-9962) including static HDR10 to
+Dolby Vision, the refusal restart (kodi-9961), HDR10+ to Dolby Vision with stock FFmpeg's side
+data, and the MMR single-layer films at 4K.
+
+SHA256
+Standard update tar: 49161092774ddb0d38c1536177c56047285351151035b101198e1b4693248688
+Standard install img.gz: a87b0f7f440bd27d70cfc3f8bd615cebdfb951c8dad4dd4da5456ef2aa9c4ae7
+Standard SYSTEM: bc8f942aefa07778d9b4fa47cba06eb3d9fe7a81c9819b94ee4f72c42f3cf9bf
+LG update tar: f8866765403ccfce6c33235a718a0b89fb71cfb0fc4f12965e2c07c2e3971145
+LG install img.gz: 09c70570828b060902fa01531f684d6738585827a092905349928467c98d359c
+LG SYSTEM: 8701ed48b3c1c95e3b5d2a4f94d8e09353b08eb510d495575307b968b6e67e45
+KERNEL (both, = 0.5.0): 691247fbbec50bb7930ec5f5eb4dd21829f8b9c0972cb6c0504b3f840c060275
+Kodi (both): fd3cf7d32d08bf239273c734b37e27e7086837066396885aaab4e115461a60e6
+Vulkan engine (both): ded12053ff088e0d11b69ef338ac051c996b614c588feeecd5a1a4c24062b81f
+Source bundle: a5636a6ba9337e18b2b5b90336d4e05b06ac504ff8430c89e0240244239b72c6
+
+Limitations
+- Not run for this report: anything on a test box or a display (see Hardware); the engine's 4 CPU
+  tests (the C sources they cover, scanout slots, polynomial FEL, order-2 gate and source
+  geometry, are unchanged since 0.5.0, where they passed); the SDR real-source tiers (src.sh on
+  the HLG, HDR10+ and P8.4 clips) and the HDR10+ country-code byte check, with the release
+  library: they ran during development on host-toolchain builds (the HLG tier on this source,
+  ~/yblod-050/sdr/out-final, speed/logs/src-final.log; HDR10+ and P8.4 on the fixes branch,
+  ~/yblod-050/sdr-sources/res-fixes), not on the image's library; the
+  pkgcheck of other packages (their recipes are unchanged since 0.5.0's run). Ollie's engine runs
+  prove the library's pixels, not Kodi's use of it: kodi-9958 to 9962 (SDR selection and
+  fallback, the refusal restart, the OSD output mode) have no automated check here.
+- The CB1 comparison covers the Dolby Vision output only; CB1 has no SDR output, so the SDR
+  pictures are checked against the engine's own CPU map and committed hashes.
+- All 0.5.0 limitations apply.

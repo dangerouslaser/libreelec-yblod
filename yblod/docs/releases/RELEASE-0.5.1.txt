@@ -1,0 +1,36 @@
+YBLOD 0.5.1 adds an SDR output: Dolby Vision, HDR10, HDR10+ and HLG films converted by the Vulkan engine for an SDR TV or projector. The video OSD gets an Output mode choice to switch the playing film between Dolby Vision, HDR10, HDR10+ and SDR. It also fixes two faults in 0.5.0: HDR10+ films never used their scene-by-scene metadata, and some single-layer Dolby Vision films froze at 4K. Dolby Vision, HDR10 and HDR10+ output is otherwise unchanged: the engine's output is byte-identical to 0.5.0 on the reference clips.
+
+SDR output
+- New output mode Convert to SDR (Settings > Player > Dolby Vision > Output mode). The engine reconstructs the Dolby Vision picture as for the other modes, then tone-maps it with the scene's own Dolby Vision metadata and gamut-maps it to BT.709, as libplacebo would. The picture goes out as ordinary 8-bit RGB with a fixed dither; the TV sees a plain SDR signal.
+- Automatic fallback (on by default): when the selected mode is not available on the display, Dolby Vision falls back to Convert to HDR10 and then to Convert to SDR, instead of Kodi playing the base layer alone. On an SDR display this is what makes Profile 5 titles show correct colours without a visit to the settings (Kodi alone shows them with wrong colours).
+- HDR10, HDR10+ and HLG films on a display Kodi does not send HDR to go through the engine too (setting HDR videos on an SDR display; Kodi's own tone mapping remains available, now with Hable as its default instead of off).
+- SDR display brightness: 100, 150, 203 (default) or 300 cd/m2. 203 is the BT.2408 reference white for a TV; 100 suits projectors. SDR gamma: BT.1886 (default) or 2.2.
+- Works at the display's own resolution: 3840x2160, 1920x1080, 1280x720 and 4096x2160 were checked. It needs no kernel support, so it also works on DisplayPort and on Intel graphics older than Tiger Lake.
+- Accuracy: within one code of the engine's double-precision reference on the reference clips; against libplacebo's own rendering, mean colour difference 0.3-1.0 dE ITP per title, nothing over 3. HLG highlights above the signal's nominal white and Profile 8.4 pictures are mapped as libplacebo does.
+- Cost (GPU ms per frame, Intel UHD 770, as fast as it goes; Dolby Vision output / Convert to SDR at 3840x2160 / Convert to SDR at 1920x1080): 1917 8.4 / 10.9 / 3.9; 28 Years Later 3.7 / 7.1 / 3.8; Gemini Man (60p) 5.4 / 8.9 / 4.6; Profile 5 demo 5.6 / 9.3 / 4.7. On an AMD Ryzen 5 3500U, 1917 in SDR took about 15 ms a frame with no dropped frames.
+
+Output mode during playback
+- Video OSD > Settings > Video settings > Output mode switches the playing film only; the setting in Settings > Player stays as it is. The film restarts where it was in the chosen mode.
+- Choices by source: Dolby Vision: Dolby Vision, HDR10, HDR10+, SDR. HDR10+: HDR10+ (original, sent as HDR10 as before), Dolby Vision, SDR. HDR10: HDR10, Dolby Vision, SDR. HLG: HLG, SDR. SDR films have no choice. A choice is listed only where the display and connection can take it, as for the settings.
+- Dolby Vision from HDR10 uses the film's static HDR10 metadata only (no per-scene analysis).
+
+Fixes
+- HDR10+ now uses its scene-by-scene metadata. Since 0.4.0 the setting HDR10+ sources as Dolby Vision played every HDR10+ film as plain HDR10: FFmpeg reports HDR10+ in a way YBLOD's converter misread. HDR10+ films now convert as intended, and so do HDR10+ films through the SDR output.
+- Some single-layer Dolby Vision films no longer freeze at 4K. Films whose Dolby Vision metadata uses MMR colour reshaping (Dolby's Profile 8.4 demo and a few Profile 8.1 releases) froze on their first picture while the sound played, on a 4K display with the default Master Reference setting. They now play, matching CB1's Master Reference byte for byte.
+- If the engine ever refuses a film for good, the film now carries on as plain video (after 3 s) instead of a still picture. The same applies when a Profile 7 FEL film has lost its enhancement layer several times: it plays on as HDR10 to the end instead of freezing until a seek.
+
+AMD
+- 0.5.0 measured on an AMD Ryzen 5 3500U (Vega 8) next to the Intel N150, engine ms per frame: 1917 14.0 (N150 17.5), Spider-Man 18.1 (23.1), 28 Years Later 3.5 (12.0), Gemini Man 6.2 (11.6). Every title holds its frame rate except Gemini Man (60p) with the OSD open (55.7 fps; 58.6 with non-blocking presentation, which works on amdgpu). Full data in the repository (yblod/docs/releases/data/bench-0.5.0-ryzen.md).
+
+Known issues
+- SDR output with gamma 2.2: a handful of samples per picture can be 2-3 codes off (not visible).
+- SDR output at 3840x2160 on an Intel N150 is not yet measured: 24p films and Profile 5 should fit; 60p films may drop frames. A 1920x1080 display mode costs far less.
+- The first HLG video after an update may pause briefly at its start while the engine compiles its shaders (they are not prepared at boot).
+- The Output mode choice in the video OSD has not been tried on a TV yet. In particular, Dolby Vision from an HDR10 film has never been seen on a Dolby Vision TV; if it looks wrong, choose HDR10 again (the next film plays with the settings' output anyway).
+- SDR output was seen on an LG TV through AMD graphics only: not yet on a projector or a real SDR TV, and not on an N150. HDR10+ and the Profile 8.4 / MMR fix were checked in software against reference renderings and, for Profile 8.4 and two MMR Profile 8.1 films, byte for byte against CB1's own code.
+- All 0.5.0 known issues still apply (non-blocking presentation and FreeSync remain opt-in).
+
+Install
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0), or put the .tar of your edition in /storage/.update/; the .img.gz is for a fresh installation. Settings are kept. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2
