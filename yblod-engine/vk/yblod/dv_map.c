@@ -590,7 +590,11 @@ void dvvk_map_nonlinear(const dvvk_map_gpu *p, const double codes[3], double nl[
     /* An HLG signal goes on above its nominal white (codes up to 1019 of 10
      * bits), and so do the R'G'B' of its Y'CbCr: pl_shader_linearize takes
      * them as they are (it clamps at 0 only). */
-    const double top = p->flags & DVVK_MAP_HLG ? INFINITY : 1.0;
+    /* SDR output of a PQ source: its R'G'B' too, where the codes have them
+     * above 1 (a reshaped Profile 8.4 picture's edge had 1.12, which
+     * libplacebo shows as the blue it is and a clamp as a paler one), up to
+     * 1.5: PQ's inverse has a pole near 2. HDR10 output keeps CB1's range. */
+    const double top = p->flags & DVVK_MAP_HLG ? INFINITY : p->flags & DVVK_MAP_SDR ? 1.5 : 1.0;
     for (int i = 0; i < 3; i++)
         nl[i] = fmin(fmax(nl[i] + p->ycc_offset[i], 0.0), top);
 }

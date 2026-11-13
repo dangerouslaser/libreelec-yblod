@@ -71,12 +71,15 @@ vec3 map_pq_oetf(vec3 v)
 
 // the reconstructed codes to the source's nonlinear R'G'B' (L'M'S' for IPT),
 // HDR10's 3D LUT's domain. An HLG source's (MAP_SDR 2) is not clamped at 1:
-// its signal goes on above nominal white (dvvk_map_nonlinear).
+// its signal goes on above nominal white; SDR output of a PQ source at 1.5
+// (dvvk_map_nonlinear).
 vec3 map_nonlinear(vec3 codes)
 {
 #ifdef MAP_SDR_ID
     if (MAP_SDR == 2u)
         return max(map_m3(mp.ycc, codes * (1.0 / 4095.0)) + mp.ycc_offset.xyz, 0.0);
+    if (MAP_SDR == 1u)
+        return clamp(map_m3(mp.ycc, codes * (1.0 / 4095.0)) + mp.ycc_offset.xyz, 0.0, 1.5);
 #endif
     return clamp(map_m3(mp.ycc, codes * (1.0 / 4095.0)) + mp.ycc_offset.xyz, 0.0, 1.0);
 }
