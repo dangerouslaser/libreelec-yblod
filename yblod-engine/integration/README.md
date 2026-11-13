@@ -77,7 +77,9 @@ take precedence over their entries):
 
 ### To check on a display
 
-Nothing of this has been on a display. An SDR-only TV is not needed: any TV
+Seen on a display once: Convert to SDR on an LG TV through AMD graphics
+(Ryzen 5 3500U), 1917 at 203 cd/m2 with BT.1886, no dropped frames. The
+rest below is still to be checked. An SDR-only TV is not needed: any TV
 shows an SDR signal, and an HDFury Arcana can present an EDID without HDR and
 Dolby Vision blocks, which is what the fallback has to see. A projector is a
 separate check.

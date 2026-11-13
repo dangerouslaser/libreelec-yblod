@@ -158,7 +158,7 @@ big-fella; nothing plays before a reboot or a Kodi restart; **never write
 the debugfs `amdgpu_force_sclk`**: forcing the GPU clock hangs this machine
 hard. While a Dolby Vision title plays the engine itself selects the
 `COMPUTE` power profile (the level then reads `manual`); both are back to
-`auto`/`BOOTUP_DEFAULT` when it stops. big-fella is user `bryan` with sudo
+`auto`/`BOOTUP_DEFAULT` when it stops. big-fella has a login user with sudo
 (root login refused); LibreELEC is `root` with another host key in every
 profile, so ssh to it with `-o UserKnownHostsFile=/dev/null -o
 StrictHostKeyChecking=no` (`YBLOD_BENCH_KNOWN_HOSTS=/dev/null` for the
@@ -170,7 +170,7 @@ A new image as profile NAME, from big-fella (release `.tar` checked against
 and the closed wizard, e.g. `y050`):
 
 ```sh
-ssh bryan@192.168.1.156 'sudo sh -euc "
+ssh USER@AMD_BOX 'sudo sh -euc "
 mkdir -p /run/btrtop-rw; mount -o subvolid=5,rw /dev/nvme0n1p2 /run/btrtop-rw
 T=/run/btrtop-rw
 test ! -e \$T/@bench-NAME && test ! -e /boot/bench/NAME
@@ -189,7 +189,7 @@ big-fella, after checking that nothing plays (no `RUNNING` in
 `/proc/asound/card*/pcm*p/sub*/status`, `gpu_busy_percent` near 0):
 
 ```sh
-ssh bryan@192.168.1.156 'sudo bootctl set-oneshot bench-NAME.conf && sudo systemctl reboot'
+ssh USER@AMD_BOX 'sudo bootctl set-oneshot bench-NAME.conf && sudo systemctl reboot'
 ```
 
 From LibreELEC, `reboot` (after `Player.GetActivePlayers` answered `[]`)
