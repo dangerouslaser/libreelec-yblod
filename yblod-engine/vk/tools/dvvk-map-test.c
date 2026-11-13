@@ -6,7 +6,8 @@
  * display's 8-bit R'G'B' for SDR).
  *
  *   dvvk-map-test [options] FIXTURE.bin...
- *     --n N              the 3D LUT's points per axis (default 65)
+ *     --n N              the 3D LUT's points per axis (default 65; SDR output's
+ *                        LUT is the plan's: dvvk_map.h DVVK_MAP_SDR_NY, _NC)
  *     --samples K        random samples (default 200000)
  *     --output MODE      hdr10 (default) or sdr
  *     --white NITS       SDR: the display's white (default 203)
@@ -91,6 +92,39 @@ static void *load(const char *path, size_t *size)
 static int W = 3840, H = 2160;   /* --frame's size */
 static const dvvk_map_gpu *g;
 static const uint32_t *tables;
+
+/* The 3D LUT as map_bake.comp makes it: nn points an axis over the source's
+ * nonlinear R'G'B', or for SDR output over the plan's box of the codes (luma,
+ * Cb, Cr: dvvk_map.h). */
+static int nn[3];
+#define NODE(x, y, z) (((size_t)(z) * nn[1] + (y)) * nn[0] + (x))
+#define CELL(x, y, z) (((size_t)(z) * (nn[1] - 1) + (y)) * (nn[0] - 1) + (x))
+
+/* the LUT's point u (0..1 an axis) as the nonlinear source */
+static void lut_point(const double u[3], double nl[3])
+{
+    if (!(g->flags & DVVK_MAP_SDR)) {
+        memcpy(nl, u, 3 * sizeof(double));
+        return;
+    }
+    const double c[3] = {u[0] * g->lut_box[0], 2048.0 + (2.0 * u[1] - 1.0) * g->lut_box[1],
+                         2048.0 + (2.0 * u[2] - 1.0) * g->lut_box[1]};
+    dvvk_map_nonlinear(g, c, nl);
+}
+
+/* where a sample (its codes, its nonlinear source) is in the LUT: the cell
+ * and the place in it */
+static void lut_place(const double c[3], const double nl[3], int i0[3], double f[3])
+{
+    for (int k = 0; k < 3; k++) {
+        double u = nl[k];
+        if (g->flags & DVVK_MAP_SDR)
+            u = k ? (c[k] - 2048.0) * (0.5 / g->lut_box[1]) + 0.5 : c[0] / g->lut_box[0];
+        const double t = fmin(fmax(u, 0.0), 1.0) * (nn[k] - 1);
+        i0[k] = (int)fmin(floor(t), nn[k] - 2);
+        f[k] = t - i0[k];
+    }
+}
 
 /* dvvk_map_rgb's result as unrounded output codes: 12-bit limited-range
  * Y'CbCr, or the display's R'G'B' codes */
@@ -380,18 +414,22 @@ int main(int argc, char **argv)
             continue;
         }
         /* the LUT: node values, then trilinear against the exact mapping */
-        double *lut = malloc(sizeof(double) * 3 * n * n * n);
-        for (int z = 0; z < n; z++)
-            for (int y = 0; y < n; y++)
-                for (int x = 0; x < n; x++) {
-                    double c[3] = {x / (n - 1.0), y / (n - 1.0), z / (n - 1.0)};
-                    dvvk_map_rgb(g, tables, c, lut + 3 * ((size_t)(z * n + y) * n + x));
+        nn[0] = sdr ? (int)g->lut_ny : n;
+        nn[1] = nn[2] = sdr ? (int)g->lut_n : n;
+        double *lut = malloc(sizeof(double) * 3 * nn[0] * nn[1] * nn[2]);
+        for (int z = 0; z < nn[2]; z++)
+            for (int y = 0; y < nn[1]; y++)
+                for (int x = 0; x < nn[0]; x++) {
+                    const double u[3] = {x / (nn[0] - 1.0), y / (nn[1] - 1.0), z / (nn[2] - 1.0)};
+                    double c[3];
+                    lut_point(u, c);
+                    dvvk_map_rgb(g, tables, c, lut + 3 * NODE(x, y, z));
                 }
         /* cells whose interpolation misses the exact value by more than
          * THRESH codes at the centre or a face centre */
         double thresh = getenv("THRESH") ? atof(getenv("THRESH")) : sdr ? 0.35 : 0.5;
-        int m = n - 1;
-        unsigned char *cellf = calloc((size_t)m * m * m, 1);
+        const size_t cells = CELL(0, 0, nn[2] - 1);
+        unsigned char *cellf = calloc(cells, 1);
         long flagged_nodes = 0;
         /* the bake's points: the cell's centre and its faces' centres; with
          * DVVK_MAP_SDR its edges' centres too (map_bake.comp) */
@@ -400,17 +438,25 @@ int main(int argc, char **argv)
                                           {1, .5, 0}, {0, .5, 1}, {1, .5, 1}, {0, 0, .5}, {1, 0, .5}, {0, 1, .5},
                                           {1, 1, .5}};
         const int npts = getenv("POINTS") ? atoi(getenv("POINTS")) : sdr ? 19 : 7;
-        for (int z = 0; z < m; z++)
-            for (int y = 0; y < m; y++)
-                for (int x = 0; x < m; x++) {
-                    double err = 0;
+        for (int z = 0; z < nn[2] - 1; z++)
+            for (int y = 0; y < nn[1] - 1; y++)
+                for (int x = 0; x < nn[0] - 1; x++) {
+                    /* SDR: the cells of the box's faces hold the samples
+                     * outside it too: marked whatever they hold */
+                    double err = sdr && ((x == nn[0] - 2 && g->lut_box[0] < 4095.0f) || !y || y == nn[1] - 2 || !z ||
+                                         z == nn[2] - 2)
+                                     ? 2 * thresh + 1
+                                     : 0;
                     for (int q = 0; q < npts && err <= thresh; q++) {
-                        double nl[3] = {(x + pts[q][0]) / m, (y + pts[q][1]) / m, (z + pts[q][2]) / m}, ex[3], li[3] = {0};
+                        const double u[3] = {(x + pts[q][0]) / (nn[0] - 1), (y + pts[q][1]) / (nn[1] - 1),
+                                             (z + pts[q][2]) / (nn[2] - 1)};
+                        double nl[3], ex[3], li[3] = {0};
+                        lut_point(u, nl);
                         dvvk_map_rgb(g, tables, nl, ex);
                         for (int corner = 0; corner < 8; corner++) {
                             int dx = corner & 1, dy = (corner >> 1) & 1, dz = corner >> 2;
                             double wgt = (dx ? pts[q][0] : 1 - pts[q][0]) * (dy ? pts[q][1] : 1 - pts[q][1]) * (dz ? pts[q][2] : 1 - pts[q][2]);
-                            const double *v = lut + 3 * ((size_t)((z + dz) * n + y + dy) * n + x + dx);
+                            const double *v = lut + 3 * NODE(x + dx, y + dy, z + dz);
                             for (int k = 0; k < 3; k++)
                                 li[k] += wgt * v[k];
                         }
@@ -421,10 +467,31 @@ int main(int argc, char **argv)
                             err = fmax(err, fabs(a[k] - b[k]));
                     }
                     if (err > thresh) {
-                        cellf[(z * m + y) * m + x] = 1;
+                        cellf[CELL(x, y, z)] = 1;
                         flagged_nodes++;
                     }
                 }
+        /* SDR: the pack takes a sample as marked where the lookup's alpha is
+         * 0, i.e. every node of its cell belongs to a marked cell: the
+         * marked cells, and the unmarked ones they enclose (2 here) */
+        if (sdr) {
+            unsigned char *nodef = calloc((size_t)nn[0] * nn[1] * nn[2], 1);
+            for (int z = 0; z < nn[2] - 1; z++)
+                for (int y = 0; y < nn[1] - 1; y++)
+                    for (int x = 0; x < nn[0] - 1; x++)
+                        for (int c = 0; c < 8 && cellf[CELL(x, y, z)]; c++)
+                            nodef[NODE(x + (c & 1), y + ((c >> 1) & 1), z + (c >> 2))] = 1;
+            for (int z = 0; z < nn[2] - 1; z++)
+                for (int y = 0; y < nn[1] - 1; y++)
+                    for (int x = 0; x < nn[0] - 1; x++) {
+                        int all = !cellf[CELL(x, y, z)];
+                        for (int c = 0; c < 8 && all; c++)
+                            all = nodef[NODE(x + (c & 1), y + ((c >> 1) & 1), z + (c >> 2))];
+                        if (all)
+                            cellf[CELL(x, y, z)] = 2;
+                    }
+            free(nodef);
+        }
         long exact_samples = 0;
         double worst[3] = {0}, sum[3] = {0};
         long over1[3] = {0};
@@ -438,16 +505,12 @@ int main(int argc, char **argv)
             dvvk_map_rgb(g, tables, nl, exact);
             double f[3];
             int i0[3];
-            for (int k = 0; k < 3; k++) {
-                double t = nl[k] * (n - 1);
-                i0[k] = (int)fmin(floor(t), n - 2);
-                f[k] = t - i0[k];
-            }
-            int any_flag = cellf[(i0[2] * m + i0[1]) * m + i0[0]];
+            lut_place(c, nl, i0, f);
+            int any_flag = cellf[CELL(i0[0], i0[1], i0[2])];
             for (int corner = 0; corner < 8; corner++) {
                 int dx = corner & 1, dy = (corner >> 1) & 1, dz = corner >> 2;
                 double wgt = (dx ? f[0] : 1 - f[0]) * (dy ? f[1] : 1 - f[1]) * (dz ? f[2] : 1 - f[2]);
-                const double *v = lut + 3 * ((size_t)((i0[2] + dz) * n + i0[1] + dy) * n + i0[0] + dx);
+                const double *v = lut + 3 * NODE(i0[0] + dx, i0[1] + dy, i0[2] + dz);
                 for (int k = 0; k < 3; k++)
                     lerp[k] += wgt * v[k];
             }
@@ -468,11 +531,11 @@ int main(int argc, char **argv)
             }
         }
         const char *names[3] = {sdr ? "R" : "Y", sdr ? "G" : "Cb", sdr ? "B" : "Cr"};
-        printf("  LUT %d^3 trilinear vs exact, %s codes: %s max %.2f mean %.3f >1: %ld; %s max %.2f mean %.3f "
+        printf("  LUT %dx%dx%d trilinear vs exact, %s codes: %s max %.2f mean %.3f >1: %ld; %s max %.2f mean %.3f "
                ">1: %ld; %s max %.2f mean %.3f >1: %ld (of %d)\n",
-               n, sdr ? "output" : "12-bit", names[0], worst[0], sum[0] / samples, over1[0], names[1], worst[1],
+               nn[0], nn[1], nn[2], sdr ? "output" : "12-bit", names[0], worst[0], sum[0] / samples, over1[0], names[1], worst[1],
                sum[1] / samples, over1[1], names[2], worst[2], sum[2] / samples, over1[2], samples);
-        printf("  flagged cells %.2f%%, samples computed exactly %.2f%%\n", 100.0 * flagged_nodes / ((double)m * m * m),
+        printf("  flagged cells %.2f%%, samples computed exactly %.2f%%\n", 100.0 * flagged_nodes / (double)cells,
                100.0 * exact_samples / samples);
         if (frame) {
             /* a DV tunnel dump (dvvk-bench --dump, output dv): its 12-bit
@@ -501,16 +564,12 @@ int main(int argc, char **argv)
                         int i0[3];
                         dvvk_map_nonlinear(g, c, nl);
                         dvvk_map_rgb(g, tables, nl, exact);
-                        for (int k = 0; k < 3; k++) {
-                            double t = nl[k] * (n - 1);
-                            i0[k] = (int)fmin(floor(t), n - 2);
-                            f[k] = t - i0[k];
-                        }
-                        int fl = cellf[(i0[2] * m + i0[1]) * m + i0[0]];
+                        lut_place(c, nl, i0, f);
+                        int fl = cellf[CELL(i0[0], i0[1], i0[2])] != 0;
                         for (int corner = 0; corner < 8; corner++) {
                             int dx = corner & 1, dy = (corner >> 1) & 1, dz = corner >> 2;
                             double wgt = (dx ? f[0] : 1 - f[0]) * (dy ? f[1] : 1 - f[1]) * (dz ? f[2] : 1 - f[2]);
-                            const double *v = lut + 3 * ((size_t)((i0[2] + dz) * n + i0[1] + dy) * n + i0[0] + dx);
+                            const double *v = lut + 3 * NODE(i0[0] + dx, i0[1] + dy, i0[2] + dz);
                             for (int k = 0; k < 3; k++)
                                 lerp[k] += wgt * v[k];
                         }

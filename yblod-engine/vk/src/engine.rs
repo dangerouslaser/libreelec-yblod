@@ -992,6 +992,8 @@ pub struct Engine {
     // gamut they are for.
     map_sdr: Option<[Pipeline; 4]>,
     map_sdr_hlg: Option<[Pipeline; 4]>, // the same for an HLG source (MAP_SDR 2)
+    // its own 3D LUT (map.rs SDR_LUT: over the codes, not a cube) and nodes
+    map_sdr_lut: Option<(gpu::Lut3d, DeviceBuffer)>,
     map_tables: Option<HostBuffer>,
     map_table_words: Vec<u32>,
     map_tables_key: Option<u64>,
@@ -1501,6 +1503,7 @@ impl Engine {
             pack_map,
             map_sdr,
             map_sdr_hlg: None,
+            map_sdr_lut: None,
             map_tables: None,
             map_table_words: Vec::new(),
             map_tables_key: None,
@@ -2035,8 +2038,22 @@ impl Engine {
             }
             self.d.save_pipeline_cache();
         }
+        if map.lut_size() != crate::map::SDR_LUT {
+            return Err(Error::Missing("the SDR LUT's size"));
+        }
+        if self.map_sdr_lut.is_none() {
+            let size = crate::map::SDR_LUT;
+            let lut = gpu::Lut3d::new_sized(&self.d, size)?;
+            match DeviceBuffer::new(&self.d, u64::from(size[0] * size[1] * size[2]) * 8) {
+                Ok(nodes) => self.map_sdr_lut = Some((lut, nodes)),
+                Err(e) => {
+                    lut.destroy(&self.d);
+                    return Err(e);
+                }
+            }
+        }
         // map_fixup's list with an entry a pair (HDR10's has one a 4x2 block)
-        let cells = u64::from(self.map_list + 4 + (self.canvas[0] / 2) * self.canvas[1]) * 4;
+        let cells = u64::from(crate::map::sdr_list() + 4 + (self.canvas[0] / 2) * self.canvas[1]) * 4;
         if self.map_cells.size < cells {
             self.idle_checked()?;
             let larger = DeviceBuffer::new(&self.d, cells)?;
@@ -2360,11 +2377,12 @@ impl Engine {
                     if m.sdr() {
                         self.ensure_sdr(&m)?;
                         m.set_black(black, Some(&self.map_table_words));
+                        m.set_list(crate::map::sdr_list());
                     } else {
                         m.set_black(black, None);
+                        m.set_lut_n(self.map_lut.n);
+                        m.set_list(self.map_list);
                     }
-                    m.set_lut_n(self.map_lut.n);
-                    m.set_list(self.map_list);
                     self.map = Some(m);
                 }
                 Err(status) => return Ok((status, 0)),
@@ -2927,6 +2945,12 @@ impl Engine {
         // when they changed (map_bake.comp), before the pack reads them.
         let mapped = self.map.is_some();
         let sdr = self.sdr();
+        // the cells buffer's fix-up list, and the LUT the pack samples
+        let map_list = if sdr { crate::map::sdr_list() } else { self.map_list };
+        let map_lut_view = match (&self.map_sdr_lut, sdr) {
+            (Some((lut, _)), true) => lut.view,
+            _ => self.map_lut.view,
+        };
         // SDR output's tables (any buffer for the pipelines that never read them)
         let tables = match (&self.map_tables, sdr) {
             (Some(t), true) => t.buffer,
@@ -2955,10 +2979,17 @@ impl Engine {
         if let Some(m) = self.map.as_ref() {
             self.ring[ci].map_params.bytes_mut()[..m.gpu.bytes.len()].copy_from_slice(&m.gpu.bytes);
             if self.map_baked != Some(m.key) {
-                let n = self.map_lut.n;
+                // SDR: its own LUT, not a cube
+                let (size, nodes) = match (&self.map_sdr_lut, sdr) {
+                    (Some((lut, nodes)), true) => (lut.size, nodes.buffer),
+                    (None, true) => return Err(Error::Missing("the SDR LUT")),
+                    _ => ([self.map_lut.n; 3], self.map_nodes.buffer),
+                };
+                let n = size[1];
                 // earlier frames' packs read the LUT and cells: done before these writes
                 gpu::compute_barrier(d, cmd);
-                unsafe { d.device.cmd_fill_buffer(cmd, self.map_cells.buffer, 0, vk::WHOLE_SIZE, 0) };
+                // the cells' bits (the list after them has its own header)
+                unsafe { d.device.cmd_fill_buffer(cmd, self.map_cells.buffer, 0, u64::from(map_list) * 4, 0) };
                 gpu::compute_barrier(d, cmd);
                 let thresh = self.d.options.map_thresh.unwrap_or(if sdr {
                     crate::map::BAKE_THRESH_SDR
@@ -2968,18 +2999,21 @@ impl Engine {
                 let push: [u32; 2] = [n, thresh.to_bits()];
                 let binds = [
                     Bind::Buffer(slot.map_params),
-                    Bind::Buffer(self.map_nodes.buffer),
+                    Bind::Buffer(nodes),
                     Bind::Buffer(self.map_cells.buffer),
                     Bind::Buffer(tables),
                     Bind::Sampled(gamut, self.linear),
                 ];
                 // nodes, the cells they interpolate badly, the marks in the nodes' alpha
-                self.dispatch3(cmd, &map_bake[0], &binds, &push, n.div_ceil(4));
+                self.dispatch3(cmd, &map_bake[0], &binds, &push, size.map(|n| n.div_ceil(4)));
                 gpu::compute_barrier(d, cmd);
-                self.dispatch3(cmd, &map_bake[1], &binds, &push, (n - 1).div_ceil(4));
+                self.dispatch3(cmd, &map_bake[1], &binds, &push, size.map(|n| (n - 1).div_ceil(4)));
                 gpu::compute_barrier(d, cmd);
-                self.dispatch3(cmd, &map_bake[2], &binds, &push, n.div_ceil(4));
-                self.map_lut.record_copy(d, cmd, self.map_nodes.buffer, 0);
+                self.dispatch3(cmd, &map_bake[2], &binds, &push, size.map(|n| n.div_ceil(4)));
+                match (self.map_sdr_lut.as_mut(), sdr) {
+                    (Some((lut, _)), true) => lut.record_copy(d, cmd, nodes, 0),
+                    _ => self.map_lut.record_copy(d, cmd, nodes, 0),
+                }
                 gpu::compute_barrier(d, cmd);
                 self.map_baked = Some(m.key);
                 self.map_bakes += 1;
@@ -2993,7 +3027,7 @@ impl Engine {
             gpu::indirect_barrier(d, cmd);
             let header: [u32; 4] = [0, 1, 1, 0];
             let bytes = unsafe { std::slice::from_raw_parts(header.as_ptr() as *const u8, 16) };
-            unsafe { d.device.cmd_update_buffer(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4, bytes) };
+            unsafe { d.device.cmd_update_buffer(cmd, self.map_cells.buffer, u64::from(map_list) * 4, bytes) };
             gpu::indirect_barrier(d, cmd);
         }
         let pack = if mapped {
@@ -3042,7 +3076,7 @@ impl Engine {
                 Bind::Sampled(self.cb1_luts[0].view, self.linear),
                 Bind::Sampled(self.cb1_luts[1].view, self.linear),
                 Bind::Buffer(self.cb1_tiles.buffer),
-                Bind::Sampled(self.map_lut.view, self.linear),
+                Bind::Sampled(map_lut_view, self.linear),
                 Bind::Buffer(slot.map_params),
                 Bind::Buffer(self.map_cells.buffer),
                 Bind::Buffer(slot.stats),
@@ -3098,14 +3132,14 @@ impl Engine {
                 ],
             );
             gpu::push_constants(d, cmd, map_fixup, &[canvas_w, out_stride / 4]);
-            unsafe { d.device.cmd_dispatch_indirect(cmd, self.map_cells.buffer, u64::from(self.map_list) * 4) };
+            unsafe { d.device.cmd_dispatch_indirect(cmd, self.map_cells.buffer, u64::from(map_list) * 4) };
         }
         if self.d.options.map_stats {
             // the list's count, for collect_frame (no list: none)
             self.ring[ci].bounds_result.bytes_mut()[16..20].copy_from_slice(&u32::MAX.to_le_bytes());
             if fixup {
                 gpu::compute_barrier(d, cmd);
-                let region = [vk::BufferCopy { src_offset: u64::from(self.map_list) * 4 + 12, dst_offset: 16, size: 4 }];
+                let region = [vk::BufferCopy { src_offset: u64::from(map_list) * 4 + 12, dst_offset: 16, size: 4 }];
                 unsafe {
                     d.device.cmd_copy_buffer(cmd, self.map_cells.buffer, self.ring[ci].bounds_result.buffer, &region)
                 };
@@ -3476,12 +3510,12 @@ impl Engine {
     }
 
     /// A cubic dispatch (map_bake: groups^3 workgroups).
-    fn dispatch3<T: Copy>(&self, cmd: vk::CommandBuffer, pipe: &Pipeline, binds: &[Bind], push: &T, groups: u32) {
+    fn dispatch3<T: Copy>(&self, cmd: vk::CommandBuffer, pipe: &Pipeline, binds: &[Bind], push: &T, groups: [u32; 3]) {
         let d = &self.d;
         unsafe { d.device.cmd_bind_pipeline(cmd, vk::PipelineBindPoint::COMPUTE, pipe.pipeline) };
         self.push.bind(cmd, pipe, binds);
         gpu::push_constants(d, cmd, pipe, push);
-        unsafe { d.device.cmd_dispatch(cmd, groups, groups, groups) };
+        unsafe { d.device.cmd_dispatch(cmd, groups[0], groups[1], groups[2]) };
     }
 
     /// reconstruct_impl's direct route for a half-size EL (opencl_backend.c),
@@ -3799,6 +3833,10 @@ impl Drop for Engine {
         }
         if let Some(g) = &self.map_gamut {
             g.destroy(d);
+        }
+        if let Some((lut, nodes)) = &self.map_sdr_lut {
+            lut.destroy(d);
+            nodes.destroy(d);
         }
         self.map_lut.destroy(d);
         self.map_nodes.destroy(d);

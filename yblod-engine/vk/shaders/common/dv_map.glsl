@@ -30,7 +30,7 @@ struct DvMap {
     uint flags;      // 1 tone
     uint lut_n;
     uint list;       // the cells buffer's fix-up list (word offset; the engine's)
-    uint pad1;
+    uint lut_ny;     // SDR: the LUT's points along luma (lut_n: along each chroma)
     uvec4 black_in;  // the stream's black codes, and their exact output codes
     uvec4 black_out;
     float tone_lut[256];
@@ -38,7 +38,7 @@ struct DvMap {
     vec4 out_trc;    // V = pow(max(x * L + y, 0), z) - w
     vec4 out_code;   // codes: x * V + y
     uvec2 gamut_key;
-    uvec2 pad2;
+    vec2 lut_box;    // SDR: the LUT's domain in codes: luma 0 .. x, chroma 2048 -+ y
     vec4 src_trc;    // an HLG source: x the black lift, y gamma - 1, z the peak
     vec4 src_luma;
 };
@@ -200,7 +200,8 @@ uvec3 map_sdr_q(vec3 codes, uvec2 at)
 uint map_sdr_word(uvec3 c) { return c.b | c.g << 8 | c.r << 16 | 0xff000000u; }
 #endif
 
-// The decode (map_nonlinear) in the LUT's texture coordinates, split: the
+// The decode (map_nonlinear) in the LUT's texture coordinates (not SDR's
+// LUT: map_sdr_coord), split: the
 // pair's chroma part once (map_base), then each sample's luma (map_coord).
 // t = clamp(nl, 0, 1) * (n - 1) / n + 0.5 / n.
 vec3 map_base(uint cb, uint cr)
@@ -227,12 +228,24 @@ vec3 map_exact(uint yy, uint cb, uint cr)
 #ifdef MAP_SDR_ID
 // SDR: a pixel has its own chroma, the pair's sample on the even pixel and
 // the mean of it and the next pair's on the odd one (4:2:2 is sited on the
-// even pixel), so the codes are not integers: map_base and map_exact for them.
-vec3 map_base(vec2 cbcr)
+// even pixel), so the codes are not integers: map_exact for them.
+// Its 3D LUT lies over the codes themselves (dvvk_map.h): luma along x from
+// 0 to lut_box.x, Cb and Cr along y and z, lut_box.y either side of neutral.
+// map_sdr_box: a point of that box (0..1 an axis) as codes. map_sdr_coord: a
+// sample's texture coordinates (one outside the box: its nearest face's),
+// from map_sdr_axes' numbers, which a shader works out once.
+uvec3 map_sdr_size() { return uvec3(mp.lut_ny, mp.lut_n, mp.lut_n); }
+vec3 map_sdr_box(vec3 u) { return vec3(u.x * mp.lut_box.x, 2048.0 + (2.0 * u.yz - 1.0) * mp.lut_box.y); }
+void map_sdr_axes(out vec3 scale, out vec3 offset, out vec3 lo)
 {
-    float n = float(mp.lut_n), s = (n - 1.0) / n;
-    vec2 c = cbcr * (s / 4095.0);
-    return vec3(dot(mp.ycc[0].yz, c), dot(mp.ycc[1].yz, c), dot(mp.ycc[2].yz, c)) + mp.ycc_offset.xyz * s + 0.5 / n;
+    vec3 n = vec3(map_sdr_size()), s = (n - 1.0) / n;
+    lo = 0.5 / n;
+    scale = s * vec3(1.0, 0.5, 0.5) / mp.lut_box.xyy;
+    offset = lo + s * vec3(0.0, 0.5, 0.5);
+}
+vec3 map_sdr_coord(uint yy, vec2 cbcr, vec3 scale, vec3 offset, vec3 lo)
+{
+    return clamp(vec3(float(yy), cbcr - 2048.0) * scale + offset, lo, 1.0 - lo);
 }
 vec3 map_exact(uint yy, vec2 cbcr)
 {
@@ -250,19 +263,6 @@ uint map_sdr_pixel(uint yy, vec2 cbcr, vec3 c, uvec2 at)
         return map_sdr_word(mp.black_out.xyz);
     return map_sdr_word(map_sdr_q(c, at));
 }
-#ifdef MAP_CELLS_BINDING
-// Whether map_bake marked the cell that LUT coordinate t (map_coord) is in:
-// its bit in the cells buffer. (HDR10's pack reads the marks from the LUT's
-// alpha instead, which also takes half of every cell beside a marked one;
-// here an exactly computed sample costs more, and there are more of them.)
-bool map_marked(vec3 t)
-{
-    uint m = mp.lut_n - 1u;
-    uvec3 c = min(uvec3(max(t * float(mp.lut_n) - 0.5, 0.0)), uvec3(m - 1u));
-    uint i = (c.z * m + c.y) * m + c.x;
-    return ((map_cells[i >> 5] >> (i & 31u)) & 1u) != 0u;
-}
-#endif
 #endif
 
 // A pair's output codes from its input codes a (even: Y, Cb) and b (odd: Y,

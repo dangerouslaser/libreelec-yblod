@@ -18,6 +18,22 @@
 #include "dv_engine_vk.h"
 
 #define DVVK_MAP_LUT 256   /* tone LUT entries (CB1: lut_size 256) */
+/* SDR output's 3D LUT lies over the reconstructed Y'CbCr codes (HDR10's over
+ * the source's nonlinear R'G'B'), DVVK_MAP_SDR_NY x DVVK_MAP_SDR_NC^2 points:
+ * luma from 0 to the scene's peak (dvvk_map_gpu.lut_box), chroma
+ * DVVK_MAP_SDR_CHROMA codes either side of neutral (an HLG source:
+ * DVVK_MAP_SDR_CHROMA_HLG). A display's R'G'B' near
+ * zero is a small difference of the source's channels, and their noise in a
+ * dark picture moves it by many 8-bit codes: over R'G'B' the LUT missed it by
+ * more than the bake allows in a third of a dark frame's pixels (every pixel
+ * of an IPT source, whose channels are L'M'S'). Along luma the channels move
+ * together, and the chroma axes need only the colours pictures have. A
+ * sample outside the box lands in a cell of its faces, which the bake marks
+ * (computed exactly). */
+#define DVVK_MAP_SDR_NY 129
+#define DVVK_MAP_SDR_NC 65
+#define DVVK_MAP_SDR_CHROMA 512.0f
+#define DVVK_MAP_SDR_CHROMA_HLG 1024.0f
 /* SDR output's tables (dvvk_map_tables; the GPU reads the same words): the
  * dither pattern, DVVK_MAP_DITHER^2 ranks 0 .. DVVK_MAP_DITHER^2 - 1, rows
  * first; then the gamut mapping LUT as libplacebo's shader holds it (an
@@ -54,9 +70,9 @@ typedef struct {
     float tone_in[4];        /* x: input min, y: input max (PQ), z: 1/(max-min) */
     float tone_out[4];       /* x: output min, y: output max (PQ) */
     uint32_t flags;          /* DVVK_MAP_* */
-    uint32_t lut_n;          /* the 3D LUT's points per axis */
+    uint32_t lut_n;          /* the 3D LUT's points per axis (SDR: per chroma axis) */
     uint32_t list;           /* the cells buffer's fix-up list, word offset (the engine sets it; not in the key) */
-    uint32_t pad;
+    uint32_t lut_ny;         /* SDR: the 3D LUT's points along the luma axis (0 otherwise) */
     uint32_t black_in[4];    /* the stream's black (dvvk_plan.black: Y, Cb, Cr) ... */
     uint32_t black_out[4];   /* ... and its exact output codes (dvvk_map_set_black;
                               * the letterbox: no LUT or exact pass for it) */
@@ -67,7 +83,8 @@ typedef struct {
                               * V = pow(max(x * L + y, 0), z) - w */
     float out_code[4];       /* the output codes: x * clamp(V, 0, 1) + y */
     uint32_t gamut_key[2];   /* names the gamut LUT's contents (dvvk_map.gamut_key) */
-    uint32_t pad2[2];
+    float lut_box[2];        /* the 3D LUT's domain, in the reconstructed codes: luma 0 .. [0],
+                              * each chroma 2048 - [1] .. 2048 + [1] (below) */
     /* an HLG source (DVVK_MAP_HLG; all 0 otherwise): libplacebo's
      * pl_shader_linearize, the inverse OETF of x: (1 - b) V + b, then the OOTF:
      * light (1 = 10000 cd/m2) = z * E * pow(src_luma . E, y), E the scene's

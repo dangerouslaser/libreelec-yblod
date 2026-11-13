@@ -18,9 +18,17 @@ pub const LUT_N: u32 = 65;
 pub const BAKE_THRESH: f32 = 0.5;
 /// The same for SDR output, in its 8-bit codes, and at more points of each
 /// cell (map_bake.comp): on the test titles' frames the worst sample outside
-/// the marked cells is then 0.71 of a code (0.5: 1.06; 0.25 marks 86 % of a
-/// dark frame's pixels instead of 34 %).
+/// the marked cells is then 0.68 of a code (0.4: 0.71), and 6.7 % of a dark
+/// frame's pixels are computed exactly.
 pub const BAKE_THRESH_SDR: f32 = 0.35;
+/// SDR output's 3D LUT (include/dvvk_map.h DVVK_MAP_SDR_NY, DVVK_MAP_SDR_NC:
+/// dv_map.c sets them): its points along luma, Cb and Cr.
+pub const SDR_LUT: [u32; 3] = [129, 65, 65];
+/// SDR output's fix-up list in the cells buffer (words): after its cells'
+/// bits, 256-aligned.
+pub const fn sdr_list() -> u32 {
+    ((SDR_LUT[0] - 1) * (SDR_LUT[1] - 1) * (SDR_LUT[2] - 1)).div_ceil(32).next_multiple_of(64)
+}
 /// include/dvvk_map.h DVVK_MAP_TABLE_WORDS: SDR output's tables (the dither
 /// pattern, then the gamut LUT).
 pub const TABLE_WORDS: usize = 64 * 64 + 2 * 48 * 32 * 256;
@@ -144,6 +152,12 @@ impl Map {
         assert!(tables.is_some_and(|t| t.len() >= TABLE_WORDS) || !self.sdr());
         let tables = tables.map_or(std::ptr::null(), |t| t.as_ptr());
         unsafe { dvvk_map_set_black(&mut self.gpu, tables, black.as_ptr()) };
+    }
+
+    /// SDR output's LUT size (dvvk_map_gpu.lut_ny at offset 348, lut_n at 340).
+    pub fn lut_size(&self) -> [u32; 3] {
+        let word = |at: usize| u32::from_le_bytes(self.gpu.bytes[at..at + 4].try_into().unwrap());
+        [word(348), word(340), word(340)]
     }
 
     /// dvvk_map_gpu.list (offset 344): the cells buffer's fix-up list (not in the key).

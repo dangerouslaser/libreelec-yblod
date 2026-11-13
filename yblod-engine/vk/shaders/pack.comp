@@ -70,7 +70,7 @@ layout(constant_id = 8) const uint MAP = 0;
 // dithered. A pixel has its own luma and its own chroma: the pair's sample
 // on the even pixel, the mean of it and the next pair's on the odd one
 // (4:2:2 is sited on the even pixel; libplacebo's bilinear chroma is the
-// same numbers). map_bake's marks are read per cell (map_marked). A pair
+// same numbers). map_bake's marks are the lookup's alpha, where it is 0. A pair
 // with a marked sample goes to map_fixup as in the HDR10 output, its words
 // carrying the next pair's chroma as a difference of 7 bits each; the rare
 // pair whose difference does not fit, and a pair under the overlay, is
@@ -706,6 +706,9 @@ void pack_main()
         }
     }
     uint fixup = 0u;   // MAP 1: the block's pairs for map_fixup (bit row * 2 + pair)
+    vec3 sdr_scale = vec3(0.0), sdr_offset = vec3(0.0), sdr_lo = vec3(0.0);
+    if (MAP != 0u && MAP_SDR != 0u)
+        map_sdr_axes(sdr_scale, sdr_offset, sdr_lo);
     for (uint r = 0; r < 2; r++) {
         uint y = y0 + r;
         if (y >= h)
@@ -788,7 +791,7 @@ void pack_main()
             vec3 t4[4];
             vec4 layer[4];
             for (uint i = 0u; i < 4u; i++) {
-                t4[i] = map_coord(lv4[i].x, map_base(c4[i]));
+                t4[i] = map_sdr_coord(lv4[i].x, c4[i], sdr_scale, sdr_offset, sdr_lo);
                 layer[i] = vec4(0.0);
                 if (OVERLAY == 4u) {
                     uint v = shell_rgba(x0 + i, y);
@@ -797,11 +800,15 @@ void pack_main()
             }
             bool black[4], need[4];
             for (uint i = 0u; i < 4u; i++) {
-                if (MAP != 2u)
-                    m4[i] = textureLod(map_lut, t4[i], 0.0).rgb * map_node_scale();
+                bool marked = MAP == 2u;
+                if (MAP != 2u) {
+                    vec4 v = textureLod(map_lut, t4[i], 0.0);
+                    m4[i] = v.rgb * map_node_scale();
+                    marked = MAP != 3u && v.a == 0.0;
+                }
                 black[i] = lv4[i].x == bi.x && c4[i] == vec2(bi.yz);
                 // nothing of the film shows under an opaque layer
-                need[i] = !black[i] && layer[i].a < 1.0 && (MAP == 2u || (MAP != 3u && map_marked(t4[i])));
+                need[i] = !black[i] && layer[i].a < 1.0 && marked;
             }
             uint exact[4], exact_count = 0u;
             for (uint pair = 0u; pair < 2u; pair++) {

@@ -15,6 +15,12 @@
 // those codes, and PASS 1 also looks at the cell's 12 edge centres: the map
 // has more kinks there (a channel reaching the display's black or white, the
 // gamut LUT's own cells) and they pass between the 7 points more often.
+// Its LUT lies over a box of the reconstructed codes (map_sdr_box), lut_ny
+// points along luma and `n` along each chroma; the cells of the box's faces
+// are marked whatever they hold, for the samples outside it. The pack takes
+// a sample as marked where its alpha is exactly 0: every node of its cell
+// belongs to a marked cell (the marked cells, and an unmarked one enclosed by
+// them).
 #version 460
 #define MAP_PARAMS_BINDING 0
 #define MAP_TABLES_BINDING 3
@@ -42,8 +48,67 @@ vec3 node(uvec3 p) { return unpack16(nodes[(p.z * n + p.y) * n + p.x]); }
 
 vec3 codes(vec3 rgb) { return map_out_codes(rgb); }
 
+const vec3 sdr_pts[19] = vec3[19](vec3(.5, .5, .5), vec3(0, .5, .5), vec3(1, .5, .5), vec3(.5, 0, .5),
+                                  vec3(.5, 1, .5), vec3(.5, .5, 0), vec3(.5, .5, 1), vec3(.5, 0, 0), vec3(.5, 1, 0),
+                                  vec3(.5, 0, 1), vec3(.5, 1, 1), vec3(0, .5, 0), vec3(1, .5, 0), vec3(0, .5, 1),
+                                  vec3(1, .5, 1), vec3(0, 0, .5), vec3(1, 0, .5), vec3(0, 1, .5), vec3(1, 1, .5));
+
+void sdr_bake()
+{
+    uvec3 g = gl_GlobalInvocationID, size = map_sdr_size(), m = size - 1u;
+    if (PASS == 0u) {
+        if (any(greaterThanEqual(g, size)))
+            return;
+        vec3 rgb;
+        map_rgb(map_nonlinear(map_sdr_box(vec3(g) / vec3(m))), rgb);
+        nodes[(g.z * size.y + g.y) * size.x + g.x] = pack16(codes(rgb) * (1.0 / map_node_scale()));
+        return;
+    }
+    if (PASS == 2u) {
+        if (any(greaterThanEqual(g, size)))
+            return;
+        bool touched = false;
+        for (uint k = 0u; k < 8u; k++) {
+            uvec3 c = g - uvec3(k & 1u, (k >> 1) & 1u, k >> 2);   // wraps below 0: out of range
+            if (all(lessThan(c, m))) {
+                uint i = (c.z * m.y + c.y) * m.x + c.x;
+                touched = touched || ((cells[i >> 5] >> (i & 31u)) & 1u) != 0u;
+            }
+        }
+        if (touched)
+            nodes[(g.z * size.y + g.y) * size.x + g.x].y &= 0xffffu;
+        return;
+    }
+    if (any(greaterThanEqual(g, m)))
+        return;
+    bool face = (g.x == m.x - 1u && mp.lut_box.x < 4095.0) || g.y == 0u || g.y == m.y - 1u || g.z == 0u || g.z == m.z - 1u;
+    float err = face ? 2.0 * thresh + 1.0 : 0.0;
+    vec3 c[8];
+    for (uint k = 0u; k < 8u && !face; k++) {
+        uvec3 p = g + uvec3(k & 1u, (k >> 1) & 1u, k >> 2);
+        c[k] = unpack16(nodes[(p.z * size.y + p.y) * size.x + p.x]) * map_node_scale();
+    }
+    for (uint q = 0u; q < 19u && err <= thresh; q++) {
+        vec3 f = sdr_pts[q], exact;
+        map_rgb(map_nonlinear(map_sdr_box((vec3(g) + f) / vec3(m))), exact);
+        vec3 x00 = mix(c[0], c[1], f.x), x10 = mix(c[2], c[3], f.x), x01 = mix(c[4], c[5], f.x),
+             x11 = mix(c[6], c[7], f.x);
+        vec3 lerp = mix(mix(x00, x10, f.y), mix(x01, x11, f.y), f.z);
+        vec3 d = abs(codes(exact) - lerp);
+        err = max(err, max(d.x, max(d.y, d.z)));
+    }
+    if (err > thresh) {
+        uint i = (g.z * m.y + g.y) * m.x + g.x;
+        atomicOr(cells[i >> 5], 1u << (i & 31u));
+    }
+}
+
 void main()
 {
+    if (MAP_SDR != 0u) {
+        sdr_bake();
+        return;
+    }
     uvec3 g = gl_GlobalInvocationID;
     if (PASS == 0u) {
         if (any(greaterThanEqual(g, uvec3(n))))

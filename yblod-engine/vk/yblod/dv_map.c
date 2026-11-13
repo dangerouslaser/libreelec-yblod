@@ -313,6 +313,26 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
         g->flags |= DVVK_MAP_SDR;
         if (!(mode->flags & DVVK_SDR_NO_DITHER))
             g->flags |= DVVK_MAP_DITHER_ON;
+        /* The 3D LUT's box (dvvk_map.h). Luma ends where a grey reaches the
+         * curve's input peak and a thirty-second (PQ) more: the scene has
+         * little above it, and a narrower box is a finer LUT. Without the
+         * curve, and for HLG (its signal ends at 1), the whole range. HLG's
+         * chroma is the wider too: its curve is nearer a square root than
+         * PQ's logarithm, and a colour's channels lie further apart. */
+        g->lut_n = DVVK_MAP_SDR_NC;
+        g->lut_ny = DVVK_MAP_SDR_NY;
+        g->lut_box[0] = 4095.0f;
+        g->lut_box[1] = g->flags & DVVK_MAP_HLG ? DVVK_MAP_SDR_CHROMA_HLG : DVVK_MAP_SDR_CHROMA;
+        if ((g->flags & DVVK_MAP_TONE) && !(g->flags & DVVK_MAP_HLG)) {
+            float top = 0.0f;
+            for (int i = 0; i < 3; i++) {
+                const float grey = (g->ycc[4 * i + 1] + g->ycc[4 * i + 2]) * (2048.0f / 4095.0f) + g->ycc_offset[i];
+                if (g->ycc[4 * i] > 0.0f)
+                    top = fmaxf(top, (g->tone_in[1] + 1.0f / 32 - grey) / g->ycc[4 * i] * 4095.0f);
+            }
+            if (top > 0.0f)
+                g->lut_box[0] = fminf(ceilf(top), 4095.0f);
+        }
         if (need_gamut) {
             g->flags |= DVVK_MAP_GAMUT;
             const float range = gamut.max_luma - gamut.min_luma;
