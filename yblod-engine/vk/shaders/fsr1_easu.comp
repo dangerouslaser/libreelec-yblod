@@ -1,0 +1,46 @@
+// FSR 1 EASU (common/fsr1.glsl) on the reconstructed luma (src/scaler.rs):
+// the staged plane at the source's size (12-bit codes) to the destination
+// rectangle's size, as codes x 16 (four fraction bits: RCAS in the pack
+// sharpens these, and a rounded code would carry a rounding error into its
+// result four times over). The edges clamp, as the texture sampler of AMD's
+// own use does. Rows and columns outside the dispatch (src/scaler.rs
+// easu_region: where the film shows) are left as they were.
+#version 460
+#extension GL_EXT_shader_16bit_storage : require
+#extension GL_EXT_shader_explicit_arithmetic_types_int16 : require
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(binding = 0, std430) readonly buffer InY { uint16_t yplane[]; };
+layout(binding = 1, std430) writeonly buffer OutY { uint16_t scaled[]; };
+layout(push_constant) uniform Push { uvec2 source, dest; vec2 scale, offset; uvec2 origin; };
+
+// The workgroup's texels: 16 output pixels lie within 16 texels of each
+// other when enlarging (scale <= 1, at most one ulp over), and EASU's taps
+// reach one texel before and two after.
+const int TILE = 20;
+shared float tile[TILE][TILE];
+ivec2 tile_base;
+
+float fsr1_tap(ivec2 p)
+{
+    ivec2 t = p - tile_base;
+    return tile[t.y][t.x];
+}
+
+#define FSR1_EASU 1
+#include "fsr1.glsl"
+
+void main()
+{
+    uvec2 first = origin + gl_WorkGroupID.xy * 16u;
+    tile_base = ivec2(floor(fma(vec2(first), scale, offset))) - 1;
+    for (uint e = gl_LocalInvocationIndex; e < uint(TILE * TILE); e += 256u) {
+        ivec2 p = clamp(tile_base + ivec2(e % uint(TILE), e / uint(TILE)), ivec2(0), ivec2(source) - 1);
+        tile[e / uint(TILE)][e % uint(TILE)] = float(uint(yplane[uint(p.y) * source.x + uint(p.x)])) * (1.0 / 4095.0);
+    }
+    barrier();
+    uvec2 ip = first + gl_LocalInvocationID.xy;
+    if (ip.x >= dest.x || ip.y >= dest.y)
+        return;
+    float y = fsr1_easu(ip, scale, offset);
+    scaled[ip.y * dest.x + ip.x] = uint16_t(uint(floor(clamp(y, 0.0, 1.0) * (4095.0 * 16.0) + 0.5)));
+}

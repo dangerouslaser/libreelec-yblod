@@ -329,6 +329,21 @@ pub unsafe extern "C" fn dvvk_set_output_mode(e: *mut Engine, mode: *const crate
     })
 }
 
+/// dvvk_set_scaler (optional symbol): the upscaler from the next frame.
+///
+/// # Safety
+/// `e` must be an engine from dvvk_create (or NULL).
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_set_scaler(e: *mut Engine, method: u32) -> i32 {
+    with_engine(e, "set_scaler", DVVK_INVALID, DVVK_BACKEND, |e| match e.set_scaler(method) {
+        Ok(()) => 0,
+        Err(err) => {
+            log_error("set_scaler", err);
+            DVVK_UNSUPPORTED
+        }
+    })
+}
+
 /// dvvk_output_modes (optional symbol): the output modes this library has,
 /// bit 1 << DVVK_OUTPUT_*.
 #[no_mangle]

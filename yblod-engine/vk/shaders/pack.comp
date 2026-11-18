@@ -250,6 +250,26 @@ uint source_linear(bool chroma, bool odd, uint pw, uint ph, int nx, int ny, uint
     return uint(floor(v));
 }
 
+// SCALER (constant 11; dvvk_set_scaler, src/scaler.rs: PACK 2, SOURCE 0, an
+// enlargement): the luma from fsr1_easu.comp's plane at the destination's
+// size (binding 0, codes x 16) instead of source_linear's; 1 as EASU made
+// it, 2 sharpened by RCAS here (the cross clamped to the destination). The
+// chroma stays bilinear.
+layout(constant_id = 11) const uint SCALER = 0;
+#include "fsr1.glsl"
+
+float fsr1_plane(uint x, uint y, uint dw) { return float(uint(yplane[y * dw + x])) * (1.0 / 65520.0); }
+
+uint fsr1_luma(uint lx, uint ly, uint dw, uint dh)
+{
+    if (SCALER == 1u)
+        return (uint(yplane[ly * dw + lx]) + 8u) >> 4;
+    float r = fsr1_rcas(fsr1_plane(lx, ly > 0u ? ly - 1u : 0u, dw), fsr1_plane(lx > 0u ? lx - 1u : 0u, ly, dw),
+                        fsr1_plane(lx, ly, dw), fsr1_plane(min(lx + 1u, dw - 1u), ly, dw),
+                        fsr1_plane(lx, min(ly + 1u, dh - 1u), dw));
+    return uint(floor(clamp(r, 0.0, 1.0) * 4095.0 + 0.5));
+}
+
 uint vertical_mapped(bool chroma, bool odd, uint pw, uint ph, uint x, uvec4 m)
 {
     precise float fy = uintBitsToFloat(m.z);
@@ -504,7 +524,7 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8], bool want_luma
     if (inside && shown) {
         if (PACK == 2 && (sw != dw || sh != dh)) {
             if (sw == dw) {
-                if (want_luma)
+                if (want_luma && SCALER == 0u)
                     yy = vertical_mapped(false, false, sw, sh, lx, ymap[2 * ly]);
                 c = vertical_mapped(true, odd, sw / 2, sh / 2, lx / 2, ymap[2 * ly + 1]);
             } else {
@@ -512,10 +532,12 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8], bool want_luma
                 int py = int((2 * ly + 1) * sh) - int(dh);
                 int cx = int((2 * (lx & ~1u) + 1) * sw) - int(dw);
                 int cy = py - (top_left != 0u ? 0 : int(dh));
-                if (want_luma)
+                if (want_luma && SCALER == 0u)
                     yy = source_linear(false, false, sw, sh, px, py, 2 * dw, 2 * dh);
                 c = source_linear(true, odd, sw / 2, sh / 2, cx, cy, 4 * dw, 4 * dh);
             }
+            if (want_luma && SCALER != 0u)
+                yy = fsr1_luma(lx, ly, dw, dh);
         } else if (PACK == 1) {
             c = src_c(odd, lx / 2, ly, sw / 2);
             if (want_luma)

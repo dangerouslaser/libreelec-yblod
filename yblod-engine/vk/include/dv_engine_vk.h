@@ -245,6 +245,25 @@ typedef struct {
 int dvvk_set_output_mode(dvvk_engine *, const dvvk_output_mode *);
 int dvvk_output_signal(dvvk_engine *, dvvk_hdr_signal *);
 
+/* The upscaler (an optional symbol, no ABI change; look it up with dlsym:
+ * an engine without it is bilinear): how a picture smaller than its
+ * destination rectangle is enlarged, from the next frame submitted, in
+ * every output mode. Only enlargements take it (neither side smaller, one
+ * larger); a reduced or unscaled picture is unchanged, and so is an
+ * enlarged one with DVVK_SCALER_BILINEAR (the default).
+ *   DVVK_SCALER_BILINEAR   the pack's bilinear interpolation
+ *   DVVK_SCALER_FSR1_EASU  AMD FidelityFX Super Resolution 1's EASU on the
+ *                          reconstructed luma (the codes as a grey picture,
+ *                          clamped at the picture's edges), chroma bilinear
+ *   DVVK_SCALER_FSR1_RCAS  EASU, then FSR 1's RCAS sharpening (one stop,
+ *                          noise limited) on that luma
+ * FSR's pipelines and its luma plane (2 bytes a canvas pixel) are made on
+ * the first enlarged picture that uses them (a short compile there unless
+ * the pipeline cache has them). Returns 0, -2 for a method this library
+ * doesn't have (the choice is unchanged), -1 for NULL. */
+enum { DVVK_SCALER_BILINEAR = 0, DVVK_SCALER_FSR1_EASU = 1, DVVK_SCALER_FSR1_RCAS = 2 };
+int dvvk_set_scaler(dvvk_engine *, uint32_t method);
+
 /* HDR10+ dynamic metadata of an HDR10+ output frame (YBLOD 0.4.0; optional
  * symbol, look it up with dlsym). CB1's cb1_dv_hdr10plus_metadata (pinned
  * CB1 commit in yblod-engine/src/cb1_dv_hdr10plus.c): the statistics plus the

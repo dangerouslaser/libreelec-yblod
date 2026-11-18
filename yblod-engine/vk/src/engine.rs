@@ -133,11 +133,21 @@ struct PackRoute {
     el_method: u32,
     pack: u32,
     chroma_filter: u32,
+    /// scaler.rs: the frame's upscaler, nonzero when FSR 1 makes its luma
+    /// (the engine's choice, not the plan's: Engine::route)
+    scaler: u32,
 }
 
 impl PackRoute {
     fn of(p: &Plan) -> PackRoute {
-        PackRoute { route: p.route, equal: p.equal, el_method: p.el_method, pack: p.pack, chroma_filter: p.chroma_filter }
+        PackRoute {
+            route: p.route,
+            equal: p.equal,
+            el_method: p.el_method,
+            pack: p.pack,
+            chroma_filter: p.chroma_filter,
+            scaler: crate::scaler::DVVK_SCALER_BILINEAR,
+        }
     }
 }
 
@@ -152,7 +162,10 @@ enum PackVariant {
 /// Where the pack's samples come from: 0 the staged planes, 1 fused single
 /// layer, 2 fused FEL (pass A chroma + the pack's luma).
 fn pack_source(r: &PackRoute) -> u32 {
-    if r.route == plan::ROUTE_SINGLE && r.pack != plan::PACK_RESIZED {
+    if r.scaler != crate::scaler::DVVK_SCALER_BILINEAR {
+        // FSR 1's EASU pass reads the staged luma plane.
+        0
+    } else if r.route == plan::ROUTE_SINGLE && r.pack != plan::PACK_RESIZED {
         // Resized frames read 4 taps per sample: cheaper from the planes.
         1
     } else if r.route == plan::ROUTE_DUAL && r.equal == 0 && r.el_method == plan::EL_METHOD_BILINEAR {
@@ -207,7 +220,7 @@ mod pack_tests {
                 for el_method in 0..2 {
                     for pack in [plan::PACK_SITED, plan::PACK_422, plan::PACK_RESIZED] {
                         for chroma_filter in 0..2 {
-                            v.push(PackRoute { route, equal, el_method, pack, chroma_filter });
+                            v.push(PackRoute { route, equal, el_method, pack, chroma_filter, scaler: 0 });
                         }
                     }
                 }
@@ -241,13 +254,28 @@ mod pack_tests {
 
     #[test]
     fn sources() {
-        let r = |route, equal, el_method, pack| PackRoute { route, equal, el_method, pack, chroma_filter: 0 };
+        let r =
+            |route, equal, el_method, pack| PackRoute { route, equal, el_method, pack, chroma_filter: 0, scaler: 0 };
         assert_eq!(pack_source(&r(plan::ROUTE_SINGLE, 0, 0, plan::PACK_SITED)), 1);
         assert_eq!(pack_source(&r(plan::ROUTE_SINGLE, 0, 0, plan::PACK_RESIZED)), 0);
         assert_eq!(pack_source(&r(plan::ROUTE_DUAL, 0, 1, plan::PACK_RESIZED)), 2);
         assert_eq!(pack_source(&r(plan::ROUTE_DUAL, 0, 0, plan::PACK_SITED)), 0);
         assert_eq!(pack_source(&r(plan::ROUTE_DUAL, 1, 1, plan::PACK_SITED)), 0);
         assert_eq!(pack_source(&r(plan::ROUTE_PIECEWISE, 0, 1, plan::PACK_422)), 0);
+        // FSR 1 reads the staged luma: the bilinear FEL's fused route is left
+        let fsr = |route, el_method| PackRoute {
+            scaler: crate::scaler::DVVK_SCALER_FSR1_RCAS,
+            ..r(route, 0, el_method, plan::PACK_RESIZED)
+        };
+        for route in [plan::ROUTE_DUAL, plan::ROUTE_SINGLE, plan::ROUTE_PIECEWISE] {
+            for el_method in 0..2 {
+                assert_eq!(pack_source(&fsr(route, el_method)), 0);
+                // the staged resized variant, which Engine::new always makes
+                let (source, v) = select_pack(&fsr(route, el_method), 1);
+                assert_eq!((source, v), (0, PackVariant::Regular(((PACK_KINDS) + plan::PACK_RESIZED) as usize)));
+                assert!(pack_eager(&crate::options::EngineOptions::default(), 0, 1, plan::PACK_RESIZED));
+            }
+        }
     }
 
     /// What the planner (yblod/plan.c) and the engine decide that picks a pack:
@@ -325,7 +353,7 @@ mod pack_tests {
         if contract && pack != plan::PACK_SITED {
             return None;
         }
-        Some(PackRoute { route: r.route, equal, el_method, pack, chroma_filter: contract as u32 })
+        Some(PackRoute { route: r.route, equal, el_method, pack, chroma_filter: contract as u32, scaler: 0 })
     }
 
     /// Engine::pack_overlay for these inputs.
@@ -1015,6 +1043,14 @@ pub struct Engine {
     // DVVK_MAP_STATS: map_fixup's entries (bounds_result's second half of
     // the frames that copied their list's count), summed until printed
     map_fixups: (u64, u64),
+    // The upscaler (dvvk_set_scaler, scaler.rs), and what FSR 1 needs, made
+    // on its first enlarged picture (an engine that never enlarges with it
+    // has none of it): EASU's pass, its luma plane at the destination's size
+    // and the pack variants reading that, by their spec constants.
+    scaler: u32,
+    fsr_easu: Option<Pipeline>,
+    fsr_luma: Option<DeviceBuffer>,
+    pack_scaled: HashMap<Vec<(u32, u32)>, Pipeline>,
 }
 
 impl Engine {
@@ -1523,6 +1559,10 @@ impl Engine {
             map_bakes: 0,
             map_frames: 0,
             map_fixups: (0, 0),
+            scaler: crate::scaler::DVVK_SCALER_BILINEAR,
+            fsr_easu: None,
+            fsr_luma: None,
+            pack_scaled: HashMap::new(),
             va: va_display,
             boost: crate::power::Boost::new(drm_fd, o.gpu_boost),
             d,
@@ -1943,8 +1983,32 @@ impl Engine {
             && !self.d.options.overlay_prepare
     }
 
+    /// The frame's pack route, with its upscaler.
+    fn route(&self) -> PackRoute {
+        PackRoute { scaler: self.frame_scaler(), ..PackRoute::of(&self.plan) }
+    }
+
+    /// The upscaler this frame takes (scaler.rs): the chosen one for an
+    /// enlarged picture, else bilinear (0).
+    fn frame_scaler(&self) -> u32 {
+        let p = &*self.plan;
+        if p.pack != plan::PACK_RESIZED {
+            return crate::scaler::DVVK_SCALER_BILINEAR;
+        }
+        crate::scaler::effective(self.scaler, [p.source_w, p.source_h], [p.placement[2], p.placement[3]])
+    }
+
+    /// dvvk_set_scaler: from the next frame.
+    pub fn set_scaler(&mut self, method: u32) -> Result<()> {
+        if !crate::scaler::valid(method) {
+            return Err(Error::Unsupported(format!("scaler {method}")));
+        }
+        self.scaler = method;
+        Ok(())
+    }
+
     fn pack_source(&self) -> u32 {
-        pack_source(&PackRoute::of(&self.plan))
+        pack_source(&self.route())
     }
 
     /// The pack's overlay before the map. SDR output has none: its layer
@@ -1967,7 +2031,7 @@ impl Engine {
     /// succeeds. A failed creation leaves the slot empty and may be retried.
     fn ensure_pack(&mut self) -> Result<()> {
         let overlay = self.pack_overlay();
-        let (source, index) = match select_pack(&PackRoute::of(&self.plan), overlay) {
+        let (source, index) = match select_pack(&self.route(), overlay) {
             (source, PackVariant::Regular(index)) => (source, index),
             _ => return Ok(()),
         };
@@ -2006,7 +2070,7 @@ impl Engine {
 
     /// The frame's mapped pack: its key in pack_map.
     fn frame_map_key(&self) -> (bool, usize, bool, u32) {
-        let variant = select_pack(&PackRoute::of(&self.plan), self.pack_overlay()).1;
+        let variant = select_pack(&self.route(), self.pack_overlay()).1;
         let sdr = match (self.sdr(), self.sdr_layer()) {
             (false, _) => 0,
             (true, false) => SDR_PLAIN,
@@ -2114,10 +2178,11 @@ impl Engine {
     /// (from the pipeline cache when dvvk-prepare or an earlier engine made
     /// it; the cache keeps it for the next engine).
     fn ensure_pack_map(&mut self) -> Result<()> {
-        if self.map.is_none() {
+        // (a frame whose luma FSR 1 makes has its own: ensure_scaled)
+        if self.map.is_none() || self.frame_scaler() != crate::scaler::DVVK_SCALER_BILINEAR {
             return Ok(());
         }
-        let variant = select_pack(&PackRoute::of(&self.plan), self.pack_overlay()).1;
+        let variant = select_pack(&self.route(), self.pack_overlay()).1;
         let key = self.frame_map_key();
         if self.pack_map.contains_key(&key) {
             return Ok(());
@@ -2134,6 +2199,51 @@ impl Engine {
         );
         self.pack_map.insert(key, pipe);
         self.d.save_pipeline_cache();
+        Ok(())
+    }
+
+    /// The pack constants of a frame whose luma FSR 1 makes: its variant's
+    /// (and the output mode's, as ensure_pack_map makes them) and SCALER.
+    fn scaled_spec(&self, scaler: u32) -> Vec<(u32, u32)> {
+        let variant = select_pack(&self.route(), self.pack_overlay()).1;
+        let mut spec = if self.map.is_some() {
+            let key = self.frame_map_key();
+            pack_map_spec(&self.d.options, variant, key.2, key.3)
+        } else {
+            pack_spec(&self.d.options, variant)
+        };
+        spec.push((11, scaler));
+        spec
+    }
+
+    /// FSR 1's pass, plane and pack variant for this frame, made on first
+    /// use (dvvk-prepare leaves them out: only a player that selects FSR
+    /// needs them, and the pipeline cache keeps them after their first use).
+    fn ensure_scaled(&mut self) -> Result<()> {
+        let scaler = self.frame_scaler();
+        if scaler == crate::scaler::DVVK_SCALER_BILINEAR {
+            return Ok(());
+        }
+        let start = std::time::Instant::now();
+        if self.fsr_easu.is_none() {
+            let storage = vk::DescriptorType::STORAGE_BUFFER;
+            let push = std::mem::size_of::<crate::scaler::EasuPush>() as u32;
+            self.fsr_easu = Some(Pipeline::new_deferred(&self.d, "fsr1_easu", &[storage, storage], push, &[])?);
+        }
+        if self.fsr_luma.is_none() {
+            // a resized destination lies within the canvas (yblod's geometry)
+            self.fsr_luma = Some(DeviceBuffer::new(&self.d, u64::from(self.canvas[0] * self.canvas[1]) * 2)?);
+        }
+        let spec = self.scaled_spec(scaler);
+        if !self.pack_scaled.contains_key(&spec) {
+            let Some(first) = self.pack[0].as_ref() else { return Err(Error::Missing("the first pack variant")) };
+            let bindings = first.bindings.clone();
+            let pipe =
+                Pipeline::new_deferred(&self.d, "pack", &bindings, std::mem::size_of::<PackPush>() as u32, &spec)?;
+            self.pack_scaled.insert(spec, pipe);
+            self.d.save_pipeline_cache();
+            eprintln!("dvvk FSR 1 pack (scaler {scaler}): creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
+        }
         Ok(())
     }
 
@@ -2472,6 +2582,7 @@ impl Engine {
         }
         self.ensure_pack()?;
         self.ensure_pack_map()?;
+        self.ensure_scaled()?;
         if !self.cb1_overlay() {
             self.cb1_tiles_valid = false;
         }
@@ -2579,9 +2690,12 @@ impl Engine {
         // DVVK_VERIFY: is this frame checked (its reference output allocated
         // as the output is laid out, its result zeroed)?
         let stride = self.outputs[f.output as usize].as_ref().map(|o| o.stride).unwrap_or(0);
+        // (not a frame whose luma FSR 1 makes: the reference pack is
+        // bilinear, and such a frame's reconstruction is staged already)
+        let scaled = self.frame_scaler() != crate::scaler::DVVK_SCALER_BILINEAR;
         let (check, allocate) = match self.verify.as_mut() {
             Some(v) => {
-                let due = v.frames % v.every == 0;
+                let due = v.frames % v.every == 0 && !scaled;
                 v.frames += 1;
                 (due, due && v.out.as_ref().map(|o| o.1) != Some(stride))
             }
@@ -2759,6 +2873,8 @@ impl Engine {
                 c.to_bits().hash(&mut hasher);
             }
             self.map.as_ref().map(|m| m.key).hash(&mut hasher);
+            // another upscaler is another pack variant: everything again
+            self.frame_scaler().hash(&mut hasher);
             // outside the active area every pixel is p.black (in the key): letterbox bars are not film
             let film = (p.placement[2] > 0 && p.placement[3] > 0).then(|| {
                 [p.placement[0].max(p.active[0]), p.placement[1].max(p.active[1]),
@@ -2967,6 +3083,22 @@ impl Engine {
                 self.resize_key = Some(key);
             }
         }
+        // FSR 1 (scaler.rs): EASU's luma at the destination's size, where
+        // the pack reads it, from the staged plane.
+        let scaler = self.frame_scaler();
+        let mut luma_plane = self.planes[0].buffer;
+        if scaler != crate::scaler::DVVK_SCALER_BILINEAR {
+            let (Some(easu), Some(luma)) = (self.fsr_easu.as_ref(), self.fsr_luma.as_ref()) else {
+                return Err(Error::Missing("the FSR 1 pass"));
+            };
+            if let Some((origin, groups)) = crate::scaler::easu_region(p.active, p.placement) {
+                let push = crate::scaler::easu_push([p.source_w, p.source_h], [dw, dh], origin);
+                let binds = [Bind::Buffer(self.planes[0].buffer), Bind::Buffer(luma.buffer)];
+                self.dispatch(cmd, easu, &binds, &push, (groups[0], groups[1]));
+                gpu::compute_barrier(d, cmd);
+            }
+            luma_plane = luma.buffer;
+        }
 
         // Pack into the output.
         let overlay_kind = self.pack_overlay();
@@ -2980,7 +3112,7 @@ impl Engine {
             }
             _ => bl.luma.view, // unused: a valid view to bind
         };
-        let variant = select_pack(&PackRoute::of(p), overlay_kind).1;
+        let variant = select_pack(&self.route(), overlay_kind).1;
         // HDR10 output: the frame's parameters, and the scene's 3D LUT baked
         // when they changed (map_bake.comp), before the pack reads them.
         let mapped = self.map.is_some();
@@ -3070,7 +3202,13 @@ impl Engine {
             unsafe { d.device.cmd_update_buffer(cmd, self.map_cells.buffer, u64::from(map_list) * 4, bytes) };
             gpu::indirect_barrier(d, cmd);
         }
-        let pack = if mapped {
+        let pack = if scaler != crate::scaler::DVVK_SCALER_BILINEAR {
+            match self.pack_scaled.get(&self.scaled_spec(scaler)) {
+                Some(pack) => pack,
+                // ensure_scaled made it
+                None => return Err(Error::Missing("an FSR 1 pack variant")),
+            }
+        } else if mapped {
             match self.pack_map.get(&self.frame_map_key()) {
                 Some(pack) => pack,
                 None => return Err(Error::Missing("a mapped pack variant")),
@@ -3095,7 +3233,7 @@ impl Engine {
             cmd,
             pack,
             &[
-                Bind::Buffer(self.planes[0].buffer),
+                Bind::Buffer(luma_plane),
                 Bind::Buffer(self.planes[1].buffer),
                 Bind::Buffer(self.planes[2].buffer),
                 Bind::Buffer(slot.packets),
@@ -3862,6 +4000,12 @@ impl Drop for Engine {
             unsafe { d.device.destroy_semaphore(r, None) };
         }
         self.shot.destroy(d);
+        for p in self.pack_scaled.values().chain(self.fsr_easu.iter()) {
+            p.destroy(d);
+        }
+        if let Some(b) = &self.fsr_luma {
+            b.destroy(d);
+        }
         for p in self.pack_map.values().chain(self.map_bake.iter()).chain(std::iter::once(&self.map_fixup)) {
             p.destroy(d);
         }

@@ -14,6 +14,7 @@ pub mod options;
 pub mod overlay;
 pub mod plan;
 pub mod power;
+pub mod scaler;
 
 mod fault;
 
