@@ -337,6 +337,13 @@ pub extern "C" fn dvvk_output_modes() -> u32 {
     1 << DVVK_OUTPUT_DV | 1 << DVVK_OUTPUT_HDR10 | 1 << DVVK_OUTPUT_HDR10PLUS | 1 << DVVK_OUTPUT_SDR
 }
 
+/// dvvk_sdr_flags (optional symbol): the DVVK_SDR_* flags this library's
+/// SDR output takes.
+#[no_mangle]
+pub extern "C" fn dvvk_sdr_flags() -> u32 {
+    crate::map::SDR_FLAGS
+}
+
 /// dvvk_output_signal (optional symbol): the last frame's HDR static metadata.
 ///
 /// # Safety

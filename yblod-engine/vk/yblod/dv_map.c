@@ -122,13 +122,25 @@ static void source_primaries(const AVDOVIMetadata *m, dvvk_hdr_signal *s)
 
 /* The display an SDR output is made for: white (0: libplacebo's and
  * BT.2408's SDR reference, 203 cd/m2), black (0: white / 1000, libplacebo's
- * SDR contrast). */
-static int sdr_display(const dvvk_output_mode *mode, float *white, float *black)
+ * SDR contrast; with DVVK_SDR_BLACK as given, CB1's 0 to 5 cd/m2), gamma (0:
+ * BT.1886; else a pure power). src/map.rs mode_supported says the same. */
+static int sdr_display(const dvvk_output_mode *mode, float *white, float *black, float *gamma)
 {
+    const uint32_t f = mode->flags;
+    const uint32_t g = mode->reserved[DVVK_SDR_GAMMA_WORD];
     *white = mode->peak_nits > 0 ? mode->peak_nits : PL_COLOR_SDR_WHITE;
-    *black = mode->min_nits > 0 ? mode->min_nits : *white / PL_COLOR_SDR_CONTRAST;
-    return isfinite(*white) && isfinite(*black) && *white >= 40 && *white <= 1000 && *black < *white / 20 &&
-           !(mode->flags & ~(DVVK_SDR_GAMMA22 | DVVK_SDR_LIMITED | DVVK_SDR_NO_DITHER | DVVK_SDR_HLG));
+    *black = f & DVVK_SDR_BLACK || mode->min_nits > 0 ? mode->min_nits : *white / PL_COLOR_SDR_CONTRAST;
+    *gamma = f & DVVK_SDR_POWER ? g / 1000.0f : f & DVVK_SDR_GAMMA22 ? 2.2f : 0.0f;
+    if (f & DVVK_SDR_POWER ? (f & DVVK_SDR_GAMMA22) || g < 1800 || g > 2800 : g != 0)
+        return 0;
+    for (int i = 1; i < 4; i++)
+        if (mode->reserved[i])
+            return 0;
+    if (f & DVVK_SDR_BLACK ? !(*black >= 0 && *black <= 5 && *black < *white) : !(*black < *white / 20))
+        return 0;
+    return isfinite(*white) && isfinite(*black) && *white >= 20 && *white <= 1000 &&
+           !(f & ~(DVVK_SDR_GAMMA22 | DVVK_SDR_LIMITED | DVVK_SDR_NO_DITHER | DVVK_SDR_HLG | DVVK_SDR_POWER |
+                   DVVK_SDR_BLACK));
 }
 
 int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t metadata_size, dvvk_map *out)
@@ -153,8 +165,8 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
         peak = pl_hdr_rescale(PL_HDR_PQ, PL_HDR_NITS, colour->source_max_pq / 4095.0f);
     if (!isfinite(peak) || peak < 1 || peak > 10000)
         return -2;
-    float white = 0, black = 0;
-    if (sdr ? !sdr_display(mode, &white, &black) : mode->peak_nits > 0)
+    float white = 0, black = 0, gamma = 0;
+    if (sdr ? !sdr_display(mode, &white, &black, &gamma) : mode->peak_nits > 0)
         return -1;   /* HDR10 for a target display: not yet */
 
     /* pl_map_avdovi_metadata, then render_picture's Basic branch */
@@ -198,10 +210,13 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
         };
         if (!pl_primaries_valid(&src.hdr.prim))
             src.hdr.prim = *pl_raw_primaries_get(PL_COLOR_PRIM_DISPLAY_P3);
+        /* CB1's sdr_container: a pure power is GAMMA22 or GAMMA24 (another
+         * exponent only changes the delinearisation below), and a true zero
+         * black is PL_COLOR_HDR_BLACK (libplacebo's 0 is "unknown") */
         dst = (struct pl_color_space) {
             .primaries = PL_COLOR_PRIM_BT_709,
-            .transfer = mode->flags & DVVK_SDR_GAMMA22 ? PL_COLOR_TRC_GAMMA22 : PL_COLOR_TRC_BT_1886,
-            .hdr = {.min_luma = black, .max_luma = white},
+            .transfer = !gamma ? PL_COLOR_TRC_BT_1886 : gamma == 2.2f ? PL_COLOR_TRC_GAMMA22 : PL_COLOR_TRC_GAMMA24,
+            .hdr = {.min_luma = fmaxf(black, PL_COLOR_HDR_BLACK), .max_luma = white},
         };
     }
 
@@ -358,10 +373,19 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
             g->out_trc[2] = 1 / 2.4f;
             g->out_trc[3] = lb / (lw - lb);
         } else {
+            /* a pure power (CB1's custom gamma: GAMMA24's curve, then the
+             * signal to the power 2.4 / gamma, which is this) */
             g->out_trc[0] = 1.0f / (hi - lo);
             g->out_trc[1] = -lo / (hi - lo);
-            g->out_trc[2] = 1 / 2.2f;
+            g->out_trc[2] = 1 / gamma;
         }
+        /* CB1's targets above a true zero black: a pure power's slope at
+         * the black has no bound, and there the sampler's 8-bit weights put
+         * samples two codes from the exact map (gamma 1.8, 5 of 20 cd/m2;
+         * with a zero black they stay within one, 1 to 2 ms cheaper at
+         * 3840x2160). The earlier targets keep the sampler, and their bytes. */
+        if ((mode->flags & (DVVK_SDR_POWER | DVVK_SDR_BLACK)) && lo > 0)
+            g->flags |= DVVK_MAP_GAMUT_EXACT;
         g->out_code[0] = mode->flags & DVVK_SDR_LIMITED ? 219.0f : 255.0f;
         g->out_code[1] = mode->flags & DVVK_SDR_LIMITED ? 16.0f : 0.0f;
     }

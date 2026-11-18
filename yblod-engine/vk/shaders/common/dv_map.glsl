@@ -143,6 +143,26 @@ vec3 map_gamut_lookup(vec3 ipt)
     return v - vec3(0.0, 32768.0 / 65535.0, 32768.0 / 65535.0);
 }
 
+// The same lookup with the CPU's weights (dv_map.c gamut_map): eight texels
+// and float weights instead of the sampler's 8-bit ones (DVVK_MAP_GAMUT_EXACT,
+// flags 128: CB1's targets with a black floor, which magnifies them to two
+// codes).
+vec3 map_gamut_lookup_exact(vec3 ipt)
+{
+    float h = ipt.y == 0.0 && ipt.z == 0.0 ? 0.0 : atan(ipt.z, ipt.y);
+    vec3 idx = vec3(mp.gamut_at.x * ipt.x + mp.gamut_at.y, 2.0 * length(ipt.yz), h * 0.15915494309189535 + 0.5);
+    const vec3 n = vec3(48.0, 32.0, 256.0);
+    vec3 t = clamp(idx, 0.0, 1.0) * (n - 1.0);
+    ivec3 i0 = min(ivec3(floor(t)), ivec3(n) - 2);
+    vec3 f = t - vec3(i0), v = vec3(0.0);
+    for (int c = 0; c < 8; c++) {
+        ivec3 d = ivec3(c & 1, (c >> 1) & 1, c >> 2);
+        vec3 w = mix(1.0 - f, f, vec3(d));
+        v += w.x * w.y * w.z * texelFetch(map_gamut, i0 + d, 0).rgb;
+    }
+    return v - vec3(0.0, 32768.0 / 65535.0, 32768.0 / 65535.0);
+}
+
 // SDR: linear BT.2020 light to the display's R'G'B' (0..1), always through
 // IPT (the tone curve, the gamut LUT, the display's primaries).
 vec3 map_sdr(vec3 lin)
@@ -155,7 +175,7 @@ vec3 map_sdr(vec3 lin)
         ipt.yz *= ipt.x > 0.0 && h0 > 0.0 ? min(i0 / ipt.x, h1 / h0) : 0.0;
     }
     if ((mp.flags & 8u) != 0u)
-        ipt = map_gamut_lookup(ipt);
+        ipt = (mp.flags & 128u) != 0u ? map_gamut_lookup_exact(ipt) : map_gamut_lookup(ipt);
     lin = map_m3(mp.lms2rgb, map_pq_eotf_sdr(map_m3(mp.ipt2lms, ipt)));
     return clamp(pow(max(mp.out_trc.x * lin + mp.out_trc.y, 0.0), vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0);
 }

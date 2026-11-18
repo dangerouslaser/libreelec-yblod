@@ -175,8 +175,11 @@ void dvvk_reset(dvvk_engine *);
  *                      Dolby Vision play through the same conversion with
  *                      metadata made for them: HDR10+ (dvvk_hdr10plus_to_dovi),
  *                      HDR10 and HLG (dvvk_hdr10_to_dovi, DVVK_SDR_HLG).
- *                      peak_nits: the display's white in cd/m2 (0: 203),
- *                      min_nits: its black (0: white / 1000). flags
+ *                      peak_nits: the display's white in cd/m2 (0: 203;
+ *                      40 to 1000, 20 to 1000 in a library with
+ *                      dvvk_sdr_flags),
+ *                      min_nits: its black (0: white / 1000, unless
+ *                      DVVK_SDR_BLACK). flags
  *                      DVVK_SDR_*. An engine without it refuses the mode
  *                      (dvvk_set_output_mode returns -2); dvvk_output_modes
  *                      says so before an engine exists. */
@@ -189,6 +192,28 @@ enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2, DVV
  * as BT.2100's 1000 cd/m2 display would (system gamma 1.2) and converted
  * from there. */
 enum { DVVK_SDR_GAMMA22 = 1u, DVVK_SDR_LIMITED = 2u, DVVK_SDR_NO_DITHER = 4u, DVVK_SDR_HLG = 8u };
+/* CroqueMr's CB1 SDR targets (after YBLOD 0.5.1; dvvk_sdr_flags says whether
+ * the library has them). A library without one refuses a mode that sets it
+ * (-2), never approximates it.
+ * POWER   a pure power of any exponent, black scaled as GAMMA22's (V =
+ *         ((L - black) / (white - black))^(1 / gamma)): the gamma is
+ *         reserved[DVVK_SDR_GAMMA_WORD] in thousandths, 1800 to 2800 (2400:
+ *         libplacebo's GAMMA24, 2200: the same as GAMMA22). Not with GAMMA22.
+ * BLACK   min_nits is the display's black as given, 0 included (true zero,
+ *         libplacebo's PL_COLOR_HDR_BLACK as CB1 sets it), 0 to 5 cd/m2 and
+ *         below the white. Without it 0 means white / 1000, and a black must
+ *         be below white / 20.
+ * Every reserved word a set flag does not give a meaning must be 0.
+ * CB1's presets as dvvk_output_mode {mode, flags, peak_nits, min_nits, reserved}:
+ *   Reference   {SDR, POWER | BLACK, 100, 0, {2400}}
+ *   Bright room {SDR, POWER | BLACK, 200, 0, {2200}}
+ *   Custom      {SDR, POWER | BLACK, peak 20..500, black 0..5, {gamma x 1000}}
+ * each with LIMITED for limited range. */
+enum { DVVK_SDR_POWER = 16u, DVVK_SDR_BLACK = 32u };
+#define DVVK_SDR_GAMMA_WORD 0
+/* The DVVK_SDR_* flags this library takes (an optional symbol; no engine
+ * needed): a library without it takes GAMMA22, LIMITED, NO_DITHER and HLG. */
+uint32_t dvvk_sdr_flags(void);
 typedef struct {
     uint32_t mode;
     uint32_t flags;               /* DVVK_SDR_* (SDR), else 0 */

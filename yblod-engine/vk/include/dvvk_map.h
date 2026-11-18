@@ -54,6 +54,8 @@ enum {
     DVVK_MAP_GAMUT = 8u,       /* SDR: the gamut mapping LUT is applied */
     DVVK_MAP_DITHER_ON = 16u,  /* SDR: the codes are dithered (else rounded) */
     DVVK_MAP_HLG = 32u,        /* SDR: the source's R'G'B' is HLG (else PQ): src_trc, src_luma */
+    DVVK_MAP_GAMUT_EXACT = 128u, /* SDR: the gamut LUT read with exact weights, not the sampler's
+                                  * (CB1's targets, DVVK_SDR_POWER, _BLACK, above a zero black) */
 };
 
 /* The GPU's parameters (std430: vec3s padded to vec4; matrices row-major,
