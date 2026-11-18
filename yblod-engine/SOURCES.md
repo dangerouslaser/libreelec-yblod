@@ -72,6 +72,10 @@ Implementation references and boundaries:
   Dolby Vision mapping of `utils/libav_internal.h`) and
   `vk/yblod/placebo/cb1_expert_tone.c` (the tone LUT of his
   `libplacebo-9918-expert-tone.patch`).
+  Test-only, not in the engine: his CPU player-led pack
+  `cb1_lldv_cpu.c/.h` and its test `player_led_cpu.c` (MIT), unchanged in
+  `vk/tools/cb1`, the oracle `vk/tools/dvvk-lldv-oracle.c` compares the
+  engine's LLDV pack with.
 
 References:
 

@@ -101,7 +101,8 @@ typedef struct {
     uint32_t lut_ny;         /* SDR: the 3D LUT's points along the luma axis (0 otherwise) */
     uint32_t black_in[4];    /* the stream's black (dvvk_plan.black: Y, Cb, Cr) ... */
     uint32_t black_out[4];   /* ... and its exact output codes (dvvk_map_set_black;
-                              * the letterbox: no LUT or exact pass for it) */
+                              * the letterbox: no LUT or exact pass for it; LLDV:
+                              * unrounded, float bits) */
     float tone_lut[DVVK_MAP_LUT];   /* PQ in (input min..max) -> PQ out */
     /* SDR output (all 0 otherwise) */
     float gamut_at[4];       /* the gamut LUT's I coordinate: x * I + y */

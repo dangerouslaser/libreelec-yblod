@@ -70,7 +70,7 @@
  *     --target           with --output hdr10: HDR10 Rendering Reference
  *                        (DVVK_HDR10_TARGET)
  *     --peak NITS        the display's peak (default 1000)
- *     --min NITS         its black (default 0)
+ *     --black NITS       its black (default 0)
  *     --gamut G          709, p3 or 2020 (default: the mode's, P3 / BT.2020)
  *     --primaries rx,ry,gx,gy,bx,by  LLDV: the display's own (EDID) primaries
  *     --edid-version N   ... and its VSVDB's version (default 2)
@@ -319,7 +319,8 @@ static int carrier_code(double v, unsigned bits)
  * as dvbridge_pack_player_led_422 packs CB1's player-led picture (each
  * pixel its pair's chroma, the overlay blended in the display's light, a
  * pair's chroma the 1-2-1 mean of the PQ R'G'B' at its even pixel). Black
- * outside the active area. */
+ * outside the active area (HDR10: where the stream's black is, not an
+ * overlay blended into it before the map). */
 static void expert_frame(const unsigned char *fb, unsigned char *o, size_t stride, const unsigned char *layer,
                          const int area[4])
 {
@@ -335,7 +336,8 @@ static void expert_frame(const unsigned char *fb, unsigned char *o, size_t strid
             double c[3] = {yy, cb, cr}, nl[3], v[3] = {0, 0, 0}, pq[3];
             if (!lldv) {
                 /* HDR10: the BT.2020 PQ R'G'B'; outside: PQ 0 */
-                if (inside)
+                if (inside || (unsigned)yy != g->black_in[0] || (unsigned)cb != g->black_in[1] ||
+                    (unsigned)cr != g->black_in[2])
                     dvvk_map_sample(g, tables, c, v);
                 else
                     v[0] = v[1] = v[2] = 0.0;
@@ -416,8 +418,6 @@ int main(int argc, char **argv)
             target = 1;
         else if (!strcmp(argv[i], "--peak") && i + 1 < argc)
             peak = (float)atof(argv[++i]);
-        else if (!strcmp(argv[i], "--min") && i + 1 < argc)
-            minimum = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamut") && i + 1 < argc) {
             i++;
             gamut = !strcmp(argv[i], "709") ? DVVK_GAMUT_BT709 : !strcmp(argv[i], "p3") ? DVVK_GAMUT_P3D65
@@ -438,7 +438,7 @@ int main(int argc, char **argv)
         else if (!strcmp(argv[i], "--white") && i + 1 < argc)
             mode.peak_nits = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--black") && i + 1 < argc)
-            mode.min_nits = (float)atof(argv[++i]);
+            minimum = mode.min_nits = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamma22"))
             mode.flags |= DVVK_SDR_GAMMA22;
         else if (!strcmp(argv[i], "--gamma") && i + 1 < argc) {

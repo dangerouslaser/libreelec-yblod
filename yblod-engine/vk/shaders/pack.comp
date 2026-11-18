@@ -82,6 +82,15 @@ layout(constant_id = 8) const uint MAP = 0;
 #define MAP_TABLES_BINDING 25
 #define MAP_GAMUT_BINDING 26
 #define MAP_SDR_ID 10
+// MAP_EXPERT (constant 20, with MAP != 0 and MAP_SDR 0; dv_map.glsl): CB1's
+// Expert recipe. 1 HDR10 Rendering Reference: the HDR10 pairs, black outside
+// the active area. 2 LLDV (dvbridge_pack_player_led_422): each pixel its
+// pair's chroma through the LUT, the overlay (OVERLAY 4) blended in the
+// display's light, a pair's chroma the 1-2-1 mean of its even pixel and
+// both neighbours (the previous pair's odd pixel too), the codes on the
+// carrier's grid of ex_bits; marked samples computed here (a pair needs its
+// neighbour's sample, which the fix-up's list doesn't carry).
+#define MAP_EXPERT_ID 20
 #include "dv_map.glsl"
 layout(binding = MAP_TABLES_BINDING, std430) readonly buffer MapTables4 { uvec4 map_tables4[]; };   // a row's 4 ranks per load
 layout(binding = 21) uniform sampler3D map_lut;
@@ -626,6 +635,14 @@ void stats_sample(uvec3 c)
     inv_dark += uint(lum <= 100.0);
 }
 
+// MAP_EXPERT: whether pixel (x, y) shows the film (its active area, inside
+// the placement); CB1's Expert output is black elsewhere.
+bool map_shown(uint x, uint y)
+{
+    return x >= active_area.x && y >= active_area.y && x < active_area.z && y < active_area.w && x >= placement.x &&
+           y >= placement.y && x - placement.x < placement.z && y - placement.y < placement.w;
+}
+
 // One invocation: 4 pixels x 2 rows (x0 % 4 == 0, y0 even), stored 16 bytes a row.
 void pack_main()
 {
@@ -733,6 +750,22 @@ void pack_main()
                 chroma_rows_at((xn - placement.x) / 2u, (y0 - placement.y) / 2u, placement.z, placement.w, rows_next);
         }
     }
+    // MAP_EXPERT 2: the previous pair's chroma (the first pixel's left
+    // neighbour), its rows as the block's own are fetched
+    uvec2 rows_prev[8];
+    for (uint r = 0; r < 8; r++)
+        rows_prev[r] = uvec2(0);
+    if (MAP != 0u && MAP_EXPERT == 2u && PACK == 0 && x0 >= 2u) {
+        uint xp = x0 - 2u;
+        if (xp >= placement.x && (xp - placement.x) / 2u < placement.z / 2u && y0 + 1u >= placement.y &&
+            y0 < placement.y + placement.w) {
+            if (ANNEXB != 0u && lx > 0u)
+                for (uint i = 0; i < 8; i++)
+                    rows_prev[i] = ctile[ly + i][lx * 2u - 1u];
+            else
+                chroma_rows_at((xp - placement.x) / 2u, (y0 - placement.y) / 2u, placement.z, placement.w, rows_prev);
+        }
+    }
     uint fixup = 0u;   // MAP 1: the block's pairs for map_fixup (bit row * 2 + pair)
     vec3 sdr_scale = vec3(0.0), sdr_offset = vec3(0.0), sdr_lo = vec3(0.0);
     if (MAP != 0u && MAP_SDR != 0u)
@@ -800,7 +833,81 @@ void pack_main()
         bool raw[2] = bool[2](false, false);
         vec3 m4[4];
         uint sdr4[4];
-        if (MAP != 0u && MAP_SDR != 0u) {
+        if (MAP != 0u && MAP_EXPERT == 2u) {
+            // LLDV. Samples 0..4: the left neighbour (x0 - 1; the canvas's
+            // first pixel: itself, CB1's max(x - 1, 0)), then the block's four.
+            uvec3 s5[5];
+            for (uint i = 0u; i < 4u; i++)
+                s5[i + 1u] = uvec3(lv4[i].x, lv4[i & ~1u].y, lv4[i | 1u].y);
+            s5[0] = s5[1];
+            if (x0 > 0u) {
+                // (not the block's preloaded luma row: pre_y holds x0 .. x0 + 3)
+                bool pre = pre_ok;
+                pre_ok = false;
+                uvec2 left = reconstruct(x0 - 1u, y, true, rows_prev, true);
+                s5[0] = uvec3(left.x, reconstruct(x0 - 2u, y, false, rows_prev, false).y, left.y);
+                pre_ok = pre;
+            }
+            uvec3 bi = mp.black_in.xyz;
+            vec3 c5[5];
+            bool exact5[5];
+            uint n_exact = 0u, at[5];
+            for (uint i = 0u; i < 5u; i++) {
+                uint x = i == 0u ? (x0 > 0u ? x0 - 1u : 0u) : x0 + i - 1u;
+                exact5[i] = false;
+                if (!map_shown(x, y)) {
+                    // CB1's mask: the display's black
+                    c5[i] = map_codes(map_ycc(map_lldv_encode(vec3(0.0))));
+                    continue;
+                }
+                if (s5[i] == bi) {
+                    c5[i] = uintBitsToFloat(mp.black_out.xyz);
+                    continue;
+                }
+                vec4 v = MAP == 2u ? vec4(0.0) : textureLod(map_lut, map_coord(s5[i].x, map_base(s5[i].y, s5[i].z)), 0.0);
+                c5[i] = v.rgb * map_node_scale();
+                exact5[i] = MAP == 2u || ((MAP == 1u || MAP == 4u) && v.a < 0.5);
+                if (exact5[i])
+                    at[n_exact++] = i;
+            }
+            // (gathered: the loop runs as often as the row has marked samples)
+            for (uint k = 0u; k < n_exact; k++) {
+                uint i = at[k];
+                c5[i] = map_exact(s5[i].x, s5[i].y, s5[i].z);
+            }
+            if (OVERLAY == 4u)
+                for (uint i = 0u; i < 5u; i++) {
+                    uint x = i == 0u ? (x0 > 0u ? x0 - 1u : 0u) : x0 + i - 1u;
+                    vec2 pos = vec2(x, (gui_flags & 2u) != 0u ? h - 1u - y : y) + 0.5;
+                    vec4 ui = textureLod(shell, pos / vec2(w, h), 0.0);
+                    if (ui.a == 0.0)
+                        continue;
+                    // player_led_gui: the texel as it is, its alpha the mix, in
+                    // the display's light (the sample's taken back from its codes)
+                    vec3 yc = (c5[i] - vec3(256.0, 2048.0, 2048.0)) * vec3(1.0 / 3504.0, 1.0 / 3584.0, 1.0 / 3584.0);
+                    float r = yc.x + 1.4746 * yc.z, b = yc.x + 1.8814 * yc.y;
+                    vec3 video = map_lldv_decode(vec3(r, (yc.x - 0.2627 * r - 0.0593 * b) * (1.0 / 0.6780), b));
+                    vec3 g = vec3(cb1_lut(subtitle_degamma, ui.r));
+                    if (ui.r != ui.g || ui.r != ui.b) {
+                        g.g = cb1_lut(subtitle_degamma, ui.g);
+                        g.b = cb1_lut(subtitle_degamma, ui.b);
+                    }
+                    g = clamp(map_m3(mp.ex_gui, g) * mp.ex_scale.x, 0.0, 1.0);
+                    c5[i] = map_codes(map_ycc(map_lldv_encode(mix(clamp(video, 0.0, 1.0), g, ui.a))));
+                }
+            // the pairs: luma per pixel, chroma the 1-2-1 mean about the even
+            // pixel, on the carrier's grid
+            float step = float(1u << (12u - mp.ex_bits));
+            for (uint pair = 0u; pair < 2u; pair++) {
+                uint e = 2u * pair + 1u;
+                vec2 c = (c5[e - 1u].yz + 2.0 * c5[e].yz + c5[e + 1u].yz) * 0.25;
+                vec3 lo = vec3(256.0, 256.0, 256.0), hi = vec3(3760.0, 3840.0, 3840.0);
+                vec3 q = floor(clamp(vec3(c5[e].x, c), lo, hi) / step + 0.5) * step;
+                float yo = floor(clamp(c5[e + 1u].x, 256.0, 3760.0) / step + 0.5) * step;
+                lv4[2u * pair] = uvec2(q.x, q.y);
+                lv4[2u * pair + 1u] = uvec2(yo, q.z);
+            }
+        } else if (MAP != 0u && MAP_SDR != 0u) {
             // The row's four pixels: each one's chroma, the lookups issued
             // together, the marked ones exactly, then the display's codes
             // (the layer over them, the dither).

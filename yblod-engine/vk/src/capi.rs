@@ -349,7 +349,34 @@ pub unsafe extern "C" fn dvvk_set_scaler(e: *mut Engine, method: u32) -> i32 {
 #[no_mangle]
 pub extern "C" fn dvvk_output_modes() -> u32 {
     use crate::map::*;
-    1 << DVVK_OUTPUT_DV | 1 << DVVK_OUTPUT_HDR10 | 1 << DVVK_OUTPUT_HDR10PLUS | 1 << DVVK_OUTPUT_SDR
+    1 << DVVK_OUTPUT_DV | 1 << DVVK_OUTPUT_HDR10 | 1 << DVVK_OUTPUT_HDR10PLUS | 1 << DVVK_OUTPUT_SDR | 1 << DVVK_OUTPUT_LLDV
+}
+
+/// dvvk_target_flags (optional symbol): the display-targeted outputs' flags
+/// this library takes (DVVK_LLDV_10BIT; DVVK_HDR10_TARGET has its value).
+#[no_mangle]
+pub extern "C" fn dvvk_target_flags() -> u32 {
+    crate::map::TARGET_FLAGS
+}
+
+/// dvvk_set_display_primaries (optional symbol): an LLDV display's own
+/// primaries from its Dolby Vision VSVDB (NULL: none).
+///
+/// # Safety
+/// `e` must be an engine from dvvk_create (or NULL); `display` valid or NULL.
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_set_display_primaries(
+    e: *mut Engine,
+    display: *const crate::map::DisplayPrimaries,
+) -> i32 {
+    let display = display.as_ref();
+    with_engine(e, "set_display_primaries", DVVK_INVALID, DVVK_BACKEND, |e| match e.set_display_primaries(display) {
+        Ok(()) => 0,
+        Err(err) => {
+            log_error("set_display_primaries", err);
+            DVVK_UNSUPPORTED
+        }
+    })
 }
 
 /// dvvk_sdr_flags (optional symbol): the DVVK_SDR_* flags this library's

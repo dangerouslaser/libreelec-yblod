@@ -143,7 +143,8 @@ void dvvk_reset(dvvk_engine *);
  *                      the display signals as YCbCr 4:2:2 12-bit BT.2020 with
  *                      dvvk_output_signal()'s HDR static metadata.
  * The mode applies from the next frame submitted; peak_nits/min_nits are
- * for target-display modes (reserved, 0). */
+ * for target-display modes (0 but for DVVK_OUTPUT_SDR and the
+ * display-targeted outputs below). */
 /*   DVVK_OUTPUT_HDR10PLUS (YBLOD 0.4.0) HDR10+: CroqueMr's CB1 Dolby Vision
  *                      -> HDR10+. The picture is the Master Reference
  *                      reconstruction in BT.2020 PQ WITHOUT tone mapping (the
@@ -252,8 +253,9 @@ uint32_t dvvk_sdr_flags(void);
  *     CB1 does (sRGB through Kodi's transfer LUT, BT.709 to the display's
  *     primaries, white at 203 cd/m2), and has to be the dvvk_set_overlay
  *     buffer alone at the canvas's size, as for DVVK_OUTPUT_SDR. A frame
- *     with dvvk_plan_in.dm_options set is refused (-2): CB1's CM4.0 append
- *     and L2 removal for player-led output are not implemented.
+ *     whose dvvk_plan_in.dm_options asks for a CM4 mode or DVVK_DM_NO_L2 is
+ *     refused (-2): CB1's CM4.0 append and L2 removal for player-led output
+ *     are not implemented.
  *     dvvk_output_signal: mode 4, eotf 2, the display's primaries and
  *     luminance, reserved[DVVK_SIGNAL_BITS_WORD] the useful bits; no
  *     InfoFrame to send from it.
@@ -265,6 +267,10 @@ enum { DVVK_LLDV_10BIT = 1u };
 #define DVVK_TARGET_GAMUT_WORD 0
 #define DVVK_SIGNAL_BITS_WORD 0
 enum { DVVK_GAMUT_DEFAULT = 0, DVVK_GAMUT_BT709 = 1, DVVK_GAMUT_P3D65 = 2, DVVK_GAMUT_BT2020 = 3 };
+/* The display-target flags this library takes, DVVK_HDR10_TARGET (and
+ * DVVK_LLDV_10BIT with DVVK_OUTPUT_LLDV); an optional symbol, no engine
+ * needed. */
+uint32_t dvvk_target_flags(void);
 /* An LLDV display's own primaries (an optional symbol): those its Dolby
  * Vision VSVDB codes, fitted inside BT.2020 as CB1 fits them
  * (dvvk_lldv_display_from_vsvdb's primaries), white D65. edid_version: the
@@ -277,6 +283,7 @@ typedef struct {
     float xy[3][2];               /* R, G, B: CIE x, y */
     uint32_t reserved[3];
 } dvvk_display_primaries;
+int dvvk_set_display_primaries(dvvk_engine *, const dvvk_display_primaries *);
 typedef struct {
     uint32_t mode;
     uint32_t flags;               /* DVVK_SDR_* (SDR), else 0 */
@@ -290,7 +297,9 @@ uint32_t dvvk_output_modes(void);
 /* The last frame's output: what the HDR static metadata InfoFrame (CTA-861.3)
  * says. mode DVVK_OUTPUT_DV: everything 0. mode DVVK_OUTPUT_SDR: eotf 0, the
  * display's primaries (BT.709, or BT.2020 with DVVK_SDR_BT2020), white and
- * black, no InfoFrame to send. */
+ * black, no InfoFrame to send. mode DVVK_OUTPUT_LLDV: eotf 2, the display's
+ * primaries and luminance, reserved[DVVK_SIGNAL_BITS_WORD] the carrier's
+ * useful bits; no InfoFrame to send (Dolby's low-latency VSIF instead). */
 typedef struct {
     uint32_t mode;
     uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ); 0: SDR */

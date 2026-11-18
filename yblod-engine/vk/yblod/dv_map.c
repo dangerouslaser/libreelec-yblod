@@ -1276,6 +1276,13 @@ void dvvk_map_set_black(dvvk_map_gpu *p, const uint32_t *tables, const uint32_t 
             p->black_out[i] = (uint32_t)floor(p->out_code[0] * o[i] + 0.5) + (uint32_t)p->out_code[1];
         return;
     }
+    if (p->flags & DVVK_MAP_LLDV) {
+        /* LLDV: the unrounded codes (as float bits): the pack filters a
+         * pair's chroma before it rounds */
+        const float c[3] = {256.0 + 3504.0 * o[0], 2048.0 + 3584.0 * o[1], 2048.0 + 3584.0 * o[2]};
+        memcpy(p->black_out, c, sizeof(c));
+        return;
+    }
     p->black_out[0] = code(o[0], 256.0, 3504.0);
     p->black_out[1] = code(o[1], 2048.0, 3584.0);
     p->black_out[2] = code(o[2], 2048.0, 3584.0);

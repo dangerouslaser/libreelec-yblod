@@ -60,6 +60,24 @@
  *                        for dumped pictures once done, "own")
  *                        sdr: the engine converts to an SDR display's picture
  *                        (the dumps are then 8-bit R'G'B' XRGB8888)
+ *                        lldv: player-led Dolby Vision for the display below
+ *                        (the dumps: the tunnel's 12-bit 4:2:2 layout)
+ *     --target           hdr10: HDR10 Rendering Reference for the display
+ *                        below (DVVK_HDR10_TARGET)
+ *     --peak NITS        lldv, --target: the display's peak (default 1000);
+ *                        its black is --black (default 0)
+ *     --gamut G          lldv, --target: 709, p3 or 2020 (default: the mode's,
+ *                        P3-D65 for --target, BT.2020 for lldv)
+ *     --primaries rx,ry,gx,gy,bx,by  lldv: the display's own primaries
+ *                        (dvvk_set_display_primaries), --edid-version N its
+ *                        VSVDB's version (default 2)
+ *     --bits 10          lldv: 10 useful bits in the carrier (DVVK_LLDV_10BIT)
+ *     --l8-target N      a test: the stream's L8 (CM4.0) trims retargeted to
+ *                        target display N (the parsed index and its raw byte),
+ *                        as CB1's tests retarget theirs (49: 1000 cd/m2
+ *                        BT.2020, 48: 1000 P3, 27: 600 P3), so that the Expert
+ *                        map's CM4 path has trims a display takes; --metadata
+ *                        writes the retargeted metadata
  *     --white NITS       sdr: the display's white (default 203); also the
  *                        overlay's white in the other modes
  *     --black NITS       sdr: the display's black (default white / 1000)
@@ -277,6 +295,12 @@ int main(int argc, char **argv)
     const char *metadata_prefix = NULL;
     double start = 0, rate = 23.976, white = 203.0, black = 0;
     unsigned sdr_flags = 0, sdr_gamma = 0;
+    /* lldv, --target: the display */
+    double peak = 1000.0;
+    unsigned target = 0, target_gamut = DVVK_GAMUT_DEFAULT, bits10 = 0;
+    dvvk_display_primaries display = {0};
+    int l8_target = -1;
+    static _Alignas(16) uint8_t l8_md[SLOTS][16384];
     int source = 0;   /* 1 hdr10, 2 hlg: dvvk_hdr10_to_dovi's metadata; 3 hdr10plus */
     static _Alignas(16) uint8_t plain[DVVK_HDR10PLUS_DOVI_BYTES];
     size_t plain_size = 0;
@@ -369,8 +393,30 @@ int main(int argc, char **argv)
         {
             const char *m = argv[++i];
             output = !strcmp(m, "hdr10") ? DVVK_OUTPUT_HDR10 : !strcmp(m, "hdr10plus") ? DVVK_OUTPUT_HDR10PLUS
-                     : !strcmp(m, "sdr") ? DVVK_OUTPUT_SDR : DVVK_OUTPUT_DV;
+                     : !strcmp(m, "sdr") ? DVVK_OUTPUT_SDR : !strcmp(m, "lldv") ? DVVK_OUTPUT_LLDV : DVVK_OUTPUT_DV;
         }
+        else if (!strcmp(argv[i], "--target"))
+            target = 1;
+        else if (!strcmp(argv[i], "--peak") && i + 1 < argc)
+            peak = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--gamut") && i + 1 < argc) {
+            const char *g = argv[++i];
+            target_gamut = !strcmp(g, "709") ? DVVK_GAMUT_BT709 : !strcmp(g, "p3") ? DVVK_GAMUT_P3D65
+                           : !strcmp(g, "2020") ? DVVK_GAMUT_BT2020 : 99;
+            if (target_gamut == 99)
+                return fprintf(stderr, "--gamut: 709, p3 or 2020\n"), 2;
+        } else if (!strcmp(argv[i], "--primaries") && i + 1 < argc) {
+            float *xy = &display.xy[0][0];
+            if (sscanf(argv[++i], "%f,%f,%f,%f,%f,%f", xy, xy + 1, xy + 2, xy + 3, xy + 4, xy + 5) != 6)
+                return fprintf(stderr, "--primaries rx,ry,gx,gy,bx,by\n"), 2;
+            if (!display.edid_version)
+                display.edid_version = 2;
+        } else if (!strcmp(argv[i], "--edid-version") && i + 1 < argc)
+            display.edid_version = (uint32_t)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--bits") && i + 1 < argc)
+            bits10 = atoi(argv[++i]) == 10;
+        else if (!strcmp(argv[i], "--l8-target") && i + 1 < argc)
+            l8_target = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--black") && i + 1 < argc)
             black = atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamma22"))
@@ -441,6 +487,14 @@ int main(int argc, char **argv)
             om.peak_nits = (float)white;
             om.min_nits = (float)black;
             om.reserved[DVVK_SDR_GAMMA_WORD] = sdr_gamma;
+        }
+        if (output == DVVK_OUTPUT_LLDV || (output == DVVK_OUTPUT_HDR10 && target)) {
+            om.flags = output == DVVK_OUTPUT_LLDV ? (bits10 ? DVVK_LLDV_10BIT : 0) : DVVK_HDR10_TARGET;
+            om.peak_nits = (float)peak;
+            om.min_nits = (float)black;
+            om.reserved[DVVK_TARGET_GAMUT_WORD] = target_gamut;
+            if (output == DVVK_OUTPUT_LLDV && dvvk_set_display_primaries(e, &display))
+                return fprintf(stderr, "dvvk_set_display_primaries failed\n"), 1;
         }
         if (dvvk_set_output_mode(e, &om))
             return fprintf(stderr, "dvvk_set_output_mode failed\n"), 1;
@@ -612,6 +666,21 @@ int main(int argc, char **argv)
             md_data = h10p_md[slot];
             md_size = h10p_last_size;
         }
+        if (l8_target >= 0 && !source) {
+            /* a copy a slot: the engine reads the metadata until the frame is done */
+            if (md_size > sizeof(l8_md[slot]))
+                return fprintf(stderr, "picture %d: metadata of %zu bytes\n", n, md_size), 1;
+            memcpy(l8_md[slot], md_data, md_size);
+            AVDOVIMetadata *m = (AVDOVIMetadata *)l8_md[slot];
+            for (int k = 0; k < m->num_ext_blocks; k++) {
+                AVDOVIDmData *b = av_dovi_get_ext(m, k);
+                if (b->level == 8) {
+                    b->l8.target_display_index = (uint8_t)l8_target;
+                    b->dvbridge_original_bytes[0] = (uint8_t)l8_target;
+                }
+            }
+            md_data = l8_md[slot];
+        }
         unsigned w = (unsigned)p.bl->width, h = (unsigned)p.bl->height;
         unsigned x = dx, y = dy, dw = dwid, dh = dhei;
         if (!have_dest) {
@@ -747,7 +816,7 @@ int main(int argc, char **argv)
         if (!dvvk_output_signal(e, &sig))
             printf("dvvk-bench: %s signal: mode %u eotf %u max %u cd/m2 min %u (1e-4) cll %u fall %u "
                    "R %u,%u G %u,%u B %u,%u W %u,%u\n",
-                   output == DVVK_OUTPUT_SDR ? "SDR" : "HDR10", sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
+                   output == DVVK_OUTPUT_SDR ? "SDR" : output == DVVK_OUTPUT_LLDV ? "LLDV" : "HDR10", sig.mode, sig.eotf, sig.max_luminance, sig.min_luminance, sig.max_cll, sig.max_fall,
                    sig.primaries[0][0], sig.primaries[0][1], sig.primaries[1][0], sig.primaries[1][1],
                    sig.primaries[2][0], sig.primaries[2][1], sig.white[0], sig.white[1]);
     }
