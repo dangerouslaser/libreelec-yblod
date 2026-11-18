@@ -37,9 +37,10 @@ case "${LINUX}" in
     PKG_PATCH_DIRS="default rockchip"
     ;;
   *)
-    PKG_VERSION="7.3.4"
-    PKG_SHA256="b11b6df8295e8e991ff040b71aaa4994a8b55caa23b6b092907f195b5840fd1f"
-    PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+    PKG_VERSION="aebb7274476403040d582c61478df8f4a7bf9cd3" # 7.4-rc3
+    PKG_SHA256="8d372e3959127f560d6810b59b0ab2cc8ce2b3e70872ffe884cf79a6e0f0a85d"
+    PKG_URL="https://github.com/torvalds/linux/archive/${PKG_VERSION}.tar.gz"
+    PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="default"
     case ${DEVICE} in
       RK3288|RK3328|RK3399)
