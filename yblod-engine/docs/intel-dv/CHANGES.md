@@ -90,7 +90,8 @@ One series, applied in file name order through the links in
 `yblod/patches/linux/` (QMS, FreeSync and general HDMI changes). Each is `git
 format-patch` output; its header says what it does, where it came from and what
 it was tested on. Until 0.4.1 the series was 30 files (`linux-9900-00` to
-`linux-9933`); the regrouping changed no code.
+`linux-9933`); the regrouping changed no code. The series is for Linux 7.4-rc3
+(until 2026-11-18, 7.3.4; see `yblod/docs/KERNEL-74-20261118.txt`).
 
 | Patch | Purpose |
 | --- | --- |

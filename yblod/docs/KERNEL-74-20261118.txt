@@ -1,0 +1,228 @@
+Generic kernel to Linux 7.4-rc3, 2026-11-18
+
+Base: v7.4-rc3, commit aebb7274476403040d582c61478df8f4a7bf9cd3 (tag object
+19d1b4de6d37), the newest 7.4 tag on 2026-11-18; 7.4 itself is not out.
+Before: 7.3.4 from kernel.org. Branch: feat/croque-parity-kernel, from
+ba8b701d6c (LibreELEC master of 2026-11-14 plus YBLOD).
+
+How it is selected: the default (LINUX=default) case of
+packages/linux/package.mk fetches the commit from GitHub by its full hash,
+as the file's Amlogic, Raspberry Pi and Rockchip cases do
+(linux-default-<hash>.tar.gz, SHA256 8d372e39...0a85d, the same on two
+downloads). Kernel.org has no tarball of a release candidate. This adds
+one upstream file to footprint.sh's list and conflicts only when
+LibreELEC itself moves the default kernel, which is when the choice has to
+be made again. A new LINUX value would need projects/Generic/options and
+a new case in package.mk (two files) and would hide LibreELEC's kernel
+updates; a project copy of the recipe would hide every recipe change.
+The other projects in the tree share this case; YBLOD builds none of
+them.
+
+Kernel configuration: projects/Generic/linux/linux.x86_64.conf is
+regenerated with tools/adjust_kernel_config olddefconfig in the build
+container (LibreELEC's cross gcc 16.2.0; tools/check_kernel_config
+applied the distribution's kernel_options). 109 lines added, 32 removed.
+Graphics (i915 built in, xe and the HDMI audio codecs modules, amdgpu
+and DC built in), HDMI audio (SND_HDA_POWER_SAVE_DEFAULT=0, no silent
+stream), CEC (MEDIA_CEC_SUPPORT, DRM_DISPLAY_DP_AUX_CEC) and suspend are
+unchanged. Worth knowing:
+- CONFIG_AMD_PMC=m, new: the AMD SoC PMC driver for s2idle on Ryzen
+  APUs, as CB1 has it (its dependencies were all set; AMD_MP2_STB=y is
+  its default).
+- CONFIG_RTW88_8723BS=m, new: 7.4 removed the staging rtl8723bs driver
+  (RTL8723BS=m); rtw88's driver for the same SDIO chip replaces it, and
+  kernel-firmware already ships rtw88/*.
+- DRM_AMD_DC_DCE=y: DC for the older DCE 8-12 ASICs, a separate option
+  in 7.4, on by default (big-fella's config has it too).
+- CHECK_WX=y and PTDUMP=y replace the unset DEBUG_WX: 7.4's default, a
+  one-time check of the kernel page tables for writable+executable
+  mappings at boot.
+- Defaults otherwise: new drivers off, PNFS_BLOCK now built in
+  (PNFS_SCSI_LAYOUT=y), CRYPTO_XTS=y (selected), symbols of removed
+  drivers gone (LLC2, SATA_INIC162X, HID_KYSONA, BFS_FS,
+  ANDROID_BINDER_IPC, VIDEO_MAX96712), GOOGLE_FIRMWARE renamed
+  COREBOOT_FIRMWARE. The
+  CC_OPT_*/RUSTC_* lines are what Kconfig reads from the container's
+  compilers; RUST stays off.
+
+Patches, in build order (GNU patch --fuzz=0 on pristine 7.4-rc3; all
+apply, none needs fuzz; the result is the tree of a git rebase of the
+7.3.4 series onto 7.4-rc3):
+
+LibreELEC's, unchanged, none dropped (7.4 has none of their changes):
+- 0062-imon-pad-ignore-diagonal: 1 hunk at an offset. 7.4 rewrote 173
+  lines of imon.c (USB ids, init, disconnect), not imon_pad_to_keys().
+- 9900-i915-10bit-hack, 9901-pm-disable-async-suspend-resume-by-default:
+  as they are.
+
+No upstream backports are added (see the candidates after the triage).
+
+YBLOD's 13:
+- linux-9900, 9901, 9912, 9913, 9922, 9923, 9924, 9930, 9931: files
+  unchanged, some hunks at offsets (9900: 4, 9901: 6, 9913: 6, 9922: 1,
+  9923: 6, 9924: 1, 9930: 7, 9931: 13).
+- linux-9910 (QMS), regenerated: 7.4 moved CMRR's state into
+  crtc_state->vrr (vrr.cmrr), so the qms struct now follows vrr directly,
+  and 7.4 added two FRL prototypes at the end of intel_hdmi.h, after which
+  the QMS prototypes go. No code change. 7.4's CMRR rework
+  (intel_vrr_cmrr_compute_config()) only runs on platforms with the
+  always-on VRR timing generator (display version 30+) and a debugfs
+  ratio; QMS stays off there, as before.
+- linux-9933 (FreeSync over HDMI), regenerated: the same
+  intel_display_types.h context. No code change.
+- linux-9920 (amdgpu Dolby Vision tunnel), regenerated and adapted: 7.4's
+  amdgpu_dm_update_freesync_state_on_stream() builds on every flip an
+  HDMI VRR VTEM (a sink with HDMI VRR and no AMD VSDB, VRR on or not) and
+  the ALLM HF-VSIF in vsp_infopacket, where the tunnel's Dolby VSIF is.
+  Neither is built for a tunnel stream (stream->dv_lab), which is what
+  the patch did on 7.3: no VTEM, no HF-VSIF. big-fella made the same two
+  changes on 7.4-rc2 (linux-yblod 7.4rc2-1 and -3), after its LG B4 showed
+  the tunnel's pixels in magenta.
+- linux-9932 (HDR10+), regenerated and adapted, amdgpu only: the HF-VSIF
+  above is not built for an HDR10+ stream either (stream->hdr10plus), whose
+  VSIF is also in vsp_infopacket; and 7.4's amdgpu_dm_commit_planes()
+  hands DC the stream update only when stream_update_needed is set, so a
+  new HDR10+ packet sets it (on 7.4 it would otherwise stay in the bundle,
+  unsent). Then, as a commit of its own, CB1's FRL gate: the HDR10+ check
+  tests dc_is_hdmi_signal() instead of SIGNAL_TYPE_HDMI_TYPE_A, so an
+  HDMI FRL stream qualifies (CB1 570de37442 does it in its linux-9920 for
+  HDR10 and HDR10+; YBLOD has only the HDR10+ test).
+
+Checked on 7.4 for the patches that apply as they are: has_audio is
+computed after the output format in intel_hdmi_compute_config() now, and
+no patch reads it; i915's DPCD helpers moved to *_read_byte()/_write_byte()
+(0 on success), and linux-9931 still calls drm_dp_dpcd_readb(), which 7.4
+keeps; the new intel_dip.c SDP transmission lines are DP-only and for
+display version 35+; amdgpu's create_validate_stream_for_sink() now pins
+RGB for a debugfs RGB force, which leaves YCbCr 4:2:0 out of the mask, so
+linux-9923's HDR pass does not run there (as with Broadcast RGB forced);
+DRM core now parses HDMI VRR, ALLM and the AMD VSDB into display_info,
+and linux-9910 and linux-9933 keep their own EDID parsers.
+
+Not ported, known 7.4 behaviour change: e4dca268eea6 (in 7.4-rc1) makes
+amdgpu call a native HDMI sink FreeSync-capable only with the EDID's MCCS
+VCP code, which TVs do not have (an LG B4's AMD VSDB has 0), so such TVs
+read vrr_capable 0 on amdgpu. big-fella's linux-9929
+(amdgpu.freesync_hdmi_vcp) undoes it. YBLOD carries no change for it
+here.
+
+Packages that build against the kernel (from tools/viewplan for
+Generic): nvidia, wireguard-tools and ipset (kernel packages, rebuilt
+with the kernel), and glibc, iptables and binutils:host, which use the
+kernel's UAPI headers (linux:host). tm16xx-display and the DVB driver
+add-ons are not in the Generic image; packages/linux-drivers does not
+exist in this tree (linux-drivers is an empty virtual package here).
+- nvidia 580.196.07 (GRAPHIC_DRIVERS has nvidia-ng) did not build:
+  nvidia-drm includes drm/drm_fb_helper.h, which 7.4 moved to
+  drm/clients/drm_fbdev_helper.h (6ccc5b5fc1d3), and sets the plane and
+  CRTC .reset hooks, which 7.4 removed with drm_atomic_helper_plane_reset()
+  and drm_atomic_helper_crtc_reset() (5589ef09f93b, e62864df82f6,
+  f1bcb90506a9, 5354d1e5fba4). 580.196.07 is the newest 580 release and
+  LibreELEC master still has it. New: yblod/patches/nvidia/nvidia-9900,
+  NVIDIA's own handling from 620.73.04 (the header test, the four
+  conftests, .atomic_create_state hooks) on 580's nvidia-drm. With it all
+  four modules build; the warnings are the same as on 7.3.4.
+- wireguard-tools, ipset: build unchanged.
+- glibc and iptables: cleaned and built again against 7.4's headers;
+  both build unchanged. binutils:host was not rebuilt (its stamp does not
+  follow the kernel; it takes no kernel interface).
+
+Triage of CroqueMr's CB1 kernel patches that YBLOD did not carry (CB1
+b5149a09d7, Linux 7.2.6), against v7.4-rc3, mainline master 4405c18c95d2
+(2026-11-18) and linux-next next-20261118:
+
+  CB1 patch                  Status                               Here
+  linux-9943 Intel SCDC      his own (KMS-debug messages in        not ported
+   diagnostics                intel_hdmi_reset_link()), not
+                              upstream
+  linux-9944 deferred link   his own, not upstream (builds on      not ported
+   check                      9943 and his HPD changes)
+  linux-9948 HDMI ready      his own, not upstream (builds on      not ported
+   recovery                   9944)
+  linux-9947 AMD HDMI RGB    bdcd0411d7d1, 7fca7acd60a2 in 7.3-rc3 nothing;
+   range                      and eb5650d1f367 in 7.3-rc6, so all  the guard
+                              in 7.4 (d23f735d0eac is the same     is a
+                              change in 7.4-rc1); the HDMI-signal  candidate
+                              guard is 39f37a234641 (amd drm-next, (below)
+                              linux-next only, not mainline); the
+                              HDMI VIC case (|| timing->hdmi_vic)
+                              is his own, not upstream
+  linux-9949 ALSA ADL-P      his own, not upstream                 not ported
+   HDMI pin output
+  linux-9950-01 WCL scaler   in 7.4: 25ea7671bdbc (7.4-rc2)        -
+  linux-9950-02 WCL joiner   in 7.4: b42b656db138 (7.4-rc2)        -
+  linux-9950-02a CDCLK_CTL   in 7.4: aa8faabadc59 (7.3-rc1)        -
+  linux-9950-03 cd2x mask    in 7.4: 67d77d9472c6 (7.3-rc1)        -
+  linux-9950-04 PTL cdclk    in 7.4: aad969968824 (7.3-rc2) and    -
+                              1786d2688781 (7.4-rc1)
+  linux-9950-05..09 GMBUS    not in 7.4; in drm-intel-next and     candidates
+                              linux-next only, not mainline:       (below)
+                              96cb6f956651, 39c2d49c9ece,
+                              e860dbc18495, 548a600780cc,
+                              b21a0ab8fb95
+  0102 mt7921 join ROC       in 7.4: 6f591a4bb5d9 (7.4-rc1; and    -
+                              mt7925 ac22c8c723c6)
+  CONFIG_AMD_PMC=m           configuration                         added
+  linux-9920 FRL gate        his own (570de37442), not upstream    linux-9932,
+                                                                   own commit
+
+Candidates, not taken: in subsystem -next trees (linux-next
+next-20261118), not in mainline, so not "merged upstream"; this kernel
+goes into a release that cannot be tried on hardware first. Each was
+cherry-picked onto 7.4-rc3 (after LibreELEC's patches, before YBLOD's
+series) and applied with no fuzz and no offset, in this order, and YBLOD's
+13 applied on top of them without conflict:
+- drm-intel-next, Ville Syrjala's GMBUS series (CB1 linux-9950-05 to 09):
+  96cb6f956651 GMBUS fully through _fw() register accesses (bit banging
+  without a DC5/6 exit per access), 39c2d49c9ece .getsda()/.getscl()
+  only read the pin, e860dbc18495 gen2/3 pullup disable bits preserved,
+  548a600780cc the PNV clock gating workaround outermost, b21a0ab8fb95
+  i2c bit banging fixed on Panther Lake and Wildcat Lake (Wa_16025573575;
+  the others are what it builds on). They change EDID reads on every
+  Intel display; only Xe3 (PTL/WCL) gains.
+- amd drm-next 39f37a234641 "Apply the HDMI RGB range default only to
+  HDMI signals" (Fixes: d23f735d0eac, which 7.4 has; drm/amd#6052):
+  Broadcast RGB Automatic gives limited range on CTA modes only for an
+  HDMI signal,
+  so a native DisplayPort monitor whose EDID has an HDMI VSDB gets full
+  range again. It changes picture levels where it applies. It is the
+  signal-type guard of CB1's linux-9947.
+To take one: git cherry-pick -x it onto an unpacked 7.4 tree and save it
+as a patch in yblod/patches/linux, numbered to sort before linux-9900.
+
+Checks (on Ollie, image yblod-parity-build:noble, in a copy of the
+development build tree of this branch's base, 10g, no swap, 5 jobs, one
+build at a time under the build lock; PROJECT=Generic DEVICE=Generic
+ARCH=x86_64):
+- Patches: every patch the Generic build applies, applied in build order
+  to pristine 7.4-rc3 with GNU patch --fuzz=0: all apply, no fuzz; the
+  result is identical to the git-rebased tree. scripts/unpack linux, which
+  fetched the recipe's URL and checked its SHA256, applied all 16 with no
+  fuzz.
+- tools/adjust_kernel_config olddefconfig, then scripts/config --module
+  AMD_PMC and --module RTW88_8723BS and olddefconfig again.
+- scripts/build_mt linux: kernel 7.4.0-rc3 compiled and linked (bzImage,
+  modules, Module.symvers; i915 and the xe copy of the display code, and
+  amdgpu, with every YBLOD patch). The log has 4 warnings: two in the
+  host kconfig lexer and two -Wframe-larger-than in wireguard's
+  allowedips.c, upstream code; none in a patched file.
+- scripts/build_mt nvidia, wireguard-tools, ipset; scripts/clean then
+  scripts/build_mt iptables and glibc: all build. nvidia's modules have
+  vermagic 7.4.0-rc3; the sysroot's linux/version.h is 7.4.0.
+- tools/pkgcheck linux: clean. yblod/tools/link-patches.sh: patch links
+  OK.
+- footprint.sh: 57 paths, the 54 of the 2026-11-18 resync plus
+  packages/linux/package.mk and projects/Generic/linux/linux.x86_64.conf
+  (modified upstream) and the link
+  projects/Generic/patches/nvidia/nvidia-9900-nvidia-drm-linux-7.4.patch.
+
+Also changed: yblod-engine/docs/intel-dv/CHANGES.md names the kernel the
+series is for.
+
+Not proven: nothing was booted or shown on a display. Boot on 7.4, the
+HDMI link behaviour (QMS, HPD hold, the SCDC recheck), Dolby Vision
+signalling on i915 and amdgpu, HDR10+, FRL, HDMI audio, s2idle with
+amd-pmc, rtw88's 8723BS and nvidia-drm on an NVIDIA GPU are untested.
+The amdgpu changes of linux-9920 and linux-9932 change when the Dolby
+VSIF and HDR10+ VSIF are left in place on a flip and need an AMD box and
+a TV first. 7.4-rc3 is a release candidate. No image was built.
