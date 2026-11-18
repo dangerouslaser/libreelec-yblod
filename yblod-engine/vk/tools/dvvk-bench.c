@@ -17,6 +17,11 @@
  *     --fel 0|1          FEL off/on (default 1)
  *     --el-scaler M      annexb (1, the default) or bilinear (2): the FEL's
  *                        EL upsampling (dvvk_plan_in.el_scaler); --cb1 is Annex B
+ *     --scaler M         bilinear (0, the default), easu (1) or rcas (2): the
+ *                        upscaler of an enlarged picture (dvvk_set_scaler;
+ *                        FSR 1 EASU, EASU + RCAS); another number is passed
+ *                        on as it is (the engine refuses it: exit 1)
+ *     --scaler-from N    the upscaler from picture N on (bilinear before)
  *     --overlay FILE     the overlay: raw BGRA of the canvas's size (ARGB8888 bytes, as
  *                        `ffmpeg -i shot.png -vf scale=3840:2160 -pix_fmt bgra
  *                        -f rawvideo FILE`), premultiplied; pixels inside
@@ -266,7 +271,7 @@ int main(int argc, char **argv)
 {
     int frames = 240, fel = 1, scaler = DVVK_EL_ANNEXB, have_dest = 0, desktop = 0, fp16 = 0, cb1 = 0, flip = 0;
     unsigned cm4 = 0, cm4_trigger = 0, cm4_headroom = 20, tv_peak = 0, no_l2 = 0, output = DVVK_OUTPUT_DV;
-    int hdr10plus_v0 = 0;
+    int hdr10plus_v0 = 0, upscaler = DVVK_SCALER_BILINEAR, scaler_from = 0;
     uint32_t last_dm_status = UINT32_MAX;
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
     const char *metadata_prefix = NULL;
@@ -315,6 +320,18 @@ int main(int argc, char **argv)
                 return 2;
             }
         }
+        else if (!strcmp(argv[i], "--scaler") && i + 1 < argc) {
+            const char *m = argv[++i];
+            char *end;
+            long v = strtol(m, &end, 10);
+            upscaler = !strcmp(m, "bilinear") ? DVVK_SCALER_BILINEAR
+                       : !strcmp(m, "easu") ? DVVK_SCALER_FSR1_EASU
+                       : !strcmp(m, "rcas") ? DVVK_SCALER_FSR1_RCAS
+                       : *m && !*end && v >= 0 && v <= 0xffff ? (int)v : -1;
+            if (upscaler < 0)
+                return fprintf(stderr, "--scaler: bilinear, easu, rcas or a number\n"), 2;
+        } else if (!strcmp(argv[i], "--scaler-from") && i + 1 < argc)
+            scaler_from = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--overlay") && i + 1 < argc)
             overlay_path = argv[++i];
         else if (!strcmp(argv[i], "--mode") && i + 1 < argc)
@@ -428,6 +445,8 @@ int main(int argc, char **argv)
         if (dvvk_set_output_mode(e, &om))
             return fprintf(stderr, "dvvk_set_output_mode failed\n"), 1;
     }
+    if (upscaler && !scaler_from && dvvk_set_scaler(e, (uint32_t)upscaler))
+        return fprintf(stderr, "dvvk_set_scaler failed\n"), 1;
     for (int i = 0; i < SLOTS; i++)
         if (dvvk_set_output(e, (uint32_t)i, out[i].fd, out[i].stride))
             return fprintf(stderr, "dvvk_set_output failed\n"), 1;
@@ -658,6 +677,8 @@ int main(int argc, char **argv)
         memcpy(f.plan.rgb_to_lms, rgb_to_lms, sizeof(rgb_to_lms));
         packet_id = (packet_id + 1) & 0xf;
         ov_before = use_overlay;
+        if (upscaler && scaler_from && n == scaler_from && dvvk_set_scaler(e, (uint32_t)upscaler))
+            return fprintf(stderr, "dvvk_set_scaler failed\n"), 1;
         if (period > 0)
             sleep_until(t_next);
         t_next += period;
