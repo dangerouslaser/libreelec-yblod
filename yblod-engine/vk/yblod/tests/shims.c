@@ -71,6 +71,7 @@ int yb_cb1_test_expert_plan(void);
 int yb_cb1_test_expert_continuity(void);
 int yb_cb1_test_policy(void);
 int yb_cb1_test_trim_contract(void);
+int yb_test_vsvdb(void);
 
 /* Every C test; returns the failures (checks counted in *count). */
 unsigned dvvk_test_hdr10plus_c(unsigned *count)
@@ -86,6 +87,7 @@ unsigned dvvk_test_hdr10plus_c(unsigned *count)
     yb_cb1_test_expert_continuity();
     yb_cb1_test_policy();
     yb_cb1_test_trim_contract();
+    yb_test_vsvdb();
     if (count)
         *count = checks;
     return failures;

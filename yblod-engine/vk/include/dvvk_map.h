@@ -185,6 +185,8 @@ double dvvk_map_lldv_degamma(double code);
 /* LLDV: v to the carrier's BT.2020 PQ R'G'B' (dvbridge_pack_player_led_422's
  * lldv_matrix, clamp, scale, PQ). */
 void dvvk_map_lldv_encode(const dvvk_map_gpu *p, const double v[3], double pq[3]);
+/* yblod/lldv_vsvdb.c: dvvk_lldv_display_from_vsvdb's parse (src/capi.rs exports it) */
+int dvvk_lldv_vsvdb(const uint8_t *block, size_t size, dvvk_lldv_display *out);
 /* SDR output's tables for `map` (DVVK_MAP_TABLE_WORDS words): the dither
  * pattern and the gamut LUT (pl_gamut_map_generate: tens of milliseconds, so
  * only when map->gamut_key changes; a map without DVVK_MAP_GAMUT leaves the

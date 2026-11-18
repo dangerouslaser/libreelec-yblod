@@ -83,6 +83,7 @@ fn main() {
         .include("yblod/placebo/include")
         .include("include")
         .file("yblod/dv_map.c")
+        .file("yblod/lldv_vsvdb.c")
         .file("yblod/placebo/common.c")
         .file("yblod/placebo/colorspace.c")
         .file("yblod/placebo/tone_mapping.c")
@@ -137,6 +138,7 @@ fn main() {
         "run_expert_continuity.c",
         "run_policy.c",
         "run_trim_contract.c",
+        "vsvdb.c",
     ] {
         t.file(format!("yblod/tests/{f}"));
     }

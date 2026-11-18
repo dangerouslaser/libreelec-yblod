@@ -73,6 +73,35 @@ pub struct DisplayPrimaries {
     pub reserved: [u32; 3],
 }
 
+/// include/dv_engine_vk.h dvvk_lldv_display: a display's LLDV target from
+/// its Dolby Vision VSVDB (yblod/lldv_vsvdb.c).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct LldvDisplay {
+    pub status: u32,
+    pub version: u32,
+    pub flags: u32,
+    pub pad: u32,
+    pub peak_nits: f64,
+    pub min_nits: f64,
+    pub primaries: [[f64; 2]; 3],
+    pub reported: [[f64; 2]; 3],
+    pub reserved: [u32; 4],
+}
+
+extern "C" {
+    fn dvvk_lldv_vsvdb(block: *const u8, size: usize, out: *mut LldvDisplay) -> i32;
+}
+
+/// dvvk_lldv_display_from_vsvdb: 0 and the target, -2 none (status says
+/// why), -1 NULL.
+///
+/// # Safety
+/// `block` is `size` readable bytes (or NULL), `out` writable (or NULL).
+pub unsafe fn lldv_display(block: *const u8, size: usize, out: *mut LldvDisplay) -> i32 {
+    dvvk_lldv_vsvdb(block, size, out)
+}
+
 /// include/dv_engine_vk.h dvvk_hdr_signal.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -114,6 +143,9 @@ pub struct Map {
 const _: () = {
     assert!(size_of::<OutputMode>() == 32);
     assert!(size_of::<DisplayPrimaries>() == 40);
+    assert!(size_of::<LldvDisplay>() == 144);
+    assert!(offset_of!(LldvDisplay, peak_nits) == 16);
+    assert!(offset_of!(LldvDisplay, reported) == 80);
     assert!(size_of::<HdrSignal>() == 48);
     assert!(offset_of!(HdrSignal, max_luminance) == 24);
     assert!(size_of::<MapGpu>() == GPU_BYTES);
@@ -472,5 +504,18 @@ mod tests {
         assert_eq!(s.primaries, [[34000, 16000], [13250, 34500], [7500, 3000]]);
         let rec709 = plan(target(DVVK_OUTPUT_HDR10, 1, 100.0, 0.05, 1), &none);
         assert_eq!(rec709.signal.primaries, [[32000, 16500], [15000, 30000], [7500, 3000]]);
+    }
+
+    /// dvvk_lldv_display_from_vsvdb through the Rust export: a version 2
+    /// block (yblod/tests/vsvdb.c has the rest)
+    #[test]
+    fn vsvdb_target() {
+        let v2 = [0xebu8, 0x01, 0x46, 0xd0, 0x00, 0x48, 0x03, 0x76, 0x82, 0x5e, 0x6d, 0x95];
+        let mut d = LldvDisplay::default();
+        assert_eq!(unsafe { crate::capi::dvvk_lldv_display_from_vsvdb(v2.as_ptr(), v2.len(), &mut d) }, 0);
+        assert_eq!((d.status, d.version), (0, 2));
+        assert!((d.peak_nits - 774.869).abs() < 1e-3 && d.min_nits == 0.0);
+        assert_eq!(unsafe { crate::capi::dvvk_lldv_display_from_vsvdb(v2.as_ptr(), 4, &mut d) }, -2);
+        assert_eq!(unsafe { crate::capi::dvvk_lldv_display_from_vsvdb(std::ptr::null(), 12, &mut d) }, -1);
     }
 }

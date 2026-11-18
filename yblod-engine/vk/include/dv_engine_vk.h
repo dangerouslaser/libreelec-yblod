@@ -284,6 +284,40 @@ typedef struct {
     uint32_t reserved[3];
 } dvvk_display_primaries;
 int dvvk_set_display_primaries(dvvk_engine *, const dvvk_display_primaries *);
+/* A display's LLDV target from its Dolby Vision vendor-specific video data
+ * block (an optional symbol; no engine needed), CroqueMr's CB1 Kodi parser
+ * (ReadLldvDisplay, dvbridge_parse_edid): `block` the CTA data block from
+ * its header byte (tag 7, length 5 to 31) on, `size` at least its length
+ * + 1: extended tag 1, OUI 00-D0-46, then version 0, 1 (12 or 15 bytes) or
+ * 2 (12 or more). Returns 0 with *out the target (status READY), -2 with
+ * out->status saying why there is none, -1 for NULL. */
+enum {
+    DVVK_VSVDB_READY = 0,
+    DVVK_VSVDB_INVALID = 1,           /* not a Dolby Vision VSVDB, or its length isn't its version's */
+    DVVK_VSVDB_UNSUPPORTED = 2,       /* version 0, or a version after 2 */
+    DVVK_VSVDB_NO_LOW_LATENCY = 3,    /* the display doesn't take low-latency 4:2:2 */
+    DVVK_VSVDB_INVALID_LUMINANCE = 4, /* black at or above the peak, or the peak above 10000 */
+    DVVK_VSVDB_INVALID_PRIMARIES = 5,
+    DVVK_VSVDB_OUTSIDE_BT2020 = 6,    /* a primary further outside BT.2020 than one 1/256 step */
+};
+/* flags: what else the block says */
+enum {
+    DVVK_VSVDB_STANDARD = 1u,         /* the display also takes TV-led Dolby Vision */
+    DVVK_VSVDB_422_12 = 2u,           /* its low-latency 4:2:2 takes 12 bits (else 10) */
+    DVVK_VSVDB_444_10 = 4u,           /* version 2: low-latency RGB/4:4:4 at 10 bits */
+    DVVK_VSVDB_444_12 = 8u,           /* ... at 12 bits */
+};
+typedef struct {
+    uint32_t status;                  /* DVVK_VSVDB_* */
+    uint32_t version;                 /* the block's, 0 to 7 */
+    uint32_t flags;                   /* DVVK_VSVDB_STANDARD ... */
+    uint32_t pad;
+    double peak_nits, min_nits;       /* the display's luminance (cd/m2) */
+    double primaries[3][2];           /* R, G, B (x, y) fitted inside BT.2020: dvvk_display_primaries.xy */
+    double reported[3][2];            /* as the block codes them */
+    uint32_t reserved[4];
+} dvvk_lldv_display;
+int dvvk_lldv_display_from_vsvdb(const uint8_t *block, size_t size, dvvk_lldv_display *out);
 typedef struct {
     uint32_t mode;
     uint32_t flags;               /* DVVK_SDR_* (SDR), else 0 */
@@ -485,6 +519,9 @@ DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10_static) == 20, "dvvk_hdr10_static layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_hdr10_static, primaries) == 12, "dvvk_hdr10_static layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_hdr10plus_dovi_info) == 36, "dvvk_hdr10plus_dovi_info layout");
 DVVK_STATIC_ASSERT(sizeof(dvvk_display_primaries) == 40, "dvvk_display_primaries layout");
+DVVK_STATIC_ASSERT(sizeof(dvvk_lldv_display) == 144, "dvvk_lldv_display layout");
+DVVK_STATIC_ASSERT(offsetof(dvvk_lldv_display, peak_nits) == 16, "dvvk_lldv_display layout");
+DVVK_STATIC_ASSERT(offsetof(dvvk_lldv_display, reported) == 80, "dvvk_lldv_display layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, modifier) == 16, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, num_planes) == 24, "dvvk_dmabuf layout");
 DVVK_STATIC_ASSERT(offsetof(dvvk_dmabuf, fd) == 28, "dvvk_dmabuf layout");

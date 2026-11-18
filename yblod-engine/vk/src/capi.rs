@@ -359,6 +359,20 @@ pub extern "C" fn dvvk_target_flags() -> u32 {
     crate::map::TARGET_FLAGS
 }
 
+/// dvvk_lldv_display_from_vsvdb (optional symbol): a display's LLDV target
+/// from its Dolby Vision VSVDB (CB1's Kodi parser, yblod/lldv_vsvdb.c).
+///
+/// # Safety
+/// `block` is `size` readable bytes (or NULL), `out` writable (or NULL).
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_lldv_display_from_vsvdb(
+    block: *const u8,
+    size: usize,
+    out: *mut crate::map::LldvDisplay,
+) -> i32 {
+    guarded("lldv_display_from_vsvdb", DVVK_BACKEND, || crate::map::lldv_display(block, size, out))
+}
+
 /// dvvk_set_display_primaries (optional symbol): an LLDV display's own
 /// primaries from its Dolby Vision VSVDB (NULL: none).
 ///

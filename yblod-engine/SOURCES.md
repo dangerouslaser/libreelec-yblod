@@ -75,7 +75,12 @@ Implementation references and boundaries:
   Test-only, not in the engine: his CPU player-led pack
   `cb1_lldv_cpu.c/.h` and its test `player_led_cpu.c` (MIT), unchanged in
   `vk/tools/cb1`, the oracle `vk/tools/dvvk-lldv-oracle.c` compares the
-  engine's LLDV pack with.
+  engine's LLDV pack with. `vk/yblod/lldv_vsvdb.c`
+  (`dvvk_lldv_display_from_vsvdb`) is a C port of his Kodi patches' Dolby
+  VSVDB parsing (`DVBridgeEdid.h` `dvbridge_parse_edid`, MIT;
+  `DVBridgeLldv.h` `ReadLldvDisplay`, `ValidLldvPrimaries`,
+  `FitLldvPrimaries`, GPL-2.0-or-later) at the same commit, the arithmetic
+  and decisions unchanged, for one block instead of a whole EDID.
 
 References:
 
