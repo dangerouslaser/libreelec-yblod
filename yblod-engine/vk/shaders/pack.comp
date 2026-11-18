@@ -802,6 +802,8 @@ void pack_main()
                 if (OVERLAY == 4u) {
                     uint v = shell_rgba(x0 + i, y);
                     layer[i] = vec4(v & 255u, (v >> 8) & 255u, (v >> 16) & 255u, v >> 24) * (1.0 / 255.0);
+                    if ((mp.flags & 64u) != 0u && layer[i].a > 0.0)
+                        layer[i] = map_sdr_layer_bt2020(layer[i]);
                 }
             }
             bool black[4], need[4];

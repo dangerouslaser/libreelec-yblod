@@ -255,6 +255,16 @@ uvec3 map_sdr_q(vec3 codes, uvec2 at)
     float bias = (mp.flags & 16u) != 0u ? float(map_tables[(at.y & 63u) * 64u + (at.x & 63u)]) * (1.0 / 4096.0) : 0.5;
     return uvec3(floor(codes + bias));
 }
+// DVVK_MAP_BT2020 (flags 64): the layer's colour (premultiplied sRGB, its
+// codes those of a BT.709 display) as the BT.2020 display's codes of the
+// same light, through the display's transfer (dv_map.c dvvk_map_layer_bt2020)
+vec4 map_sdr_layer_bt2020(vec4 g)
+{
+    const mat3 m = mat3(0.6274038959, 0.0690972894, 0.0163914389, 0.3292830384, 0.9195403951, 0.0880133079,
+                        0.0433130657, 0.0113623156, 0.8955952532);
+    vec3 lin = pow(g.rgb / g.a + mp.out_trc.w, vec3(1.0 / mp.out_trc.z));
+    return vec4(clamp(pow(m * lin, vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0) * g.a, g.a);
+}
 // XRGB8888
 uint map_sdr_word(uvec3 c) { return c.b | c.g << 8 | c.r << 16 | 0xff000000u; }
 #endif

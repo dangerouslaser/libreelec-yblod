@@ -10,8 +10,8 @@ pub const DVVK_OUTPUT_HDR10PLUS: u32 = 2;
 pub const DVVK_OUTPUT_SDR: u32 = 3;
 /// dvvk_output_mode.flags an SDR output takes (DVVK_SDR_*: gamma 2.2,
 /// limited range, no dither, an HLG source; CB1's targets: a pure power,
-/// the black as given).
-pub const SDR_FLAGS: u32 = 63;
+/// the black as given, BT.2020).
+pub const SDR_FLAGS: u32 = 127;
 /// DVVK_SDR_GAMMA22, DVVK_SDR_POWER, DVVK_SDR_BLACK.
 const SDR_GAMMA22: u32 = 1;
 const SDR_POWER: u32 = 16;
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn sdr_modes_validated() {
         let md = metadata();
-        let (power, black) = (SDR_POWER, SDR_BLACK);
+        let (power, black, bt2020) = (SDR_POWER, SDR_BLACK, 64);
         let cases = [
             // today's
             (sdr(0, 0.0, 0.0, 0), true),
@@ -272,10 +272,11 @@ mod tests {
             (sdr(black, 100.0, -0.0001, 0), false),
             (sdr(black, 100.0, f32::NAN, 0), false),
             (sdr(0, 20.0, 1.0, 0), false), // without the flag: below white / 20
-            // with the rest
-            (sdr(power | black | 2 | 8, 100.0, 0.0, 2400), true),
+            // BT.2020, with the rest
+            (sdr(bt2020, 0.0, 0.0, 0), true),
+            (sdr(power | black | bt2020 | 2 | 8, 100.0, 0.0, 2400), true),
             // what no library knows yet
-            (sdr(64, 100.0, 0.0, 0), false),
+            (sdr(128, 100.0, 0.0, 0), false),
             (OutputMode { reserved: [0, 1, 0, 0], ..sdr(0, 100.0, 0.0, 0) }, false),
             (OutputMode { reserved: [2400, 0, 0, 1], ..sdr(power, 100.0, 0.0, 2400) }, false),
         ];
@@ -287,8 +288,9 @@ mod tests {
 
     /// CB1's targets as the plan's display: a pure power with a true zero
     /// black (V = (L / white)^(1 / gamma)), the same curve as BT.1886 or
-    /// gamma 2.2 where they coincide, the given black; what callers pass
-    /// today plans as before.
+    /// gamma 2.2 where they coincide, the given black, BT.2020's primaries in
+    /// the signal and the map's output matrix; what callers pass today plans
+    /// as before.
     #[test]
     fn sdr_targets_plan() {
         let md = metadata();
@@ -311,7 +313,7 @@ mod tests {
         assert_eq!(default.signal.min_luminance, 1000);
         // the sampler's weights for the gamut LUT, but with CB1's targets above a zero black (128)
         let floor = plan(sdr(SDR_POWER | SDR_BLACK, 100.0, 0.1, 2400));
-        assert_eq!((flags(&reference) & 128, flags(&default) & 128, flags(&floor) & 128), (0, 0, 128));
+        assert_eq!((flags(&reference) & 128, flags(&default) & (64 | 128), flags(&floor) & 128), (0, 0, 128));
         // Bright room: a 2.2 power is DVVK_SDR_GAMMA22's, bytes and all
         let bright = plan(sdr(SDR_POWER | SDR_BLACK, 200.0, 0.0, 2200));
         let g22 = plan(sdr(SDR_GAMMA22 | SDR_BLACK, 200.0, 0.0, 0));
@@ -323,5 +325,12 @@ mod tests {
         let (lo, hi) = (2.0e-4f32, 50.0e-4f32);
         assert!((custom[0] - 1.0 / (hi - lo)).abs() < 1e-2 && (custom[1] + lo / (hi - lo)).abs() < 1e-6);
         assert_eq!(custom[2], 1.0 / 2.6);
+        // BT.2020: its primaries in the signal, another LMS -> RGB, nothing else
+        let wide = plan(sdr(SDR_POWER | SDR_BLACK | 64, 100.0, 0.0, 2400));
+        assert_eq!(wide.signal.primaries, [[35400, 14600], [8500, 39850], [6550, 2300]]);
+        assert_eq!(wide.signal.white, [15635, 16450]);
+        assert_eq!(flags(&wide) & !8, flags(&reference) & !8 | 64);
+        assert_ne!(wide.gpu.bytes[160..208], reference.gpu.bytes[160..208]);
+        assert_eq!(trc(&wide), trc(&reference));
     }
 }

@@ -54,8 +54,10 @@ enum {
     DVVK_MAP_GAMUT = 8u,       /* SDR: the gamut mapping LUT is applied */
     DVVK_MAP_DITHER_ON = 16u,  /* SDR: the codes are dithered (else rounded) */
     DVVK_MAP_HLG = 32u,        /* SDR: the source's R'G'B' is HLG (else PQ): src_trc, src_luma */
+    DVVK_MAP_BT2020 = 64u,     /* SDR: the display is BT.2020 (lms2rgb): the overlay's
+                                * BT.709 converted (dvvk_map_layer_bt2020) */
     DVVK_MAP_GAMUT_EXACT = 128u, /* SDR: the gamut LUT read with exact weights, not the sampler's
-                                  * (CB1's targets, DVVK_SDR_POWER, _BLACK, above a zero black) */
+                                  * (CB1's targets, DVVK_SDR_POWER, _BLACK, _BT2020, above a zero black) */
 };
 
 /* The GPU's parameters (std430: vec3s padded to vec4; matrices row-major,
@@ -140,6 +142,11 @@ void dvvk_map_ycc(const double rgb[3], double out[3]);
 /* SDR: the code of an R'G'B' value (dvvk_map_rgb's) at pixel (x, y), as the
  * pack quantises it: dithered with the tables' pattern, or rounded. */
 uint32_t dvvk_map_sdr_code(const dvvk_map_gpu *p, const uint32_t *tables, double v, uint32_t x, uint32_t y);
+/* SDR with DVVK_MAP_BT2020: an overlay colour (R'G'B' 0..1, not
+ * premultiplied: the BT.709 display's codes) as the BT.2020 display's codes
+ * of the same light, through the display's transfer (out_trc), as the pack
+ * converts the shell's layer. */
+void dvvk_map_layer_bt2020(const dvvk_map_gpu *p, double v[3]);
 /* black_in = black (12-bit codes Y, Cb, Cr) and black_out its exact output
  * codes, quantised as the pack quantises (SDR: undithered R, G, B). Not in
  * dvvk_map.key (the bake doesn't read them). */

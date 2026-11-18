@@ -203,13 +203,17 @@ enum { DVVK_SDR_GAMMA22 = 1u, DVVK_SDR_LIMITED = 2u, DVVK_SDR_NO_DITHER = 4u, DV
  *         libplacebo's PL_COLOR_HDR_BLACK as CB1 sets it), 0 to 5 cd/m2 and
  *         below the white. Without it 0 means white / 1000, and a black must
  *         be below white / 20.
+ * BT2020  the display's primaries are BT.2020 (else BT.709): the gamut is
+ *         mapped to them, dvvk_output_signal names them (signal the link
+ *         as BT.2020 RGB, e.g. KMS Colorspace BT2020_RGB), and the overlay's
+ *         sRGB colours are converted to them (its greys keep their codes).
  * Every reserved word a set flag does not give a meaning must be 0.
  * CB1's presets as dvvk_output_mode {mode, flags, peak_nits, min_nits, reserved}:
  *   Reference   {SDR, POWER | BLACK, 100, 0, {2400}}
  *   Bright room {SDR, POWER | BLACK, 200, 0, {2200}}
  *   Custom      {SDR, POWER | BLACK, peak 20..500, black 0..5, {gamma x 1000}}
- * each with LIMITED for limited range. */
-enum { DVVK_SDR_POWER = 16u, DVVK_SDR_BLACK = 32u };
+ * each with BT2020 for CB1's BT.2020 gamut, LIMITED for limited range. */
+enum { DVVK_SDR_POWER = 16u, DVVK_SDR_BLACK = 32u, DVVK_SDR_BT2020 = 64u };
 #define DVVK_SDR_GAMMA_WORD 0
 /* The DVVK_SDR_* flags this library takes (an optional symbol; no engine
  * needed): a library without it takes GAMMA22, LIMITED, NO_DITHER and HLG. */
@@ -226,7 +230,8 @@ typedef struct {
 uint32_t dvvk_output_modes(void);
 /* The last frame's output: what the HDR static metadata InfoFrame (CTA-861.3)
  * says. mode DVVK_OUTPUT_DV: everything 0. mode DVVK_OUTPUT_SDR: eotf 0, the
- * display's primaries (BT.709) and white, no InfoFrame to send. */
+ * display's primaries (BT.709, or BT.2020 with DVVK_SDR_BT2020), white and
+ * black, no InfoFrame to send. */
 typedef struct {
     uint32_t mode;
     uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ); 0: SDR */

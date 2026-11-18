@@ -140,7 +140,7 @@ static int sdr_display(const dvvk_output_mode *mode, float *white, float *black,
         return 0;
     return isfinite(*white) && isfinite(*black) && *white >= 20 && *white <= 1000 &&
            !(f & ~(DVVK_SDR_GAMMA22 | DVVK_SDR_LIMITED | DVVK_SDR_NO_DITHER | DVVK_SDR_HLG | DVVK_SDR_POWER |
-                   DVVK_SDR_BLACK));
+                   DVVK_SDR_BLACK | DVVK_SDR_BT2020));
 }
 
 int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t metadata_size, dvvk_map *out)
@@ -214,7 +214,7 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
          * exponent only changes the delinearisation below), and a true zero
          * black is PL_COLOR_HDR_BLACK (libplacebo's 0 is "unknown") */
         dst = (struct pl_color_space) {
-            .primaries = PL_COLOR_PRIM_BT_709,
+            .primaries = mode->flags & DVVK_SDR_BT2020 ? PL_COLOR_PRIM_BT_2020 : PL_COLOR_PRIM_BT_709,
             .transfer = !gamma ? PL_COLOR_TRC_BT_1886 : gamma == 2.2f ? PL_COLOR_TRC_GAMMA22 : PL_COLOR_TRC_GAMMA24,
             .hdr = {.min_luma = fmaxf(black, PL_COLOR_HDR_BLACK), .max_luma = white},
         };
@@ -328,6 +328,8 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
         g->flags |= DVVK_MAP_SDR;
         if (!(mode->flags & DVVK_SDR_NO_DITHER))
             g->flags |= DVVK_MAP_DITHER_ON;
+        if (mode->flags & DVVK_SDR_BT2020)
+            g->flags |= DVVK_MAP_BT2020;
         /* The 3D LUT's box (dvvk_map.h). Luma ends where a grey reaches the
          * curve's input peak and a thirty-second (PQ) more: the scene has
          * little above it, and a narrower box is a finer LUT. Without the
@@ -384,7 +386,7 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
          * samples two codes from the exact map (gamma 1.8, 5 of 20 cd/m2;
          * with a zero black they stay within one, 1 to 2 ms cheaper at
          * 3840x2160). The earlier targets keep the sampler, and their bytes. */
-        if ((mode->flags & (DVVK_SDR_POWER | DVVK_SDR_BLACK)) && lo > 0)
+        if ((mode->flags & (DVVK_SDR_POWER | DVVK_SDR_BLACK | DVVK_SDR_BT2020)) && lo > 0)
             g->flags |= DVVK_MAP_GAMUT_EXACT;
         g->out_code[0] = mode->flags & DVVK_SDR_LIMITED ? 219.0f : 255.0f;
         g->out_code[1] = mode->flags & DVVK_SDR_LIMITED ? 16.0f : 0.0f;
@@ -396,8 +398,10 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
     if (sdr) {
         /* an ordinary picture: no HDR signalling; what it was made for */
         static const uint16_t bt709[4][2] = {{32000, 16500}, {15000, 30000}, {7500, 3000}, {15635, 16450}};
-        memcpy(s->primaries, bt709, sizeof(s->primaries));
-        memcpy(s->white, bt709[3], sizeof(s->white));
+        static const uint16_t bt2020[4][2] = {{35400, 14600}, {8500, 39850}, {6550, 2300}, {15635, 16450}};
+        const uint16_t(*prim)[2] = mode->flags & DVVK_SDR_BT2020 ? bt2020 : bt709;
+        memcpy(s->primaries, prim, sizeof(s->primaries));
+        memcpy(s->white, prim[3], sizeof(s->white));
         s->max_luminance = (uint16_t)lroundf(white);
         s->min_luminance = (uint16_t)lroundf(fminf(black * 10000.0f, 65535.0f));
         return 0;
@@ -652,6 +656,22 @@ uint32_t dvvk_map_sdr_code(const dvvk_map_gpu *p, const uint32_t *tables, double
         bias = tables[(y % DVVK_MAP_DITHER) * DVVK_MAP_DITHER + x % DVVK_MAP_DITHER] /
                (double)(DVVK_MAP_DITHER * DVVK_MAP_DITHER);
     return (uint32_t)floor(p->out_code[0] * fmin(fmax(v, 0.0), 1.0) + bias) + (uint32_t)p->out_code[1];
+}
+
+void dvvk_map_layer_bt2020(const dvvk_map_gpu *p, double v[3])
+{
+    /* pl_get_color_mapping_matrix(BT.709, BT.2020, relative colorimetric);
+     * its rows sum to 1, so the display's black and white scaling cancel */
+    static const double m[3][3] = {{0.6274038959, 0.3292830384, 0.0433130657},
+                                   {0.0690972894, 0.9195403951, 0.0113623156},
+                                   {0.0163914389, 0.0880133079, 0.8955952532}};
+    double lin[3];
+    for (int i = 0; i < 3; i++)
+        lin[i] = pow(v[i] + p->out_trc[3], 1.0 / p->out_trc[2]);
+    for (int i = 0; i < 3; i++)
+        v[i] = fmin(fmax(pow(m[i][0] * lin[0] + m[i][1] * lin[1] + m[i][2] * lin[2], p->out_trc[2]) - p->out_trc[3],
+                         0.0),
+                    1.0);
 }
 
 static uint32_t code(double v, double offset, double scale)
