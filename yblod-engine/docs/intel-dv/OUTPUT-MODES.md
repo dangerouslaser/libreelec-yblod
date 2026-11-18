@@ -337,7 +337,9 @@ Convert to HDR10's.
    slope has no bound: float arithmetic (CB1's shader is float too) can't
    hold that channel's light to a code there; the light differs by about
    0.001 cd/m2. Computing every sample exactly gives the same samples, so it
-   is not the 3D LUT.
+   is not the 3D LUT. `target-check.sh` allows this one configuration up to
+   4 codes and names it in its result; every other picture must be within
+   one, and the hashes are compared as usual.
 2. *CB1's own pack* (`tools/dvvk-lldv-oracle.c`, his AVX2
    `cb1_lldv_cpu.c` unchanged): on the same linear picture it and the
    engine's pack definition agree to within one code (at most 0.08 % of a
