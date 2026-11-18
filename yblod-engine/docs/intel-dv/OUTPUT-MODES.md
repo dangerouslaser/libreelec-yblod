@@ -134,8 +134,10 @@ resolution anyway).
 
 | Setting | What it sets |
 | --- | --- |
+| SDR display | After 0.5.1. **Brightness and gamma** (default): the two settings below, as in 0.5.1. **Reference** (100 nits, a pure 2.4 power, true black) and **Bright room** (200 nits, 2.2, true black): CroqueMr's CB1 presets. **Custom**: White (20 to 500 nits), Gamma (a pure power, 1.8 to 2.8 in steps of 0.05) and Black (0, a true zero, to 5 nits). `DV_SDR_TARGET` `default`, `reference`, `brightroom`, `custom` with `DV_SDR_CUSTOM_WHITE`, `_GAMMA`, `_BLACK`; [CB1's SDR targets](#cb1s-sdr-targets) says what the engine does with them. Offered where the engine library takes CB1's targets (`dvvk_sdr_flags`). Should an older library be loaded with one of them saved, the setting stays shown so that it can be set back, and the SDR output is not used (as on a display without it, with a log line) instead of making the picture for another display. |
 | SDR display brightness | White of the display the picture is made for: 100 (projector), 150, 203 (default) or 300 nits (`DV_SDR_WHITE`). 203 is BT.2408's and libplacebo's reference and keeps more of the highlights apart; 100 gives brighter mid-tones. The display's own brightness control is not touched. Black is white / 1000. |
 | SDR gamma | BT.1886 (gamma 2.4, default) or a 2.2 power (`DV_SDR_GAMMA`). |
+| BT.2020 colours | After 0.5.1, off by default (`DV_SDR_BT2020`). The engine maps the picture to BT.2020 instead of BT.709 (`DVVK_SDR_BT2020`) and the link is signalled as BT.2020 RGB (the connector's `Colorspace`), for a display with wide colours in SDR. Used only where the engine library has it, the driver has `Colorspace` `BT2020_RGB` on the connector and the display's EDID lists BT.2020 RGB in its colorimetry block, as CB1 requires; anywhere else the picture is BT.709 and the log says why (`DVBridge output: SDR in BT.709, not BT.2020: ...`). A picture's gamut and the `Colorspace` of the commit that shows it always match (the engine says which each picture is). Three refused commits in BT.2020 make the rest of the video BT.709, from the next picture, with a notification; where none was ever taken, BT.2020 is not tried again until Kodi restarts. Player information's Signal says `SDR / BT.2020`. |
 | Automatic fallback | On by default. When the display does not have the selected output mode, the next one it has is used: Dolby Vision, then Convert to HDR10, then Convert to SDR. One exception: a display Kodi sends HDR to (Kodi's "Adjust display HDR mode" on, HDR in the EDID) still gets an HDR10 or HLG base layer from Kodi as it is, since that keeps more of the picture than an SDR conversion; Profile 5 and the SDR-compatible profiles are converted. A notification says once which output is used. Off: a video whose output mode is missing plays as its base layer, as before. |
 | HDR videos on an SDR display | **YBLOD's SDR conversion** (default): HDR10, HDR10+ and HLG videos take the same conversion where Kodi would otherwise tone-map them (the display is not sent HDR): HDR10+ scene by scene from its metadata (`dvvk_hdr10plus_to_dovi`), HDR10 and HLG with one curve for the whole video from the mastering display's peak (`dvvk_hdr10_to_dovi`; HLG as BT.2100's 1000-nit display would show it). **Kodi's tone mapping**: Kodi's shader, which is cheaper on a slow GPU (`DV_SDR_HDR_SOURCES=0` does the same). |
 
@@ -208,8 +210,8 @@ The first SDR picture of an engine compiles its pipelines when
 
 ### CB1's SDR targets
 
-After 0.5.1, in the engine only (Kodi's settings above do not offer them
-yet): the SDR output also takes every display CroqueMr's CB1 SDR
+After 0.5.1 (Kodi's SDR display and BT.2020 colours settings above,
+kodi-9963): the SDR output also takes every display CroqueMr's CB1 SDR
 rendering offers (`dvbridge_sdr_target`, `sdr_container`). A player sets
 them with `dvvk_set_output_mode` (`include/dv_engine_vk.h`):
 

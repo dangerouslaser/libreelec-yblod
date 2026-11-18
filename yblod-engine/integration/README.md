@@ -63,8 +63,8 @@ Kodi:
   `DVBridge output: SDR (...)`, `Vulkan engine output: SDR (...)`, and
   `DVBridge output: mode N is not available on this display; using M`.
 
-Switches (`runtime.env`; the settings for brightness, gamma and HDR videos
-take precedence over their entries):
+Switches (`runtime.env`; the settings for the display, brightness, gamma,
+BT.2020 colours and HDR videos take precedence over their entries):
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -72,6 +72,9 @@ take precedence over their entries):
 | `DV_SDR_HDR_SOURCES` | 1 | 0: HDR10, HDR10+ and HLG videos stay with Kodi's tone mapping. |
 | `DV_SDR_WHITE`, `DV_SDR_BLACK` | 203, 0 | The display's white (40 to 1000) and black (0: white / 1000) in cd/m2. |
 | `DV_SDR_GAMMA` | bt1886 | `2.2` for a 2.2 power. |
+| `DV_SDR_TARGET` | default | The display (SDR display, kodi-9963): `default` the three above; CroqueMr's CB1 presets `reference` (100 cd/m2, pure 2.4 power, black 0) and `brightroom` (200, 2.2, 0); `custom`. A library without CB1's targets (`dvvk_sdr_flags`), or a custom value out of range, leaves no SDR output (one log line) rather than another display's. |
+| `DV_SDR_CUSTOM_WHITE`, `_GAMMA`, `_BLACK` | 100, 2.4, 0 | The custom display: white 20 to 500 cd/m2, a pure power 1.8 to 2.8, black 0 (a true zero) to 5 cd/m2. |
+| `DV_SDR_BT2020` | 0 | 1: BT.2020 colours where the library has `DVVK_SDR_BT2020`, the connector's `Colorspace` has `BT2020_RGB` and the EDID lists BT.2020 RGB; else BT.709. Each picture's gamut is committed with its `Colorspace`; three refused BT.2020 commits fall back to BT.709 from the next picture. |
 | `DV_SDR_RANGE` | auto | `auto` follows Kodi's "Use limited colour range"; `full`, `limited`. |
 | `DV_SDR_DITHER` | 1 | 0: rounded codes. |
 
@@ -126,6 +129,14 @@ separate check.
 11. **VRR** (kodi-9990). On a FreeSync display with Kodi's variable refresh
     rate setting on: the refresh-rate changes before and after an SDR-output
     video, which the tunnel outputs have been through and SDR output has not.
+12. **CB1's displays** (kodi-9963): Reference, Bright room and a Custom
+    display (48 cd/m2, gamma 2.6, black 0.05 on the projector) against the
+    default on the same title; the log's `Vulkan engine output: SDR (...)`
+    names the display. With BT.2020 colours on: a display whose EDID lists
+    BT.2020 RGB on Intel and AMD (the `Colorspace` modeset at the first
+    picture, Signal `SDR / BT.2020` in player information, the GUI's colours),
+    one whose EDID does not (BT.709, the log line), and the fallback when the
+    kernel refuses the commit.
 
 ## Presentation (0.5.0)
 

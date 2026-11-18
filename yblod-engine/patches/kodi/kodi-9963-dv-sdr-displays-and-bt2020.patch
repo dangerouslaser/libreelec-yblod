@@ -1,0 +1,982 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 14:33:24 -0500
+Subject: [PATCH] Dolby Vision: CB1's SDR displays and BT.2020 colours
+
+The Vulkan engine's SDR output takes every display CroqueMr's CB1 SDR
+rendering offers (DVVK_SDR_POWER, DVVK_SDR_BLACK, DVVK_SDR_BT2020, a
+white from 20 cd/m2; dvvk_sdr_flags says what a library takes), but
+Kodi could only ask for the displays of 0.5.1's two settings. Viewers
+coming from CB1 expect its Reference and Bright room displays, a custom
+one for a projector, and its BT.2020 output.
+
+Settings > Player > Dolby Vision gets SDR display: Brightness and gamma
+(the default: SDR display brightness and SDR gamma, as before),
+Reference (100 nits, a pure 2.4 power, black 0), Bright room (200
+nits, 2.2, black 0) and Custom (White 20 to 500 nits, Gamma 1.8 to 2.8,
+Black 0 to 5 nits). It sets DV_SDR_TARGET and DV_SDR_CUSTOM_*, from
+which the adapter makes the engine's mode (SdrDisplay). HDR10, HDR10+
+and HLG videos through the SDR output take the same display.
+
+The setting is offered where the library takes CB1's targets. A display
+the library does not take, or custom values out of range from
+native-dv.env, leave the SDR output unavailable (SupportsSDROutput: the
+fallback chooses as on a display without it, with one log line) rather
+than make the picture for another display; the setting stays shown
+while such a value is saved, so that it can be set back.
+
+BT.2020 colours (off by default, DV_SDR_BT2020) asks for
+DVVK_SDR_BT2020. The window grants it to an SDR output it begins only
+where the library has the flag, the connector's Colorspace has
+BT2020_RGB and the display's EDID lists BT.2020 RGB (CB1's terms), and
+logs why not otherwise. The engine says of each picture whether it is
+BT.2020, and the commit that shows it stages the matching Colorspace (a
+change is a modeset for the kernel), so a picture and its signal never
+disagree. Three refused BT.2020 commits make the rest of the video
+BT.709 from the next picture, with a notification; where none was ever
+taken, BT.2020 is not asked for again until Kodi restarts. The restore
+after the video sets Colorspace to Default, as before. Player
+information's Signal names BT.2020.
+
+Strings 45146 to 45160. With the defaults the engine's mode and the
+connector's properties are those of before.
+---
+ .../resources/strings.po                      |  77 ++++++++-
+ system/settings/settings.xml                  |  67 ++++++++
+ .../DVDCodecs/Video/DVOutputSettings.h        |  22 +++
+ .../DVDCodecs/Video/DVPlaybackInfo.h          |   2 +-
+ .../VideoRenderers/DVBridgeGLES.cpp           |   4 +-
+ .../VideoRenderers/DVEngineSettings.h         |  31 ++++
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 146 ++++++++++++++++--
+ .../VideoRenderers/DVPrivateVulkan.h          |   8 +
+ xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp   |   4 +-
+ xbmc/settings/Settings.cpp                    |   6 +
+ xbmc/windowing/gbm/WinSystemGbm.cpp           |   5 +
+ xbmc/windowing/gbm/WinSystemGbm.h             |   4 +
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 119 +++++++++++++-
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  11 +-
+ xbmc/windowing/gbm/drm/DVBridgeState.cpp      |  24 ++-
+ xbmc/windowing/gbm/drm/DVBridgeState.h        |   4 +
+ 16 files changed, 509 insertions(+), 25 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index ee6f8ac..f4fa8ce 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26438,7 +26438,7 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#45139"
+-msgid "HDR10, HDR10+ and HLG videos on a display that does not show them as HDR. YBLOD's SDR conversion: the conversion Dolby Vision gets, with the same SDR display brightness and gamma; HDR10+ scene by scene from its metadata, HDR10 and HLG with one curve for the whole video. Kodi's tone mapping: Kodi's own (video settings, Tone mapping method), which is faster on a slow GPU. Videos the conversion does not take (software decoding, interlaced, 3D) always use Kodi's. Applies to the next video."
++msgid "HDR10, HDR10+ and HLG videos on a display that does not show them as HDR. YBLOD's SDR conversion: the conversion Dolby Vision gets, for the same SDR display; HDR10+ scene by scene from its metadata, HDR10 and HLG with one curve for the whole video. Kodi's tone mapping: Kodi's own (video settings, Tone mapping method), which is faster on a slow GPU. Videos the conversion does not take (software decoding, interlaced, 3D) always use Kodi's. Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+@@ -26470,3 +26470,78 @@ msgstr ""
+ msgctxt "#45145"
+ msgid "Convert to Dolby Vision"
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45146"
++msgid "SDR display"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45147"
++msgid "Convert to SDR only. The display the picture is converted for. Brightness and gamma: SDR display brightness and SDR gamma below, as before. Reference: CB1's reference display, 100 nits with a pure 2.4 gamma and a true black, for a dark room. Bright room: 200 nits with a pure 2.2 gamma and a true black. Custom: the white, gamma and black of your own display, for a projector or a calibrated TV. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45148"
++msgid "Brightness and gamma"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45149"
++msgid "Reference (100 nits, 2.4)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45150"
++msgid "Bright room (200 nits, 2.2)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45151"
++msgid "Custom"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45152"
++msgid "White (nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45153"
++msgid "Custom SDR display only. The brightness of white on the display, 20 to 500 nits: about 100 for a TV in a dark room, about 48 for a cinema screen or a dim projector. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45154"
++msgid "Gamma"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45155"
++msgid "Custom SDR display only. The display's gamma, a pure power from 1.8 to 2.8: 2.4 for a dark room, 2.2 for a lit one, 2.6 for a cinema projector. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45156"
++msgid "Black (nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45157"
++msgid "Custom SDR display only. The brightness of black on the display, 0 to 5 nits. 0 is a true black (an OLED TV); a projector or an LCD shows some light in its black, and with its measured value the darkest parts of the film stay above it instead of being lost in it. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45158"
++msgid "BT.2020 colours"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45159"
++msgid "Convert to SDR only. The picture is made in BT.2020 colours instead of BT.709 and the display is told so, for a display with wide colours in its SDR mode. Used only where the graphics driver can signal BT.2020 and the display says that it takes it; elsewhere, or when the connection refuses it, the picture stays BT.709. Off by default: most displays expect BT.709 in SDR. Applies to the next video."
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45160"
++msgid "This connection does not take BT.2020 for the SDR picture. BT.709 is used."
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index 838094d..ec67170 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -349,6 +349,23 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
++        <setting id="dvbridge.sdrtarget" type="integer" label="45146" help="45147">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45148">0</option>
++              <option label="45149">1</option>
++              <option label="45150">2</option>
++              <option label="45151">3</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgesdrtarget" />
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
+         <setting id="dvbridge.sdrbrightness" type="integer" label="45129" help="45130">
+           <level>0</level>
+           <default>203</default>
+@@ -362,6 +379,7 @@
+           </constraints>
+           <dependencies>
+             <dependency type="visible" on="property" name="dvbridgesdroutput" />
++            <dependency type="visible" setting="dvbridge.sdrtarget">0</dependency>
+             <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="spinner" format="string" />
+@@ -377,10 +395,59 @@
+           </constraints>
+           <dependencies>
+             <dependency type="visible" on="property" name="dvbridgesdroutput" />
++            <dependency type="visible" setting="dvbridge.sdrtarget">0</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.sdrcustomwhite" type="integer" parent="dvbridge.sdrtarget" label="45152" help="45153">
++          <level>1</level>
++          <default>100</default>
++          <constraints>
++            <options>dvbridgesdrcustom</options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgesdrtarget" />
++            <dependency type="visible" setting="dvbridge.sdrtarget">3</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.sdrcustomgamma" type="integer" parent="dvbridge.sdrtarget" label="45154" help="45155">
++          <level>1</level>
++          <default>2400</default>
++          <constraints>
++            <options>dvbridgesdrcustom</options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgesdrtarget" />
++            <dependency type="visible" setting="dvbridge.sdrtarget">3</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.sdrcustomblack" type="integer" parent="dvbridge.sdrtarget" label="45156" help="45157">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>dvbridgesdrcustom</options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgesdrtarget" />
++            <dependency type="visible" setting="dvbridge.sdrtarget">3</dependency>
+             <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
++        <setting id="dvbridge.sdrbt2020" type="boolean" label="45158" help="45159">
++          <level>1</level>
++          <default>false</default>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgesdrbt2020" />
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="toggle" />
++        </setting>
+         <setting id="dvbridge.sdrsources" type="integer" label="45138" help="45139">
+           <level>1</level>
+           <default>0</default>
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index a7fc3b6..0bc1ab0 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -40,6 +40,13 @@ inline std::atomic<int> playbackBaseLayerHDR{1};
+ // ordinary RGB framebuffer with no tunnel and no HDR signalling. The window sets it for
+ // the output it begins and clears it at the end; the engine reads it for every frame.
+ inline std::atomic<bool> playbackSDR{false};
++// The SDR output maps to BT.2020 (DVVK_SDR_BT2020, Settings > Player > Dolby Vision > BT.2020
++// colours): the window sets it for an SDR output it begins where the engine, the driver and
++// the display all have BT.2020 RGB, and clears it when the link refuses it (BT.709 from the
++// next picture). The engine reads it for every frame and says of each SDR picture it made
++// whether it is BT.2020 (pictureSDRBT2020), which the commit that shows it signals.
++inline std::atomic<bool> playbackSDRBT2020{false};
++inline std::atomic<bool> pictureSDRBT2020{false};
+ 
+ // HDR10 output through the tunnel: the Vulkan engine's HDR10 (the Master
+ // Reference conversion, dvvk_set_output_mode) sent as the tunnel's 12-bit
+@@ -243,6 +250,21 @@ bool SDROutputAvailable(const std::string& condition,
+                         const std::string& value,
+                         const std::shared_ptr<const CSetting>& setting);
+ 
++// The SDR display setting is shown: the SDR output's settings are, and the engine library takes
++// CroqueMr's CB1 targets (dvvk_sdr_flags), or one is saved (so it can be set back). Settings
++// condition "dvbridgesdrtarget"; "dvbridgesdrbt2020" the same for BT.2020 colours.
++bool SDRTargetAvailable(const std::string& condition,
++                        const std::string& value,
++                        const std::shared_ptr<const CSetting>& setting);
++bool SDRBT2020Available(const std::string& condition,
++                        const std::string& value,
++                        const std::shared_ptr<const CSetting>& setting);
++// The values of the custom SDR display's white, gamma and black (settings.xml's
++// "dvbridgesdrcustom" filler).
++void SDRCustomOptions(const std::shared_ptr<const CSetting>& setting,
++                      IntegerSettingOptions& list,
++                      int& current);
++
+ // path: the title whose playback is prepared (the video OSD's choice is that title's).
+ inline void SelectOutputSettings(const std::string& path)
+ {
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+index bacece5..643455d 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+@@ -7,7 +7,7 @@
+ // This is output telemetry, never a source-format or TV certification flag.
+ struct CDVPlaybackInfo
+ {
+-  enum : unsigned { HDMI = 1, FEL = 2, CM4 = 4, HDR10 = 8, SDR = 16 };
++  enum : unsigned { HDMI = 1, FEL = 2, CM4 = 4, HDR10 = 8, SDR = 16, BT2020 = 32 };
+   inline static std::atomic<unsigned> presented{0};
+ 
+   static std::string Detail(std::string source, unsigned output)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 404abe9..75cf5f5 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -194,7 +194,9 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhance
+       m_pendingInfo = (DVBRIDGE::playbackSDR.load() ? CDVPlaybackInfo::SDR
+                        : DVBRIDGE::playbackTunnelHDR10.load() ? CDVPlaybackInfo::HDR10
+                                                               : CDVPlaybackInfo::HDMI) |
+-                      (fel ? CDVPlaybackInfo::FEL : 0u);
++                      (fel ? CDVPlaybackInfo::FEL : 0u) |
++                      (DVBRIDGE::playbackSDR.load() && DVBRIDGE::pictureSDRBT2020.load()
++                           ? CDVPlaybackInfo::BT2020 : 0u);
+       const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
+       if (entering && trace && std::strcmp(trace, "1") == 0)
+         CLog::Log(LOGINFO, "Private source composition: pts={} enhancement={} fel={} prepared=true",
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+index 3b71026..4e31363 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+@@ -9,6 +9,7 @@
+ #include "settings/lib/ISettingCallback.h"
+ #include "settings/lib/Setting.h"
+ #include "settings/SettingsContainer.h"
++#include "utils/StringUtils.h"
+ #include "utils/log.h"
+ 
+ #include <cstdlib>
+@@ -90,6 +91,36 @@ inline const std::vector<Mapping>& Mappings()
+        [](const Settings& s) -> Values {
+          return {{"DV_SDR_GAMMA", s->GetInt("dvbridge.sdrgamma") == 1 ? "2.2" : "bt1886"}};
+        }},
++      // ... or another display (DVPrivateVulkan SdrDisplay): the two settings above (default),
++      // CroqueMr's CB1 Reference and Bright room, or a custom one; and BT.2020 colours
++      // (WinSystemGbmGLESContext SDRBT2020).
++      {"dvbridge.sdrtarget",
++       [](const Settings& s) -> Values {
++         static constexpr const char* targets[] = {"default", "reference", "brightroom", "custom"};
++         const int target = s->GetInt("dvbridge.sdrtarget");
++         return {{"DV_SDR_TARGET", targets[target >= 0 && target <= 3 ? target : 0]}};
++       }},
++      {"dvbridge.sdrcustomwhite",
++       [](const Settings& s) -> Values {
++         const int nits = s->GetInt("dvbridge.sdrcustomwhite");
++         return {{"DV_SDR_CUSTOM_WHITE", std::to_string(nits >= 20 && nits <= 500 ? nits : 100)}};
++       }},
++      // (thousandths in the settings, as the engine takes the gamma)
++      {"dvbridge.sdrcustomgamma",
++       [](const Settings& s) -> Values {
++         const int gamma = s->GetInt("dvbridge.sdrcustomgamma");
++         return {{"DV_SDR_CUSTOM_GAMMA", StringUtils::Format("{:.3f}", (gamma >= 1800 && gamma <= 2800
++                                                                        ? gamma : 2400) / 1000.0)}};
++       }},
++      {"dvbridge.sdrcustomblack",
++       [](const Settings& s) -> Values {
++         const int black = s->GetInt("dvbridge.sdrcustomblack");
++         return {{"DV_SDR_CUSTOM_BLACK",
++                  StringUtils::Format("{:.3f}", (black >= 0 && black <= 5000 ? black : 0) / 1000.0)}};
++       }},
++      {"dvbridge.sdrbt2020",
++       [](const Settings& s) { return Bool(s, "dvbridge.sdrbt2020", {{"DV_SDR_BT2020", "1"}},
++                                           {{"DV_SDR_BT2020", "0"}}); }},
+       // Performance (Kodi's GUI composition over the video)
+       {"dvbridge.guicache",
+        [](const Settings& s) { return Bool(s, "dvbridge.guicache", {{"DV_PRIVATE_GUI_CACHE", "1"}},
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 6ac67bc..1779528 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -15,9 +15,11 @@
+ #include <unistd.h>
+ #include <xf86drm.h>
+ #include <atomic>
++#include <cmath>
+ #include <cstdlib>
+ #include <cstring>
+ #include <mutex>
++#include <string>
+ 
+ namespace
+ {
+@@ -242,21 +244,92 @@ bool CDVPrivateVulkan::HasSDR()
+   return has;
+ }
+ 
++uint32_t CDVPrivateVulkan::SDRFlags()
++{
++  static std::once_flag probed;
++  static uint32_t flags = 0;
++  if (!HasSDR())
++    return 0;
++  std::call_once(probed, [] {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0]) library = DVVK_LIBRARY;
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    if (!handle)
++      return;
++    // (a library from before CroqueMr's CB1 targets has no dvvk_sdr_flags)
++    auto sdrFlags = reinterpret_cast<decltype(&dvvk_sdr_flags)>(dlsym(handle, "dvvk_sdr_flags"));
++    flags = sdrFlags ? sdrFlags()
++                     : DVVK_SDR_GAMMA22 | DVVK_SDR_LIMITED | DVVK_SDR_NO_DITHER | DVVK_SDR_HLG;
++    dlclose(handle);
++    CLog::Log(LOGINFO, "Vulkan engine {}: SDR display flags {:#x}", library, flags);
++  });
++  return flags;
++}
++
+ namespace
+ {
+ // SDR output's display (DVVK_OUTPUT_SDR's dvvk_output_mode), from the environment that
+ // Settings > Player > Dolby Vision and native-dv.env set (DVEngineSettings.h):
++//   DV_SDR_TARGET  default (or unset): the display DV_SDR_WHITE, _GAMMA and _BLACK describe;
++//                  reference, brightroom: CroqueMr's CB1 presets; custom: DV_SDR_CUSTOM_*
+ //   DV_SDR_WHITE   the display's white in cd/m2 (203; 100 for a projector)
+ //   DV_SDR_GAMMA   2.2 for a pure 2.2 power, anything else BT.1886 (gamma 2.4)
+ //   DV_SDR_RANGE   full or limited; auto (the default) follows Kodi's
+ //                  "Use limited colour range" (videoscreen.limitedrange)
+ //   DV_SDR_DITHER  0: rounded codes instead of the dither pattern
+ //   DV_SDR_BLACK   the display's black in cd/m2 (0: white / 1000)
+-// hlg: the pictures are a plain HLG video's (DVVK_SDR_HLG).
+-dvvk_output_mode SdrMode(bool hlg)
++//   DV_SDR_CUSTOM_WHITE, DV_SDR_CUSTOM_GAMMA, DV_SDR_CUSTOM_BLACK  the custom display's
++//                  white (20-500 cd/m2), pure power (1.8-2.8) and black (0-5 cd/m2, 0 a
++//                  true zero)
++// RANGE and DITHER apply to every display. False: DV_SDR_TARGET names no display, or a
++// custom one is out of those ranges; the SDR output is then not offered (SDRDisplayUsable)
++// rather than made for another display.
++bool SdrDisplay(dvvk_output_mode& mode, std::string& name)
+ {
+-  dvvk_output_mode mode{};
++  mode = {};
+   mode.mode = DVVK_OUTPUT_SDR;
++  const char* target = std::getenv("DV_SDR_TARGET");
++  const auto power = [&mode](float white, float black, float gamma) {
++    mode.flags = DVVK_SDR_POWER | DVVK_SDR_BLACK;
++    mode.peak_nits = white;
++    mode.min_nits = black;
++    mode.reserved[DVVK_SDR_GAMMA_WORD] = static_cast<uint32_t>(std::lround(gamma * 1000.0f));
++  };
++  if (EnvIs("DV_SDR_TARGET", "reference"))
++  {
++    power(100.0f, 0.0f, 2.4f);
++    name = "Reference";
++    return true;
++  }
++  if (EnvIs("DV_SDR_TARGET", "brightroom"))
++  {
++    power(200.0f, 0.0f, 2.2f);
++    name = "Bright room";
++    return true;
++  }
++  if (EnvIs("DV_SDR_TARGET", "custom"))
++  {
++    const auto number = [](const char* variable, float fallback) {
++      const char* value = std::getenv(variable);
++      if (!value || !value[0])
++        return fallback;
++      char* end = nullptr;
++      const float parsed = std::strtof(value, &end);
++      return *end ? -1.0f : parsed;
++    };
++    const float white = number("DV_SDR_CUSTOM_WHITE", 100.0f);
++    const float gamma = number("DV_SDR_CUSTOM_GAMMA", 2.4f);
++    const float black = number("DV_SDR_CUSTOM_BLACK", 0.0f);
++    name = StringUtils::Format("Custom (white {:g}, gamma {:g}, black {:g})", white, gamma, black);
++    if (!(white >= 20.0f && white <= 500.0f && gamma >= 1.8f && gamma <= 2.8f && black >= 0.0f &&
++          black <= 5.0f))
++      return false;
++    power(white, black, gamma);
++    return true;
++  }
++  name = target && target[0] ? target : "default";
++  if (target && target[0] && std::strcmp(target, "default") != 0)
++    return false;
+   const unsigned white = EnvNumber("DV_SDR_WHITE", 203, 1000);
+   mode.peak_nits = white >= 40 ? static_cast<float>(white) : 203.0f;
+   if (const char* black = std::getenv("DV_SDR_BLACK"); black && black[0])
+@@ -267,6 +340,16 @@ dvvk_output_mode SdrMode(bool hlg)
+   }
+   if (EnvIs("DV_SDR_GAMMA", "2.2"))
+     mode.flags |= DVVK_SDR_GAMMA22;
++  return true;
++}
++
++// hlg: the pictures are a plain HLG video's (DVVK_SDR_HLG); bt2020: the display's primaries
++// are BT.2020 (DVVK_SDR_BT2020).
++dvvk_output_mode SdrMode(bool hlg, bool bt2020)
++{
++  dvvk_output_mode mode{};
++  std::string name;
++  SdrDisplay(mode, name); // (SDRDisplayUsable before the output began)
+   auto* window = CServiceBroker::GetWinSystem();
+   if (EnvIs("DV_SDR_RANGE", "limited") ||
+       (!EnvIs("DV_SDR_RANGE", "full") && window && window->UseLimitedColor()))
+@@ -275,10 +358,35 @@ dvvk_output_mode SdrMode(bool hlg)
+     mode.flags |= DVVK_SDR_NO_DITHER;
+   if (hlg)
+     mode.flags |= DVVK_SDR_HLG;
++  if (bt2020)
++    mode.flags |= DVVK_SDR_BT2020;
+   return mode;
+ }
+ } // namespace
+ 
++bool CDVPrivateVulkan::SDRDisplayUsable()
++{
++  dvvk_output_mode mode;
++  std::string name;
++  const bool valid = SdrDisplay(mode, name);
++  const uint32_t missing = mode.flags & ~SDRFlags();
++  if (valid && !missing)
++    return true;
++  // Asked often (the settings, the output's choice): said once for each display.
++  static std::mutex lock;
++  static std::string reported;
++  std::lock_guard guard(lock);
++  if (reported != name)
++  {
++    reported = name;
++    CLog::Log(LOGERROR, "Vulkan engine: no SDR output for the SDR display {}: {}", name,
++              valid ? StringUtils::Format("this engine library does not take it (flags {:#x})",
++                                          missing)
++                    : std::string("not a display this Kodi knows, or out of range"));
++  }
++  return false;
++}
++
+ uint32_t CDVPrivateVulkan::WantedOutputMode() const
+ {
+   // SDR when the window began an SDR output (an ordinary picture, no tunnel).
+@@ -299,7 +407,9 @@ uint32_t CDVPrivateVulkan::WantedOutputMode() const
+ void CDVPrivateVulkan::SelectOutputMode()
+ {
+   const uint32_t want = WantedOutputMode();
+-  if (want == m_outputMode && (want != DVVK_OUTPUT_SDR || m_sourceHLG == m_outputHLG))
++  const bool bt2020 = want == DVVK_OUTPUT_SDR && DVBRIDGE::playbackSDRBT2020.load();
++  if (want == m_outputMode &&
++      (want != DVVK_OUTPUT_SDR || (m_sourceHLG == m_outputHLG && bt2020 == m_outputBT2020)))
+     return;
+   if (!m_setOutputMode)
+   {
+@@ -313,10 +423,13 @@ void CDVPrivateVulkan::SelectOutputMode()
+   dvvk_output_mode mode{};
+   mode.mode = want;
+   if (want == DVVK_OUTPUT_SDR)
+-    mode = SdrMode(m_sourceHLG);
++    mode = SdrMode(m_sourceHLG, bt2020);
+   const int result = m_setOutputMode(m_engine, &mode);
+   if (result != 0)
+   {
++    // BT.2020 only where it is taken: the window signals BT.709 for the next picture.
++    if (bt2020 && DVBRIDGE::playbackSDRBT2020.exchange(false))
++      CLog::Log(LOGWARNING, "Vulkan engine refused the SDR output in BT.2020 ({}); BT.709", result);
+     // (an SDR picture never goes out as the tunnel's: the frames fail until the mode is taken)
+     if (m_reports < 16)
+     {
+@@ -327,11 +440,17 @@ void CDVPrivateVulkan::SelectOutputMode()
+   }
+   m_outputMode = want;
+   m_outputHLG = want == DVVK_OUTPUT_SDR && m_sourceHLG;
++  m_outputBT2020 = bt2020;
+   if (want == DVVK_OUTPUT_SDR)
+-    CLog::Log(LOGINFO, "Vulkan engine output: SDR{} (BT.709, {}, white {:.0f} cd/m2{}, {} range, {})",
+-              m_outputHLG ? " of an HLG video" : "",
+-              mode.flags & DVVK_SDR_GAMMA22 ? "gamma 2.2" : "BT.1886", mode.peak_nits,
+-              mode.min_nits > 0.0f ? StringUtils::Format(", black {:.3f}", mode.min_nits) : "",
++    CLog::Log(LOGINFO, "Vulkan engine output: SDR{} ({}, {}, white {:.0f} cd/m2{}, {} range, {})",
++              m_outputHLG ? " of an HLG video" : "", bt2020 ? "BT.2020" : "BT.709",
++              mode.flags & DVVK_SDR_POWER
++                  ? StringUtils::Format("gamma {:.2f}", mode.reserved[DVVK_SDR_GAMMA_WORD] / 1000.0)
++                  : mode.flags & DVVK_SDR_GAMMA22 ? "gamma 2.2" : "BT.1886",
++              mode.peak_nits,
++              mode.min_nits > 0.0f || (mode.flags & DVVK_SDR_BLACK)
++                  ? StringUtils::Format(", black {:.3f}", mode.min_nits)
++                  : "",
+               mode.flags & DVVK_SDR_LIMITED ? "limited" : "full",
+               mode.flags & DVVK_SDR_NO_DITHER ? "rounded" : "dithered");
+   else
+@@ -668,7 +787,8 @@ bool CDVPrivateVulkan::Repeats(unsigned blSurface, unsigned elSurface, const voi
+   if (!m_engine || m_failed || !m_last.valid || overlay || m_last.overlay || m_last.overlayBefore ||
+       m_outputMode == DVVK_OUTPUT_HDR10PLUS || WantedOutputMode() != m_outputMode ||
+       m_last.outputMode != m_outputMode ||
+-      (input.transfer == DV_SOURCE_TRANSFER_HLG) != m_outputHLG)
++      (input.transfer == DV_SOURCE_TRANSFER_HLG) != m_outputHLG ||
++      (m_outputMode == DVVK_OUTPUT_SDR && m_outputBT2020 != DVBRIDGE::playbackSDRBT2020.load()))
+     return false;
+   const dvvk_frame frame = Frame(blSurface, elSurface, metadata, size, pts, geometry, input, refresh, nullptr);
+   const dvvk_plan_in& a = frame.plan;
+@@ -777,11 +897,13 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   // The display's signal is the window's (the tunnel, or an ordinary picture for SDR): a
+   // picture of the other kind is never written, whatever kept the engine from changing.
+   if ((m_outputMode == DVVK_OUTPUT_SDR) != (WantedOutputMode() == DVVK_OUTPUT_SDR) ||
+-      m_sourceHLG != m_outputHLG)
++      m_sourceHLG != m_outputHLG ||
++      (m_outputMode == DVVK_OUTPUT_SDR && m_outputBT2020 != DVBRIDGE::playbackSDRBT2020.load()))
+     return -1;
+   const int result = m_submit(m_engine, &frame, &ticket);
+   if (result == 0)
+   {
++    DVBRIDGE::pictureSDRBT2020.store(m_outputMode == DVVK_OUTPUT_SDR && m_outputBT2020);
+     PublishSignal(pts);
+     PublishHDR10Plus(ticket, pts);
+   }
+@@ -912,6 +1034,8 @@ bool CDVPrivateVulkan::Close()
+     // an engine made again starts in Dolby Vision
+     m_outputMode = DVVK_OUTPUT_DV;
+     m_outputHLG = false;
++    m_outputBT2020 = false;
++    DVBRIDGE::pictureSDRBT2020.store(false);
+     DVBRIDGE::PublishTunnelHDR10(nullptr);
+     DVBRIDGE::PublishTunnelHDR10Plus({});
+   }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index e2fbf32..6f940d5 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -39,6 +39,12 @@ public:
+   /* ... and SDR output (DVVK_OUTPUT_SDR among dvvk_output_modes(), an optional
+    * symbol, and dvvk_create_canvas for displays that are not 3840x2160). */
+   static bool HasSDR();
++  /* The DVVK_SDR_* flags the library's SDR output takes (dvvk_sdr_flags, an
++   * optional symbol; without it GAMMA22, LIMITED, NO_DITHER and HLG). */
++  static uint32_t SDRFlags();
++  /* The SDR display the settings ask for (DV_SDR_TARGET) is one the library
++   * takes: without that there is no SDR output, rather than another display's. */
++  static bool SDRDisplayUsable();
+   /* Enhancement layer upscaling Annex B (Master Reference), not Bilinear:
+    * the setting as it is now. An engine keeps the value it started with
+    * (CDVPrivateSource::MasterReference). */
+@@ -133,6 +139,8 @@ private:
+   // engine's mode was set for (DVVK_SDR_HLG).
+   bool m_sourceHLG{false};
+   bool m_outputHLG{false};
++  // ... and in BT.2020 (DVBRIDGE::playbackSDRBT2020, DVVK_SDR_BT2020).
++  bool m_outputBT2020{false};
+   uint32_t WantedOutputMode() const;
+   void SelectOutputMode();
+   void PublishSignal(int64_t pts);
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+index 77fdc07..17db5fe 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+@@ -105,7 +105,9 @@ void CGUIDialogPlayerProcessInfo::Process(unsigned int currentTime, CDirtyRegion
+         active & CDVPlaybackInfo::HDMI ? "Dolby Vision (TV-Led)" : "Kodi default");
+     SetProperty("DV.Transport", active & CDVPlaybackInfo::HDMI ? "RGB 8-bit (DV tunnel)" :
+         active & CDVPlaybackInfo::HDR10 ? "PQ / BT.2020, YCbCr 4:2:2 12-bit (tunnel)" :
+-        active & CDVPlaybackInfo::SDR ? "SDR / BT.709, RGB 8-bit" : "N/A");
++        active & CDVPlaybackInfo::SDR
++        ? (active & CDVPlaybackInfo::BT2020 ? "SDR / BT.2020, RGB 8-bit" : "SDR / BT.709, RGB 8-bit")
++        : "N/A");
+     SetProperty("DV.Precision", metadata ? StringUtils::Format("{}-bit framebuffer", data.framebufferBits) : "N/A");
+     SetProperty("DV.L1PQ", metadata && data.l1 ? StringUtils::Format("{} | {} | {}", data.pq[0], data.pq[1], data.pq[2]) : "N/A");
+     const auto nits = [](unsigned pq) {
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index 13f9da2..f47cdb4 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -383,6 +383,8 @@ void CSettings::InitializeOptionFillers()
+ #ifdef HAVE_DVBRIDGE
+   GetSettingsManager()->RegisterSettingOptionsFiller("dvbridgeoutputmodes",
+                                                      DVBRIDGE::OutputModeOptions);
++  GetSettingsManager()->RegisterSettingOptionsFiller("dvbridgesdrcustom",
++                                                     DVBRIDGE::SDRCustomOptions);
+ #endif
+   GetSettingsManager()->RegisterSettingOptionsFiller("charsets", CCharsetConverter::SettingOptionsCharsetsFiller);
+   GetSettingsManager()->RegisterSettingOptionsFiller("fonts", GUIFontManager::SettingOptionsFontsFiller);
+@@ -469,6 +471,7 @@ void CSettings::UninitializeOptionFillers()
+   GetSettingsManager()->UnregisterSettingOptionsFiller("audiocdencoders");
+ #ifdef HAVE_DVBRIDGE
+   GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgeoutputmodes");
++  GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgesdrcustom");
+ #endif
+   GetSettingsManager()->UnregisterSettingOptionsFiller("charsets");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("fontheights");
+@@ -542,6 +545,9 @@ void CSettings::InitializeConditions()
+                                             DVBRIDGE::HDR10PlusToDVAvailable);
+   // Settings > Player > Dolby Vision > SDR display brightness, SDR gamma
+   GetSettingsManager()->AddDynamicCondition("dvbridgesdroutput", DVBRIDGE::SDROutputAvailable);
++  // SDR display, BT.2020 colours
++  GetSettingsManager()->AddDynamicCondition("dvbridgesdrtarget", DVBRIDGE::SDRTargetAvailable);
++  GetSettingsManager()->AddDynamicCondition("dvbridgesdrbt2020", DVBRIDGE::SDRBT2020Available);
+ #endif
+ }
+ 
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index 086e2c9..e585d41 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -734,6 +734,11 @@ int CWinSystemGbm::DisplayHDR10PlusVersion() const
+   return m_info ? m_info->GetHDR10PlusVersion() : -1;
+ }
+ 
++bool CWinSystemGbm::DisplayBT2020RGB() const
++{
++  return m_info && m_info->SupportsColorimetry(UTILS::Colorimetry::BT2020_RGB);
++}
++
+ CHDRCapabilities CWinSystemGbm::GetDisplayHDRCapabilities() const
+ {
+   if (!m_info)
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm.h
+index 5ceb283..8b8e584 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.h
++++ b/xbmc/windowing/gbm/WinSystemGbm.h
+@@ -92,6 +92,10 @@ public:
+ 
+   CGBMUtils::CGBMDevice& GetGBMDevice() const { return m_GBM->GetDevice(); }
+   std::shared_ptr<CDRMUtils> GetDrm() const { return m_DRM; }
++#ifdef HAVE_DVBRIDGE
++  //! The display's EDID lists BT.2020 RGB (its CTA-861 colorimetry data block).
++  bool DisplayBT2020RGB() const;
++#endif
+ 
+   std::vector<std::string> GetConnectedOutputs() override;
+ 
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 5c83249..3646570 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -65,6 +65,8 @@ extern "C"
+ #include "settings/DisplaySettings.h"
+ #include "settings/Settings.h"
+ #include "settings/SettingsComponent.h"
++#include "settings/lib/Setting.h"
++#include "utils/StringUtils.h"
+ #include "windowing/GraphicContext.h"
+ 
+ #include <atomic>
+@@ -300,6 +302,13 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+       const bool packetStaged = presented && m_dvState.HDR10PlusStaged();
+       if (presented && toggled)
+         drm->RequireDVModeset();
++      // An SDR picture's gamut is signalled with it (the connector's Colorspace); changing it
++      // is a modeset for the kernel.
++      const bool sdrBT2020 = !m_dvState.Tunnel() && DVBRIDGE::pictureSDRBT2020.load();
++      bool gamutChanged = false;
++      presented = presented && m_dvState.SetSDRGamut(*drm, sdrBT2020, gamutChanged);
++      if (presented && gamutChanged)
++        drm->RequireDVModeset();
+       // DV_PRIVATE_NONBLOCK=1: a picture of a stable scanout is queued instead of waited for,
+       // so the next one is prepared while the GPU finishes this one. It is committed one
+       // refresh after its preparation began (the queued flip's completion is that refresh),
+@@ -315,6 +324,8 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+         TunnelHDR10PlusPresented(presented);
+       else if (hdr10)
+         TunnelHDR10Presented(presented);
++      else if (sdrBT2020)
++        SDRBT2020Presented(presented);
+     }
+     if (m_dvBridge)
+       m_dvBridge->Presented(presented, queued);
+@@ -1201,7 +1212,7 @@ bool CWinSystemGbmGLESContext::ShowsHDR(bool hlg)
+   return hlg ? display.SupportsHLG() : display.SupportsHDR10();
+ }
+ 
+-bool CWinSystemGbmGLESContext::SupportsSDROutput()
++bool CWinSystemGbmGLESContext::SupportsSDROutput(bool anyDisplay)
+ {
+   // DV_SDR_OUTPUT=0 (native-dv.env): no SDR output at all, selected or as the fallback.
+   const char* enabled = std::getenv("DV_SDR_OUTPUT");
+@@ -1215,7 +1226,60 @@ bool CWinSystemGbmGLESContext::SupportsSDROutput()
+   return connector && connector->IsConnected() && mode && sized(mode->hdisplay) &&
+          sized(mode->vdisplay) &&
+          !(mode->flags & (DRM_MODE_FLAG_INTERLACE | DRM_MODE_FLAG_DBLSCAN)) &&
+-         CDVPrivateVulkan::HasSDR();
++         CDVPrivateVulkan::HasSDR() && (anyDisplay || CDVPrivateVulkan::SDRDisplayUsable());
++}
++
++namespace
++{
++// Whether an SDR commit in BT.2020 ever worked on this connection (1), or the kernel refused
++// every one (2: not asked for again until Kodi restarts).
++std::atomic<int> sdrBT2020Verdict{0};
++} // namespace
++
++bool CWinSystemGbmGLESContext::SDRBT2020()
++{
++  // DV_SDR_BT2020=1 (BT.2020 colours). The picture is BT.2020 only where the link says so: the
++  // driver signals BT.2020 RGB (the connector's Colorspace) and the display takes it (its
++  // EDID's colorimetry block), as CroqueMr's CB1 asks; else BT.709, as without the setting.
++  const char* wanted = std::getenv("DV_SDR_BT2020");
++  if (!wanted || std::strcmp(wanted, "1") != 0)
++    return false;
++  auto* connector = m_DRM ? m_DRM->GetConnector() : nullptr;
++  const char* missing =
++      !(CDVPrivateVulkan::SDRFlags() & DVVK_SDR_BT2020) ? "the engine library has no BT.2020"
++      : !connector || !connector->GetPropertyEnumValue("Colorspace", "BT2020_RGB")
++          ? "the driver cannot signal BT.2020 RGB on this connector (Colorspace)"
++      : !DisplayBT2020RGB() ? "the display's EDID does not list BT.2020 RGB"
++      : sdrBT2020Verdict.load() == 2 ? "this connection refused it before"
++                                     : nullptr;
++  if (missing)
++  {
++    CLog::Log(LOGINFO, "DVBridge output: SDR in BT.709, not BT.2020: {}", missing);
++    return false;
++  }
++  return true;
++}
++
++void CWinSystemGbmGLESContext::SDRBT2020Presented(bool presented)
++{
++  if (presented)
++  {
++    sdrBT2020Verdict = 1;
++    m_dvSDRBT2020Failures = 0;
++    return;
++  }
++  // Three refused commits, so that the link settling does not count; BT.709 from the next
++  // picture, and where none ever worked, for the rest of the Kodi run.
++  if (++m_dvSDRBT2020Failures < 3 || !DVBRIDGE::playbackSDRBT2020.exchange(false))
++    return;
++  if (sdrBT2020Verdict.load() == 0)
++    sdrBT2020Verdict = 2;
++  CLog::Log(LOGERROR, "DVBridge: the kernel refuses the SDR picture in BT.2020 on this "
++            "connection; BT.709 for the rest of this video{}",
++            sdrBT2020Verdict.load() == 2 ? " and until Kodi restarts" : "");
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Warning, strings.Get(45010),
++                                        strings.Get(45160));
+ }
+ 
+ bool CWinSystemGbmGLESContext::PlainSourceSDR(bool hlg)
+@@ -1244,7 +1308,44 @@ bool DVBRIDGE::SDROutputAvailable(const std::string& /*condition*/, const std::s
+                                   const std::shared_ptr<const CSetting>& /*setting*/)
+ {
+   auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
+-  return window && window->SupportsSDROutput();
++  return window && window->SupportsSDROutput(true);
++}
++
++bool DVBRIDGE::SDRTargetAvailable(const std::string& condition, const std::string& value,
++                                  const std::shared_ptr<const CSetting>& setting)
++{
++  constexpr uint32_t targets = DVVK_SDR_POWER | DVVK_SDR_BLACK;
++  const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
++  return SDROutputAvailable(condition, value, setting) &&
++         ((CDVPrivateVulkan::SDRFlags() & targets) == targets ||
++          settings->GetInt("dvbridge.sdrtarget") != 0);
++}
++
++bool DVBRIDGE::SDRBT2020Available(const std::string& condition, const std::string& value,
++                                  const std::shared_ptr<const CSetting>& setting)
++{
++  const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
++  return SDROutputAvailable(condition, value, setting) &&
++         ((CDVPrivateVulkan::SDRFlags() & DVVK_SDR_BT2020) || settings->GetBool("dvbridge.sdrbt2020"));
++}
++
++void DVBRIDGE::SDRCustomOptions(const std::shared_ptr<const CSetting>& setting,
++                                IntegerSettingOptions& list,
++                                int& /*current*/)
++{
++  // The engine's ranges for CB1's custom display: white 20 to 500 cd/m2, a pure power of 1.8
++  // to 2.8 (thousandths), black 0 (a true zero) to 5 cd/m2 (thousandths).
++  const std::string id = setting ? setting->GetId() : "";
++  if (id == "dvbridge.sdrcustomwhite")
++    for (const int nits : {20, 30, 40, 48, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 250,
++                           300, 350, 400, 450, 500})
++      list.emplace_back(std::to_string(nits), nits);
++  else if (id == "dvbridge.sdrcustomgamma")
++    for (int gamma = 1800; gamma <= 2800; gamma += 50)
++      list.emplace_back(StringUtils::Format("{:.2f}", gamma / 1000.0), gamma);
++  else if (id == "dvbridge.sdrcustomblack")
++    for (const int black : {0, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000})
++      list.emplace_back(StringUtils::Format("{:g}", black / 1000.0), black);
+ }
+ 
+ DVBRIDGE::OutputMode CWinSystemGbmGLESContext::DVOutput()
+@@ -1600,10 +1701,15 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+     return failure("drm-state-capture");
+   if (output != DVBRIDGE::playbackMode.load() && !m_dvPlainVideo)
+     ReportFallback(DVBRIDGE::playbackMode.load(), output);
+-  // SDR output: the engine converts, the scanout is an ordinary picture.
++  // SDR output: the engine converts, the scanout is an ordinary picture (BT.2020 where asked
++  // for and the link has it).
++  const bool bt2020 = sdr && SDRBT2020();
++  DVBRIDGE::playbackSDRBT2020.store(bt2020);
++  m_dvSDRBT2020Failures = 0;
+   if (DVBRIDGE::playbackSDR.exchange(sdr) != sdr && sdr)
+-    CLog::Log(LOGINFO, "DVBridge output: SDR (Vulkan engine, an ordinary RGB picture, {}x{}{})",
+-              m_nWidth, m_nHeight, m_dvPlainVideo ? "; a video without Dolby Vision" : "");
++    CLog::Log(LOGINFO, "DVBridge output: SDR (Vulkan engine, an ordinary RGB picture, {}x{}{}{})",
++              m_nWidth, m_nHeight, bt2020 ? ", BT.2020 (Colorspace BT2020_RGB)" : "",
++              m_dvPlainVideo ? "; a video without Dolby Vision" : "");
+   // HDR10 through the tunnel is the tunnel's output with the engine in HDR10.
+   const bool tunnelHDR10 = !sdr && TunnelHDR10Selected();
+   // HDR10+ on top where asked for and the TV has it (else HDR10), with the TV's version.
+@@ -1736,6 +1842,7 @@ bool CWinSystemGbmGLESContext::RenderDVBridge(const CDVBridgeGLES::Layer& layer,
+ bool CWinSystemGbmGLESContext::EndDVBridge()
+ {
+   DVBRIDGE::playbackSDR.store(false);
++  DVBRIDGE::playbackSDRBT2020.store(false);
+   DVBRIDGE::playbackTunnelHDR10.store(false);
+   DVBRIDGE::PublishTunnelHDR10(nullptr);
+   // HDR10+ ends with the output (the restore commit clears HDR10PLUS_METADATA).
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 2c2f765..755b17d 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -78,8 +78,10 @@ public:
+   bool SupportsTunnelHDR10Plus();
+   /* SDR output (OutputMode SDR, or the fallback to it): the Vulkan engine's SDR
+    * output on the bridge's scanout as an ordinary RGB picture. Any connector,
+-   * any progressive mode of a size the engine takes; no kernel support needed. */
+-  bool SupportsSDROutput();
++   * any progressive mode of a size the engine takes; no kernel support needed.
++   * Also the SDR display the settings ask for must be one the engine takes,
++   * unless anyDisplay (the settings themselves are shown either way). */
++  bool SupportsSDROutput(bool anyDisplay = false);
+   /* Kodi sends a PQ (or HLG) video to this display as HDR instead of tone
+    * mapping it: CWinSystemGbm::SetHDR's conditions (the display's HDR setting,
+    * the connector's HDR metadata, the EDID's static metadata and that EOTF). */
+@@ -167,6 +169,11 @@ private:
+   bool DVQueueing() const;
+   void TunnelHDR10Presented(bool presented);
+   void TunnelHDR10PlusPresented(bool presented);
++  // The SDR output in BT.2020 (BT.2020 colours): asked for, and the engine, the driver and the
++  // display have it; else BT.709. A link that refuses it falls back to BT.709 (Presented).
++  bool SDRBT2020();
++  void SDRBT2020Presented(bool presented);
++  unsigned m_dvSDRBT2020Failures{0};
+   // The output in use differs from the selected one (DVOutput): said once per kind.
+   void ReportFallback(DVBRIDGE::OutputMode selected, DVBRIDGE::OutputMode output);
+   unsigned m_dvTunnelHDR10PlusFailures{0};
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.cpp b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+index a2509a9..b11ab70 100644
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.cpp
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+@@ -226,6 +226,25 @@ bool CDVBridgeState::SetHDR10Plus(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Pl
+   return true;
+ }
+ 
++bool CDVBridgeState::SetSDRGamut(CDRMAtomic& drm, bool bt2020, bool& changed)
++{
++  changed = false;
++  if (!Captured() || m_owner != &drm)
++    return false;
++  auto* colorspace = Find("Colorspace");
++  if (m_tunnel || !colorspace)
++    return !bt2020;
++  const auto value = colorspace->object->GetPropertyEnumValue("Colorspace",
++                                                              bt2020 ? "BT2020_RGB" : "Default");
++  if (!value)
++    return false;
++  changed = colorspace->transport != *value;
++  colorspace->transport = *value;
++  if (changed)
++    CLog::Log(LOGINFO, "DVBridge SDR picture: Colorspace {}", bt2020 ? "BT2020_RGB" : "Default");
++  return true;
++}
++
+ void CDVBridgeState::RestoreSDR()
+ {
+   // Renderer teardown invalidates the previous video's HDR/colorimetry snapshot.
+@@ -234,8 +253,9 @@ void CDVBridgeState::RestoreSDR()
+     // no HDR metadata (an HDR10 tunnel's transport is its blob, not SDR's 0)
+     if (property.name == "HDR_OUTPUT_METADATA")
+       property.original = 0;
+-    else if (property.name == "Colorspace")
+-      property.original = property.transport;
++    else if (property.name == "Colorspace") // (Default, also after a BT.2020 SDR picture)
++      property.original = property.object->GetPropertyEnumValue("Colorspace", "Default")
++                              .value_or(property.transport);
+   }
+ }
+ 
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.h b/xbmc/windowing/gbm/drm/DVBridgeState.h
+index 926d760..dbe7825 100644
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.h
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.h
+@@ -48,6 +48,10 @@ public:
+   bool SetHDR10Plus(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10PlusPacket* packet, bool& toggled);
+   /* The connector has HDR10PLUS_METADATA. */
+   static bool SupportsHDR10Plus(CDRMObject& connector);
++  /* An ordinary picture's gamut from the next Stage: BT.2020 (Colorspace BT2020_RGB) or
++   * BT.709 (Default). changed: the commit changes it, which the kernel makes a modeset.
++   * False when the connector cannot signal it. The tunnel's is always Default. */
++  bool SetSDRGamut(CDRMAtomic& drm, bool bt2020, bool& changed);
+   /* A commit with this state sends an HDR10+ packet. */
+   bool HDR10PlusStaged();
+ 
