@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 14:30:19 -0500
+Subject: [PATCH] videoplayer: compare mastering luminance by value
+
+VideoPicture::CompareDisplayMetadata compared the mastering display's
+luminance by numerator and denominator. A stream that repeats the same
+luminance as another fraction (1000/1, then 10000000/10000) made two
+pictures with the same metadata differ, IsSameParams failed and
+CRenderManager::Configure set the renderer up again: a periodic stutter
+on such HDR10 streams.
+
+The values are compared with av_cmp_q, as CDVDStreamInfo::Equal already
+does for the stream's metadata (CroqueMr's CB1 fixed it the same way,
+04f581e55b). Fields equal as they are stay equal, so a zero denominator,
+which av_cmp_q does not order, changes nothing.
+---
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp    | 12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
+index a41939d..7aa0292 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.cpp
+@@ -90,10 +90,14 @@ bool VideoPicture::CompareDisplayMetadata(const VideoPicture& pic) const
+     return true;
+ 
+   // both this and pic has display metadata
+-  return this->displayMetadata.max_luminance.num == pic.displayMetadata.max_luminance.num &&
+-         this->displayMetadata.max_luminance.den == pic.displayMetadata.max_luminance.den &&
+-         this->displayMetadata.min_luminance.num == pic.displayMetadata.min_luminance.num &&
+-         this->displayMetadata.min_luminance.den == pic.displayMetadata.min_luminance.den;
++  // A stream may repeat its mastering luminance as another fraction (1000/1, then 10000000/10000):
++  // compare the values, as CDVDStreamInfo::Equal does, or the renderer is configured again each
++  // time (a periodic stutter). Equal fields stay equal: av_cmp_q has no order for a zero
++  // denominator.
++  const auto same = [](const AVRational& a, const AVRational& b)
++  { return (a.num == b.num && a.den == b.den) || av_cmp_q(a, b) == 0; };
++  return same(this->displayMetadata.max_luminance, pic.displayMetadata.max_luminance) &&
++         same(this->displayMetadata.min_luminance, pic.displayMetadata.min_luminance);
+ }
+ 
+ bool VideoPicture::IsSameParams(const VideoPicture& pic) const

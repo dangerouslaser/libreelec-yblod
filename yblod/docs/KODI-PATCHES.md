@@ -36,6 +36,7 @@ A new patch takes the next free number in its range.
 | `yblod/patches/kodi/kodi-9907-ffmpeg-keep-draining-hardware-decoder.patch` | FFmpeg: keep draining a hardware decoder until it reaches EOF | +4 / -0 |
 | `yblod/patches/kodi/kodi-9908-live-tv-start.patch` | VideoPlayer: start live TV sooner | +44 / -11 |
 | `yblod/patches/kodi/kodi-9909-videoplayer-hable-default-tone-mapping.patch` | VideoPlayer: Hable is the default tone mapping method (it was off) | +1 / -1 |
+| `yblod/patches/kodi/kodi-9910-videoplayer-mastering-luminance-by-value.patch` | VideoPlayer: mastering luminance compared by value, not by fraction (a periodic HDR10 renderer reconfiguration) | +8 / -4 |
 | `yblod-engine/patches/kodi/kodi-9950-dv-stream-and-picture-metadata.patch` | Dolby Vision: carry stream and picture metadata through VideoPlayer | +101 / -1 |
 | `yblod-engine/patches/kodi/kodi-9951-dv-dvbridge-library.patch` | Dolby Vision: add the tools/dvbridge library | +1571 / -1 |
 | `yblod-engine/patches/kodi/kodi-9952-dv-decoder.patch` | Dolby Vision: decode both layers and the metadata in the FFmpeg decoder | +618 / -2 |
