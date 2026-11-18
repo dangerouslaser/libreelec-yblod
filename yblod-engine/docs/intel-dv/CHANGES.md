@@ -130,10 +130,11 @@ The table below covers the files of the Intel Dolby Vision tunnel (`linux-9900`,
 | --- | --- |
 | [ffmpeg-9900-dovi-rpu-extension-block-bytes.patch](../../patches/ffmpeg/ffmpeg-9900-dovi-rpu-extension-block-bytes.patch) | Preserve extended Dolby Vision metadata during decoding and carry it to the player (`dovi_rpudec.c`, `dovi_meta.h`). |
 | [ffmpeg-9901-mov-dav1-sample-entry.patch](../../patches/ffmpeg/ffmpeg-9901-mov-dav1-sample-entry.patch) | Recognize Dolby Vision AV1 tracks in MP4 containers. |
+| [ffmpeg-9902-dovi-rpu-aligned-padding.patch](../../patches/ffmpeg/ffmpeg-9902-dovi-rpu-aligned-padding.patch) | Accept RPUs that carry a zero padding byte before the CRC32 when the payload ends byte-aligned (backport of upstream FFmpeg 5e95a3ddfbdb). |
 
 | Changed source file | High-level change |
 | --- | --- |
-| `libavcodec/dovi_rpudec.c` | Retain parsed extension bytes so the output stage can preserve CM4 metadata. |
+| `libavcodec/dovi_rpudec.c` | Retain parsed extension bytes so the output stage can preserve CM4 metadata; accept the aligned padding byte before the CRC32. |
 | `libavformat/isom_tags.c` | Recognize the dav1 MP4 sample entry for DV AV1 tracks. |
 | `libavutil/dovi_meta.h` | Carry validated original extension bytes alongside parsed metadata. |
 
