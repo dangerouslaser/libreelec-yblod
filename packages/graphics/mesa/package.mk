@@ -133,7 +133,6 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN} vulkan-tools ply:host"
-  # yblod: mesa-002 links RADV with -lgcc (addrlib needs libgcc's __cpu_model)
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers=${VULKAN_DRIVERS_MESA// /,}"
 else
   PKG_MESON_OPTS_TARGET+=" -Dvulkan-drivers="
