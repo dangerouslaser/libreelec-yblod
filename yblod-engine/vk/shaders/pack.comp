@@ -97,15 +97,18 @@ layout(binding = 21) uniform sampler3D map_lut;
 // keeps its own maxima, sum and count (inv_*) and adds them to the
 // workgroup's once: an atomic on shared memory per sample and value costs
 // more than the arithmetic (integer max and wrapping sums: the same numbers
-// in any order).
+// in any order). Then, for application version 1's fields (CB1's
+// analysis since 9b76275086), a histogram of BT.2020 luminance (of each
+// channel's light) in the same bins and the count of pixels at or below 100
+// nits of it: yhist[256], dark.
 layout(constant_id = 9) const uint STATS = 0;
 layout(binding = 24, std430) buffer Stats { uint stats[]; };
 const uint STATS_BINS = STATS != 0u ? 256u : 1u;
-shared uint st_hist[STATS_BINS];
+shared uint st_hist[STATS_BINS], st_yhist[STATS_BINS];
 shared uint st_max[3];
-shared uint st_sum, st_count;
+shared uint st_sum, st_count, st_dark;
 uvec3 inv_max = uvec3(0u);
-uint inv_sum = 0u, inv_count = 0u;
+uint inv_sum = 0u, inv_count = 0u, inv_dark = 0u;
 layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
     uint w, h, stride_words, packet_count, top_left, source_w, source_h, el_method;   // EL_ANNEXB / EL_BILINEAR
@@ -596,6 +599,9 @@ void stats_sample(uvec3 c)
     atomicAdd(st_hist[min(255u, uint(floor(nits / 16.0 + 0.5)))], 1u);
     inv_sum += uint(floor(nits * 64.0 + 0.5));
     inv_count++;
+    float lum = dot(10000.0 * map_pq_eotf(rgb), vec3(0.2627, 0.6780, 0.0593));
+    atomicAdd(st_yhist[min(255u, uint(floor(lum / 16.0 + 0.5)))], 1u);
+    inv_dark += uint(lum <= 100.0);
 }
 
 // One invocation: 4 pixels x 2 rows (x0 % 4 == 0, y0 even), stored 16 bytes a row.
@@ -936,10 +942,10 @@ void main()
 {
     if (STATS != 0u) {
         for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y)
-            st_hist[i] = 0u;
+            st_hist[i] = st_yhist[i] = 0u;
         if (gl_LocalInvocationIndex == 0u) {
             st_max[0] = st_max[1] = st_max[2] = 0u;
-            st_sum = st_count = 0u;
+            st_sum = st_count = st_dark = 0u;
         }
         barrier();
     }
@@ -951,13 +957,17 @@ void main()
             atomicMax(st_max[2], inv_max.z);
             atomicAdd(st_sum, inv_sum);
             atomicAdd(st_count, inv_count);
+            atomicAdd(st_dark, inv_dark);
         }
         barrier();
         if (st_count == 0u)
             return;
-        for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y)
+        for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y) {
             if (st_hist[i] != 0u)
                 atomicAdd(stats[i], st_hist[i]);
+            if (st_yhist[i] != 0u)
+                atomicAdd(stats[262u + i], st_yhist[i]);
+        }
         if (gl_LocalInvocationIndex == 0u) {
             for (uint c = 0u; c < 3u; c++)
                 atomicMax(stats[256u + c], st_max[c]);
@@ -965,6 +975,7 @@ void main()
             if (old + st_sum < old)
                 atomicAdd(stats[260], 1u);
             atomicAdd(stats[261], st_count);
+            atomicAdd(stats[518], st_dark);
         }
     }
 }

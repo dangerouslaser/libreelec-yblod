@@ -3,7 +3,9 @@
 //! HDR10+ host code in yblod-engine/src (yblod_hdr10plus.c and the cb1_*.c
 //! ported at the commit their headers name).
 
+use std::ffi::c_void;
 use std::mem::{offset_of, size_of};
+use std::ptr::NonNull;
 
 /// include/dv_engine_vk.h dvvk_hdr10plus_metadata.
 #[repr(C)]
@@ -68,6 +70,11 @@ pub const DOVI_BYTES: usize = 8192;
 
 extern "C" {
     fn yb_hdr10plus_packet(
+        scene: *mut c_void,
+        stream: u64,
+        picture: u64,
+        picture_metadata: *const u8,
+        picture_bytes: usize,
         metadata: *const u8,
         bytes: usize,
         words: *const u32,
@@ -75,6 +82,9 @@ extern "C" {
         overlay: i32,
         out: *mut Packet,
     ) -> i32;
+    fn cb1_hdr10plus_analysis_create_scene() -> *mut c_void;
+    fn cb1_hdr10plus_analysis_destroy(ctx: *mut *mut c_void);
+    fn cb1_hdr10plus_analysis_clear_scene(ctx: *mut c_void);
     fn yb_hdr10plus_to_dovi(
         hdr10plus: *const u8,
         size: usize,
@@ -88,9 +98,65 @@ extern "C" {
     fn yb_hdr10_to_dovi(hdr10: *const Hdr10Static, out: *mut u8, capacity: usize, out_size: *mut usize) -> i32;
 }
 
-/// The packet of a frame with this AVDOVIMetadata (8-aligned) and statistics record.
-pub fn packet(metadata: &[u8], words: &[u32; crate::engine::STATS_WORDS], flags: u32, overlay: bool, out: &mut Packet) -> i32 {
-    unsafe { yb_hdr10plus_packet(metadata.as_ptr(), metadata.len(), words.as_ptr(), flags, overlay as i32, out) }
+/// CB1's HDR10+ scene (its analysis context's): application version 1's
+/// luminance fields are the scene's so far. The pictures are the frames'
+/// tickets, a stream of them until a reset.
+pub struct Scene {
+    ctx: NonNull<c_void>,
+    stream: u64,
+    /// the latest ticket staged, or the last submitted before a reset
+    pub seen: u64,
+}
+
+impl Scene {
+    pub fn new() -> Option<Scene> {
+        NonNull::new(unsafe { cb1_hdr10plus_analysis_create_scene() }).map(|ctx| Scene { ctx, stream: 1, seen: 0 })
+    }
+
+    /// dvvk_reset (CB1: its player's Reset): no scene, and none of the
+    /// frames up to `last` staged into the next.
+    pub fn clear(&mut self, last: u64) {
+        unsafe { cb1_hdr10plus_analysis_clear_scene(self.ctx.as_ptr()) };
+        self.stream += 1;
+        self.seen = self.seen.max(last);
+    }
+
+    /// The packet of a frame with this AVDOVIMetadata (8-aligned) from
+    /// picture `ticket`'s statistics record and AVDOVIMetadata.
+    pub fn packet(
+        &mut self,
+        ticket: u64,
+        picture_metadata: &[u8],
+        metadata: &[u8],
+        words: &[u32; crate::engine::STATS_WORDS],
+        flags: u32,
+        overlay: bool,
+        out: &mut Packet,
+    ) -> i32 {
+        self.seen = self.seen.max(ticket);
+        unsafe {
+            yb_hdr10plus_packet(
+                self.ctx.as_ptr(),
+                self.stream,
+                ticket,
+                picture_metadata.as_ptr(),
+                picture_metadata.len(),
+                metadata.as_ptr(),
+                metadata.len(),
+                words.as_ptr(),
+                flags,
+                overlay as i32,
+                out,
+            )
+        }
+    }
+}
+
+impl Drop for Scene {
+    fn drop(&mut self) {
+        let mut ctx = self.ctx.as_ptr();
+        unsafe { cb1_hdr10plus_analysis_destroy(&mut ctx) };
+    }
 }
 
 /// # Safety

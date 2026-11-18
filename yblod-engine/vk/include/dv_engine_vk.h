@@ -153,8 +153,10 @@ void dvvk_reset(dvvk_engine *);
  *                      dynamic metadata from dvvk_hdr10plus_packet().
  * Statistics: the engine measures the active film area of every HDR10+
  * frame before the overlay (each channel's linear maximum, the average
- * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin) in the pack
- * (shaders/pack.comp STATS), read back once the frame is done. */
+ * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin; for application
+ * version 1 the BT.2020 luminance's 99.99th percentile and share at or below
+ * 100 nits, over the scene as CB1 keeps it) in the pack (shaders/pack.comp
+ * STATS), read back once the frame is done. */
 /*   DVVK_OUTPUT_SDR  SDR (after YBLOD 0.5.0): the engine converts to the picture
  *                      of an SDR display (docs/intel-dv/OUTPUT-MODES.md): the
  *                      HDR10 recipe (libplacebo's spline tone curve on IPT's I,

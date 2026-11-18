@@ -3,9 +3,11 @@
  * unchanged at the commit their headers name).
  *
  * - yb_hdr10plus_packet: Dolby Vision -> HDR10+. The engine's statistics
- *   record (shaders/pack.comp STATS) to CB1's cb1_hdr10plus_statistics, then
- *   cb1_dv_hdr10plus_metadata_for_version and cb1_hdr10plus_vsif: the
- *   31-byte HDR10+ InfoFrame (include/dv_engine_vk.h dvvk_hdr10plus_metadata).
+ *   record (shaders/pack.comp STATS) to CB1's cb1_hdr10plus_statistics, its
+ *   scene (cb1_hdr10plus_analysis_stage_scene / _commit_scene, as CB1's
+ *   player drives them), then cb1_dv_hdr10plus_metadata_for_version and
+ *   cb1_hdr10plus_vsif: the 31-byte HDR10+ InfoFrame
+ *   (include/dv_engine_vk.h dvvk_hdr10plus_metadata).
  * - yb_hdr10plus_to_dovi: HDR10+ -> Dolby Vision. cb1_hdr10plus_dovi_describe
  *   as an AVDOVIMetadata the engine plays as Profile 8.1 (an identity
  *   composer, L1 and L6; include/dv_engine_vk.h dvvk_hdr10plus_to_dovi).
@@ -16,6 +18,7 @@
 #include "yblod_hdr10plus.h"
 #include "cb1_dv_hdr10plus.h"
 #include "cb1_hdr10plus_dovi.h"
+#include "dvbridge_metadata_bounds.h"
 #include <libavutil/dovi_meta.h>
 #include <math.h>
 #include <stddef.h>
@@ -55,20 +58,43 @@ int yb_hdr10plus_statistics(const uint32_t words[YB_HDR10PLUS_STATS_WORDS], stru
     uint64_t sum = (uint64_t)words[260] << 32 | words[259];
     /* per-pixel light rounded to 1/64 nit on the GPU: never above the peak */
     s.average_maxrgb = fmin((double)sum / 64.0 / (double)s.count, peak);
+    /* luminance as CB1's cb1_hdr10plus_analysis_poll makes it (percentile_bin) */
+    const uint32_t *yhist = words + 262;
+    uint64_t seen = 0, need = (s.count * 9999 + 9999) / 10000;
+    unsigned bin = 256;
+    for (unsigned i = 0; i < 256; i++) {
+        seen += yhist[i];
+        if (bin == 256 && seen >= need)
+            bin = i;
+    }
+    if (seen != s.count || words[518] > s.count)
+        return -1;
+    s.y99_nits = 16 * bin;
+    s.y100_percent = 100.0 * words[518] / s.count;
+    s.luminance_valid = true;
     *out = s;
     return 0;
 }
 
-int yb_hdr10plus_packet(const void *metadata, size_t bytes, const uint32_t words[YB_HDR10PLUS_STATS_WORDS],
-                        uint32_t flags, int overlay, dvvk_hdr10plus_metadata *out)
+int yb_hdr10plus_packet(struct cb1_hdr10plus_analysis *scene, uint64_t stream, uint64_t picture,
+                        const void *picture_metadata, size_t picture_bytes, const void *metadata, size_t bytes,
+                        const uint32_t words[YB_HDR10PLUS_STATS_WORDS], uint32_t flags, int overlay,
+                        dvvk_hdr10plus_metadata *out)
 {
-    if (!metadata || !words || !out)
+    if (!scene || !picture_metadata || !dvbridge_metadata_bounds(picture_metadata, picture_bytes) || !metadata ||
+        !words || !out)
         return -1;
     struct cb1_hdr10plus_statistics s;
     dvvk_hdr10plus_metadata r = {0};
     if (yb_hdr10plus_statistics(words, &s))
         return DVVK_HDR10PLUS_FALLBACK;   /* no film pixel measured */
     unsigned version = flags & DVVK_HDR10PLUS_V1 ? 1 : 0;
+    /* CB1 measures luminance for version 1 only (its analysis_submit) */
+    s.luminance_valid = version == 1;
+    /* CB1's scene refresh: the picture's RPU says so, or HDR10+ starts (a
+     * picture whose predecessor wasn't measured: the scene resets anyway) */
+    cb1_hdr10plus_analysis_identify(scene, (struct dvbridge_identity){stream, picture, 1});
+    cb1_hdr10plus_analysis_stage_scene(scene, &s, av_dovi_get_color(picture_metadata)->scene_refresh_flag != 0);
     AVDynamicHDRPlus m;
     struct cb1_dv_hdr10plus_report report;
     if (!cb1_dv_hdr10plus_metadata_for_version(&m, &report, metadata, bytes, &s, version))
@@ -87,6 +113,8 @@ int yb_hdr10plus_packet(const void *metadata, size_t bytes, const uint32_t words
                          CB1_HDR10PLUS_OK
                      ? 0
                      : DVVK_HDR10PLUS_FALLBACK;
+    if (!status)
+        cb1_hdr10plus_analysis_commit_scene(scene);
     *out = r;
     return status;
 }

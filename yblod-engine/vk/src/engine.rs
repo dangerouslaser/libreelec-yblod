@@ -768,8 +768,9 @@ struct Ctx {
     gui_error: HostBuffer,
     map_params: HostBuffer, // the output mapping's dvvk_map_gpu (HDR10 output)
     // HDR10+ output: the pack's statistics of this frame's film (pack.comp
-    // STATS: hist[256], max[3], sum lo, hi, count), and what its metadata is
-    // made from (the frame's AVDOVIMetadata, 8-aligned; the overlay flag).
+    // STATS: hist[256], max[3], sum lo, hi, count, yhist[256], dark), and
+    // what its metadata is made from (the frame's AVDOVIMetadata, 8-aligned;
+    // the overlay flag).
     stats: HostBuffer,
     hdr10plus: Option<Hdr10PlusFrame>,
     bounds_result: HostBuffer,
@@ -800,8 +801,14 @@ struct Hdr10PlusFrame {
     area: [u32; 4], // the film's active area in the canvas (x0, y0, x1, y1), as STATS measures it
 }
 
+impl Hdr10PlusFrame {
+    fn bytes(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.metadata.as_ptr() as *const u8, self.size) }
+    }
+}
+
 /// The statistics record's words (pack.comp STATS).
-pub const STATS_WORDS: usize = 262;
+pub const STATS_WORDS: usize = 519;
 
 /// DVVK_VERIFY=k: every k-th frame is rendered a second time by the
 /// reference route (the staged reconstruction, overlay_prepare's colour cache
@@ -971,6 +978,8 @@ pub struct Engine {
     // overlay buffer last given
     damage: crate::damage::Damage,
     last_shell: Option<u64>,
+    // HDR10+ output: CB1's scene of the frames' statistics (application version 1)
+    hdr10plus_scene: crate::hdr10plus::Scene,
     // HDR10 output (docs/hdr10-output.md): the mode, the last frame's
     // mapping, the scene's 3D LUT (its nodes, then the image the pack samples)
     // and its exactly-computed cells, the key it was baked for, and the pack
@@ -1422,6 +1431,7 @@ impl Engine {
         // Before the commit: a failure after it would roll nothing back.
         let mut plan_state = plan::PlanState::new().ok_or(Error::Missing("memory for the plan state"))?;
         plan_state.set_canvas(canvas);
+        let hdr10plus_scene = crate::hdr10plus::Scene::new().ok_or(Error::Missing("memory for the HDR10+ scene"))?;
         construction.commit();
         Ok(Engine {
             canvas,
@@ -1488,6 +1498,7 @@ impl Engine {
             reference_pass: std::cell::Cell::new(false),
             damage: crate::damage::Damage::new((canvas_w, canvas_h), o.damage),
             last_shell: None,
+            hdr10plus_scene,
             map_mode: crate::map::OutputMode {
                 mode: o.output_mode,
                 ..Default::default()
@@ -1729,6 +1740,7 @@ impl Engine {
         }
         self.cb1_tiles_valid = false;
         self.plan_state.reset();
+        self.hdr10plus_scene.clear(self.ticket);
         // Generations start again: no context's tables are known any more.
         for c in &mut self.ring {
             c.tables_generation = None;
@@ -2149,33 +2161,59 @@ impl Engine {
     /// dvvk_hdr10plus_packet: HDR10+ frame `ticket`'s dynamic metadata, from
     /// its own statistics when it is done, else the latest finished HDR10+
     /// frame's before it. Never blocks. Ok(status) as the C API returns it.
-    pub fn hdr10plus_packet(&self, ticket: u64, flags: u32, out: &mut crate::hdr10plus::Packet) -> Result<i32> {
+    pub fn hdr10plus_packet(&mut self, ticket: u64, flags: u32, out: &mut crate::hdr10plus::Packet) -> Result<i32> {
         if ticket == 0 || flags & !3 != 0 {
             return Ok(-1);
         }
-        let ctx = &self.ring[((ticket - 1) % RING as u64) as usize];
-        let Some(frame) = ctx.hdr10plus.as_ref().filter(|_| ctx.ticket == ticket) else { return Ok(-1) };
+        let ci = ((ticket - 1) % RING as u64) as usize;
+        if self.ring[ci].ticket != ticket || self.ring[ci].hdr10plus.is_none() {
+            return Ok(-1);
+        }
         let done = unsafe { self.d.device.get_semaphore_counter_value(self.timeline) }?;
-        let Some(source) = self
-            .ring
-            .iter()
-            .filter(|c| c.hdr10plus.is_some() && c.ticket != 0 && c.ticket <= ticket && c.ticket <= done)
-            .max_by_key(|c| c.ticket)
+        let Some(si) = (0..self.ring.len())
+            .filter(|&i| {
+                let c = &self.ring[i];
+                c.hdr10plus.is_some() && c.ticket != 0 && c.ticket <= ticket && c.ticket <= done
+            })
+            .max_by_key(|&i| self.ring[i].ticket)
         else {
             return Ok(1);
         };
-        let mut words = [0u32; STATS_WORDS];
-        for (i, w) in source.stats.bytes()[..STATS_WORDS * 4].as_chunks::<4>().0.iter().enumerate() {
-            words[i] = u32::from_le_bytes(*w);
+        let words_of = |c: &Ctx| {
+            let mut words = [0u32; STATS_WORDS];
+            for (i, w) in c.stats.bytes()[..STATS_WORDS * 4].as_chunks::<4>().0.iter().enumerate() {
+                words[i] = u32::from_le_bytes(*w);
+            }
+            words
+        };
+        // CB1 stages every picture's statistics into its scene, in order: the
+        // finished frames before the source not staged yet first (their
+        // packets unused), each with its own metadata
+        let mut earlier: Vec<usize> = (0..self.ring.len())
+            .filter(|&i| {
+                let c = &self.ring[i];
+                c.hdr10plus.is_some() && c.ticket > self.hdr10plus_scene.seen && c.ticket < self.ring[si].ticket
+            })
+            .collect();
+        earlier.sort_by_key(|&i| self.ring[i].ticket);
+        for i in earlier {
+            let c = &self.ring[i];
+            let f = c.hdr10plus.as_ref().unwrap();
+            let mut unused = crate::hdr10plus::Packet::default();
+            self.hdr10plus_scene.packet(c.ticket, f.bytes(), f.bytes(), &words_of(c), flags, f.overlay, &mut unused);
         }
-        let bytes = unsafe { std::slice::from_raw_parts(frame.metadata.as_ptr() as *const u8, frame.size) };
-        let status = crate::hdr10plus::packet(bytes, &words, flags, frame.overlay, out);
+        let (source, frame) = (&self.ring[si], self.ring[ci].hdr10plus.as_ref().unwrap());
+        let words = words_of(source);
+        let picture = source.hdr10plus.as_ref().unwrap().bytes();
+        let status =
+            self.hdr10plus_scene.packet(source.ticket, picture, frame.bytes(), &words, flags, frame.overlay, out);
         out.statistics_ticket = source.ticket;
         if self.d.options.hdr10plus_trace {
-            // the statistics record as measured (the CPU reference compares the histogram)
+            // the statistics record as measured (the CPU reference compares the histograms)
             let hist: Vec<String> = words[..256].iter().map(|w| w.to_string()).collect();
+            let yhist: Vec<String> = words[262..518].iter().map(|w| w.to_string()).collect();
             eprintln!(
-                "{{\"dvvk_hdr10plus_stats\":{},\"ticket\":{},\"area\":[{},{},{},{}],\"max_pq_bits\":[{},{},{}],\"sum64\":{},\"count\":{},\"histogram\":[{}]}}",
+                "{{\"dvvk_hdr10plus_stats\":{},\"ticket\":{},\"area\":[{},{},{},{}],\"max_pq_bits\":[{},{},{}],\"sum64\":{},\"count\":{},\"histogram\":[{}],\"dark\":{},\"y_histogram\":[{}]}}",
                 source.ticket,
                 ticket,
                 source.hdr10plus.as_ref().unwrap().area[0],
@@ -2187,7 +2225,9 @@ impl Engine {
                 words[258],
                 (u64::from(words[260]) << 32) | u64::from(words[259]),
                 words[261],
-                hist.join(",")
+                hist.join(","),
+                words[518],
+                yhist.join(",")
             );
         }
         Ok(status)

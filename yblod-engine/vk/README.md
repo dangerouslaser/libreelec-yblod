@@ -143,6 +143,19 @@ symbols and enum values only, the layouts and the soname unchanged):
   yblod's own serializer already added an L5 only for placement borders.
   The fixtures and golden.sh's pictures all carry an L5: its hashes are
   unchanged.
+- *HDR10+ application version 1's luminance* (CB1 9b76275086): its
+  DistributionY99 (the 5 % entry) is the scene's largest 99.99th
+  percentile of BT.2020 luminance and DistributionY100nit (the 10 % entry)
+  the scene's mean share of pixels at or below 100 nits, where 0 and 255
+  were sent; `targeted_system_display_maximum_luminance` is 0 when no curve
+  is sent (both versions). `STATS` also counts a 16-nit luminance histogram
+  and the pixels at or below 100 nits (a 519-word record). The engine keeps
+  CB1's scene (`cb1_hdr10plus_analysis_stage_scene` / `_commit_scene`):
+  every finished HDR10+ frame's statistics in ticket order, a new scene on
+  the RPU's scene refresh, a missing frame or `dvvk_reset`; a packet made
+  commits it. The maxRGB statistics are unchanged (DVVK_HDR10PLUS_TRACE on
+  44 frames before and after); the luminance fields the packets carry equal
+  `dvvk-hdr10-compare --stats` on the dumps.
 
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
 headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus|sdr`,
