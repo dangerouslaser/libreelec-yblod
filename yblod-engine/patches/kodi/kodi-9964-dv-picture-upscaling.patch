@@ -1,0 +1,395 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 14:33:30 -0500
+Subject: [PATCH] Dolby Vision: picture upscaling with FSR 1
+
+The Vulkan engine can enlarge a picture with AMD FidelityFX Super
+Resolution 1 (dvvk_set_scaler: EASU, or EASU then RCAS), as CroqueMr's
+CB1 lets a viewer do, but Kodi had no way to ask for it.
+
+Settings > Player > Dolby Vision gets Upscaling (1080p and above) and
+Upscaling (below 1080p), CB1's two tiers (1920 wide or 1080 high and
+above; smaller), each Bilinear (the default), FSR 1 or FSR 1 +
+sharpening (DV_UPSCALER, DV_UPSCALER_SD). The adapter chooses the
+method by each picture's source size and calls dvvk_set_scaler when it
+changes; the engine applies it only to an enlarged picture. With both
+at Bilinear Kodi never calls it, so the engine runs as before. A
+library without the symbol stays bilinear and the settings are not
+offered (they stay shown while one is saved); a method the library
+refuses leaves the one it has, logged.
+
+Player information shows Upscaling (Bilinear, FSR 1, FSR 1 +
+sharpening) only while the engine enlarges the picture. The help text
+gives FSR's cost (UHD 770, 1080p to 4K: about 13 and 14 ms a picture
+against 5 for bilinear) and says it is not yet measured on slower GPUs.
+
+Strings 45161 to 45166; Bilinear is 45105.
+---
+ .../resources/strings.po                      | 30 +++++++
+ .../xml/IncludesDVProcessInfo.xml             |  1 +
+ system/settings/settings.xml                  | 32 +++++++
+ .../DVDCodecs/Video/DVOutputSettings.h        |  5 ++
+ .../DVDCodecs/Video/DVPlaybackInfo.h          |  5 ++
+ .../VideoRenderers/DVBridgeGLES.cpp           |  3 +-
+ .../VideoRenderers/DVEngineSettings.h         | 14 +++
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 90 +++++++++++++++++++
+ .../VideoRenderers/DVPrivateVulkan.h          |  8 ++
+ xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp   |  4 +
+ xbmc/settings/Settings.cpp                    |  2 +
+ 11 files changed, 193 insertions(+), 1 deletion(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index f4fa8ce..ae90c19 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26545,3 +26545,33 @@ msgstr ""
+ msgctxt "#45160"
+ msgid "This connection does not take BT.2020 for the SDR picture. BT.709 is used."
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45161"
++msgid "Upscaling (1080p and above)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45162"
++msgid "How YBLOD's engine enlarges a picture smaller than the screen, for videos of 1080p and above (a 1080p video on a 4K display, for example): Dolby Vision videos, and HDR videos it converts to SDR. Bilinear: the engine's usual scaling, the lightest on the GPU. FSR 1: AMD FidelityFX Super Resolution 1, with sharper edges. FSR 1 + sharpening: FSR 1 with its sharpening pass. FSR takes much more GPU time: on an Intel UHD 770 a 1080p picture enlarged to 4K takes about 13 ms with FSR 1 and 14 ms with sharpening, against 5 ms with Bilinear. On slower graphics (Intel N150, AMD Vega 8) it has not been measured yet, and 60 frames a second may no longer keep up: if the picture stutters or frames are dropped, go back to Bilinear. Pictures shown at their own size or made smaller are not affected. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45163"
++msgid "Upscaling (below 1080p)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45164"
++msgid "The same choice for videos smaller than 1080p (720p, DVD). FSR's GPU time grows with the size of the screen more than with the video's, so it costs about as much as for 1080p videos. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45165"
++msgid "FSR 1"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45166"
++msgid "FSR 1 + sharpening"
++msgstr ""
+diff --git a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+index 1282f4b..fef4649 100644
+--- a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
++++ b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+@@ -89,6 +89,7 @@
+       <include content="DVInfoRow"><param name="label" value="Playback"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Mode)]"/><param name="visible" value="true"/></include>
+       <include content="DVInfoRow"><param name="label" value="Signal"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Transport)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Transport)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Transport),N/A)"/></include>
+       <include content="DVInfoRow"><param name="label" value="Precision"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Precision)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Precision)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Precision),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Upscaling"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Upscaler)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Upscaler)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Upscaler),N/A)"/></include>
+       <include content="DVInfoRow"><param name="label" value="FEL reconstructed"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.FEL)]"/><param name="visible" value="String.IsEqual(VideoPlayer.HdrType,dolbyvision) + !String.IsEmpty(Window(playerprocessinfo).Property(DV.FEL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.FEL),N/A)"/></include>
+     </definition></include>
+   <include name="DVDynamicFields"><definition>
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index ec67170..ab0ce01 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -491,6 +491,38 @@
+           </dependencies>
+           <control type="spinner" format="string" />
+         </setting>
++        <setting id="dvbridge.upscalerhd" type="integer" label="45161" help="45162">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45105">0</option>
++              <option label="45165">1</option>
++              <option label="45166">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgeupscaler" />
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.upscalersd" type="integer" label="45163" help="45164">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45105">0</option>
++              <option label="45165">1</option>
++              <option label="45166">2</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgeupscaler" />
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
+         <setting id="dvbridge.dvmetadata" type="integer" label="45106" help="45107">
+           <level>1</level>
+           <default>0</default>
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index 0bc1ab0..7cab732 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -259,6 +259,11 @@ bool SDRTargetAvailable(const std::string& condition,
+ bool SDRBT2020Available(const std::string& condition,
+                         const std::string& value,
+                         const std::shared_ptr<const CSetting>& setting);
++// Picture upscaling is shown: the engine library has the upscaler (dvvk_set_scaler), or one is
++// saved (settings condition "dvbridgeupscaler", DVPrivateVulkan).
++bool UpscalerAvailable(const std::string& condition,
++                       const std::string& value,
++                       const std::shared_ptr<const CSetting>& setting);
+ // The values of the custom SDR display's white, gamma and black (settings.xml's
+ // "dvbridgesdrcustom" filler).
+ void SDRCustomOptions(const std::shared_ptr<const CSetting>& setting,
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+index 643455d..a6d007e 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+@@ -8,7 +8,12 @@
+ struct CDVPlaybackInfo
+ {
+   enum : unsigned { HDMI = 1, FEL = 2, CM4 = 4, HDR10 = 8, SDR = 16, BT2020 = 32 };
++  // The engine enlarged the picture (Picture upscaling), with FSR 1 or FSR 1 and RCAS (else
++  // bilinear).
++  enum : unsigned { ENLARGED = 64, FSR1 = 128, RCAS = 256 };
+   inline static std::atomic<unsigned> presented{0};
++  // The engine's last picture: 0, or ENLARGED and its method (DVPrivateVulkan).
++  inline static std::atomic<unsigned> upscaler{0};
+ 
+   static std::string Detail(std::string source, unsigned output)
+   {
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 75cf5f5..7102c36 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -196,7 +196,8 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhance
+                                                               : CDVPlaybackInfo::HDMI) |
+                       (fel ? CDVPlaybackInfo::FEL : 0u) |
+                       (DVBRIDGE::playbackSDR.load() && DVBRIDGE::pictureSDRBT2020.load()
+-                           ? CDVPlaybackInfo::BT2020 : 0u);
++                           ? CDVPlaybackInfo::BT2020 : 0u) |
++                      CDVPlaybackInfo::upscaler.load();
+       const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
+       if (entering && trace && std::strcmp(trace, "1") == 0)
+         CLog::Log(LOGINFO, "Private source composition: pts={} enhancement={} fel={} prepared=true",
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+index 4e31363..92c32fa 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+@@ -59,6 +59,20 @@ inline const std::vector<Mapping>& Mappings()
+        }},
+       // Dolby Vision metadata: Original, CM4.0 auto (CB1's Auto 2 with the TV's peak; Auto by
+       // the mastering peak without one), CM4.0 always (DVPrivateVulkan DmOptions).
++      // Picture upscaling of enlarged pictures, for sources of 1080p and above and smaller ones
++      // (DVPrivateVulkan SelectScaler: dvvk_set_scaler).
++      {"dvbridge.upscalerhd",
++       [](const Settings& s) -> Values {
++         static constexpr const char* methods[] = {"bilinear", "fsr1", "fsr1-sharp"};
++         const int method = s->GetInt("dvbridge.upscalerhd");
++         return {{"DV_UPSCALER", methods[method >= 0 && method <= 2 ? method : 0]}};
++       }},
++      {"dvbridge.upscalersd",
++       [](const Settings& s) -> Values {
++         static constexpr const char* methods[] = {"bilinear", "fsr1", "fsr1-sharp"};
++         const int method = s->GetInt("dvbridge.upscalersd");
++         return {{"DV_UPSCALER_SD", methods[method >= 0 && method <= 2 ? method : 0]}};
++       }},
+       {"dvbridge.dvmetadata",
+        [](const Settings& s) -> Values {
+          switch (s->GetInt("dvbridge.dvmetadata"))
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 1779528..d18b388 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -2,6 +2,7 @@
+ #include "DVPrivateVulkan.h"
+ #include "ServiceBroker.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h"
+ #include "dialogs/GUIDialogKaiToast.h"
+ #include "messaging/ApplicationMessenger.h"
+ #include "resources/LocalizeStrings.h"
+@@ -550,6 +551,79 @@ void CDVPrivateVulkan::PublishHDR10Plus(uint64_t ticket, int64_t pts)
+   DVBRIDGE::PublishTunnelHDR10Plus(packet);
+ }
+ 
++bool CDVPrivateVulkan::HasScaler()
++{
++  static std::once_flag probed;
++  static bool has = false;
++  if (!Usable())
++    return false;
++  std::call_once(probed, [] {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0]) library = DVVK_LIBRARY;
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    if (!handle)
++      return;
++    has = dlsym(handle, "dvvk_set_scaler") != nullptr;
++    dlclose(handle);
++    CLog::Log(LOGINFO, "Vulkan engine {}: upscaler {}", library, has ? "available" : "not available");
++  });
++  return has;
++}
++
++bool DVBRIDGE::UpscalerAvailable(const std::string& /*condition*/, const std::string& /*value*/,
++                                 const std::shared_ptr<const CSetting>& /*setting*/)
++{
++  // (also shown while one is saved without the upscaler, so it can be set back)
++  const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
++  return CDVPrivateVulkan::HasScaler() || settings->GetInt("dvbridge.upscalerhd") != 0 ||
++         settings->GetInt("dvbridge.upscalersd") != 0;
++}
++
++namespace
++{
++// DV_UPSCALER, DV_UPSCALER_SD: bilinear (the default), fsr1 (EASU) or fsr1-sharp (EASU, then
++// RCAS).
++uint32_t ScalerFromEnv(const char* variable)
++{
++  if (EnvIs(variable, "fsr1"))
++    return DVVK_SCALER_FSR1_EASU;
++  if (EnvIs(variable, "fsr1-sharp"))
++    return DVVK_SCALER_FSR1_RCAS;
++  if (const char* value = std::getenv(variable); value && value[0] && std::strcmp(value, "bilinear"))
++    CLog::Log(LOGWARNING, "Vulkan engine: {}={} is not bilinear, fsr1 or fsr1-sharp; bilinear",
++              variable, value);
++  return DVVK_SCALER_BILINEAR;
++}
++
++const char* ScalerName(uint32_t method)
++{
++  return method == DVVK_SCALER_FSR1_RCAS   ? "FSR 1 + sharpening (RCAS)"
++         : method == DVVK_SCALER_FSR1_EASU ? "FSR 1 (EASU)"
++                                           : "bilinear";
++}
++} // namespace
++
++void CDVPrivateVulkan::SelectScaler(const dv_source_geometry& geometry)
++{
++  // 1080p and above: 1920 wide or 1080 high (a 1920x800 film too), as CroqueMr's CB1 sorts them.
++  const bool large = geometry.width >= 1920 || geometry.height >= 1080;
++  uint32_t& want = large ? m_scalerLarge : m_scalerSmall;
++  if (want == m_scaler)
++    return;
++  const int result = m_setScaler ? m_setScaler(m_engine, want) : -2;
++  if (result != 0)
++  {
++    // Not another method in its place: the one the engine has, and not asked again.
++    CLog::Log(LOGERROR, "Vulkan engine: this library has no upscaler {} ({}); {} stays",
++              ScalerName(want), result, ScalerName(m_scaler));
++    want = m_scaler;
++    return;
++  }
++  m_scaler = want;
++  CLog::Log(LOGINFO, "Vulkan engine upscaler: {} for enlarged pictures of {} sources",
++            ScalerName(m_scaler), large ? "1080p and larger" : "smaller");
++}
++
+ bool CDVPrivateVulkan::MasterReference()
+ {
+   // dvbridge.elupscaler: annexb (the default) or bilinear (DVEngineSettings).
+@@ -594,6 +668,11 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_setOutputMode = reinterpret_cast<decltype(m_setOutputMode)>(dlsym(m_library, "dvvk_set_output_mode"));
+   m_outputSignal = reinterpret_cast<decltype(m_outputSignal)>(dlsym(m_library, "dvvk_output_signal"));
+   m_hdr10PlusPacket = reinterpret_cast<decltype(m_hdr10PlusPacket)>(dlsym(m_library, "dvvk_hdr10plus_packet"));
++  // A new engine enlarges with bilinear until a picture's tier asks for another method.
++  m_setScaler = reinterpret_cast<decltype(m_setScaler)>(dlsym(m_library, "dvvk_set_scaler"));
++  m_scaler = DVVK_SCALER_BILINEAR;
++  m_scalerLarge = ScalerFromEnv("DV_UPSCALER");
++  m_scalerSmall = ScalerFromEnv("DV_UPSCALER_SD");
+   if (!m_setOutputMode || !m_outputSignal)
+     m_setOutputMode = nullptr, m_outputSignal = nullptr, m_hdr10PlusPacket = nullptr;
+   // Reading Kodi's GUI framebuffer in place needs the flag and the read fences.
+@@ -894,6 +973,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   uint64_t ticket = 0;
+   m_sourceHLG = input.transfer == DV_SOURCE_TRANSFER_HLG;
+   SelectOutputMode();
++  SelectScaler(geometry);
+   // The display's signal is the window's (the tunnel, or an ordinary picture for SDR): a
+   // picture of the other kind is never written, whatever kept the engine from changing.
+   if ((m_outputMode == DVVK_OUTPUT_SDR) != (WantedOutputMode() == DVVK_OUTPUT_SDR) ||
+@@ -904,6 +984,15 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   if (result == 0)
+   {
+     DVBRIDGE::pictureSDRBT2020.store(m_outputMode == DVVK_OUTPUT_SDR && m_outputBT2020);
++    // The upscaler the engine used (scaler.rs effective): an enlarged picture's, neither side
++    // smaller (a resized plan is never the source's own size).
++    const bool enlarged = frame.plan.dw && frame.plan.dw >= frame.plan.width &&
++                          frame.plan.dh >= frame.plan.height;
++    CDVPlaybackInfo::upscaler.store(
++        !enlarged ? 0u
++        : CDVPlaybackInfo::ENLARGED | (m_scaler == DVVK_SCALER_FSR1_RCAS   ? CDVPlaybackInfo::RCAS
++                                       : m_scaler == DVVK_SCALER_FSR1_EASU ? CDVPlaybackInfo::FSR1
++                                                                           : 0u));
+     PublishSignal(pts);
+     PublishHDR10Plus(ticket, pts);
+   }
+@@ -1036,6 +1125,7 @@ bool CDVPrivateVulkan::Close()
+     m_outputHLG = false;
+     m_outputBT2020 = false;
+     DVBRIDGE::pictureSDRBT2020.store(false);
++    CDVPlaybackInfo::upscaler.store(0);
+     DVBRIDGE::PublishTunnelHDR10(nullptr);
+     DVBRIDGE::PublishTunnelHDR10Plus({});
+   }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 6f940d5..01ad329 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -45,6 +45,8 @@ public:
+   /* The SDR display the settings ask for (DV_SDR_TARGET) is one the library
+    * takes: without that there is no SDR output, rather than another display's. */
+   static bool SDRDisplayUsable();
++  /* The library has the upscaler (dvvk_set_scaler, an optional symbol). */
++  static bool HasScaler();
+   /* Enhancement layer upscaling Annex B (Master Reference), not Bilinear:
+    * the setting as it is now. An engine keeps the value it started with
+    * (CDVPrivateSource::MasterReference). */
+@@ -132,6 +134,12 @@ private:
+   decltype(&dvvk_set_output_mode) m_setOutputMode{nullptr};    // optional (HDR10 output)
+   decltype(&dvvk_output_signal) m_outputSignal{nullptr};       // optional (HDR10 output)
+   decltype(&dvvk_hdr10plus_packet) m_hdr10PlusPacket{nullptr}; // optional (HDR10+ output)
++  decltype(&dvvk_set_scaler) m_setScaler{nullptr};             // optional (the upscaler)
++  // Picture upscaling (DV_UPSCALER, DV_UPSCALER_SD): the method asked for sources of 1080p and
++  // above and for smaller ones (DVVK_SCALER_*), and the one the engine has.
++  uint32_t m_scalerLarge{DVVK_SCALER_BILINEAR}, m_scalerSmall{DVVK_SCALER_BILINEAR};
++  uint32_t m_scaler{DVVK_SCALER_BILINEAR};
++  void SelectScaler(const dv_source_geometry& geometry);
+   // The output mode the engine has (DVVK_OUTPUT_*): DVBRIDGE::playbackSDR and
+   // playbackTunnelHDR10 for each frame, and the last HDR10 signal logged.
+   uint32_t m_outputMode{DVVK_OUTPUT_DV};
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+index 17db5fe..5363100 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+@@ -108,6 +108,10 @@ void CGUIDialogPlayerProcessInfo::Process(unsigned int currentTime, CDirtyRegion
+         active & CDVPlaybackInfo::SDR
+         ? (active & CDVPlaybackInfo::BT2020 ? "SDR / BT.2020, RGB 8-bit" : "SDR / BT.709, RGB 8-bit")
+         : "N/A");
++    // The engine's upscaler, shown only while it enlarges the picture.
++    SetProperty("DV.Upscaler", !(active & CDVPlaybackInfo::ENLARGED) ? "N/A" :
++        active & CDVPlaybackInfo::RCAS ? "FSR 1 + sharpening" :
++        active & CDVPlaybackInfo::FSR1 ? "FSR 1" : "Bilinear");
+     SetProperty("DV.Precision", metadata ? StringUtils::Format("{}-bit framebuffer", data.framebufferBits) : "N/A");
+     SetProperty("DV.L1PQ", metadata && data.l1 ? StringUtils::Format("{} | {} | {}", data.pq[0], data.pq[1], data.pq[2]) : "N/A");
+     const auto nits = [](unsigned pq) {
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index f47cdb4..2537ec6 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -548,6 +548,8 @@ void CSettings::InitializeConditions()
+   // SDR display, BT.2020 colours
+   GetSettingsManager()->AddDynamicCondition("dvbridgesdrtarget", DVBRIDGE::SDRTargetAvailable);
+   GetSettingsManager()->AddDynamicCondition("dvbridgesdrbt2020", DVBRIDGE::SDRBT2020Available);
++  // Picture upscaling
++  GetSettingsManager()->AddDynamicCondition("dvbridgeupscaler", DVBRIDGE::UpscalerAvailable);
+ #endif
+ }
+ 

@@ -78,6 +78,16 @@ BT.2020 colours and HDR videos take precedence over their entries):
 | `DV_SDR_RANGE` | auto | `auto` follows Kodi's "Use limited colour range"; `full`, `limited`. |
 | `DV_SDR_DITHER` | 1 | 0: rounded codes. |
 
+The upscaler (kodi-9964; the engine's `dvvk_set_scaler`, every output mode,
+not only SDR): `DV_UPSCALER` for sources of 1080p and above (1920 wide or
+1080 high) and `DV_UPSCALER_SD` for smaller ones, `bilinear` (default),
+`fsr1` or `fsr1-sharp`, set by Upscaling (1080p and above) and Upscaling
+(below 1080p). The method is chosen for each picture's source size and the
+engine applies it only to an enlargement; a library without the symbol stays
+bilinear, one that refuses a method keeps the one it has (logged). Kodi never
+calls `dvvk_set_scaler` while both are bilinear, so the default is the engine
+as before.
+
 ### To check on a display
 
 Seen on a display once: Convert to SDR on an LG TV through AMD graphics
@@ -137,6 +147,11 @@ separate check.
     picture, Signal `SDR / BT.2020` in player information, the GUI's colours),
     one whose EDID does not (BT.709, the log line), and the fallback when the
     kernel refuses the commit.
+13. **Upscaler** (kodi-9964): FSR 1 and FSR 1 + sharpening on a 1080p title
+    at 3840x2160, the dropped-frame counter and `DVVK_PROFILE=1` on the UHD
+    770, the N150 and Vega 8 at 24p and 60p; Upscaling in player information
+    only while the picture is enlarged; a 4K title on the 4K display is not
+    touched.
 
 ## Presentation (0.5.0)
 
