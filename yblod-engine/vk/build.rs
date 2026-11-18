@@ -99,6 +99,7 @@ fn main() {
         "cb1_dv_hdr10plus.c",
         "cb1_hdr10plus_dovi.c",
         "dvbridge_creative.c",
+        "cb1_hdr10_expert.c",
         "dvbridge_policy.c",
         "yblod_hdr10plus.c",
     ] {

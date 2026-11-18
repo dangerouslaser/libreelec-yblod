@@ -156,6 +156,13 @@ symbols and enum values only, the layouts and the soname unchanged):
   commits it. The maxRGB statistics are unchanged (DVVK_HDR10PLUS_TRACE on
   44 frames before and after); the luminance fields the packets carry equal
   `dvvk-hdr10-compare --stats` on the dumps.
+- *Every vendored CB1 file at b5149a09d7* (`../SOURCES.md`), with CB1's
+  tests: `dvbridge_policy`'s SDR and player-led modes and fields,
+  `dvbridge_creative`'s resolver choosing among CM4 anchors by display
+  gamut (`cb1_display_primaries`, ported alone from `cb1_hdr10_expert`) and
+  its `analysis_valid`, `cb1_cmv40.h`'s status in the plan, and
+  `dvbridge_dv_is_mel` in `dvbridge_metadata_bounds.h`. Compiled in, not
+  used: the HDR10+ policy has no player-led display.
 
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
 headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus|sdr`,

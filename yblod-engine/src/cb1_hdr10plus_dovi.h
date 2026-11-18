@@ -1,5 +1,5 @@
 /* YBLOD 0.4.0: ported from CroqueMr's CB1 (github.com/CroqueMr/intel-dv-libreelec,
- * CB1/src/cb1_hdr10plus_dovi.h) at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17 (upstream/main, 2026-11-07).
+ * CB1/src/cb1_hdr10plus_dovi.h) at commit b5149a09d759ab2cc1dd8c0b6d156da67d70cae6 (upstream/main, 2026-11-18).
  * struct cb1_l1l3 copied in from cb1_l1l3_model.h (the AI model is not ported).
  * CB1's notices follow and still apply. */
 /* SPDX-License-Identifier: GPL-2.0-or-later */

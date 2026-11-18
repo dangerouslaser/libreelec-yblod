@@ -1,33 +1,70 @@
 /* YBLOD 0.4.0: ported from CroqueMr's CB1 (github.com/CroqueMr/intel-dv-libreelec,
- * CB1/src/dvbridge_policy.c) at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17 (upstream/main, 2026-11-07).
+ * CB1/src/dvbridge_policy.c) at commit b5149a09d759ab2cc1dd8c0b6d156da67d70cae6 (upstream/main, 2026-11-18).
  * Unchanged except for this notice and include names.
  * CB1's notices follow and still apply. */
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #include "dvbridge_policy.h"
 #include <math.h>
 
+bool dvbridge_sdr_target(const struct dvbridge_sdr_profile *p,double *peak,double *gamma,double *black)
+{
+    if(!p || !peak || !gamma || !black || p->preset<DVBRIDGE_SDR_REFERENCE ||
+       p->preset>DVBRIDGE_SDR_CUSTOM ||
+       (p->gamut!=DVBRIDGE_GAMUT_UNSET && p->gamut!=DVBRIDGE_GAMUT_BT709 &&
+        p->gamut!=DVBRIDGE_GAMUT_BT2020))return false;
+    double n=p->preset==DVBRIDGE_SDR_REFERENCE?100:p->preset==DVBRIDGE_SDR_BRIGHT?200:p->peak_nits;
+    double g=p->preset==DVBRIDGE_SDR_REFERENCE?2.4:p->preset==DVBRIDGE_SDR_BRIGHT?2.2:p->gamma;
+    double b=p->preset==DVBRIDGE_SDR_CUSTOM?p->black_nits:0;
+    if(!isfinite(n) || n<20 || n>500 || !isfinite(g) || g<1.8 || g>2.8 ||
+       !isfinite(b) || b<0 || b>5 || b>=n)return false;
+    *peak=n;*gamma=g;*black=b;return true;
+}
+
 enum dvbridge_policy_status dvbridge_policy_validate(const struct dvbridge_policy *policy)
 {
     if (!policy || policy->mode < DVBRIDGE_MODE_DISABLED ||
         policy->mode >= DVBRIDGE_MODE_COUNT)
         return DVBRIDGE_POLICY_INVALID_VALUE;
+    if(policy->mode==DVBRIDGE_MODE_SDR){
+        double peak,gamma,black;
+        return policy->adaptive==DVBRIDGE_ADAPTIVE_A &&
+            dvbridge_sdr_target(&policy->sdr,&peak,&gamma,&black)?
+            DVBRIDGE_POLICY_VALID:DVBRIDGE_POLICY_INVALID_VALUE;
+    }
     if(policy->adaptive<DVBRIDGE_ADAPTIVE_A || policy->adaptive>DVBRIDGE_ADAPTIVE_B_FP16 ||
        (policy->adaptive!=DVBRIDGE_ADAPTIVE_A && policy->mode!=DVBRIDGE_MODE_ENHANCED_DV))
         return DVBRIDGE_POLICY_INVALID_VALUE;
     const struct dvbridge_tv_profile *tv = &policy->tv;
+    if(policy->lldv_edid_version){
+        if(policy->lldv_edid_version>2 || (policy->mode!=DVBRIDGE_MODE_PLAYER_LED &&
+            policy->mode!=DVBRIDGE_MODE_HDR10_EXPERT))return DVBRIDGE_POLICY_INVALID_VALUE;
+        const double *xy=policy->lldv_primaries;
+        for(unsigned i=0;i<6;i+=2){
+            unsigned j=(i+2)%6;
+            if(!isfinite(xy[i]) || !isfinite(xy[i+1]) || xy[i]<=0 || xy[i+1]<=0 ||
+               xy[i]+xy[i+1]>1.000001 ||
+               (xy[j]-xy[i])*(.3290-xy[i+1])-(xy[j+1]-xy[i+1])*(.3127-xy[i])<=.000001)
+                return DVBRIDGE_POLICY_INVALID_VALUE;
+        }
+    }
     if (tv->panel < DVBRIDGE_PANEL_UNSET || tv->panel > DVBRIDGE_PANEL_LCD ||
         tv->gamut < DVBRIDGE_GAMUT_UNSET || tv->gamut > DVBRIDGE_GAMUT_BT2020 ||
         !isfinite(tv->peak_nits) || tv->peak_nits < 0 || tv->peak_nits > 10000)
         return DVBRIDGE_POLICY_INVALID_VALUE;
+    const bool calibrated = policy->mode == DVBRIDGE_MODE_HDR10_EXPERT ||
+                            policy->mode == DVBRIDGE_MODE_PLAYER_LED;
     if (tv->peak_nits == 0 && tv->panel == DVBRIDGE_PANEL_UNSET &&
         tv->gamut == DVBRIDGE_GAMUT_UNSET)
-        return (policy->mode == DVBRIDGE_MODE_HDR10_EXPERT || policy->mode == DVBRIDGE_MODE_ENHANCED_DV) ?
+        return (calibrated || policy->mode == DVBRIDGE_MODE_ENHANCED_DV) ?
             DVBRIDGE_POLICY_TV_PROFILE_REQUIRED : DVBRIDGE_POLICY_VALID;
     if (tv->gamut == DVBRIDGE_GAMUT_UNSET)
         return DVBRIDGE_POLICY_TV_PROFILE_REQUIRED;
-    if(policy->mode==DVBRIDGE_MODE_HDR10_EXPERT &&
+    /* The maximum Dolby v2 black code is PQ 620, approximately 1.029 nits. */
+    const double max_black = policy->lldv_edid_version==2 ? 1.029 :
+                             policy->lldv_edid_version==1 ? 1 : .5;
+    if(calibrated &&
        (tv->peak_nits<50 || !isfinite(policy->expert_black_nits) ||
-        policy->expert_black_nits<0 || policy->expert_black_nits>.5 ||
+        policy->expert_black_nits<0 || policy->expert_black_nits>max_black ||
         policy->expert_black_nits>=tv->peak_nits ||
         (policy->expert_output_bits && (policy->expert_output_bits<10 || policy->expert_output_bits>16))))
         return DVBRIDGE_POLICY_INVALID_VALUE;

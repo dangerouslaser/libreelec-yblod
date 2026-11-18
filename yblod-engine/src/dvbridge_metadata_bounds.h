@@ -1,5 +1,5 @@
 /* YBLOD 0.4.0: ported from CroqueMr's CB1 (github.com/CroqueMr/intel-dv-libreelec,
- * CB1/src/dvbridge_metadata_bounds.h) at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17 (upstream/main, 2026-11-07).
+ * CB1/src/dvbridge_metadata_bounds.h) at commit b5149a09d759ab2cc1dd8c0b6d156da67d70cae6 (upstream/main, 2026-11-18).
  * Unchanged except for this notice and include names.
  * CB1's notices follow and still apply. */
 /* SPDX-License-Identifier: GPL-2.0-or-later */
@@ -54,4 +54,22 @@ static inline bool dvbridge_metadata_bounds(const void *metadata, size_t bytes)
            (size_t)m->num_ext_blocks <= (bytes - m->ext_block_offset) / stride;
 }
 #undef DVBRIDGE_META_ALIGN
+
+static inline bool dvbridge_dv_is_mel(const AVDOVIMetadata *metadata)
+{
+    if (!metadata) return false;
+    const AVDOVIRpuDataHeader *header = av_dovi_get_header(metadata);
+    const AVDOVIDataMapping *mapping = av_dovi_get_mapping(metadata);
+    if (header->disable_residual_flag || header->coef_log2_denom > 32 ||
+        mapping->nlq_method_idc != AV_DOVI_NLQ_LINEAR_DZ)
+        return false;
+    const uint64_t maximum = UINT64_C(1) << header->coef_log2_denom;
+    for (unsigned channel = 0; channel < 3; ++channel) {
+        const AVDOVINLQParams *nlq = &mapping->nlq[channel];
+        if (nlq->nlq_offset || nlq->vdr_in_max != maximum ||
+            nlq->linear_deadzone_slope || nlq->linear_deadzone_threshold)
+            return false;
+    }
+    return true;
+}
 #endif
