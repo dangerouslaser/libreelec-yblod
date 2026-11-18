@@ -353,7 +353,7 @@ pub extern "C" fn dvvk_output_modes() -> u32 {
 }
 
 /// dvvk_target_flags (optional symbol): the display-targeted outputs' flags
-/// this library takes (DVVK_LLDV_10BIT; DVVK_HDR10_TARGET has its value).
+/// this library takes (DVVK_HDR10_TARGET, DVVK_LLDV_10BIT).
 #[no_mangle]
 pub extern "C" fn dvvk_target_flags() -> u32 {
     crate::map::TARGET_FLAGS

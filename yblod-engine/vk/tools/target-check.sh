@@ -146,6 +146,12 @@ run lldv-mel-1000-10bit "$MEL" "--cb1" "$L --peak 1000 --black 0.005 --bits 10"
 run lldv-mel-projector  "$MEL" "--cb1" "$L --peak 150 --black 0.05 $EDID1"
 run lldv-fel-600-gui    "$FEL" "--cb1" "$L --peak 600" after
 [ -z "$P5" ] || run lldv-p5-1000 "$P5" "--cb1 --start ${P5_START:-34.6}" "$L --peak 1000"
+# HDR10 Rendering Reference: 1000 cd/m2 P3 (CB1's default gamut), 600 BT.2020
+# with an LCD's black, a dim projector in BT.709, the GUI
+run hdr10t-fel-1000     "$FEL" "--cb1" "$T --peak 1000"
+run hdr10t-p81-600-2020 "$P81" "--cb1" "$T --peak 600 --black 0.005 --gamut 2020"
+run hdr10t-mel-proj-709 "$MEL" "--cb1" "$T --peak 100 --black 0.05 --gamut 709"
+run hdr10t-fel-600-gui  "$FEL" "--cb1" "$T --peak 600" tunnel
 
 # DVVK_OVERLAY_FLIP_Y: the overlay stored bottom first gives its twin's bytes
 twin() {

@@ -149,7 +149,7 @@ pub fn mode_supported(mode: &OutputMode) -> bool {
 /// dv_map.c; the black's bound depends on the VSVDB's version).
 pub fn mode_supported_with(mode: &OutputMode, display: &DisplayPrimaries) -> bool {
     match mode.mode {
-        DVVK_OUTPUT_LLDV => {
+        DVVK_OUTPUT_HDR10 | DVVK_OUTPUT_LLDV if mode.mode == DVVK_OUTPUT_LLDV || mode.flags != 0 => {
             unsafe { dvvk_map_target_valid(mode, display) == 1 }
         }
         DVVK_OUTPUT_DV | DVVK_OUTPUT_HDR10 | DVVK_OUTPUT_HDR10PLUS => {
@@ -395,7 +395,7 @@ mod tests {
         OutputMode { mode, flags, peak_nits, min_nits, reserved: [gamut, 0, 0, 0] }
     }
 
-    /// LLDV takes the displays CB1's policy takes
+    /// The display-targeted modes take the displays CB1's policy takes
     /// (dvbridge_policy_validate: peak 50 to 10000, the black's bound by the
     /// VSVDB's version) and nothing else; plain HDR10 as before.
     #[test]
@@ -411,6 +411,18 @@ mod tests {
             // plain HDR10: no display
             (target(h, 0, 0.0, 0.0, 0), none, true),
             (target(h, 0, 1000.0, 0.0, 0), none, false),
+            // HDR10 Rendering Reference
+            (target(h, 1, 1000.0, 0.0, 0), none, true),
+            (target(h, 1, 50.0, 0.0, 1), none, true),
+            (target(h, 1, 10000.0, 0.5, 3), none, true),
+            (target(h, 1, 49.9, 0.0, 0), none, false),
+            (target(h, 1, 10000.5, 0.0, 0), none, false),
+            (target(h, 1, 1000.0, 0.51, 0), none, false),
+            (target(h, 1, 1000.0, -0.01, 0), none, false),
+            (target(h, 1, f32::NAN, 0.0, 0), none, false),
+            (target(h, 1, 1000.0, 0.0, 4), none, false),
+            (target(h, 3, 1000.0, 0.0, 0), none, false),
+            (OutputMode { reserved: [0, 0, 1, 0], ..target(h, 1, 1000.0, 0.0, 0) }, none, false),
             // LLDV: without primaries the black up to 0.5, a version 1 block 1, version 2 1.029
             (target(l, 0, 600.0, 0.0, 0), none, true),
             (target(l, 1, 600.0, 0.5, 0), none, true),
@@ -433,7 +445,8 @@ mod tests {
     }
 
     /// What a player signals: LLDV its display, its useful bits, no
-    /// InfoFrame; plain HDR10 the film's, as before.
+    /// InfoFrame; HDR10 Rendering Reference the virtual target's static
+    /// metadata; plain HDR10 the film's, as before.
     #[test]
     fn target_signals() {
         let md = metadata();
@@ -452,5 +465,12 @@ mod tests {
         let own = plan(target(DVVK_OUTPUT_LLDV, 0, 774.87, 0.0, 0), &edid);
         assert_eq!(own.signal.primaries[0], [33790, 16015]);
         assert_eq!(own.signal.max_luminance, 775);
+        let hdr10 = plan(target(DVVK_OUTPUT_HDR10, 1, 1000.0, 0.005, 0), &none);
+        assert!(hdr10.expert() && !hdr10.lldv());
+        let s = hdr10.signal;
+        assert_eq!((s.mode, s.eotf, s.max_luminance, s.min_luminance, s.max_cll, s.max_fall), (1, 2, 1000, 50, 0, 0));
+        assert_eq!(s.primaries, [[34000, 16000], [13250, 34500], [7500, 3000]]);
+        let rec709 = plan(target(DVVK_OUTPUT_HDR10, 1, 100.0, 0.05, 1), &none);
+        assert_eq!(rec709.signal.primaries, [[32000, 16500], [15000, 30000], [7500, 3000]]);
     }
 }

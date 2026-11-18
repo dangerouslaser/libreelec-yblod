@@ -1008,6 +1008,21 @@ void pack_main()
             for (uint pair = 0u; pair < 2u; pair++) {
                 uvec2 a = lv4[2u * pair], b = lv4[2u * pair + 1u];
                 bool black = a.y == bi.y && b.y == bi.z && a.x == bi.x && b.x == bi.x;
+                if (MAP_EXPERT == 1u) {
+                    // HDR10 Rendering Reference: PQ 0 outside the active area
+                    // (reference_output), but for an overlay blended into the
+                    // bars before the map; a pair it cuts is mapped here
+                    uint xe = x0 + 2u * pair;
+                    bool se = map_shown(xe, y) || uvec3(a.x, a.y, b.y) != bi;
+                    bool so = map_shown(xe + 1u, y) || uvec3(b.x, a.y, b.y) != bi;
+                    if (!se || !so) {
+                        vec3 e = se ? map_exact(a.x, a.y, b.y) : vec3(256.0, 2048.0, 2048.0);
+                        vec3 o = so ? map_exact(b.x, a.y, b.y) : vec3(256.0, 2048.0, 2048.0);
+                        lv4[2u * pair] = uvec2(map_q(e.x), map_q(e.y));
+                        lv4[2u * pair + 1u] = uvec2(map_q(o.x), map_q(e.z));
+                        continue;
+                    }
+                }
                 if (MAP == 1u && !black && (marked[2u * pair] || marked[2u * pair + 1u])) {
                     raw[pair] = true;
                     fixup |= 1u << (r * 2u + pair);
