@@ -1,0 +1,1061 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 17:30:00 -0500
+Subject: [PATCH] Dolby Vision: player-led Dolby Vision
+
+The Vulkan engine maps Dolby Vision to the TV's own peak, black and
+primaries (DVVK_OUTPUT_LLDV, CroqueMr's CB1 "LLDV Reference - Native")
+and this tree's kernel signals it (DVBRIDGE_TUNNEL_FORMAT lldv: the
+Dolby VSIF with its low-latency bit, AVI YCbCr 4:2:2 BT.2020 limited
+range, no HDR static metadata), but Kodi could not ask for either.
+
+Output mode gets "Dolby Vision (player-led)" (OutputMode::PlayerLed,
+5), in the setting and in the video OSD's list, offered only where:
+- the engine library has the mode (dvvk_output_modes,
+  dvvk_set_display_primaries, dvvk_lldv_display_from_vsvdb);
+- the connector has the lldv value of DVBRIDGE_TUNNEL_FORMAT, at
+  progressive 3840x2160;
+- the TV's Dolby Vision VSVDB has the low-latency interface by the
+  kernel's own test, and dvvk_lldv_display_from_vsvdb gives a target
+  from it (CDisplayInfo now keeps the block's bytes).
+kodi.log says which condition fails when the answer changes.
+
+Playing, the window begins the tunnel with the target; the engine sets
+the TV's primaries and version, then the mode with its peak and black
+(DV_LLDV_BITS=10: DVVK_LLDV_10BIT), and sends each frame with no
+dm_options (the engine refuses CM4.0 and L2 removal for it). The
+commit of a player-led picture stages the lldv format with no HDR
+metadata and no HDR10+. Player information shows the output and the
+TV's target.
+
+It is never chosen by the Automatic fallback, and where it is not
+available the video falls back as Dolby Vision does on a TV without
+it: Convert to HDR10, then SDR. If the engine refuses the TV's target,
+or the kernel refuses ten player-led commits in a row, it is withdrawn
+until Kodi restarts (notification) and the title restarts with that
+fallback; no picture of another kind is sent meanwhile.
+DV_LLDV_OUTPUT=0 removes it.
+
+Not yet seen on a display. With Output mode at any other value no new
+engine call is made and no new connector property is written.
+
+Strings 45167 to 45170; the Output mode help (45015) describes it.
+---
+ .../resources/strings.po                      |  22 ++-
+ .../xml/IncludesDVProcessInfo.xml             |   1 +
+ .../DVDCodecs/Video/DVOutputSettings.h        |  46 ++++-
+ .../DVDCodecs/Video/DVPlaybackInfo.h          |  34 +++-
+ .../VideoRenderers/DVBridgeGLES.cpp           |   4 +-
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 172 +++++++++++++++++-
+ .../VideoRenderers/DVPrivateVulkan.h          |  16 ++
+ xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp   |   6 +
+ xbmc/utils/DisplayInfo.cpp                    |   5 +
+ xbmc/utils/DisplayInfo.h                      |  12 ++
+ xbmc/windowing/gbm/WinSystemGbm.cpp           |  10 +
+ xbmc/windowing/gbm/WinSystemGbm.h             |   4 +
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 153 +++++++++++++++-
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  11 ++
+ xbmc/windowing/gbm/drm/DVBridgeState.cpp      |  19 +-
+ xbmc/windowing/gbm/drm/DVBridgeState.h        |   9 +-
+ 16 files changed, 501 insertions(+), 23 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index ae90c19..409c643 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26003,7 +26003,7 @@ msgstr ""
+ 
+ #: system/settings/settings.xml
+ msgctxt "#45015"
+-msgid "Dolby Vision (TV-led): the TV maps the picture with its own Dolby Vision processing. Convert to HDR10: YBLOD converts Dolby Vision to HDR10 (the Master Reference conversion), for TVs without Dolby Vision. Convert to HDR10+: YBLOD sends the Master Reference picture with HDR10+ metadata made for each picture from its Dolby Vision metadata and the picture itself, and the TV applies its HDR10+ tone mapping; the HDR10+ curve is an approximation of the Dolby Vision trims by design, and a film whose metadata cannot be represented continues as HDR10. The HDR conversions are shown only on HDMI outputs that carry them (Intel gen12 and later, AMD), not on DisplayPort or converter outputs; HDR10+ only with a TV that reports HDR10+. Convert to SDR: YBLOD converts Dolby Vision to an ordinary picture, scene by scene from the Dolby Vision metadata, for TVs and projectors without HDR (or with HDR that looks worse than this); it is YBLOD's conversion, not Dolby's. Off: Kodi plays the HDR10 or SDR base layer itself, without the enhancement layer (Profile 5 colours are wrong). Applies to the next video."
++msgid "Dolby Vision (TV-led): the TV maps the picture with its own Dolby Vision processing. Dolby Vision (player-led): new, and not yet seen on a TV. YBLOD maps the picture to the TV's own brightness, black and colours, as the Dolby Vision block of its EDID states them, and sends it as low-latency Dolby Vision, which the TV shows without mapping it again. It is offered only where the TV, the connection and the engine have it, and never chosen by the automatic fallback. If the picture looks wrong (too dark or too bright, wrong colours, black or frozen), choose another output in the video OSD (Settings > Video settings > Output mode) and report it with the log. Convert to HDR10: YBLOD converts Dolby Vision to HDR10 (the Master Reference conversion), for TVs without Dolby Vision. Convert to HDR10+: YBLOD sends the Master Reference picture with HDR10+ metadata made for each picture from its Dolby Vision metadata and the picture itself, and the TV applies its HDR10+ tone mapping; the HDR10+ curve is an approximation of the Dolby Vision trims by design, and a film whose metadata cannot be represented continues as HDR10. The HDR conversions are shown only on HDMI outputs that carry them (Intel gen12 and later, AMD), not on DisplayPort or converter outputs; HDR10+ only with a TV that reports HDR10+. Convert to SDR: YBLOD converts Dolby Vision to an ordinary picture, scene by scene from the Dolby Vision metadata, for TVs and projectors without HDR (or with HDR that looks worse than this); it is YBLOD's conversion, not Dolby's. Off: Kodi plays the HDR10 or SDR base layer itself, without the enhancement layer (Profile 5 colours are wrong). Applies to the next video."
+ msgstr ""
+ 
+ #: system/settings/settings.xml
+@@ -26575,3 +26575,23 @@ msgstr ""
+ msgctxt "#45166"
+ msgid "FSR 1 + sharpening"
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45167"
++msgid "Dolby Vision (player-led)"
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45168"
++msgid "Player-led Dolby Vision is not available on this display. The video is converted to HDR10."
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45169"
++msgid "Player-led Dolby Vision is not available on this display. The video is converted to SDR."
++msgstr ""
++
++#: xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++msgctxt "#45170"
++msgid "This connection does not take player-led Dolby Vision. The video starts again with another output, and player-led is not offered again until Kodi restarts."
++msgstr ""
+diff --git a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+index fef4649..d98c1b6 100644
+--- a/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
++++ b/addons/skin.estuary/xml/IncludesDVProcessInfo.xml
+@@ -89,6 +89,7 @@
+       <include content="DVInfoRow"><param name="label" value="Playback"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Mode)]"/><param name="visible" value="true"/></include>
+       <include content="DVInfoRow"><param name="label" value="Signal"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Transport)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Transport)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Transport),N/A)"/></include>
+       <include content="DVInfoRow"><param name="label" value="Precision"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Precision)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Precision)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Precision),N/A)"/></include>
++      <include content="DVInfoRow"><param name="label" value="Target"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Target)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Target)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Target),N/A)"/></include>
+       <include content="DVInfoRow"><param name="label" value="Upscaling"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.Upscaler)]"/><param name="visible" value="!String.IsEmpty(Window(playerprocessinfo).Property(DV.Upscaler)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.Upscaler),N/A)"/></include>
+       <include content="DVInfoRow"><param name="label" value="FEL reconstructed"/><param name="value" value="$INFO[Window(playerprocessinfo).Property(DV.FEL)]"/><param name="visible" value="String.IsEqual(VideoPlayer.HdrType,dolbyvision) + !String.IsEmpty(Window(playerprocessinfo).Property(DV.FEL)) + !String.IsEqual(Window(playerprocessinfo).Property(DV.FEL),N/A)"/></include>
+     </definition></include>
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index 7cab732..3dab828 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -16,7 +16,8 @@ namespace DVBRIDGE
+ // Settings > Player > Dolby Vision > Output mode (dvbridge.outputmode). The values are stored in
+ // guisettings.xml, so they keep their meaning: a new output takes the next free value, is offered
+ // by OutputModeOptions where the connection has it, and is accepted by SelectOutputSettings below.
+-enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2, HDR10Plus = 3, SDR = 4 };
++enum class OutputMode : int { Standard = 0, HDR10 = 1, Disabled = 2, HDR10Plus = 3, SDR = 4,
++                              PlayerLed = 5 };
+ 
+ // Playback preparation latches the preferences. An open settings dialog must not
+ // change the output encoding of an already running playback session.
+@@ -68,6 +69,42 @@ inline std::atomic<uint32_t> playbackHDR10PlusFlags{0};
+ // conversion) and the property is cleared. Cleared when the output ends.
+ inline std::atomic<bool> playbackHDR10PlusFallback{false};
+ 
++// Player-led Dolby Vision (OutputMode PlayerLed, never chosen by the fallback): the Vulkan
++// engine maps the picture to the TV's own target from its Dolby Vision VSVDB (DVVK_OUTPUT_LLDV)
++// and the tunnel's 12-bit YCbCr 4:2:2 goes out with DVBRIDGE_TUNNEL_FORMAT lldv (the Dolby VSIF
++// with its low-latency bit, no HDR static metadata). The window sets it and the target for the
++// output it begins and clears it at the end; the engine reads both for every frame and says
++// of each picture it made whether it is player-led (pictureLLDV), which the commit that shows
++// it signals.
++struct LLDVTarget
++{
++  float peakNits{0.0f}, minNits{0.0f};
++  float primaries[3][2]{}; // R, G, B (x, y), fitted inside BT.2020
++  uint32_t edidVersion{0};
++  unsigned bits{12}; // useful bits in the 12-bit carrier: 12, or 10 (DV_LLDV_BITS)
++  bool operator==(const LLDVTarget&) const = default;
++};
++inline std::atomic<bool> playbackTunnelLLDV{false};
++inline std::atomic<bool> pictureLLDV{false};
++// The kernel refused player-led commits on this connection, or the engine the TV's target: it
++// is not offered again until Kodi restarts (the window's SupportsTunnelLLDV).
++inline std::atomic<bool> lldvUnavailable{false};
++namespace detail
++{
++inline std::mutex lldvLock;
++inline LLDVTarget lldvTarget;
++} // namespace detail
++inline void SetLLDVTarget(const LLDVTarget& target)
++{
++  std::lock_guard lock(detail::lldvLock);
++  detail::lldvTarget = target;
++}
++inline LLDVTarget CurrentLLDVTarget()
++{
++  std::lock_guard lock(detail::lldvLock);
++  return detail::lldvTarget;
++}
++
+ // Settings > Player > Dolby Vision > HDR10+ videos (dvbridge.hdr10plussources), latched per
+ // video: 1 plays HDR10+ titles as Dolby Vision (Profile 8.1 with metadata made from each
+ // picture's HDR10+, dvvk_hdr10plus_to_dovi), 0 as Kodi plays them today.
+@@ -91,12 +128,14 @@ enum class TitleOutput : int
+   HDR10Plus = 2,
+   HLG = 3,
+   SDR = 4,
++  PlayerLed = 5, // a Dolby Vision video's player-led Dolby Vision
+ };
+ inline const char* TitleOutputName(TitleOutput output)
+ {
+-  static constexpr const char* names[]{"Dolby Vision", "HDR10", "HDR10+", "HLG", "SDR"};
++  static constexpr const char* names[]{"Dolby Vision", "HDR10", "HDR10+", "HLG", "SDR",
++                                       "Dolby Vision (player-led)"};
+   const int index = static_cast<int>(output);
+-  return index >= 0 && index < 5 ? names[index] : "none";
++  return index >= 0 && index < 6 ? names[index] : "none";
+ }
+ 
+ // HDR10 videos as Dolby Vision (TitleOutput DolbyVision of an HDR10 video): each picture with
+@@ -283,6 +322,7 @@ inline void SelectOutputSettings(const std::string& path)
+     case OutputMode::Disabled:
+     case OutputMode::HDR10Plus:
+     case OutputMode::SDR:
++    case OutputMode::PlayerLed:
+       playbackMode.store(static_cast<OutputMode>(mode));
+       break;
+     default:
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+index a6d007e..c306893 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+@@ -1,13 +1,15 @@
+ /* SPDX-License-Identifier: GPL-2.0-or-later */
+ #pragma once
+ #include <atomic>
++#include <mutex>
+ #include <string>
+ 
+ // The render thread publishes one coherent snapshot only after presentation.
+ // This is output telemetry, never a source-format or TV certification flag.
+ struct CDVPlaybackInfo
+ {
+-  enum : unsigned { HDMI = 1, FEL = 2, CM4 = 4, HDR10 = 8, SDR = 16, BT2020 = 32 };
++  // LLDV: player-led Dolby Vision through the tunnel (DVBRIDGE::playbackTunnelLLDV).
++  enum : unsigned { HDMI = 1, FEL = 2, CM4 = 4, HDR10 = 8, SDR = 16, BT2020 = 32, LLDV = 512 };
+   // The engine enlarged the picture (Picture upscaling), with FSR 1 or FSR 1 and RCAS (else
+   // bilinear).
+   enum : unsigned { ENLARGED = 64, FSR1 = 128, RCAS = 256 };
+@@ -15,9 +17,21 @@ struct CDVPlaybackInfo
+   // The engine's last picture: 0, or ENLARGED and its method (DVPrivateVulkan).
+   inline static std::atomic<unsigned> upscaler{0};
+ 
++  // The display the engine maps to (player-led Dolby Vision): empty for the other outputs.
++  static void SetTarget(std::string target)
++  {
++    std::lock_guard lock(TargetLock());
++    TargetText() = std::move(target);
++  }
++  static std::string Target()
++  {
++    std::lock_guard lock(TargetLock());
++    return TargetText();
++  }
++
+   static std::string Detail(std::string source, unsigned output)
+   {
+-    if (!(output & (HDMI | HDR10 | SDR)))
++    if (!(output & (HDMI | HDR10 | SDR | LLDV)))
+       return source;
+     if ((output & FEL) && source.find("FEL") == std::string::npos)
+       source += " FEL";
+@@ -25,6 +39,20 @@ struct CDVPlaybackInfo
+     if (output & SDR)
+       return source + " · SDR output";
+     source += (output & CM4) ? " · CM4" : " · CM2.9";
+-    return source + ((output & HDR10) ? " · HDR10 output" : " · HDMI DV");
++    return source + ((output & HDR10)  ? " · HDR10 output"
++                     : (output & LLDV) ? " · player-led DV"
++                                       : " · HDMI DV");
++  }
++
++private:
++  static std::mutex& TargetLock()
++  {
++    static std::mutex lock;
++    return lock;
++  }
++  static std::string& TargetText()
++  {
++    static std::string text;
++    return text;
+   }
+ };
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 7102c36..3e62617 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -190,9 +190,11 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhance
+       m_sourceFrame = m_wasSource = m_prepared = true;
+       m_packed = false;
+       const bool fel = enhancement && dvbridge_fel_active(metadata.Data(), metadata.Size());
+-      // The engine's SDR picture, its HDR10 through the tunnel (DV -> HDR10), or Dolby Vision.
++      // The engine's SDR picture, its HDR10 through the tunnel (DV -> HDR10), player-led Dolby
++      // Vision, or Dolby Vision.
+       m_pendingInfo = (DVBRIDGE::playbackSDR.load() ? CDVPlaybackInfo::SDR
+                        : DVBRIDGE::playbackTunnelHDR10.load() ? CDVPlaybackInfo::HDR10
++                       : DVBRIDGE::playbackTunnelLLDV.load()  ? CDVPlaybackInfo::LLDV
+                                                               : CDVPlaybackInfo::HDMI) |
+                       (fel ? CDVPlaybackInfo::FEL : 0u) |
+                       (DVBRIDGE::playbackSDR.load() && DVBRIDGE::pictureSDRBT2020.load()
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index d18b388..626db92 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -15,6 +15,7 @@
+ #include <dlfcn.h>
+ #include <unistd.h>
+ #include <xf86drm.h>
++#include <algorithm>
+ #include <atomic>
+ #include <cmath>
+ #include <cstdlib>
+@@ -393,6 +394,9 @@ uint32_t CDVPrivateVulkan::WantedOutputMode() const
+   // SDR when the window began an SDR output (an ordinary picture, no tunnel).
+   if (DVBRIDGE::playbackSDR.load())
+     return DVVK_OUTPUT_SDR;
++  // Player-led Dolby Vision when the window began it (the tunnel's lldv format).
++  if (DVBRIDGE::playbackTunnelLLDV.load())
++    return DVVK_OUTPUT_LLDV;
+   // HDR10 when the window asks for it (the tunnel's format follows the
+   // signal this publishes), HDR10+ when it asks for that too, until a picture
+   // could not be represented as HDR10+ (then HDR10 for the rest of the
+@@ -405,15 +409,52 @@ uint32_t CDVPrivateVulkan::WantedOutputMode() const
+              : DVVK_OUTPUT_HDR10;
+ }
+ 
++namespace
++{
++// The engine does not take player-led Dolby Vision for this TV (its library, or the target from
++// the TV's VSVDB): not offered again until Kodi restarts, and the title restarts with the
++// output the Automatic fallback gives (WinSystemGbmGLESContext DVOutput).
++void LLDVRefused(const char* what, int result)
++{
++  if (DVBRIDGE::lldvUnavailable.exchange(true))
++    return;
++  CLog::Log(LOGERROR, "Vulkan engine refused player-led Dolby Vision ({}: {}); not offered again "
++            "until Kodi restarts, the title restarts with the Automatic fallback's output", what,
++            result);
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(45010),
++                                        strings.Get(45170));
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++}
++
++std::string LLDVTargetName(const DVBRIDGE::LLDVTarget& target)
++{
++  return StringUtils::Format(
++      "{:.0f} nits, black {:.4f}, primaries R {:.4f},{:.4f} G {:.4f},{:.4f} B {:.4f},{:.4f}, "
++      "EDID v{}, {}-bit",
++      target.peakNits, target.minNits, target.primaries[0][0], target.primaries[0][1],
++      target.primaries[1][0], target.primaries[1][1], target.primaries[2][0],
++      target.primaries[2][1], target.edidVersion, target.bits);
++}
++} // namespace
++
+ void CDVPrivateVulkan::SelectOutputMode()
+ {
+   const uint32_t want = WantedOutputMode();
+   const bool bt2020 = want == DVVK_OUTPUT_SDR && DVBRIDGE::playbackSDRBT2020.load();
++  const DVBRIDGE::LLDVTarget lldv =
++      want == DVVK_OUTPUT_LLDV ? DVBRIDGE::CurrentLLDVTarget() : DVBRIDGE::LLDVTarget{};
+   if (want == m_outputMode &&
+-      (want != DVVK_OUTPUT_SDR || (m_sourceHLG == m_outputHLG && bt2020 == m_outputBT2020)))
++      (want != DVVK_OUTPUT_SDR || (m_sourceHLG == m_outputHLG && bt2020 == m_outputBT2020)) &&
++      (want != DVVK_OUTPUT_LLDV || lldv == m_outputLLDV))
++    return;
++  // (refused: the title is restarting with another output)
++  if (want == DVVK_OUTPUT_LLDV && DVBRIDGE::lldvUnavailable.load())
+     return;
+   if (!m_setOutputMode)
+   {
++    if (want == DVVK_OUTPUT_LLDV)
++      LLDVRefused("no output modes in this library", -2);
+     if (want != DVVK_OUTPUT_DV && m_reports < 16)
+     {
+       ++m_reports;
+@@ -425,6 +466,34 @@ void CDVPrivateVulkan::SelectOutputMode()
+   mode.mode = want;
+   if (want == DVVK_OUTPUT_SDR)
+     mode = SdrMode(m_sourceHLG, bt2020);
++  if (want == DVVK_OUTPUT_LLDV)
++  {
++    // The TV's own primaries before the mode: its black's limit depends on the VSVDB's version.
++    dvvk_display_primaries display{};
++    display.edid_version = lldv.edidVersion;
++    std::memcpy(display.xy, lldv.primaries, sizeof(display.xy));
++    const int primaries = m_setDisplayPrimaries ? m_setDisplayPrimaries(m_engine, &display) : -2;
++    mode.flags = lldv.bits == 10 ? static_cast<uint32_t>(DVVK_LLDV_10BIT) : 0u;
++    mode.peak_nits = lldv.peakNits;
++    mode.min_nits = lldv.minNits;
++    const int result = primaries != 0 ? primaries : m_setOutputMode(m_engine, &mode);
++    if (result != 0)
++    {
++      // (the frames fail until the title restarts: no picture of another kind is sent)
++      LLDVRefused(primaries != 0 ? "the TV's primaries" : "the TV's target", result);
++      return;
++    }
++    m_outputMode = want;
++    m_outputLLDV = lldv;
++    m_loggedLLDVSignal = {};
++    CDVPlaybackInfo::SetTarget(StringUtils::Format(
++        "{:.0f} nits, black {:.4f}, the TV's primaries (EDID v{}), {}-bit", lldv.peakNits,
++        lldv.minNits, lldv.edidVersion, lldv.bits));
++    CLog::Log(LOGINFO, "Vulkan engine output: player-led Dolby Vision for the TV's target ({}; "
++              "BT.2020 PQ, 12-bit 4:2:2 through the tunnel){}", LLDVTargetName(lldv),
++              m_dmOptions ? "; Dolby Vision metadata (CM4.0, L2) is not applied to it" : "");
++    return;
++  }
+   const int result = m_setOutputMode(m_engine, &mode);
+   if (result != 0)
+   {
+@@ -442,6 +511,8 @@ void CDVPrivateVulkan::SelectOutputMode()
+   m_outputMode = want;
+   m_outputHLG = want == DVVK_OUTPUT_SDR && m_sourceHLG;
+   m_outputBT2020 = bt2020;
++  m_outputLLDV = {};
++  CDVPlaybackInfo::SetTarget({});
+   if (want == DVVK_OUTPUT_SDR)
+     CLog::Log(LOGINFO, "Vulkan engine output: SDR{} ({}, {}, white {:.0f} cd/m2{}, {} range, {})",
+               m_outputHLG ? " of an HLG video" : "", bt2020 ? "BT.2020" : "BT.709",
+@@ -466,6 +537,21 @@ void CDVPrivateVulkan::SelectOutputMode()
+ void CDVPrivateVulkan::PublishSignal(int64_t pts)
+ {
+   dvvk_hdr_signal signal{};
++  if (m_outputMode == DVVK_OUTPUT_LLDV)
++  {
++    // No HDR static metadata goes with it (the Dolby VSIF instead): logged for the record.
++    DVBRIDGE::PublishTunnelHDR10(nullptr);
++    if (m_outputSignal && m_outputSignal(m_engine, &signal) == 0 &&
++        std::memcmp(&signal, &m_loggedLLDVSignal, sizeof(signal)) != 0)
++    {
++      m_loggedLLDVSignal = signal;
++      CLog::Log(LOGINFO, "Vulkan engine player-led Dolby Vision pts={}: mode {} eotf {}, the TV's "
++                "{} / {:.4f} cd/m2, {} useful bits", pts, signal.mode, signal.eotf,
++                signal.max_luminance, signal.min_luminance / 10000.0,
++                signal.reserved[DVVK_SIGNAL_BITS_WORD]);
++    }
++    return;
++  }
+   // HDR10 and HDR10+ pictures carry the same static metadata; an SDR picture has none.
+   if (m_outputMode == DVVK_OUTPUT_DV || m_outputMode == DVVK_OUTPUT_SDR || !m_outputSignal ||
+       m_outputSignal(m_engine, &signal) != 0 || signal.mode != m_outputMode)
+@@ -570,6 +656,79 @@ bool CDVPrivateVulkan::HasScaler()
+   return has;
+ }
+ 
++uint32_t CDVPrivateVulkan::TargetFlags()
++{
++  static std::once_flag probed;
++  static uint32_t flags = 0;
++  if (!HasHDR10())
++    return 0;
++  std::call_once(probed, [] {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0]) library = DVVK_LIBRARY;
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    if (!handle)
++      return;
++    auto targetFlags = reinterpret_cast<decltype(&dvvk_target_flags)>(dlsym(handle, "dvvk_target_flags"));
++    flags = targetFlags ? targetFlags() : 0;
++    dlclose(handle);
++    CLog::Log(LOGINFO, "Vulkan engine {}: display target flags {:#x}", library, flags);
++  });
++  return flags;
++}
++
++bool CDVPrivateVulkan::HasLLDV(bool tenBits)
++{
++  static std::once_flag probed;
++  static bool has = false;
++  if (!HasHDR10())
++    return false;
++  std::call_once(probed, [] {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0]) library = DVVK_LIBRARY;
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    if (!handle)
++      return;
++    auto modes = reinterpret_cast<decltype(&dvvk_output_modes)>(dlsym(handle, "dvvk_output_modes"));
++    auto fromVsvdb = reinterpret_cast<decltype(&dvvk_lldv_display_from_vsvdb)>(
++        dlsym(handle, "dvvk_lldv_display_from_vsvdb"));
++    has = modes && (modes() & (1u << DVVK_OUTPUT_LLDV)) && fromVsvdb &&
++          dlsym(handle, "dvvk_set_display_primaries");
++    dlclose(handle);
++    CLog::Log(LOGINFO, "Vulkan engine {}: player-led Dolby Vision {}", library,
++              has ? "available" : "not available");
++  });
++  return has && (!tenBits || (TargetFlags() & DVVK_LLDV_10BIT));
++}
++
++int CDVPrivateVulkan::LLDVDisplay(const uint8_t* block, size_t size, dvvk_lldv_display& out)
++{
++  out = {};
++  if (!HasLLDV(false))
++    return -3;
++  // Asked for each picture while it plays: the library is asked again only for another block.
++  static std::mutex lock;
++  static std::vector<uint8_t> last;
++  static int lastResult = -3;
++  static dvvk_lldv_display lastDisplay{};
++  std::lock_guard guard(lock);
++  if (lastResult == -3 || last.size() != size || !std::equal(last.begin(), last.end(), block))
++  {
++    const char* library = std::getenv("DV_VULKAN_ENGINE_LIBRARY");
++    if (!library || !library[0]) library = DVVK_LIBRARY;
++    void* handle = dlopen(library, RTLD_NOW | RTLD_LOCAL);
++    auto fromVsvdb = handle ? reinterpret_cast<decltype(&dvvk_lldv_display_from_vsvdb)>(
++                                  dlsym(handle, "dvvk_lldv_display_from_vsvdb"))
++                            : nullptr;
++    lastDisplay = {};
++    lastResult = fromVsvdb ? fromVsvdb(block, size, &lastDisplay) : -3;
++    if (handle)
++      dlclose(handle);
++    last.assign(block, block + size);
++  }
++  out = lastDisplay;
++  return lastResult;
++}
++
+ bool DVBRIDGE::UpscalerAvailable(const std::string& /*condition*/, const std::string& /*value*/,
+                                  const std::shared_ptr<const CSetting>& /*setting*/)
+ {
+@@ -670,6 +829,8 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_hdr10PlusPacket = reinterpret_cast<decltype(m_hdr10PlusPacket)>(dlsym(m_library, "dvvk_hdr10plus_packet"));
+   // A new engine enlarges with bilinear until a picture's tier asks for another method.
+   m_setScaler = reinterpret_cast<decltype(m_setScaler)>(dlsym(m_library, "dvvk_set_scaler"));
++  m_setDisplayPrimaries = reinterpret_cast<decltype(m_setDisplayPrimaries)>(
++      dlsym(m_library, "dvvk_set_display_primaries"));
+   m_scaler = DVVK_SCALER_BILINEAR;
+   m_scalerLarge = ScalerFromEnv("DV_UPSCALER");
+   m_scalerSmall = ScalerFromEnv("DV_UPSCALER_SD");
+@@ -845,7 +1006,9 @@ dvvk_frame CDVPrivateVulkan::Frame(unsigned blSurface, unsigned elSurface, const
+                                                : m_cb1Refresh;
+   }
+   frame.plan.pts = pts;
+-  frame.plan.dm_options = m_dmOptions;
++  // The engine refuses a player-led frame that asks for CM4.0 or L2 removal (not implemented
++  // there): player-led output takes the stream's metadata as it is.
++  frame.plan.dm_options = WantedOutputMode() == DVVK_OUTPUT_LLDV ? 0 : m_dmOptions;
+   // The GUI colour stays that of the last GUI, so hiding it changes no coefficients.
+   const DVPrivateOverlay& colour = overlay ? *overlay : m_gui;
+   std::memcpy(frame.plan.rgb_to_lms, colour.rgbToLms, sizeof(frame.plan.rgb_to_lms));
+@@ -977,6 +1140,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   // The display's signal is the window's (the tunnel, or an ordinary picture for SDR): a
+   // picture of the other kind is never written, whatever kept the engine from changing.
+   if ((m_outputMode == DVVK_OUTPUT_SDR) != (WantedOutputMode() == DVVK_OUTPUT_SDR) ||
++      (m_outputMode == DVVK_OUTPUT_LLDV) != (WantedOutputMode() == DVVK_OUTPUT_LLDV) ||
+       m_sourceHLG != m_outputHLG ||
+       (m_outputMode == DVVK_OUTPUT_SDR && m_outputBT2020 != DVBRIDGE::playbackSDRBT2020.load()))
+     return -1;
+@@ -984,6 +1148,7 @@ int CDVPrivateVulkan::Render(unsigned slot, unsigned blSurface, unsigned elSurfa
+   if (result == 0)
+   {
+     DVBRIDGE::pictureSDRBT2020.store(m_outputMode == DVVK_OUTPUT_SDR && m_outputBT2020);
++    DVBRIDGE::pictureLLDV.store(m_outputMode == DVVK_OUTPUT_LLDV);
+     // The upscaler the engine used (scaler.rs effective): an enlarged picture's, neither side
+     // smaller (a resized plan is never the source's own size).
+     const bool enlarged = frame.plan.dw && frame.plan.dw >= frame.plan.width &&
+@@ -1124,8 +1289,11 @@ bool CDVPrivateVulkan::Close()
+     m_outputMode = DVVK_OUTPUT_DV;
+     m_outputHLG = false;
+     m_outputBT2020 = false;
++    m_outputLLDV = {};
+     DVBRIDGE::pictureSDRBT2020.store(false);
++    DVBRIDGE::pictureLLDV.store(false);
+     CDVPlaybackInfo::upscaler.store(0);
++    CDVPlaybackInfo::SetTarget({});
+     DVBRIDGE::PublishTunnelHDR10(nullptr);
+     DVBRIDGE::PublishTunnelHDR10Plus({});
+   }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index 01ad329..fb502b9 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -3,6 +3,7 @@
+ #include "source_geometry.h"
+ #include "source_input.h"
+ #include "DVPrivateOverlay.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include <EGL/egl.h>
+ #include <EGL/eglext.h>
+ #include <gbm.h>
+@@ -47,6 +48,17 @@ public:
+   static bool SDRDisplayUsable();
+   /* The library has the upscaler (dvvk_set_scaler, an optional symbol). */
+   static bool HasScaler();
++  /* The display-target flags the library takes (dvvk_target_flags, an optional
++   * symbol; 0 without it): DVVK_HDR10_TARGET, DVVK_LLDV_10BIT. */
++  static uint32_t TargetFlags();
++  /* ... and player-led Dolby Vision (DVVK_OUTPUT_LLDV among dvvk_output_modes(),
++   * dvvk_set_display_primaries and dvvk_lldv_display_from_vsvdb), with 10
++   * useful bits where tenBits. */
++  static bool HasLLDV(bool tenBits);
++  /* The TV's player-led target from its Dolby Vision VSVDB (from the header
++   * byte): dvvk_lldv_display_from_vsvdb's result (0: out is the target, -2:
++   * out->status says why there is none), -3 without the function. */
++  static int LLDVDisplay(const uint8_t* block, size_t size, dvvk_lldv_display& out);
+   /* Enhancement layer upscaling Annex B (Master Reference), not Bilinear:
+    * the setting as it is now. An engine keeps the value it started with
+    * (CDVPrivateSource::MasterReference). */
+@@ -135,6 +147,7 @@ private:
+   decltype(&dvvk_output_signal) m_outputSignal{nullptr};       // optional (HDR10 output)
+   decltype(&dvvk_hdr10plus_packet) m_hdr10PlusPacket{nullptr}; // optional (HDR10+ output)
+   decltype(&dvvk_set_scaler) m_setScaler{nullptr};             // optional (the upscaler)
++  decltype(&dvvk_set_display_primaries) m_setDisplayPrimaries{nullptr}; // optional (LLDV)
+   // Picture upscaling (DV_UPSCALER, DV_UPSCALER_SD): the method asked for sources of 1080p and
+   // above and for smaller ones (DVVK_SCALER_*), and the one the engine has.
+   uint32_t m_scalerLarge{DVVK_SCALER_BILINEAR}, m_scalerSmall{DVVK_SCALER_BILINEAR};
+@@ -149,6 +162,9 @@ private:
+   bool m_outputHLG{false};
+   // ... and in BT.2020 (DVBRIDGE::playbackSDRBT2020, DVVK_SDR_BT2020).
+   bool m_outputBT2020{false};
++  // Player-led Dolby Vision: the TV's target the mode was set for (DVBRIDGE::playbackTunnelLLDV).
++  DVBRIDGE::LLDVTarget m_outputLLDV{};
++  dvvk_hdr_signal m_loggedLLDVSignal{};
+   uint32_t WantedOutputMode() const;
+   void SelectOutputMode();
+   void PublishSignal(int64_t pts);
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+index 5363100..d4bd09d 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+@@ -102,12 +102,18 @@ void CGUIDialogPlayerProcessInfo::Process(unsigned int currentTime, CDirtyRegion
+     SetProperty("DV.Mode", active & CDVPlaybackInfo::SDR ? "SDR conversion (Vulkan engine)" :
+         active & CDVPlaybackInfo::HDR10
+         ? (hdr10plus ? "HDR10+ conversion (Master Reference)" : "HDR10 conversion (Master Reference)") :
++        active & CDVPlaybackInfo::LLDV ? "Dolby Vision (player-led)" :
+         active & CDVPlaybackInfo::HDMI ? "Dolby Vision (TV-Led)" : "Kodi default");
+     SetProperty("DV.Transport", active & CDVPlaybackInfo::HDMI ? "RGB 8-bit (DV tunnel)" :
+         active & CDVPlaybackInfo::HDR10 ? "PQ / BT.2020, YCbCr 4:2:2 12-bit (tunnel)" :
++        active & CDVPlaybackInfo::LLDV
++        ? "PQ / BT.2020, YCbCr 4:2:2 12-bit, Dolby Vision low latency (tunnel)" :
+         active & CDVPlaybackInfo::SDR
+         ? (active & CDVPlaybackInfo::BT2020 ? "SDR / BT.2020, RGB 8-bit" : "SDR / BT.709, RGB 8-bit")
+         : "N/A");
++    // The display the engine maps to (player-led Dolby Vision), shown only for that output.
++    const std::string target = active ? CDVPlaybackInfo::Target() : std::string();
++    SetProperty("DV.Target", target.empty() ? "N/A" : target);
+     // The engine's upscaler, shown only while it enlarges the picture.
+     SetProperty("DV.Upscaler", !(active & CDVPlaybackInfo::ENLARGED) ? "N/A" :
+         active & CDVPlaybackInfo::RCAS ? "FSR 1 + sharpening" :
+diff --git a/xbmc/utils/DisplayInfo.cpp b/xbmc/utils/DisplayInfo.cpp
+index 21c8c57..37039b9 100644
+--- a/xbmc/utils/DisplayInfo.cpp
++++ b/xbmc/utils/DisplayInfo.cpp
+@@ -42,6 +42,11 @@ std::unique_ptr<CDisplayInfo> CDisplayInfo::Create(const std::vector<uint8_t>& e
+ CDisplayInfo::CDisplayInfo(const std::vector<uint8_t>& edid)
+ {
+   m_dvCaps = dvbridge_parse_edid(edid.data(), edid.size());
++  // (offset: the block's first byte after its header)
++  if ((m_dvCaps.status == DV_EDID_STANDARD || m_dvCaps.status == DV_EDID_LLDV_ONLY) &&
++      m_dvCaps.offset && m_dvCaps.offset + m_dvCaps.length <= edid.size())
++    m_dvBlock.assign(edid.begin() + m_dvCaps.offset - 1,
++                     edid.begin() + m_dvCaps.offset + m_dvCaps.length);
+   m_info.reset(di_info_parse_edid(edid.data(), edid.size()));
+ }
+ 
+diff --git a/xbmc/utils/DisplayInfo.h b/xbmc/utils/DisplayInfo.h
+index 01fb236..13a4b90 100644
+--- a/xbmc/utils/DisplayInfo.h
++++ b/xbmc/utils/DisplayInfo.h
+@@ -70,6 +70,17 @@ public:
+ 
+   bool SupportsDolbyVision() const { return m_dolbyVision; }
+   bool SupportsStandardDolbyVision() const { return m_dvCaps.status == DV_EDID_STANDARD; }
++  //! The kernel's test for DVBRIDGE_TUNNEL_FORMAT lldv (dvbridge_sink_lldv, linux-9901): a
++  //! Dolby block with the low-latency interface.
++  bool SupportsLowLatencyDolbyVision() const
++  {
++    return m_dvCaps.status == DV_EDID_LLDV_ONLY ||
++           (m_dvCaps.status == DV_EDID_STANDARD &&
++            (m_dvCaps.version == 2 || (m_dvCaps.version == 1 && !m_dvCaps.legacy_vsif)));
++  }
++  //! The Dolby Vision VSVDB from its CTA header byte on (empty without one), for the engine's
++  //! player-led target (dvvk_lldv_display_from_vsvdb).
++  const std::vector<uint8_t>& GetDolbyVisionBlock() const { return m_dvBlock; }
+   //! The HDR10+ application version of the display's HDR10+ VSVDB (0 or 1); -1 no HDR10+.
+   int GetHDR10PlusVersion() const { return m_hdr10PlusVersion; }
+ 
+@@ -96,6 +107,7 @@ private:
+   const di_cta_hdr_static_metadata_block* m_hdr_static_metadata = nullptr;
+   bool m_dolbyVision = false;
+   dvbridge_sink_caps m_dvCaps{};
++  std::vector<uint8_t> m_dvBlock;
+   int m_hdr10PlusVersion = -1;
+ };
+ 
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.cpp b/xbmc/windowing/gbm/WinSystemGbm.cpp
+index e585d41..c92300f 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbm.cpp
+@@ -734,6 +734,16 @@ int CWinSystemGbm::DisplayHDR10PlusVersion() const
+   return m_info ? m_info->GetHDR10PlusVersion() : -1;
+ }
+ 
++std::vector<uint8_t> CWinSystemGbm::DisplayDolbyVisionBlock() const
++{
++  return m_info ? m_info->GetDolbyVisionBlock() : std::vector<uint8_t>{};
++}
++
++bool CWinSystemGbm::DisplayLowLatencyDolbyVision() const
++{
++  return m_info && m_info->SupportsLowLatencyDolbyVision();
++}
++
+ bool CWinSystemGbm::DisplayBT2020RGB() const
+ {
+   return m_info && m_info->SupportsColorimetry(UTILS::Colorimetry::BT2020_RGB);
+diff --git a/xbmc/windowing/gbm/WinSystemGbm.h b/xbmc/windowing/gbm/WinSystemGbm.h
+index 8b8e584..7fe5d0a 100644
+--- a/xbmc/windowing/gbm/WinSystemGbm.h
++++ b/xbmc/windowing/gbm/WinSystemGbm.h
+@@ -95,6 +95,10 @@ public:
+ #ifdef HAVE_DVBRIDGE
+   //! The display's EDID lists BT.2020 RGB (its CTA-861 colorimetry data block).
+   bool DisplayBT2020RGB() const;
++  //! The display's Dolby Vision VSVDB (from its header byte; empty without one), and whether
++  //! it has the low-latency interface the kernel's lldv tunnel format needs.
++  std::vector<uint8_t> DisplayDolbyVisionBlock() const;
++  bool DisplayLowLatencyDolbyVision() const;
+ #endif
+ 
+   std::vector<std::string> GetConnectedOutputs() override;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 3646570..3bf7958 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -296,8 +296,17 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+       DVBRIDGE::TunnelHDR10PlusPacket packet;
+       if (hdr10plus)
+         packet = DVBRIDGE::CurrentTunnelHDR10Plus();
++      // Player-led Dolby Vision: the picture the engine made so (DVBRIDGE_TUNNEL_FORMAT lldv).
++      const bool lldvOutput = DVBRIDGE::playbackTunnelLLDV.load();
++      const bool lldv = lldvOutput && DVBRIDGE::pictureLLDV.load();
++      if (lldvOutput && !lldv && !m_dvTunnelLLDVWarned)
++      {
++        m_dvTunnelLLDVWarned = true;
++        CLog::Log(LOGWARNING, "DVBridge: player-led Dolby Vision asked for, but the engine made a "
++                  "Dolby Vision picture; sent as Dolby Vision");
++      }
+       bool toggled = false;
+-      presented = drm && m_dvState.SetSignal(*drm, hdr10 ? &signal : nullptr) &&
++      presented = drm && m_dvState.SetSignal(*drm, hdr10 ? &signal : nullptr, lldv) &&
+                   m_dvState.SetHDR10Plus(*drm, hdr10plus ? &packet : nullptr, toggled);
+       const bool packetStaged = presented && m_dvState.HDR10PlusStaged();
+       if (presented && toggled)
+@@ -324,6 +333,8 @@ void CWinSystemGbmGLESContext::PresentRender(bool rendered, bool videoLayer)
+         TunnelHDR10PlusPresented(presented);
+       else if (hdr10)
+         TunnelHDR10Presented(presented);
++      else if (lldvOutput)
++        TunnelLLDVPresented(presented && lldv);
+       else if (sdrBT2020)
+         SDRBT2020Presented(presented);
+     }
+@@ -1196,6 +1207,84 @@ bool CWinSystemGbmGLESContext::SupportsTunnelHDR10Plus()
+   return connector && CDVBridgeState::SupportsHDR10Plus(*connector) && CDVPrivateVulkan::HasHDR10Plus();
+ }
+ 
++bool CWinSystemGbmGLESContext::SupportsTunnelLLDV(DVBRIDGE::LLDVTarget* target)
++{
++  // DV_LLDV_BITS (native-dv.env): 12 useful bits (the default) or 10 in the 12-bit carrier.
++  const char* bits = std::getenv("DV_LLDV_BITS");
++  const bool tenBits = bits && std::strcmp(bits, "10") == 0;
++  const char* enabled = std::getenv("DV_LLDV_OUTPUT");
++  const auto* mode = m_DRM ? m_DRM->GetSelectedMode() : nullptr;
++  auto* connector = m_DRM ? m_DRM->GetConnector() : nullptr;
++  dvvk_lldv_display display{};
++  std::string missing;
++  if (enabled && std::strcmp(enabled, "0") == 0)
++    missing = "DV_LLDV_OUTPUT=0";
++  else if (DVBRIDGE::lldvUnavailable.load())
++    missing = "refused before in this Kodi run";
++  else if (!std::dynamic_pointer_cast<CDRMAtomic>(m_DRM) || !connector || !connector->IsConnected())
++    missing = "no connected atomic DRM output";
++  else if (!CDVBridgeState::SupportsLLDV(*connector))
++    missing = "the connector has no DVBRIDGE_TUNNEL_FORMAT lldv";
++  else if (!mode || mode->hdisplay != 3840 || mode->vdisplay != 2160 ||
++           (mode->flags & DRM_MODE_FLAG_INTERLACE))
++    missing = "the display mode is not progressive 3840x2160";
++  else if (!CDVPrivateVulkan::HasLLDV(tenBits))
++    missing = tenBits ? "the engine library has no player-led output with 10 useful bits"
++                      : "the engine library has no player-led output";
++  else if (!DisplayLowLatencyDolbyVision())
++    missing = "the TV's EDID has no Dolby Vision block with the low-latency interface";
++  else
++  {
++    const auto block = DisplayDolbyVisionBlock();
++    if (CDVPrivateVulkan::LLDVDisplay(block.data(), block.size(), display) != 0)
++    {
++      static constexpr const char* reasons[] = {
++          "", "not a Dolby Vision VSVDB the engine reads", "its version has no player-led target",
++          "the TV does not take low-latency 4:2:2", "its luminance is invalid",
++          "its primaries are invalid", "its primaries are outside BT.2020"};
++      missing = StringUtils::Format("the TV's Dolby Vision block gives no target: {} (status {})",
++                                    display.status < 7 ? reasons[display.status] : "unknown",
++                                    display.status);
++    }
++  }
++  DVBRIDGE::LLDVTarget lldv;
++  if (missing.empty())
++  {
++    lldv.peakNits = static_cast<float>(display.peak_nits);
++    lldv.minNits = static_cast<float>(display.min_nits);
++    for (unsigned i = 0; i < 3; ++i)
++      for (unsigned j = 0; j < 2; ++j)
++        lldv.primaries[i][j] = static_cast<float>(display.primaries[i][j]);
++    lldv.edidVersion = display.version;
++    lldv.bits = tenBits ? 10 : 12;
++  }
++  // Asked often (the settings, the OSD, each picture's output): said when it changes.
++  static std::mutex lock;
++  static std::string reported;
++  const std::string now = missing.empty()
++      ? StringUtils::Format("available: the TV's target {:.0f} / {:.4f} cd/m2, primaries "
++                            "R {:.4f},{:.4f} G {:.4f},{:.4f} B {:.4f},{:.4f}, VSVDB version {}, "
++                            "{} useful bits (the block says {} for its low-latency 4:2:2)",
++                            lldv.peakNits, lldv.minNits, lldv.primaries[0][0],
++                            lldv.primaries[0][1], lldv.primaries[1][0], lldv.primaries[1][1],
++                            lldv.primaries[2][0], lldv.primaries[2][1], lldv.edidVersion,
++                            lldv.bits, display.flags & DVVK_VSVDB_422_12 ? 12 : 10)
++      : "not available: " + missing;
++  {
++    std::lock_guard guard(lock);
++    if (reported != now)
++    {
++      reported = now;
++      CLog::Log(LOGINFO, "DVBridge output: player-led Dolby Vision {}", now);
++    }
++  }
++  if (!missing.empty())
++    return false;
++  if (target)
++    *target = lldv;
++  return true;
++}
++
+ bool CWinSystemGbmGLESContext::TunnelHDR10Selected()
+ {
+   const auto mode = DVOutput();
+@@ -1353,14 +1442,19 @@ DVBRIDGE::OutputMode CWinSystemGbmGLESContext::DVOutput()
+   using Mode = DVBRIDGE::OutputMode;
+   const Mode selected = DVBRIDGE::playbackMode.load();
+   const bool fallback = DVBRIDGE::playbackFallback.load();
++  // Player-led Dolby Vision only where selected; where it is not here, the fallback goes on as
++  // for Dolby Vision on a TV without it (the HDR10 conversion, then SDR).
++  const bool playerLed = selected == Mode::PlayerLed;
++  if (playerLed && SupportsTunnelLLDV())
++    return selected;
+   if (selected == Mode::Disabled || (selected == Mode::Standard && SupportsNativeDVOutput()))
+     return selected;
+   if (selected != Mode::SDR)
+   {
+     // The HDR10 conversion: selected (HDR10+ is HDR10 where the TV has no HDR10+), or in
+     // place of Dolby Vision on a TV without it.
+-    if ((selected != Mode::Standard || fallback) && SupportsTunnelHDR10())
+-      return selected == Mode::Standard ? Mode::HDR10 : selected;
++    if (((selected != Mode::Standard && !playerLed) || fallback) && SupportsTunnelHDR10())
++      return selected == Mode::Standard || playerLed ? Mode::HDR10 : selected;
+     if (!fallback)
+       return Mode::Disabled;
+     // A display that shows HDR gets an HDR base layer from Kodi as it is: more of the
+@@ -1375,15 +1469,17 @@ void CWinSystemGbmGLESContext::ReportFallback(DVBRIDGE::OutputMode selected,
+                                               DVBRIDGE::OutputMode output)
+ {
+   static std::atomic<unsigned> reported{0};
+-  const unsigned bit = 1u << static_cast<unsigned>(output);
++  const bool playerLed = selected == DVBRIDGE::OutputMode::PlayerLed;
++  const unsigned bit = 1u << (static_cast<unsigned>(output) + (playerLed ? 8 : 0));
+   CLog::Log(LOGINFO, "DVBridge output: mode {} is not available on this display; using {} "
+             "(Automatic fallback)", static_cast<int>(selected), static_cast<int>(output));
+   if (reported.fetch_or(bit) & bit)
+     return;
+   auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  const bool sdr = output == DVBRIDGE::OutputMode::SDR;
+   CGUIDialogKaiToast::QueueNotification(
+       CGUIDialogKaiToast::Info, strings.Get(45010),
+-      strings.Get(output == DVBRIDGE::OutputMode::SDR ? 45136 : 45137));
++      strings.Get(playerLed ? (sdr ? 45169 : 45168) : (sdr ? 45136 : 45137)));
+ }
+ 
+ void CWinSystemGbmGLESContext::TunnelHDR10PlusPresented(bool presented)
+@@ -1433,6 +1529,28 @@ void CWinSystemGbmGLESContext::TunnelHDR10Presented(bool presented)
+   CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
+ }
+ 
++void CWinSystemGbmGLESContext::TunnelLLDVPresented(bool presented)
++{
++  if (presented)
++  {
++    m_dvTunnelLLDVFailures = 0;
++    return;
++  }
++  // The kernel refuses the format here (its own test of the TV's Dolby block, the link), or the
++  // picture is not player-led. Ten attempted commits in a row, so that the link settling does
++  // not count (frames held back by the HDMI recovery are not attempted); then the title
++  // restarts with the fallback's output and player-led is not offered until Kodi restarts.
++  if (++m_dvTunnelLLDVFailures < 10 || DVBRIDGE::lldvUnavailable.exchange(true))
++    return;
++  CLog::Log(LOGERROR, "DVBridge: {} player-led Dolby Vision commits in a row refused on this "
++            "connection (DVBRIDGE_TUNNEL_FORMAT lldv); not offered again until Kodi restarts, "
++            "the title restarts with the Automatic fallback's output", m_dvTunnelLLDVFailures);
++  auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
++  CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(45010),
++                                        strings.Get(45170));
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++}
++
+ void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
+                                  IntegerSettingOptions& list, int& current)
+ {
+@@ -1440,6 +1558,8 @@ void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
+   auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
+   auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
+   list.emplace_back(strings.Get(45012), static_cast<int>(OutputMode::Standard));
++  if (window && window->SupportsTunnelLLDV())
++    list.emplace_back(strings.Get(45167), static_cast<int>(OutputMode::PlayerLed));
+   if (window && window->SupportsTunnelHDR10())
+     list.emplace_back(strings.Get(45013), static_cast<int>(OutputMode::HDR10));
+   if (window && window->SupportsTunnelHDR10Plus())
+@@ -1512,6 +1632,8 @@ TitleChoices PlayingTitleChoices()
+     // The Output mode setting's outputs (OutputModeOptions), Dolby Vision where the TV has it.
+     if (dolbyVision)
+       choices.offered.push_back(TitleOutput::DolbyVision);
++    if (engine && window->SupportsTunnelLLDV())
++      choices.offered.push_back(TitleOutput::PlayerLed);
+     if (window->SupportsTunnelHDR10())
+       choices.offered.push_back(TitleOutput::HDR10);
+     if (window->SupportsTunnelHDR10Plus())
+@@ -1525,6 +1647,9 @@ TitleChoices PlayingTitleChoices()
+       case DVBRIDGE::OutputMode::Standard:
+         choices.current = TitleOutput::DolbyVision;
+         break;
++      case DVBRIDGE::OutputMode::PlayerLed:
++        choices.current = TitleOutput::PlayerLed;
++        break;
+       case DVBRIDGE::OutputMode::HDR10:
+         choices.current = TitleOutput::HDR10;
+         break;
+@@ -1604,6 +1729,9 @@ void DVBRIDGE::TitleOutputOptions(const std::shared_ptr<const CSetting>& /*setti
+       case TitleOutput::HLG:
+         label = 45144; // HLG (original)
+         break;
++      case TitleOutput::PlayerLed:
++        label = 45167; // Dolby Vision (player-led)
++        break;
+       default:
+         break;
+     }
+@@ -1624,6 +1752,7 @@ bool DVBRIDGE::SelectTitleOutput(int value)
+     title.mode = output == TitleOutput::HDR10       ? OutputMode::HDR10
+                  : output == TitleOutput::HDR10Plus ? OutputMode::HDR10Plus
+                  : output == TitleOutput::SDR       ? OutputMode::SDR
++                 : output == TitleOutput::PlayerLed ? OutputMode::PlayerLed
+                                                     : OutputMode::Standard;
+   else
+   {
+@@ -1710,6 +1839,16 @@ bool CWinSystemGbmGLESContext::BeginDVBridge()
+     CLog::Log(LOGINFO, "DVBridge output: SDR (Vulkan engine, an ordinary RGB picture, {}x{}{}{})",
+               m_nWidth, m_nHeight, bt2020 ? ", BT.2020 (Colorspace BT2020_RGB)" : "",
+               m_dvPlainVideo ? "; a video without Dolby Vision" : "");
++  // Player-led Dolby Vision: the tunnel with the engine mapping to the TV's own target.
++  DVBRIDGE::LLDVTarget lldvTarget;
++  const bool tunnelLLDV =
++      !sdr && output == DVBRIDGE::OutputMode::PlayerLed && SupportsTunnelLLDV(&lldvTarget);
++  if (tunnelLLDV)
++    DVBRIDGE::SetLLDVTarget(lldvTarget);
++  m_dvTunnelLLDVFailures = 0;
++  if (DVBRIDGE::playbackTunnelLLDV.exchange(tunnelLLDV) != tunnelLLDV && tunnelLLDV)
++    CLog::Log(LOGINFO, "DVBridge output: player-led Dolby Vision through the tunnel (Vulkan "
++              "engine, DVBRIDGE_TUNNEL_FORMAT lldv, {} useful bits)", lldvTarget.bits);
+   // HDR10 through the tunnel is the tunnel's output with the engine in HDR10.
+   const bool tunnelHDR10 = !sdr && TunnelHDR10Selected();
+   // HDR10+ on top where asked for and the TV has it (else HDR10), with the TV's version.
+@@ -1852,6 +1991,10 @@ bool CWinSystemGbmGLESContext::EndDVBridge()
+   m_dvTunnelHDR10PlusFailures = 0;
+   m_dvTunnelHDR10Warned = false;
+   m_dvTunnelHDR10Failures = 0;
++  DVBRIDGE::playbackTunnelLLDV.store(false);
++  DVBRIDGE::pictureLLDV.store(false);
++  m_dvTunnelLLDVFailures = 0;
++  m_dvTunnelLLDVWarned = false;
+   m_dvStartup = false;
+   m_dvExitPending = false;
+   m_dvMenu = false;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index 755b17d..b984f76 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -24,6 +24,7 @@
+ namespace DVBRIDGE
+ {
+ enum class OutputMode : int;
++struct LLDVTarget;
+ }
+ #endif
+ 
+@@ -76,6 +77,12 @@ public:
+    * plus linux-9932's HDR10PLUS_METADATA on this connector, an HDR10+ VSVDB in
+    * the TV's EDID and the engine's HDR10+ output. */
+   bool SupportsTunnelHDR10Plus();
++  /* Player-led Dolby Vision (OutputMode PlayerLed): the engine's DVVK_OUTPUT_LLDV, the
++   * connector's DVBRIDGE_TUNNEL_FORMAT lldv, progressive 3840x2160, and a Dolby Vision VSVDB
++   * with the low-latency interface from which the engine takes the TV's target (target: it,
++   * where wanted). Not after the kernel or the engine refused it (until Kodi restarts), nor
++   * with DV_LLDV_OUTPUT=0. The reason it is not offered is logged when it changes. */
++  bool SupportsTunnelLLDV(DVBRIDGE::LLDVTarget* target = nullptr);
+   /* SDR output (OutputMode SDR, or the fallback to it): the Vulkan engine's SDR
+    * output on the bridge's scanout as an ordinary RGB picture. Any connector,
+    * any progressive mode of a size the engine takes; no kernel support needed.
+@@ -169,6 +176,10 @@ private:
+   bool DVQueueing() const;
+   void TunnelHDR10Presented(bool presented);
+   void TunnelHDR10PlusPresented(bool presented);
++  // A player-led picture committed (or refused): ten refused in a row withdraw it.
++  void TunnelLLDVPresented(bool presented);
++  unsigned m_dvTunnelLLDVFailures{0};
++  bool m_dvTunnelLLDVWarned{false};
+   // The SDR output in BT.2020 (BT.2020 colours): asked for, and the engine, the driver and the
+   // display have it; else BT.709. A link that refuses it falls back to BT.709 (Presented).
+   bool SDRBT2020();
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.cpp b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+index b11ab70..225d785 100644
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.cpp
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.cpp
+@@ -129,24 +129,33 @@ bool CDVBridgeState::SupportsHDR10(CDRMObject& connector)
+          connector.GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT", "hdr10").has_value();
+ }
+ 
+-bool CDVBridgeState::SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10)
++bool CDVBridgeState::SupportsLLDV(CDRMObject& connector)
+ {
++  return connector.SupportsProperty("DVBRIDGE_DV_STANDARD_LAB") &&
++         connector.GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT", "lldv").has_value();
++}
++
++bool CDVBridgeState::SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10,
++                               bool lldv)
++{
++  lldv = lldv && !hdr10;
+   if (!Captured() || m_owner != &drm)
+     return false;
+   // An ordinary picture has no tunnel format and no HDR metadata to change.
+   if (!m_tunnel)
+-    return !hdr10;
++    return !hdr10 && !lldv;
+   auto* format = Find("DVBRIDGE_TUNNEL_FORMAT");
+   auto* metadata = Find("HDR_OUTPUT_METADATA");
+   if (!format)
+-    return !hdr10; // a kernel before linux-9928: Dolby Vision only
+-  const auto value = format->object->GetPropertyEnumValue("DVBRIDGE_TUNNEL_FORMAT",
+-                                                          hdr10 ? "hdr10" : "dolby-vision");
++    return !hdr10 && !lldv; // a kernel before linux-9928: Dolby Vision only
++  const auto value = format->object->GetPropertyEnumValue(
++      "DVBRIDGE_TUNNEL_FORMAT", hdr10 ? "hdr10" : lldv ? "lldv" : "dolby-vision");
+   if (!value || !metadata)
+     return false;
+   format->transport = *value;
+   if (!hdr10)
+   {
++    // (player-led Dolby Vision too: the kernel refuses HDR metadata with the Dolby VSIF)
+     metadata->transport = 0;
+     // no HDR10+ with a Dolby Vision picture
+     if (auto* hdr10plus = Find("HDR10PLUS_METADATA"))
+diff --git a/xbmc/windowing/gbm/drm/DVBridgeState.h b/xbmc/windowing/gbm/drm/DVBridgeState.h
+index dbe7825..dbeb11e 100644
+--- a/xbmc/windowing/gbm/drm/DVBridgeState.h
++++ b/xbmc/windowing/gbm/drm/DVBridgeState.h
+@@ -34,11 +34,14 @@ public:
+   bool Captured() const { return !m_saved.empty(); }
+   /* What the tunnel's pictures are, from the next Stage: Dolby Vision
+    * (nullptr), or HDR10 with its static metadata (DVBRIDGE_TUNNEL_FORMAT
+-   * hdr10 and an HDR_OUTPUT_METADATA blob, linux-9928). False when the
+-   * connector has no such format. */
+-  bool SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10);
++   * hdr10 and an HDR_OUTPUT_METADATA blob, linux-9928), or with lldv (and
++   * no hdr10) player-led Dolby Vision (DVBRIDGE_TUNNEL_FORMAT lldv, no HDR
++   * metadata). False when the connector has no such format. */
++  bool SetSignal(CDRMAtomic& drm, const DVBRIDGE::TunnelHDR10Signal* hdr10, bool lldv = false);
+   /* The connector takes HDR10 tunnel pictures (DVBRIDGE_TUNNEL_FORMAT's hdr10). */
+   static bool SupportsHDR10(CDRMObject& connector);
++  /* ... and player-led Dolby Vision (its lldv). */
++  static bool SupportsLLDV(CDRMObject& connector);
+   /* The HDR10+ packet of the next Stage (linux-9932's HDR10PLUS_METADATA, a
+    * 31-byte HDR10+ vendor InfoFrame blob), after SetSignal: nullptr or None
+    * 0, Keep the current one, Send a new blob. Only with an HDR10 signal (the
