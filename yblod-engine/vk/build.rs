@@ -87,6 +87,8 @@ fn main() {
         .file("yblod/placebo/colorspace.c")
         .file("yblod/placebo/tone_mapping.c")
         .file("yblod/placebo/gamut_mapping.c")
+        .file("yblod/placebo/libav_dovi.c")
+        .file("yblod/placebo/cb1_expert_tone.c")
         .warnings(false);
     // HDR10+ (YBLOD 0.4.0): CroqueMr's CB1 HDR10+ host code, ported into
     // yblod-engine/src (pinned commit in each file), and its glue; its
@@ -100,6 +102,7 @@ fn main() {
         "cb1_hdr10plus_dovi.c",
         "dvbridge_creative.c",
         "cb1_hdr10_expert.c",
+        "dvbridge_placebo.c",
         "dvbridge_policy.c",
         "yblod_hdr10plus.c",
     ] {
@@ -122,7 +125,19 @@ fn main() {
         .include("yblod/placebo/include")
         .include("include")
         .warnings(false);
-    for f in ["shims.c", "run_transport.c", "run_curve.c", "run_dv_hdr10plus.c", "run_dovi.c", "describe.c", "yblod.c"] {
+    for f in [
+        "shims.c",
+        "run_transport.c",
+        "run_curve.c",
+        "run_dv_hdr10plus.c",
+        "run_dovi.c",
+        "describe.c",
+        "yblod.c",
+        "run_expert.c",
+        "run_expert_continuity.c",
+        "run_policy.c",
+        "run_trim_contract.c",
+    ] {
         t.file(format!("yblod/tests/{f}"));
     }
     if let Ok(inc) = env::var("FFMPEG_INCLUDE") {

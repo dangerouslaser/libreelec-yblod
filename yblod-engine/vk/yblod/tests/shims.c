@@ -67,6 +67,10 @@ int yb_cb1_test_dv_hdr10plus(void);
 int yb_cb1_test_dovi(void);
 int yb_test_describe(void);
 int yb_test_yblod(void);
+int yb_cb1_test_expert_plan(void);
+int yb_cb1_test_expert_continuity(void);
+int yb_cb1_test_policy(void);
+int yb_cb1_test_trim_contract(void);
 
 /* Every C test; returns the failures (checks counted in *count). */
 unsigned dvvk_test_hdr10plus_c(unsigned *count)
@@ -78,6 +82,10 @@ unsigned dvvk_test_hdr10plus_c(unsigned *count)
     yb_cb1_test_dovi();
     yb_test_describe();
     yb_test_yblod();
+    yb_cb1_test_expert_plan();
+    yb_cb1_test_expert_continuity();
+    yb_cb1_test_policy();
+    yb_cb1_test_trim_contract();
     if (count)
         *count = checks;
     return failures;

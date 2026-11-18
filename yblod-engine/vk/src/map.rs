@@ -70,11 +70,14 @@ pub struct HdrSignal {
     pub reserved: [u32; 4],
 }
 
-/// include/dvvk_map.h dvvk_map_gpu: the GPU's parameters, as bytes.
+/// include/dvvk_map.h dvvk_map_gpu: the GPU's parameters, as bytes (the
+/// display-targeted outputs' fields from GPU_EXPERT on).
+pub const GPU_BYTES: usize = 18592;
+pub const GPU_EXPERT: usize = 1504;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct MapGpu {
-    pub bytes: [u8; 1504],
+    pub bytes: [u8; GPU_BYTES],
 }
 
 /// include/dvvk_map.h dvvk_map.
@@ -94,12 +97,12 @@ const _: () = {
     assert!(size_of::<OutputMode>() == 32);
     assert!(size_of::<HdrSignal>() == 48);
     assert!(offset_of!(HdrSignal, max_luminance) == 24);
-    assert!(size_of::<MapGpu>() == 1504);
-    assert!(offset_of!(Map, key) == 1504);
-    assert!(offset_of!(Map, signal) == 1512);
-    assert!(offset_of!(Map, gamut_prim) == 1560);
-    assert!(offset_of!(Map, gamut_key) == 1632);
-    assert!(size_of::<Map>() == 1640);
+    assert!(size_of::<MapGpu>() == GPU_BYTES);
+    assert!(offset_of!(Map, key) == GPU_BYTES);
+    assert!(offset_of!(Map, signal) == GPU_BYTES + 8);
+    assert!(offset_of!(Map, gamut_prim) == GPU_BYTES + 56);
+    assert!(offset_of!(Map, gamut_key) == GPU_BYTES + 128);
+    assert!(size_of::<Map>() == GPU_BYTES + 136);
 };
 
 extern "C" {
@@ -185,7 +188,7 @@ impl Map {
     /// The frame's mapping: Ok(map), or the frame refused (dv_status).
     pub fn plan(mode: &OutputMode, metadata: &[u8]) -> Result<Box<Map>, i32> {
         let mut out = Box::new(Map {
-            gpu: MapGpu { bytes: [0; 1504] },
+            gpu: MapGpu { bytes: [0; GPU_BYTES] },
             key: 0,
             signal: HdrSignal::default(),
             gamut_prim: [[0.0; 8]; 2],

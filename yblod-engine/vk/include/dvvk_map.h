@@ -58,6 +58,28 @@ enum {
                                 * BT.709 converted (dvvk_map_layer_bt2020) */
     DVVK_MAP_GAMUT_EXACT = 128u, /* SDR: the gamut LUT read with exact weights, not the sampler's
                                   * (CB1's targets, DVVK_SDR_POWER, _BLACK, _BT2020, above a zero black) */
+    DVVK_MAP_EXPERT = 256u,    /* CB1's Expert recipe for a stated display (dvvk_map_gpu's ex_*):
+                                * DVVK_OUTPUT_HDR10 with DVVK_HDR10_TARGET, or with ... */
+    DVVK_MAP_LLDV = 512u,      /* ... DVVK_OUTPUT_LLDV: the LLDV pack (and the overlay after the map) */
+};
+
+/* Expert (DVVK_MAP_EXPERT): CroqueMr's CB1/src/cb1_hdr10_expert.c prepare()
+ * and the shaders his renderer runs with it (dvbridge_render.c
+ * player_led_map, reference_output, dvbridge_pack_player_led_422; libplacebo
+ * pl_shader_color_map_ex with his 9918 explicit tone curve), as one function
+ * of the reconstructed codes. Linear light is libplacebo's, 1 = 203 cd/m2.
+ * ex_flags: */
+#define DVVK_MAP_EXPERT_LUT 4096   /* the tone LUT's entries at most (CB1: 1024 compressing, 4096 clipping) */
+enum {
+    DVVK_EX_TONE = 1u,         /* the tone curve on IPT's I (and the hull desaturation) */
+    DVVK_EX_FAST = 2u,         /* no curve and no gamut map: the matrix ex_fast (libplacebo's fast path) */
+    DVVK_EX_EDID = 4u,         /* the display's own primaries: ex_basis after the map */
+    DVVK_EX_CM4 = 8u,          /* L8's CM4.0 controls (dvbridge_creative_cm4_shader), ex_cm4_* */
+    DVVK_EX_CM4_TRIM = 16u,    /* ... in the CM4 target's primaries (EDID: ex_to_trim, ex_from_trim) */
+    DVVK_EX_CHROMA = 32u,      /* cb1_hdr10_expert_trim's chroma and saturation (ex_chroma) */
+    DVVK_EX_KEEP_BLACK = 64u,  /* signal black (all channels' light 0) stays exact zero (black 0) */
+    DVVK_EX_LIFT_BLACK = 128u, /* ... and a positive CM4 offset lifts it (player_led_map's lift_black) */
+    DVVK_EX_GUI_BT709 = 256u,  /* LLDV: the overlay's BT.709 is converted (ex_gui), else the display is BT.709 */
 };
 
 /* The GPU's parameters (std430: vec3s padded to vec4; matrices row-major,
@@ -95,6 +117,34 @@ typedef struct {
      * light over 12 */
     float src_trc[4];        /* x: b (the black lift), y: the system gamma - 1, z: the peak */
     float src_luma[4];       /* the source primaries' luminance coefficients */
+    /* Expert (DVVK_MAP_EXPERT; all 0 otherwise). tone_in is the curve's
+     * domain, lms2rgb the basis's (libplacebo's dst.primaries), rgb2lms
+     * BT.2020's; matrices are rows (three padded rows each) but the CM4
+     * ones, which are CB1's GLSL columns. */
+    uint32_t ex_flags;       /* DVVK_EX_* */
+    uint32_t ex_lut_n;       /* the tone LUT's entries (ex_tone_lut) */
+    uint32_t ex_bits;        /* LLDV: the carrier's useful bits (12, or 10) */
+    uint32_t ex_pad;
+    float ex_fast[12];       /* BT.2020 -> the basis (libplacebo's fast path), or the identity */
+    float ex_basis[12];      /* EDID: the basis -> the display's primaries (relative colorimetric) */
+    float ex_to_trim[12];    /* EDID + CM4: the display -> the CM4 target's primaries */
+    float ex_from_trim[12];  /* ... and back */
+    float ex_cm4_sop[4];     /* slope, offset, power, peak (cd/m2) */
+    float ex_cm4_shape[4];   /* mid exponent, clip strength, log2 chroma base, log2 saturation */
+    float ex_cm4_flags[4];   /* SOP, mid contrast, clip, colour active (1 or 0) */
+    float ex_cm4_luma[4];
+    float ex_cm4_rgb_lms[12], ex_cm4_lms_rgb[12], ex_cm4_residual[12];   /* columns */
+    float ex_cm4_centres[8], ex_cm4_gains[8], ex_cm4_turns[8];          /* six each */
+    float ex_chroma[4];      /* expert_chroma x, y; z: expert_cap (the peak / 203, rounded down) */
+    float ex_luma[4];        /* expert_luma: the display's (its primaries') luminance row */
+    float ex_out[12];        /* the display's RGB -> BT.2020: LLDV the pack's lldv_matrix (relative
+                              * colorimetric, or the identity), HDR10 xyz2rgb(BT.2020) * rgb2xyz */
+    float ex_scale[4];       /* LLDV: x 203 / peak (into the carrier's 0..1), y peak / 203 (out of it);
+                              * HDR10: z the PQ ceiling (cb1_hdr10_expert_ceiling) */
+    float ex_gui[12];        /* LLDV: BT.709 -> the display's primaries (the overlay), relative colorimetric */
+    float ex_out_inv[12];    /* LLDV: ex_out's inverse (the pack takes a sample under the overlay back
+                              * to the display's light; the display's gamut lies inside BT.2020) */
+    float ex_tone_lut[DVVK_MAP_EXPERT_LUT];   /* PQ in (tone_in) -> PQ out, ex_lut_n of them */
 } dvvk_map_gpu;
 
 typedef struct {
@@ -114,6 +164,26 @@ typedef struct {
  * -2 the metadata can't be mapped (the frame is refused: an ordinary
  * picture, as for a stream the tunnel refuses). */
 int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t metadata_size, dvvk_map *out);
+/* The same with an LLDV display's own primaries (NULL or version 0: none). */
+int dvvk_map_plan_display(const dvvk_output_mode *mode, const dvvk_display_primaries *display, const void *metadata,
+                          size_t metadata_size, dvvk_map *out);
+/* Whether a display-targeted mode (HDR10 with DVVK_HDR10_TARGET, LLDV) and
+ * its primaries are a display CB1's policy takes (dvbridge_policy_validate):
+ * 1 yes, 0 no; -1 not such a mode. */
+int dvvk_map_target_valid(const dvvk_output_mode *mode, const dvvk_display_primaries *display);
+/* Expert: the display's linear light (1 = 203 cd/m2, its primaries) of a
+ * nonlinear source sample before the output's tail (LLDV: divided by the
+ * peak, 0..1, what CB1's player-led texture holds before the GUI). */
+void dvvk_map_expert_display(const dvvk_map_gpu *p, const uint32_t *tables, const double nl[3], double v[3]);
+/* LLDV: CB1's player_led_gui on v (dvvk_map_expert_display's), a pixel of
+ * the overlay (8-bit R, G, B, A as the shell holds it) blended in the
+ * display's linear light; degamma: the engine's 256 sRGB entries as the
+ * shader samples them (dvvk_map_lldv_degamma). */
+void dvvk_map_lldv_gui(const dvvk_map_gpu *p, const uint8_t rgba[4], double v[3]);
+double dvvk_map_lldv_degamma(double code);
+/* LLDV: v to the carrier's BT.2020 PQ R'G'B' (dvbridge_pack_player_led_422's
+ * lldv_matrix, clamp, scale, PQ). */
+void dvvk_map_lldv_encode(const dvvk_map_gpu *p, const double v[3], double pq[3]);
 /* SDR output's tables for `map` (DVVK_MAP_TABLE_WORDS words): the dither
  * pattern and the gamut LUT (pl_gamut_map_generate: tens of milliseconds, so
  * only when map->gamut_key changes; a map without DVVK_MAP_GAMUT leaves the
@@ -154,13 +224,17 @@ void dvvk_map_set_black(dvvk_map_gpu *p, const uint32_t *tables, const uint32_t 
 
 #if UINTPTR_MAX == UINT64_MAX
 #ifdef __cplusplus
-static_assert(sizeof(dvvk_map_gpu) == 1504, "dvvk_map_gpu layout");
+static_assert(sizeof(dvvk_map_gpu) == 18592, "dvvk_map_gpu layout");
 #else
-_Static_assert(sizeof(dvvk_map_gpu) == 1504, "dvvk_map_gpu layout");
+_Static_assert(sizeof(dvvk_map_gpu) == 18592, "dvvk_map_gpu layout");
 _Static_assert(offsetof(dvvk_map_gpu, tone_lut) == 384, "dvvk_map_gpu layout");
 _Static_assert(offsetof(dvvk_map_gpu, gamut_at) == 1408, "dvvk_map_gpu layout");
 _Static_assert(offsetof(dvvk_map_gpu, src_trc) == 1472, "dvvk_map_gpu layout");
-_Static_assert(sizeof(dvvk_map) == 1640, "dvvk_map layout");
-_Static_assert(offsetof(dvvk_map, gamut_prim) == 1560, "dvvk_map layout");
+_Static_assert(offsetof(dvvk_map_gpu, ex_flags) == 1504, "dvvk_map_gpu layout");
+_Static_assert(offsetof(dvvk_map_gpu, ex_cm4_sop) == 1712, "dvvk_map_gpu layout");
+_Static_assert(offsetof(dvvk_map_gpu, ex_chroma) == 2016, "dvvk_map_gpu layout");
+_Static_assert(offsetof(dvvk_map_gpu, ex_tone_lut) == 2208, "dvvk_map_gpu layout");
+_Static_assert(sizeof(dvvk_map) == 18728, "dvvk_map layout");
+_Static_assert(offsetof(dvvk_map, gamut_prim) == 18648, "dvvk_map layout");
 #endif
 #endif

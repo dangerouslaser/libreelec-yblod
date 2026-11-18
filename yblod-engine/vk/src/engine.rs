@@ -1412,7 +1412,11 @@ impl Engine {
                 error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_coeff: construction.keep(HostBuffer::new(&d, 128, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
-                map_params: construction.keep(HostBuffer::new(&d, 2048, vk::BufferUsageFlags::STORAGE_BUFFER)?),
+                map_params: construction.keep(HostBuffer::new(
+                    &d,
+                    crate::map::GPU_BYTES as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+                )?),
                 stats: construction.keep(HostBuffer::new(
                     &d,
                     (STATS_WORDS * 4).next_multiple_of(256) as u64,
