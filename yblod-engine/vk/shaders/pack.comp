@@ -97,15 +97,18 @@ layout(binding = 21) uniform sampler3D map_lut;
 // keeps its own maxima, sum and count (inv_*) and adds them to the
 // workgroup's once: an atomic on shared memory per sample and value costs
 // more than the arithmetic (integer max and wrapping sums: the same numbers
-// in any order).
+// in any order). Then, for application version 1's fields (CB1's
+// analysis since 9b76275086), a histogram of BT.2020 luminance (of each
+// channel's light) in the same bins and the count of pixels at or below 100
+// nits of it: yhist[256], dark.
 layout(constant_id = 9) const uint STATS = 0;
 layout(binding = 24, std430) buffer Stats { uint stats[]; };
 const uint STATS_BINS = STATS != 0u ? 256u : 1u;
-shared uint st_hist[STATS_BINS];
+shared uint st_hist[STATS_BINS], st_yhist[STATS_BINS];
 shared uint st_max[3];
-shared uint st_sum, st_count;
+shared uint st_sum, st_count, st_dark;
 uvec3 inv_max = uvec3(0u);
-uint inv_sum = 0u, inv_count = 0u;
+uint inv_sum = 0u, inv_count = 0u, inv_dark = 0u;
 layout(push_constant) uniform Push {
     uvec4 active_area, black, placement;
     uint w, h, stride_words, packet_count, top_left, source_w, source_h, el_method;   // EL_ANNEXB / EL_BILINEAR
@@ -245,6 +248,26 @@ uint source_linear(bool chroma, bool odd, uint pw, uint ph, int nx, int ny, uint
         v = fma(a, 1.0 - fy, b * fy) + 0.5;
     }
     return uint(floor(v));
+}
+
+// SCALER (constant 11; dvvk_set_scaler, src/scaler.rs: PACK 2, SOURCE 0, an
+// enlargement): the luma from fsr1_easu.comp's plane at the destination's
+// size (binding 0, codes x 16) instead of source_linear's; 1 as EASU made
+// it, 2 sharpened by RCAS here (the cross clamped to the destination). The
+// chroma stays bilinear.
+layout(constant_id = 11) const uint SCALER = 0;
+#include "fsr1.glsl"
+
+float fsr1_plane(uint x, uint y, uint dw) { return float(uint(yplane[y * dw + x])) * (1.0 / 65520.0); }
+
+uint fsr1_luma(uint lx, uint ly, uint dw, uint dh)
+{
+    if (SCALER == 1u)
+        return (uint(yplane[ly * dw + lx]) + 8u) >> 4;
+    float r = fsr1_rcas(fsr1_plane(lx, ly > 0u ? ly - 1u : 0u, dw), fsr1_plane(lx > 0u ? lx - 1u : 0u, ly, dw),
+                        fsr1_plane(lx, ly, dw), fsr1_plane(min(lx + 1u, dw - 1u), ly, dw),
+                        fsr1_plane(lx, min(ly + 1u, dh - 1u), dw));
+    return uint(floor(clamp(r, 0.0, 1.0) * 4095.0 + 0.5));
 }
 
 uint vertical_mapped(bool chroma, bool odd, uint pw, uint ph, uint x, uvec4 m)
@@ -501,7 +524,7 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8], bool want_luma
     if (inside && shown) {
         if (PACK == 2 && (sw != dw || sh != dh)) {
             if (sw == dw) {
-                if (want_luma)
+                if (want_luma && SCALER == 0u)
                     yy = vertical_mapped(false, false, sw, sh, lx, ymap[2 * ly]);
                 c = vertical_mapped(true, odd, sw / 2, sh / 2, lx / 2, ymap[2 * ly + 1]);
             } else {
@@ -509,10 +532,12 @@ uvec2 reconstruct(uint x, uint y, bool odd, uvec2 chroma_rows[8], bool want_luma
                 int py = int((2 * ly + 1) * sh) - int(dh);
                 int cx = int((2 * (lx & ~1u) + 1) * sw) - int(dw);
                 int cy = py - (top_left != 0u ? 0 : int(dh));
-                if (want_luma)
+                if (want_luma && SCALER == 0u)
                     yy = source_linear(false, false, sw, sh, px, py, 2 * dw, 2 * dh);
                 c = source_linear(true, odd, sw / 2, sh / 2, cx, cy, 4 * dw, 4 * dh);
             }
+            if (want_luma && SCALER != 0u)
+                yy = fsr1_luma(lx, ly, dw, dh);
         } else if (PACK == 1) {
             c = src_c(odd, lx / 2, ly, sw / 2);
             if (want_luma)
@@ -596,6 +621,9 @@ void stats_sample(uvec3 c)
     atomicAdd(st_hist[min(255u, uint(floor(nits / 16.0 + 0.5)))], 1u);
     inv_sum += uint(floor(nits * 64.0 + 0.5));
     inv_count++;
+    float lum = dot(10000.0 * map_pq_eotf(rgb), vec3(0.2627, 0.6780, 0.0593));
+    atomicAdd(st_yhist[min(255u, uint(floor(lum / 16.0 + 0.5)))], 1u);
+    inv_dark += uint(lum <= 100.0);
 }
 
 // One invocation: 4 pixels x 2 rows (x0 % 4 == 0, y0 even), stored 16 bytes a row.
@@ -796,6 +824,8 @@ void pack_main()
                 if (OVERLAY == 4u) {
                     uint v = shell_rgba(x0 + i, y);
                     layer[i] = vec4(v & 255u, (v >> 8) & 255u, (v >> 16) & 255u, v >> 24) * (1.0 / 255.0);
+                    if ((mp.flags & 64u) != 0u && layer[i].a > 0.0)
+                        layer[i] = map_sdr_layer_bt2020(layer[i]);
                 }
             }
             bool black[4], need[4];
@@ -936,10 +966,10 @@ void main()
 {
     if (STATS != 0u) {
         for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y)
-            st_hist[i] = 0u;
+            st_hist[i] = st_yhist[i] = 0u;
         if (gl_LocalInvocationIndex == 0u) {
             st_max[0] = st_max[1] = st_max[2] = 0u;
-            st_sum = st_count = 0u;
+            st_sum = st_count = st_dark = 0u;
         }
         barrier();
     }
@@ -951,13 +981,17 @@ void main()
             atomicMax(st_max[2], inv_max.z);
             atomicAdd(st_sum, inv_sum);
             atomicAdd(st_count, inv_count);
+            atomicAdd(st_dark, inv_dark);
         }
         barrier();
         if (st_count == 0u)
             return;
-        for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y)
+        for (uint i = gl_LocalInvocationIndex; i < STATS_BINS; i += gl_WorkGroupSize.x * gl_WorkGroupSize.y) {
             if (st_hist[i] != 0u)
                 atomicAdd(stats[i], st_hist[i]);
+            if (st_yhist[i] != 0u)
+                atomicAdd(stats[262u + i], st_yhist[i]);
+        }
         if (gl_LocalInvocationIndex == 0u) {
             for (uint c = 0u; c < 3u; c++)
                 atomicMax(stats[256u + c], st_max[c]);
@@ -965,6 +999,7 @@ void main()
             if (old + st_sum < old)
                 atomicAdd(stats[260], 1u);
             atomicAdd(stats[261], st_count);
+            atomicAdd(stats[518], st_dark);
         }
     }
 }

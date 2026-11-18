@@ -1,7 +1,7 @@
 # Kodi patches
 
-YBLOD's Kodi changes are one series of patches on Kodi `e6192109`. The files
-live in two owner folders, `yblod/patches/kodi/` (general fixes) and
+YBLOD's Kodi changes are one series of patches on Kodi `22.0rc2-Piers`. The
+files live in two owner folders, `yblod/patches/kodi/` (general fixes) and
 `yblod-engine/patches/kodi/` (Dolby Vision), and are linked into
 `projects/Generic/patches/kodi/` (`yblod/tools/link-patches.sh --fix`), where
 LibreELEC applies them after `packages/mediacenter/kodi/patches/*.patch`, in

@@ -17,7 +17,10 @@
  *                          (pack.comp STATS, DVVK_HDR10PLUS_TRACE=1): each
  *                          pixel's Y with its pair's Cb/Cr to PQ R'G'B'
  *                          (clamped 0..1), maxRGB light, 16-nit histogram,
- *                          channel maxima, sum of light; a JSON line, in double
+ *                          channel maxima, sum of light, and the BT.2020
+ *                          luminance of the channels' light: its 16-nit
+ *                          histogram, pixels at or below 100 nits; a JSON
+ *                          line, in double
  *   The comparison is in 12-bit codes of what the HDMI link would carry: the
  *   reference's R'G'B' converted to BT.2020 Y'CbCr, limited range, luma per
  *   pixel and chroma per pair (the even pixel's, as the engine does).
@@ -149,7 +152,7 @@ int main(int argc, char **argv)
     printf("%s: Y codes %d..%d mean %.1f; peak %.1f nits\n", ours, ymin, ymax, ysum / ((double)W * H),
            pq_eotf((ymax - 256) / 3504.0));
     if (sx0 >= 0) {
-        unsigned long hist[256] = {0};
+        unsigned long hist[256] = {0}, yhist[256] = {0}, dark = 0;
         double maxq[3] = {0}, sum = 0;
         unsigned long count = 0;
         for (int y = sy0; y < sy1; y++)
@@ -171,12 +174,19 @@ int main(int argc, char **argv)
                     hist[bin > 255 ? 255 : bin]++;
                     sum += nits;
                     count++;
+                    double lum = 0.2627 * pq_eotf(rgb[0]) + 0.6780 * pq_eotf(rgb[1]) + 0.0593 * pq_eotf(rgb[2]);
+                    bin = (int)floor(lum / 16.0 + 0.5);
+                    yhist[bin > 255 ? 255 : bin]++;
+                    dark += lum <= 100.0;
                 }
             }
         printf("{\"cpu_stats\":\"%s\",\"count\":%lu,\"average_maxrgb\":%.4f,\"maxscl\":[%.4f,%.4f,%.4f],\"histogram\":[",
                ours, count, count ? sum / count : 0.0, pq_eotf(maxq[0]), pq_eotf(maxq[1]), pq_eotf(maxq[2]));
         for (int i = 0; i < 256; i++)
             printf(i ? ",%lu" : "%lu", hist[i]);
+        printf("],\"dark\":%lu,\"y_histogram\":[", dark);
+        for (int i = 0; i < 256; i++)
+            printf(i ? ",%lu" : "%lu", yhist[i]);
         printf("]}\n");
     }
     if (preview) {

@@ -410,11 +410,12 @@ static int luma_table_cached(dvvk_plan_state *st, const dv_single_reshape *mappi
  * 725da4749b did this in yblod's host C for every picture, here only in the
  * contract): extension blocks by level with the DM v2 blocks (L3, L8-L11,
  * L254) after the others, ties in stream order (dvbridge_metadata.h
- * cb1_wire_block), and an L5 always (the placement fills in the raster's
- * margins). The source payload's blocks are yblod's conversions of the
+ * cb1_wire_block). The source payload's blocks are yblod's conversions of the
  * stream's, one each in stream order (L6 dropped), so ordering them here is
- * ordering the stream's. */
-static int cb1_wire(unsigned char dm[512], size_t *bytes)
+ * ordering the stream's. *l5: whether it has an L5. An RPU without one gets
+ * an L5 only for the placement's borders (CB1 4b80e75da2: a full-raster L5
+ * makes displays lift the bars), which dv_source_place_metadata adds. */
+static int cb1_wire(unsigned char dm[512], size_t *bytes, int *l5)
 {
     if (*bytes < 71 || *bytes > 512)
         return -1;
@@ -450,17 +451,9 @@ static int cb1_wire(unsigned char dm[512], size_t *bytes)
         memcpy(out + used, dm + start[order[k]], size[order[k]]);
         used += size[order[k]];
     }
-    if (!area) {   /* zero margins: dv_source_place_metadata sets the raster's */
-        if (used > 512 - 13 || n == 255)
-            return -1;
-        memset(out + used, 0, 13);
-        out[used + 3] = 8;
-        out[used + 4] = 5;
-        used += 13;
-        ++out[70];
-    }
     memcpy(dm, out, used);
     *bytes = used;
+    *l5 = area;
     return 0;
 }
 
@@ -686,9 +679,12 @@ int dvvk_plan_frame_state(const dvvk_plan_in *in, const dvvk_plan_desktop *deskt
      * the DM v2 blocks. Not on desktop frames (static display management). */
     if (!(desktop && desktop->enabled))
         o->dm_status = dvvk_dm_cm4(dm, &bytes, in->dm_options);
-    if (contract && cb1_wire(dm, &bytes))
+    int l5 = 1;
+    if (contract && cb1_wire(dm, &bytes, &l5))
         return DV_UNSUPPORTED;
-    if (dv_source_place_metadata(&g, dm, &bytes))
+    /* under an overlay CB1 places with zero margins (dvbridge_core.c
+     * prepare_output): an RPU without L5 then has none */
+    if ((l5 || !in->overlay) && dv_source_place_metadata(&g, dm, &bytes))
         return DV_UNSUPPORTED;
     for (unsigned c = 0; c < 3; ++c)
         if ((settings.source.offset[c] & 65535u) || (settings.source.offset[c] >> 16) > 4095)
@@ -812,7 +808,8 @@ unsigned dvvk_test_packetize(const unsigned char *dm, size_t bytes, unsigned id,
 
 int dvvk_test_cb1_wire(unsigned char dm[512], size_t *bytes)
 {
-    return cb1_wire(dm, bytes);
+    int l5;
+    return cb1_wire(dm, bytes, &l5);
 }
 
 unsigned dvvk_test_packet_id(dvvk_plan_state *state, int contract, unsigned player, const unsigned char *dm, size_t bytes)

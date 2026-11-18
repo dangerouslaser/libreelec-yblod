@@ -329,12 +329,34 @@ pub unsafe extern "C" fn dvvk_set_output_mode(e: *mut Engine, mode: *const crate
     })
 }
 
+/// dvvk_set_scaler (optional symbol): the upscaler from the next frame.
+///
+/// # Safety
+/// `e` must be an engine from dvvk_create (or NULL).
+#[no_mangle]
+pub unsafe extern "C" fn dvvk_set_scaler(e: *mut Engine, method: u32) -> i32 {
+    with_engine(e, "set_scaler", DVVK_INVALID, DVVK_BACKEND, |e| match e.set_scaler(method) {
+        Ok(()) => 0,
+        Err(err) => {
+            log_error("set_scaler", err);
+            DVVK_UNSUPPORTED
+        }
+    })
+}
+
 /// dvvk_output_modes (optional symbol): the output modes this library has,
 /// bit 1 << DVVK_OUTPUT_*.
 #[no_mangle]
 pub extern "C" fn dvvk_output_modes() -> u32 {
     use crate::map::*;
     1 << DVVK_OUTPUT_DV | 1 << DVVK_OUTPUT_HDR10 | 1 << DVVK_OUTPUT_HDR10PLUS | 1 << DVVK_OUTPUT_SDR
+}
+
+/// dvvk_sdr_flags (optional symbol): the DVVK_SDR_* flags this library's
+/// SDR output takes.
+#[no_mangle]
+pub extern "C" fn dvvk_sdr_flags() -> u32 {
+    crate::map::SDR_FLAGS
 }
 
 /// dvvk_output_signal (optional symbol): the last frame's HDR static metadata.

@@ -143,6 +143,26 @@ vec3 map_gamut_lookup(vec3 ipt)
     return v - vec3(0.0, 32768.0 / 65535.0, 32768.0 / 65535.0);
 }
 
+// The same lookup with the CPU's weights (dv_map.c gamut_map): eight texels
+// and float weights instead of the sampler's 8-bit ones (DVVK_MAP_GAMUT_EXACT,
+// flags 128: CB1's targets with a black floor, which magnifies them to two
+// codes).
+vec3 map_gamut_lookup_exact(vec3 ipt)
+{
+    float h = ipt.y == 0.0 && ipt.z == 0.0 ? 0.0 : atan(ipt.z, ipt.y);
+    vec3 idx = vec3(mp.gamut_at.x * ipt.x + mp.gamut_at.y, 2.0 * length(ipt.yz), h * 0.15915494309189535 + 0.5);
+    const vec3 n = vec3(48.0, 32.0, 256.0);
+    vec3 t = clamp(idx, 0.0, 1.0) * (n - 1.0);
+    ivec3 i0 = min(ivec3(floor(t)), ivec3(n) - 2);
+    vec3 f = t - vec3(i0), v = vec3(0.0);
+    for (int c = 0; c < 8; c++) {
+        ivec3 d = ivec3(c & 1, (c >> 1) & 1, c >> 2);
+        vec3 w = mix(1.0 - f, f, vec3(d));
+        v += w.x * w.y * w.z * texelFetch(map_gamut, i0 + d, 0).rgb;
+    }
+    return v - vec3(0.0, 32768.0 / 65535.0, 32768.0 / 65535.0);
+}
+
 // SDR: linear BT.2020 light to the display's R'G'B' (0..1), always through
 // IPT (the tone curve, the gamut LUT, the display's primaries).
 vec3 map_sdr(vec3 lin)
@@ -155,7 +175,7 @@ vec3 map_sdr(vec3 lin)
         ipt.yz *= ipt.x > 0.0 && h0 > 0.0 ? min(i0 / ipt.x, h1 / h0) : 0.0;
     }
     if ((mp.flags & 8u) != 0u)
-        ipt = map_gamut_lookup(ipt);
+        ipt = (mp.flags & 128u) != 0u ? map_gamut_lookup_exact(ipt) : map_gamut_lookup(ipt);
     lin = map_m3(mp.lms2rgb, map_pq_eotf_sdr(map_m3(mp.ipt2lms, ipt)));
     return clamp(pow(max(mp.out_trc.x * lin + mp.out_trc.y, 0.0), vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0);
 }
@@ -234,6 +254,16 @@ uvec3 map_sdr_q(vec3 codes, uvec2 at)
 {
     float bias = (mp.flags & 16u) != 0u ? float(map_tables[(at.y & 63u) * 64u + (at.x & 63u)]) * (1.0 / 4096.0) : 0.5;
     return uvec3(floor(codes + bias));
+}
+// DVVK_MAP_BT2020 (flags 64): the layer's colour (premultiplied sRGB, its
+// codes those of a BT.709 display) as the BT.2020 display's codes of the
+// same light, through the display's transfer (dv_map.c dvvk_map_layer_bt2020)
+vec4 map_sdr_layer_bt2020(vec4 g)
+{
+    const mat3 m = mat3(0.6274038959, 0.0690972894, 0.0163914389, 0.3292830384, 0.9195403951, 0.0880133079,
+                        0.0433130657, 0.0113623156, 0.8955952532);
+    vec3 lin = pow(g.rgb / g.a + mp.out_trc.w, vec3(1.0 / mp.out_trc.z));
+    return vec4(clamp(pow(m * lin, vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0) * g.a, g.a);
 }
 // XRGB8888
 uint map_sdr_word(uvec3 c) { return c.b | c.g << 8 | c.r << 16 | 0xff000000u; }

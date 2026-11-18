@@ -1,5 +1,5 @@
 /* YBLOD 0.4.0: CroqueMr's CB1 test CB1/tests/hdr10plus_curve.c (github.com/CroqueMr/intel-dv-libreelec)
- * at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17, unchanged; run by `cargo test` (src/hdr10plus.rs tests,
+ * at commit b5149a09d759ab2cc1dd8c0b6d156da67d70cae6, unchanged; run by `cargo test` (src/hdr10plus.rs tests,
  * yblod/tests/run_*.c: main renamed, yblod/tests/assert.h records failures,
  * yblod/tests/shims.c stands in for the libavutil allocators). CB1's notice follows. */
 /* SPDX-License-Identifier: MIT */

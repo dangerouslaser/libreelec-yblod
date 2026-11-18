@@ -316,16 +316,55 @@ mod tests {
         // the two L2 blocks keep their order (their bytes differ)
         let first_l2 = 71 + 5 + 6;
         assert_eq!(out[first_l2 + 5], 16);
-        // no L5: a zero one is added at the end of the non-DM-v2 blocks' order
-        let out = wire(&payload(&[(1, 6), (8, 10)])).unwrap();
-        assert_eq!(levels(&out), [1, 8, 5]);
-        assert_eq!(&out[out.len() - 13..], &[0, 0, 0, 8, 5, 0, 0, 0, 0, 0, 0, 0, 0]);
+        // no L5: none added (the placement adds one for borders: cb1_l5)
+        let dm = payload(&[(8, 10), (1, 6)]);
+        let out = wire(&dm).unwrap();
+        assert_eq!(levels(&out), [1, 8]);
+        assert_eq!(out.len(), dm.len());
         // malformed: refused
         assert!(wire(&dm[..dm.len() - 1]).is_none());
         assert!(wire(&dm[..60]).is_none());
         let mut long = dm.clone();
         long.push(0);
         assert!(wire(&long).is_none());
+    }
+
+    #[test]
+    fn cb1_l5() {
+        // CB1 4b80e75da2 (dvbridge_dv_metadata_output): the RPU's L5 with the
+        // placement's margins (zero under an overlay); an RPU without one: an
+        // L5 only for the placement's borders, appended after every block, and
+        // none under an overlay (CB1 places it with zero margins then).
+        // 28 Years Later: L5 384 rows top and bottom, L3/L8/L9/L254 after it.
+        let with = fixture("28yl-p81.0");
+        let mut without = with.clone();
+        let offset = u64::from_le_bytes(with[24..32].try_into().unwrap()) as usize;
+        let size = u64::from_le_bytes(with[32..40].try_into().unwrap()) as usize;
+        let n = i32::from_le_bytes(with[40..44].try_into().unwrap()) as usize;
+        let i = (0..n).find(|&i| with[offset + i * size] == 5).unwrap();
+        without.copy_within(offset + (i + 1) * size..offset + n * size, offset + i * size);
+        without[40..44].copy_from_slice(&(n as i32 - 1).to_le_bytes());
+        let l5 = |md: &[u8], (width, height, x, y): (u32, u32, u32, u32), overlay: u32| {
+            let (mut input, _) = plan_in(false, 3);
+            (input.width, input.height, input.x, input.y, input.overlay) = (width, height, x, y, overlay);
+            let mut plan = Plan::boxed();
+            let mut st = PlanState::new().unwrap();
+            assert_eq!(plan.fill(&input, None, &mut st, md), 0);
+            let b = blocks(&payload_of(&plan));
+            let at: Vec<usize> = (0..b.len()).filter(|&k| b[k].0 == 5).collect();
+            assert!(at.len() <= 1);
+            at.first().map(|&k| (k + 1 == b.len(), b[k].1.clone()))
+        };
+        let m = |v: [u16; 4]| v.iter().flat_map(|x| x.to_be_bytes()).collect::<Vec<u8>>();
+        let (full, boxed) = ((3840, 2160, 0, 0), (1920, 1080, 960, 540));
+        assert_eq!(l5(&with, full, 0), Some((false, m([0, 0, 384, 384]))));
+        assert_eq!(l5(&with, full, 1), Some((false, m([0; 4]))));
+        assert_eq!(l5(&with, boxed, 0), Some((false, m([960, 960, 924, 924]))));
+        assert_eq!(l5(&with, boxed, 1), Some((false, m([0; 4]))));
+        assert_eq!(l5(&without, full, 0), None);
+        assert_eq!(l5(&without, full, 1), None);
+        assert_eq!(l5(&without, boxed, 0), Some((true, m([960, 960, 540, 540]))));
+        assert_eq!(l5(&without, boxed, 1), None);
     }
 
     #[test]
@@ -778,7 +817,7 @@ mod tests {
     #[test]
     fn cm4_overflow_is_rejected() {
         // CB1/tests/cmv40.c optional_append_failure(): an L1 and 21 L2 (481
-        // bytes): with the 4 blocks (33) and CB1's L5 (13) over 512
+        // bytes): with the 4 blocks (33) and an L5 (13) over 512
         let mut list: Vec<(u8, &[u16])> = vec![L1];
         list.extend(std::iter::repeat_n(L2, 21));
         let m = dm(3079, &list);
@@ -793,11 +832,11 @@ mod tests {
         let (status, out) = cm4(&m5, opts(AUTO, 4, 0, true, 0));
         assert_eq!(status, S_APPENDED | 21 << 8);
         assert_eq!(out.len(), 71 + 11 + 13 + 33);
-        // two L2 fewer fits: 443 + 33 + CB1's L5 13 = 489
+        // two L2 fewer fits: 443 + 33, and an L5 the placement adds 13 = 489
         let m = dm(3079, &list[..20]);
         let (status, out) = cm4(&m, opts(ALWAYS, 0, 0, false, 0));
         assert_eq!((status, out.len()), (S_APPENDED, 443 + 33));
-        assert_eq!(wire(&out).unwrap().len(), 489);
+        assert_eq!(wire(&out).unwrap().len(), 443 + 33);
     }
 
     #[test]

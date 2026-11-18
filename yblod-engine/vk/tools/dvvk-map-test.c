@@ -13,6 +13,10 @@
  *     --white NITS       SDR: the display's white (default 203)
  *     --black NITS       SDR: its black (default white / 1000)
  *     --gamma22          SDR: a 2.2 power instead of BT.1886
+ *     --gamma G          SDR: a pure power G (1.8..2.8, DVVK_SDR_POWER)
+ *     --exact-black NITS SDR: the display's black as given, 0 a true zero
+ *                        (DVVK_SDR_BLACK)
+ *     --bt2020           SDR: BT.2020 primaries (DVVK_SDR_BT2020)
  *     --limited          SDR: codes 16..235
  *     --no-dither        SDR: rounded codes in --out
  *     --hlg              SDR: the source is HLG (DVVK_SDR_HLG; a fixture of
@@ -284,6 +288,14 @@ int main(int argc, char **argv)
             mode.min_nits = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamma22"))
             mode.flags |= DVVK_SDR_GAMMA22;
+        else if (!strcmp(argv[i], "--gamma") && i + 1 < argc) {
+            mode.flags |= DVVK_SDR_POWER;
+            mode.reserved[DVVK_SDR_GAMMA_WORD] = (uint32_t)lround(atof(argv[++i]) * 1000.0);
+        } else if (!strcmp(argv[i], "--exact-black") && i + 1 < argc) {
+            mode.flags |= DVVK_SDR_BLACK;
+            mode.min_nits = (float)atof(argv[++i]);
+        } else if (!strcmp(argv[i], "--bt2020"))
+            mode.flags |= DVVK_SDR_BT2020;
         else if (!strcmp(argv[i], "--limited"))
             mode.flags |= DVVK_SDR_LIMITED;
         else if (!strcmp(argv[i], "--no-dither"))
@@ -393,8 +405,16 @@ int main(int argc, char **argv)
              * it back: libplacebo decides by "above 203 cd/m2" (an HLG
              * source's rendering), where a rounding error would change sides */
             const double dw = mode.peak_nits > 0 ? mode.peak_nits : 203.0;
-            fprintf(f, "\ndisplay %.9g %.9g %d\n", dw, mode.min_nits > 0 ? mode.min_nits : dw / 1000.0,
-                    (mode.flags & DVVK_SDR_GAMMA22) != 0);
+            const double db = mode.flags & DVVK_SDR_BLACK ? fmax(mode.min_nits, 1e-6)
+                              : mode.min_nits > 0       ? mode.min_nits
+                                                        : dw / 1000.0;
+            fprintf(f, "\ndisplay %.9g %.9g %d\n", dw, db, (mode.flags & DVVK_SDR_GAMMA22) != 0);
+            /* CB1's other targets: a pure power's gamma, the primaries */
+            if (mode.flags & (DVVK_SDR_POWER | DVVK_SDR_BT2020))
+                fprintf(f, "target %.9g %d\n",
+                        mode.flags & DVVK_SDR_POWER ? mode.reserved[DVVK_SDR_GAMMA_WORD] / 1000.0
+                        : mode.flags & DVVK_SDR_GAMMA22 ? 2.2 : 0.0,
+                        mode.flags & DVVK_SDR_BT2020 ? 2020 : 709);
             /* a plain video (dvvk_hdr10_to_dovi's metadata): 1 HLG, 2 HDR10 */
             if (plain || (g->flags & DVVK_MAP_HLG))
                 fprintf(f, "plain %d\n", g->flags & DVVK_MAP_HLG ? 1 : 2);
@@ -631,11 +651,23 @@ int main(int argc, char **argv)
                                                      (l ? cb1 : cb) == (double)g->black_in[1] &&
                                                      (l ? cr1 : cr) == (double)g->black_in[2];
                                 const unsigned char *lp = layer ? layer + ((size_t)y * W + x + l) * 4 : NULL;
+                                /* the layer's colour (DVVK_MAP_BT2020: as the BT.2020 display's) */
+                                double col[3] = {0, 0, 0};
+                                for (int k = 0; lp && lp[3] && k < 3; k++)
+                                    col[k] = (lp[2 - k] < lp[3] ? lp[2 - k] : lp[3]) / 255.0;
+                                if (lp && lp[3] && (g->flags & DVVK_MAP_BT2020)) {
+                                    const double al = lp[3] / 255.0;
+                                    for (int k = 0; k < 3; k++)
+                                        col[k] /= al;
+                                    dvvk_map_layer_bt2020(g, col);
+                                    for (int k = 0; k < 3; k++)
+                                        col[k] *= al;
+                                }
                                 for (int k = 0; k < 3; k++) {
                                     double c = is_black ? (double)g->black_out[k] : g->out_code[0] * v[k] + g->out_code[1];
                                     if (lp && lp[3]) {
-                                        double al = lp[3] / 255.0, col = (lp[2 - k] < lp[3] ? lp[2 - k] : lp[3]) / 255.0;
-                                        c = (g->out_code[0] * col + g->out_code[1] * al) + (1.0 - al) * c;
+                                        double al = lp[3] / 255.0;
+                                        c = (g->out_code[0] * col[k] + g->out_code[1] * al) + (1.0 - al) * c;
                                     }
                                     /* back to dvvk_map_sdr_code's R'G'B' */
                                     p[4 * l + 2 - k] = (unsigned char)dvvk_map_sdr_code(

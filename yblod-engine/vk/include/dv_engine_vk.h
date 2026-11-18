@@ -153,8 +153,10 @@ void dvvk_reset(dvvk_engine *);
  *                      dynamic metadata from dvvk_hdr10plus_packet().
  * Statistics: the engine measures the active film area of every HDR10+
  * frame before the overlay (each channel's linear maximum, the average
- * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin) in the pack
- * (shaders/pack.comp STATS), read back once the frame is done. */
+ * maxRGB and a 256-bin maxRGB histogram, 16 nits a bin; for application
+ * version 1 the BT.2020 luminance's 99.99th percentile and share at or below
+ * 100 nits, over the scene as CB1 keeps it) in the pack (shaders/pack.comp
+ * STATS), read back once the frame is done. */
 /*   DVVK_OUTPUT_SDR  SDR (after YBLOD 0.5.0): the engine converts to the picture
  *                      of an SDR display (docs/intel-dv/OUTPUT-MODES.md): the
  *                      HDR10 recipe (libplacebo's spline tone curve on IPT's I,
@@ -173,8 +175,11 @@ void dvvk_reset(dvvk_engine *);
  *                      Dolby Vision play through the same conversion with
  *                      metadata made for them: HDR10+ (dvvk_hdr10plus_to_dovi),
  *                      HDR10 and HLG (dvvk_hdr10_to_dovi, DVVK_SDR_HLG).
- *                      peak_nits: the display's white in cd/m2 (0: 203),
- *                      min_nits: its black (0: white / 1000). flags
+ *                      peak_nits: the display's white in cd/m2 (0: 203;
+ *                      40 to 1000, 20 to 1000 in a library with
+ *                      dvvk_sdr_flags),
+ *                      min_nits: its black (0: white / 1000, unless
+ *                      DVVK_SDR_BLACK). flags
  *                      DVVK_SDR_*. An engine without it refuses the mode
  *                      (dvvk_set_output_mode returns -2); dvvk_output_modes
  *                      says so before an engine exists. */
@@ -187,6 +192,32 @@ enum { DVVK_OUTPUT_DV = 0, DVVK_OUTPUT_HDR10 = 1, DVVK_OUTPUT_HDR10PLUS = 2, DVV
  * as BT.2100's 1000 cd/m2 display would (system gamma 1.2) and converted
  * from there. */
 enum { DVVK_SDR_GAMMA22 = 1u, DVVK_SDR_LIMITED = 2u, DVVK_SDR_NO_DITHER = 4u, DVVK_SDR_HLG = 8u };
+/* CroqueMr's CB1 SDR targets (after YBLOD 0.5.1; dvvk_sdr_flags says whether
+ * the library has them). A library without one refuses a mode that sets it
+ * (-2), never approximates it.
+ * POWER   a pure power of any exponent, black scaled as GAMMA22's (V =
+ *         ((L - black) / (white - black))^(1 / gamma)): the gamma is
+ *         reserved[DVVK_SDR_GAMMA_WORD] in thousandths, 1800 to 2800 (2400:
+ *         libplacebo's GAMMA24, 2200: the same as GAMMA22). Not with GAMMA22.
+ * BLACK   min_nits is the display's black as given, 0 included (true zero,
+ *         libplacebo's PL_COLOR_HDR_BLACK as CB1 sets it), 0 to 5 cd/m2 and
+ *         below the white. Without it 0 means white / 1000, and a black must
+ *         be below white / 20.
+ * BT2020  the display's primaries are BT.2020 (else BT.709): the gamut is
+ *         mapped to them, dvvk_output_signal names them (signal the link
+ *         as BT.2020 RGB, e.g. KMS Colorspace BT2020_RGB), and the overlay's
+ *         sRGB colours are converted to them (its greys keep their codes).
+ * Every reserved word a set flag does not give a meaning must be 0.
+ * CB1's presets as dvvk_output_mode {mode, flags, peak_nits, min_nits, reserved}:
+ *   Reference   {SDR, POWER | BLACK, 100, 0, {2400}}
+ *   Bright room {SDR, POWER | BLACK, 200, 0, {2200}}
+ *   Custom      {SDR, POWER | BLACK, peak 20..500, black 0..5, {gamma x 1000}}
+ * each with BT2020 for CB1's BT.2020 gamut, LIMITED for limited range. */
+enum { DVVK_SDR_POWER = 16u, DVVK_SDR_BLACK = 32u, DVVK_SDR_BT2020 = 64u };
+#define DVVK_SDR_GAMMA_WORD 0
+/* The DVVK_SDR_* flags this library takes (an optional symbol; no engine
+ * needed): a library without it takes GAMMA22, LIMITED, NO_DITHER and HLG. */
+uint32_t dvvk_sdr_flags(void);
 typedef struct {
     uint32_t mode;
     uint32_t flags;               /* DVVK_SDR_* (SDR), else 0 */
@@ -199,7 +230,8 @@ typedef struct {
 uint32_t dvvk_output_modes(void);
 /* The last frame's output: what the HDR static metadata InfoFrame (CTA-861.3)
  * says. mode DVVK_OUTPUT_DV: everything 0. mode DVVK_OUTPUT_SDR: eotf 0, the
- * display's primaries (BT.709) and white, no InfoFrame to send. */
+ * display's primaries (BT.709, or BT.2020 with DVVK_SDR_BT2020), white and
+ * black, no InfoFrame to send. */
 typedef struct {
     uint32_t mode;
     uint32_t eotf;                /* 2: SMPTE ST 2084 (PQ); 0: SDR */
@@ -212,6 +244,25 @@ typedef struct {
 } dvvk_hdr_signal;
 int dvvk_set_output_mode(dvvk_engine *, const dvvk_output_mode *);
 int dvvk_output_signal(dvvk_engine *, dvvk_hdr_signal *);
+
+/* The upscaler (an optional symbol, no ABI change; look it up with dlsym:
+ * an engine without it is bilinear): how a picture smaller than its
+ * destination rectangle is enlarged, from the next frame submitted, in
+ * every output mode. Only enlargements take it (neither side smaller, one
+ * larger); a reduced or unscaled picture is unchanged, and so is an
+ * enlarged one with DVVK_SCALER_BILINEAR (the default).
+ *   DVVK_SCALER_BILINEAR   the pack's bilinear interpolation
+ *   DVVK_SCALER_FSR1_EASU  AMD FidelityFX Super Resolution 1's EASU on the
+ *                          reconstructed luma (the codes as a grey picture,
+ *                          clamped at the picture's edges), chroma bilinear
+ *   DVVK_SCALER_FSR1_RCAS  EASU, then FSR 1's RCAS sharpening (one stop,
+ *                          noise limited) on that luma
+ * FSR's pipelines and its luma plane (2 bytes a canvas pixel) are made on
+ * the first enlarged picture that uses them (a short compile there unless
+ * the pipeline cache has them). Returns 0, -2 for a method this library
+ * doesn't have (the choice is unchanged), -1 for NULL. */
+enum { DVVK_SCALER_BILINEAR = 0, DVVK_SCALER_FSR1_EASU = 1, DVVK_SCALER_FSR1_RCAS = 2 };
+int dvvk_set_scaler(dvvk_engine *, uint32_t method);
 
 /* HDR10+ dynamic metadata of an HDR10+ output frame (YBLOD 0.4.0; optional
  * symbol, look it up with dlsym). CB1's cb1_dv_hdr10plus_metadata (pinned

@@ -177,6 +177,19 @@ if [ -n "$P81" ]; then
   run hlg-100         "$P81" "--cb1 --source hlg" "--white 100" "--hlg --white 100"
   run hlg-g22-static  "$P81" "--cb1 --source hlg" "--gamma22" "--hlg --gamma22" "$S"
 fi
+# CroqueMr's CB1 targets (DVVK_SDR_POWER, _BLACK, _BT2020): Reference, Bright
+# room, Custom at both ends of its gamma and with a black, BT.2020 with the
+# GUI, and an HLG source
+REF="--white 100 --gamma 2.4 --exact-black 0"
+run fel-cb1-reference "$FEL" "--cb1" "$REF" "$REF"
+run fel-cb1-custom    "$FEL" "--cb1" "--white 48 --gamma 2.6 --exact-black 0.05" "--white 48 --gamma 2.6 --exact-black 0.05"
+run fel-cb1-g18-black "$FEL" "--cb1" "--white 20 --gamma 1.8 --exact-black 5" "--white 20 --gamma 1.8 --exact-black 5"
+run fel-cb1-bt2020-static "$FEL" "--cb1" "$REF --bt2020" "$REF --bt2020" "$S"
+[ -z "$MEL" ] || run mel-cb1-bright "$MEL" "--cb1" "--white 200 --gamma 2.2 --exact-black 0" \
+  "--white 200 --gamma 2.2 --exact-black 0"
+[ -z "$P5" ] || run p5-cb1-g28 "$P5" "--cb1 --start ${P5_START:-34.6}" "--white 500 --gamma 2.8 --exact-black 0" \
+  "--white 500 --gamma 2.8 --exact-black 0"
+[ -z "$P81" ] || run hlg-bt2020 "$P81" "--cb1 --source hlg" "$REF --bt2020" "--hlg $REF --bt2020"
 
 # Other canvases: the film fitted (a 3840 wide one resized into the smaller
 # two, unscaled and pillarboxed in 4096x2160)

@@ -1,5 +1,5 @@
 /* YBLOD 0.4.0: ported from CroqueMr's CB1 (github.com/CroqueMr/intel-dv-libreelec,
- * CB1/src/cb1_dv_hdr10plus.c) at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17 (upstream/main, 2026-11-07).
+ * CB1/src/cb1_dv_hdr10plus.c) at commit b5149a09d759ab2cc1dd8c0b6d156da67d70cae6 (upstream/main, 2026-11-18).
  * Unchanged except for this notice and include names.
  * CB1's notices follow and still apply. */
 /* SPDX-License-Identifier: GPL-2.0-or-later */
@@ -147,5 +147,7 @@ bool cb1_dv_hdr10plus_metadata_for_version(AVDynamicHDRPlus *out,
         result.reason=CB1_DV_HDR10PLUS_UNREPRESENTABLE_CURVE;
     }
 done:
+    if(!m.params[0].tone_mapping_flag)
+        m.targeted_system_display_maximum_luminance=(AVRational){0,1};
     *out=m;*report=result;return true;
 }

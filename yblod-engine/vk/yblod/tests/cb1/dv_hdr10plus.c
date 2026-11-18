@@ -1,5 +1,5 @@
 /* YBLOD 0.4.0: CroqueMr's CB1 test CB1/tests/dv_hdr10plus.c (github.com/CroqueMr/intel-dv-libreelec)
- * at commit 9eb35aeb1146e9a6c3652b7a43225511887cdc17, unchanged; run by `cargo test` (src/hdr10plus.rs tests,
+ * at commit b5149a09d759ab2cc1dd8c0b6d156da67d70cae6, unchanged; run by `cargo test` (src/hdr10plus.rs tests,
  * yblod/tests/run_*.c: main renamed, yblod/tests/assert.h records failures,
  * yblod/tests/shims.c stands in for the libavutil allocators). CB1's notice follows. */
 /* SPDX-License-Identifier: GPL-3.0-or-later */
@@ -87,7 +87,7 @@ int main(void)
     assert(out.params[0].distribution_maxrgb[1].percentile.num==320);
     assert(out.params[0].distribution_maxrgb[2].percentile.num==480);
     assert(cb1_hdr10plus_vsif(packet,&out,false,true)==CB1_HDR10PLUS_OK);
-    assert(packet[10]==2 && packet[11]==3 && (packet[7]>>6)==0);
+    assert(packet[10]==2 && packet[11]==3 && packet[7]==0);
     AVDynamicHDRPlus unchanged=out;
     assert(!cb1_dv_hdr10plus_metadata_for_version(&out,&r,m,bytes,&graded,2));
     assert(!memcmp(&unchanged,&out,sizeof(out)));
@@ -152,19 +152,21 @@ int main(void)
         .dvbridge_original_bytes={20,0xc0,0x70,0x00,2}};
     assert(cb1_dv_hdr10plus_metadata(&out,&r,m,bytes,&s));
     assert(r.coverage==CB1_DV_HDR10PLUS_L8 && out.params[0].tone_mapping_flag);
+    assert(cb1_hdr10plus_vsif(packet,&out,false,true)==CB1_HDR10PLUS_OK);
+    assert(packet[7]==126 && out.params[0].num_bezier_curve_anchors>0);
     void *saved=av_memdup(m,bytes);assert(saved);
     neutral_vectors(m,bytes,&s);
     memcpy(m,saved,bytes);av_free(saved);
     AVDynamicHDRPlus old=out;s.histogram[0]++;
     assert(!cb1_dv_hdr10plus_metadata(&out,&r,m,bytes,&s));assert(!memcmp(&out,&old,sizeof(out)));
-    /* Descriptive metadata keeps its target even when no curve is available. */
+    /* No curve: transmit the distribution without a display target. */
     m->num_ext_blocks=0;
     s=(struct cb1_hdr10plus_statistics){.count=10000,.histogram={[0]=10000}};
     assert(cb1_dv_hdr10plus_metadata(&out,&r,m,bytes,&s));
-    assert(out.targeted_system_display_maximum_luminance.num==992);
+    assert(out.targeted_system_display_maximum_luminance.num==0);
     assert(!out.params[0].tone_mapping_flag && r.reason==CB1_DV_HDR10PLUS_NO_ANALYSIS);
     assert(cb1_hdr10plus_vsif(packet,&out,false,true)==CB1_HDR10PLUS_OK);
-    assert(packet[7]==126 && packet[8]==0 && packet[10]==0 && packet[11]==255);
+    assert(packet[7]==64 && packet[8]==0 && packet[10]==0 && packet[11]==255);
     uint8_t black[31];memcpy(black,packet,sizeof(black));
     assert(cb1_dv_hdr10plus_metadata(&out,&r,m,bytes,&s));
     assert(cb1_hdr10plus_vsif(packet,&out,false,true)==CB1_HDR10PLUS_OK);
@@ -179,7 +181,7 @@ int main(void)
      * exactly the measured packet. Never invent per-frame packet changes. */
     s=(struct cb1_hdr10plus_statistics){.maxscl={272,24,4},.average_maxrgb=50.88,
         .count=10000,.histogram={[2]=6000,[3]=3300,[13]=500,[17]=200}};
-    const uint8_t reported[31]={0x81,1,0x1b,0xda,0x8b,0x84,0x90,0x7e,3,2,0,255,
+    const uint8_t reported[31]={0x81,1,0x1b,0x18,0x8b,0x84,0x90,0x40,3,2,0,255,
         2,2,3,3,13,17,[30]=0x40};
     assert(cb1_dv_hdr10plus_metadata(&out,&r,m,bytes,&s));
     assert(cb1_hdr10plus_vsif(packet,&out,false,true)==CB1_HDR10PLUS_OK);

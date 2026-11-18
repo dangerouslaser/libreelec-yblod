@@ -1,5 +1,6 @@
 /* YBLOD's own HDR10+ glue (yblod-engine/src/yblod_hdr10plus.c): the engine's
- * statistics record to CB1's statistics, the packet from a record, and
+ * statistics record to CB1's statistics, the packet from a record and CB1's
+ * scene, and
  * HDR10+ -> Dolby Vision metadata (the plan is checked in src/hdr10plus.rs).
  * SPDX-License-Identifier: GPL-2.0-or-later */
 #include <assert.h>
@@ -39,6 +40,12 @@ static void record(uint32_t w[YB_HDR10PLUS_STATS_WORDS], const double maxscl[3],
     w[259] = (uint32_t)sum;
     w[260] = (uint32_t)(sum >> 32);
     w[261] = count;
+    /* grey pixels: the luminance is the maxRGB light */
+    for (unsigned i = 0; i < n; i++) {
+        w[262 + bins[i]] = counts[i];
+        if (bins[i] * 16 <= 100)
+            w[518] += counts[i];
+    }
 }
 
 static void statistics(void)
@@ -55,6 +62,17 @@ static void statistics(void)
     assert(fabs(s.average_maxrgb - 1240) < 1e-9);
     for (unsigned c = 0; c < 3; c++)
         assert(fabs(s.maxscl[c] - maxscl[c]) / maxscl[c] < 1e-5);
+    /* luminance: the 99.99th percentile's bin (16 nits), the share at or
+     * below 100 nits */
+    assert(s.luminance_valid && s.y99_nits == 4000 && s.y100_percent == 25);
+    w[262 + 250] = 0;
+    w[262 + 10] += 512;
+    assert(!yb_hdr10plus_statistics(w, &s) && s.y99_nits == 800);
+    w[262]++;   /* the luminance histogram counts every pixel once */
+    assert(yb_hdr10plus_statistics(w, &s));
+    w[262]--;
+    w[518] = 2049;
+    assert(yb_hdr10plus_statistics(w, &s));
     const uint32_t big[1] = {255};
     const uint32_t many[1] = {4000000};
     const double peak[3] = {4000, 4000, 4000};
@@ -90,28 +108,98 @@ static void packet(void)
     const double maxscl[3] = {992, 992, 992};
     const uint32_t bins[3] = {0, 10, 62}, counts[3] = {9500, 400, 100};
     record(w, maxscl, 100, 10000, bins, counts, 3);
+    struct cb1_hdr10plus_analysis *scene = cb1_hdr10plus_analysis_create_scene();
+    assert(scene);
+    uint64_t picture = 1;
+#define PACKET(flags, overlay, out) yb_hdr10plus_packet(scene, 1, picture++, m, bytes, m, bytes, w, flags, overlay, out)
     dvvk_hdr10plus_metadata p, q;
     memset(&p, 0xa5, sizeof(p));
-    assert(yb_hdr10plus_packet(m, bytes, w, DVVK_HDR10PLUS_V1 | DVVK_HDR10PLUS_NO_DELAY, 0, &p) == 0);
+    assert(PACKET(DVVK_HDR10PLUS_V1 | DVVK_HDR10PLUS_NO_DELAY, 0, &p) == 0);
     assert(p.coverage == 1 && p.reason == 0 && p.application_version == 1 && p.pixels == 10000);
     assert(p.vsif[0] == 0x81 && p.vsif[1] == 1 && p.vsif[2] == 27 && p.vsif[4] == 0x8b && p.vsif[5] == 0x84 &&
-           p.vsif[6] == 0x90 && (p.vsif[7] >> 6) == 1 && p.vsif[30] == 0x40);
+           p.vsif[6] == 0x90 && p.vsif[7] == 126 && p.vsif[30] == 0x40);
+    /* version 1's luminance: 99.99th percentile 992 nits, 95 % at or below 100 */
+    assert(p.vsif[10] == 62 && p.vsif[11] == 95);
     unsigned sum = 0;
     for (unsigned i = 0; i < 31; i++)
         sum += p.vsif[i];
     assert(!(sum & 255));
     /* tone_mapping_flag set: a knee/anchor count in byte 18 */
     assert(p.vsif[18] >> 4);
-    /* the overlay flag and version 0 */
-    assert(yb_hdr10plus_packet(m, bytes, w, 0, 1, &q) == 0);
+    /* the overlay flag and version 0, which has no luminance: its percentiles
+     * are maxRGB's whatever the luminance */
+    assert(PACKET(0, 1, &q) == 0);
     assert((q.vsif[7] >> 6) == 0 && q.vsif[30] == 0x80 && q.application_version == 0);
-    /* no L1: statistics only, still a packet */
+    w[262 + 62] -= 100;
+    w[262] += 100;
+    w[518] += 100;
+    dvvk_hdr10plus_metadata v0;
+    assert(PACKET(0, 1, &v0) == 0 && !memcmp(v0.vsif, q.vsif, 31));
+    record(w, maxscl, 100, 10000, bins, counts, 3);
+    /* no L1: statistics only, still a packet, without a target display */
     m->num_ext_blocks = 0;
-    assert(yb_hdr10plus_packet(m, bytes, w, DVVK_HDR10PLUS_V1, 0, &q) == 0);
-    assert(q.coverage == 0 && q.reason == 1 && !(q.vsif[18] >> 4));
+    assert(PACKET(DVVK_HDR10PLUS_V1, 0, &q) == 0);
+    assert(q.coverage == 0 && q.reason == 1 && !(q.vsif[18] >> 4) && q.vsif[7] == 64);
     /* no pixels measured: HDR10 */
     memset(w, 0, sizeof(w));
-    assert(yb_hdr10plus_packet(m, bytes, w, DVVK_HDR10PLUS_V1, 0, &q) == DVVK_HDR10PLUS_FALLBACK);
+    assert(PACKET(DVVK_HDR10PLUS_V1, 0, &q) == DVVK_HDR10PLUS_FALLBACK);
+#undef PACKET
+    cb1_hdr10plus_analysis_destroy(&scene);
+    av_free(m);
+}
+
+/* CB1's scene through the packets: the 99.99th percentile the scene's
+ * largest, the share at or below 100 nits its mean, from the picture after
+ * a scene refresh, a missing picture or a reset (another stream). */
+static void scene(void)
+{
+    size_t bytes;
+    AVDOVIMetadata *m = av_dovi_metadata_alloc(&bytes);
+    av_dovi_get_header(m)->disable_residual_flag = 1;
+    AVDOVIColorMetadata *c = av_dovi_get_color(m);
+    c->signal_eotf = 65535;
+    c->source_max_pq = 4095;
+    m->num_ext_blocks = 1;
+    *av_dovi_get_ext(m, 0) = (AVDOVIDmData){.level = 1, .l1 = {0, 3076, 1700}};
+    const double maxscl[3] = {992, 992, 992};
+    const uint32_t bins[3] = {0, 10, 62}, counts[3] = {9500, 400, 100}, black = 0, all = 10000;
+    uint32_t a[YB_HDR10PLUS_STATS_WORDS], b[YB_HDR10PLUS_STATS_WORDS];
+    record(a, maxscl, 100, 10000, bins, counts, 3);   /* 992 nits, 95 % */
+    const double dark[3] = {0, 0, 0};
+    record(b, dark, 0, 10000, &black, &all, 1);   /* 0 nits, 100 % */
+    struct cb1_hdr10plus_analysis *s = cb1_hdr10plus_analysis_create_scene();
+    dvvk_hdr10plus_metadata p;
+    const uint32_t v1 = DVVK_HDR10PLUS_V1;
+#define LUMINANCE(stream, picture, words, flags, y99, y100)                                                        \
+    do {                                                                                                            \
+        assert(yb_hdr10plus_packet(s, stream, picture, m, bytes, m, bytes, words, flags, 0, &p) == 0);          \
+        assert(p.vsif[10] == (y99) && p.vsif[11] == (y100));                                                      \
+    } while (0)
+    LUMINANCE(1, 1, a, v1, 62, 95);
+    LUMINANCE(1, 2, b, v1, 62, 98);   /* 992 the scene's; (95 + 100) / 2 */
+    LUMINANCE(1, 2, b, v1, 62, 98);   /* the same picture again */
+    c->scene_refresh_flag = 1;
+    LUMINANCE(1, 3, b, v1, 0, 100);
+    c->scene_refresh_flag = 0;
+    LUMINANCE(1, 4, a, v1, 62, 98);
+    LUMINANCE(1, 6, b, v1, 0, 100);   /* picture 5 missing */
+    LUMINANCE(2, 7, a, v1, 62, 95);   /* a reset */
+    /* version 0 ends the scene (CB1 measures no luminance for it) */
+    assert(yb_hdr10plus_packet(s, 2, 8, m, bytes, m, bytes, b, 0, 0, &p) == 0);
+    LUMINANCE(2, 9, b, v1, 0, 100);
+    /* the picture measured is the scene's, the frame's own RPU is the packet's */
+    c->scene_refresh_flag = 1;
+    size_t other_bytes;
+    AVDOVIMetadata *other = av_dovi_metadata_alloc(&other_bytes);
+    memcpy(other, m, bytes);
+    av_dovi_get_color(other)->scene_refresh_flag = 0;
+    assert(yb_hdr10plus_packet(s, 2, 10, other, bytes, m, bytes, a, v1, 0, &p) == 0);
+    assert(p.vsif[10] == 62 && p.vsif[11] == 98);
+    assert(yb_hdr10plus_packet(s, 2, 11, m, bytes, other, bytes, b, v1, 0, &p) == 0);
+    assert(p.vsif[10] == 0 && p.vsif[11] == 100);
+#undef LUMINANCE
+    av_free(other);
+    cb1_hdr10plus_analysis_destroy(&s);
     av_free(m);
 }
 
@@ -236,6 +324,7 @@ int yb_test_yblod(void)
 {
     statistics();
     packet();
+    scene();
     to_dovi();
     return 0;
 }
