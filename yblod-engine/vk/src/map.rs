@@ -1,6 +1,7 @@
 //! The output colour mapping (include/dvvk_map.h, docs/hdr10-output.md): the
-//! output mode the caller set (HDR10, HDR10+ or SDR), and its per-frame plan
-//! from yblod/dv_map.c.
+//! output mode the caller set (HDR10, HDR10+, SDR, or a display-targeted
+//! one: HDR10 Rendering Reference, LLDV), and its per-frame plan from
+//! yblod/dv_map.c.
 
 use std::mem::{offset_of, size_of};
 
@@ -8,6 +9,10 @@ pub const DVVK_OUTPUT_DV: u32 = 0;
 pub const DVVK_OUTPUT_HDR10: u32 = 1;
 pub const DVVK_OUTPUT_HDR10PLUS: u32 = 2;
 pub const DVVK_OUTPUT_SDR: u32 = 3;
+pub const DVVK_OUTPUT_LLDV: u32 = 4;
+/// dvvk_output_mode.flags of the display-targeted outputs: DVVK_HDR10_TARGET
+/// (HDR10), DVVK_LLDV_10BIT (LLDV); dvvk_target_flags.
+pub const TARGET_FLAGS: u32 = 1;
 /// dvvk_output_mode.flags an SDR output takes (DVVK_SDR_*: gamma 2.2,
 /// limited range, no dither, an HLG source; CB1's targets: a pure power,
 /// the black as given, BT.2020).
@@ -40,9 +45,13 @@ pub const TABLE_WORDS: usize = 64 * 64 + 2 * 48 * 32 * 256;
 /// The gamut LUT in the tables: its first word, and its points (I, C, h).
 pub const GAMUT_AT: usize = 64 * 64;
 pub const GAMUT_SIZE: [u32; 3] = [48, 32, 256];
-/// dvvk_map_gpu.flags: DVVK_MAP_SDR, DVVK_MAP_HLG.
+/// dvvk_map_gpu.flags: DVVK_MAP_SDR, DVVK_MAP_GAMUT, DVVK_MAP_HLG,
+/// DVVK_MAP_EXPERT, DVVK_MAP_LLDV.
 const MAP_SDR: u32 = 4;
+const MAP_GAMUT: u32 = 8;
 const MAP_HLG: u32 = 32;
+const MAP_EXPERT: u32 = 256;
+const MAP_LLDV: u32 = 512;
 
 /// include/dv_engine_vk.h dvvk_output_mode.
 #[repr(C)]
@@ -53,6 +62,44 @@ pub struct OutputMode {
     pub peak_nits: f32,
     pub min_nits: f32,
     pub reserved: [u32; 4],
+}
+
+/// include/dv_engine_vk.h dvvk_display_primaries: an LLDV display's own.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct DisplayPrimaries {
+    pub edid_version: u32,
+    pub xy: [[f32; 2]; 3],
+    pub reserved: [u32; 3],
+}
+
+/// include/dv_engine_vk.h dvvk_lldv_display: a display's LLDV target from
+/// its Dolby Vision VSVDB (yblod/lldv_vsvdb.c).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct LldvDisplay {
+    pub status: u32,
+    pub version: u32,
+    pub flags: u32,
+    pub pad: u32,
+    pub peak_nits: f64,
+    pub min_nits: f64,
+    pub primaries: [[f64; 2]; 3],
+    pub reported: [[f64; 2]; 3],
+    pub reserved: [u32; 4],
+}
+
+extern "C" {
+    fn dvvk_lldv_vsvdb(block: *const u8, size: usize, out: *mut LldvDisplay) -> i32;
+}
+
+/// dvvk_lldv_display_from_vsvdb: 0 and the target, -2 none (status says
+/// why), -1 NULL.
+///
+/// # Safety
+/// `block` is `size` readable bytes (or NULL), `out` writable (or NULL).
+pub unsafe fn lldv_display(block: *const u8, size: usize, out: *mut LldvDisplay) -> i32 {
+    dvvk_lldv_vsvdb(block, size, out)
 }
 
 /// include/dv_engine_vk.h dvvk_hdr_signal.
@@ -70,11 +117,14 @@ pub struct HdrSignal {
     pub reserved: [u32; 4],
 }
 
-/// include/dvvk_map.h dvvk_map_gpu: the GPU's parameters, as bytes.
+/// include/dvvk_map.h dvvk_map_gpu: the GPU's parameters, as bytes (the
+/// display-targeted outputs' fields from GPU_EXPERT on).
+pub const GPU_BYTES: usize = 18592;
+pub const GPU_EXPERT: usize = 1504;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct MapGpu {
-    pub bytes: [u8; 1504],
+    pub bytes: [u8; GPU_BYTES],
 }
 
 /// include/dvvk_map.h dvvk_map.
@@ -92,26 +142,48 @@ pub struct Map {
 
 const _: () = {
     assert!(size_of::<OutputMode>() == 32);
+    assert!(size_of::<DisplayPrimaries>() == 40);
+    assert!(size_of::<LldvDisplay>() == 144);
+    assert!(offset_of!(LldvDisplay, peak_nits) == 16);
+    assert!(offset_of!(LldvDisplay, reported) == 80);
     assert!(size_of::<HdrSignal>() == 48);
     assert!(offset_of!(HdrSignal, max_luminance) == 24);
-    assert!(size_of::<MapGpu>() == 1504);
-    assert!(offset_of!(Map, key) == 1504);
-    assert!(offset_of!(Map, signal) == 1512);
-    assert!(offset_of!(Map, gamut_prim) == 1560);
-    assert!(offset_of!(Map, gamut_key) == 1632);
-    assert!(size_of::<Map>() == 1640);
+    assert!(size_of::<MapGpu>() == GPU_BYTES);
+    assert!(offset_of!(Map, key) == GPU_BYTES);
+    assert!(offset_of!(Map, signal) == GPU_BYTES + 8);
+    assert!(offset_of!(Map, gamut_prim) == GPU_BYTES + 56);
+    assert!(offset_of!(Map, gamut_key) == GPU_BYTES + 128);
+    assert!(size_of::<Map>() == GPU_BYTES + 136);
 };
 
 extern "C" {
-    fn dvvk_map_plan(mode: *const OutputMode, metadata: *const u8, size: usize, out: *mut Map) -> i32;
+    fn dvvk_map_plan_display(
+        mode: *const OutputMode,
+        display: *const DisplayPrimaries,
+        metadata: *const u8,
+        size: usize,
+        out: *mut Map,
+    ) -> i32;
+    fn dvvk_map_target_valid(mode: *const OutputMode, display: *const DisplayPrimaries) -> i32;
     fn dvvk_map_tables(map: *const Map, tables: *mut u32);
     fn dvvk_map_set_black(gpu: *mut MapGpu, tables: *const u32, black: *const u32);
 }
 
 /// Whether dvvk_set_output_mode takes `mode` (dv_map.c's sdr_display for
-/// SDR: a frame's plan would refuse the rest one by one).
+/// SDR: a frame's plan would refuse the rest one by one), with no display
+/// primaries set.
 pub fn mode_supported(mode: &OutputMode) -> bool {
+    mode_supported_with(mode, &DisplayPrimaries::default())
+}
+
+/// The same with an LLDV display's primaries: the display-targeted modes
+/// are a display CB1's policy takes (dvbridge_policy_validate, through
+/// dv_map.c; the black's bound depends on the VSVDB's version).
+pub fn mode_supported_with(mode: &OutputMode, display: &DisplayPrimaries) -> bool {
     match mode.mode {
+        DVVK_OUTPUT_HDR10 | DVVK_OUTPUT_LLDV if mode.mode == DVVK_OUTPUT_LLDV || mode.flags != 0 => {
+            unsafe { dvvk_map_target_valid(mode, display) == 1 }
+        }
         DVVK_OUTPUT_DV | DVVK_OUTPUT_HDR10 | DVVK_OUTPUT_HDR10PLUS => {
             mode.flags == 0 && mode.peak_nits == 0.0 && mode.min_nits == 0.0
         }
@@ -150,6 +222,22 @@ impl Map {
         self.flags() & MAP_HLG != 0
     }
 
+    /// A display-targeted output (CB1's Expert recipe): its own pipelines.
+    pub fn expert(&self) -> bool {
+        self.flags() & MAP_EXPERT != 0
+    }
+
+    /// ... and LLDV's (its pack, its overlay after the map).
+    pub fn lldv(&self) -> bool {
+        self.flags() & MAP_LLDV != 0
+    }
+
+    /// The tables (dither, gamut LUT) the map reads: SDR's, and an Expert
+    /// output's that maps the gamut.
+    pub fn needs_tables(&self) -> bool {
+        self.sdr() || (self.expert() && self.flags() & MAP_GAMUT != 0)
+    }
+
     /// SDR output's tables (TABLE_WORDS words) for this mapping: when
     /// gamut_key changes (tens of milliseconds).
     pub fn tables(&self, words: &mut [u32]) {
@@ -158,9 +246,9 @@ impl Map {
     }
 
     /// The stream's black (12-bit Y, Cb, Cr) and its exact output codes.
-    /// `tables`: SDR output's (current for this mapping), else unused.
+    /// `tables`: the map's (current for this mapping) where it reads them.
     pub fn set_black(&mut self, black: [u32; 3], tables: Option<&[u32]>) {
-        assert!(tables.is_some_and(|t| t.len() >= TABLE_WORDS) || !self.sdr());
+        assert!(tables.is_some_and(|t| t.len() >= TABLE_WORDS) || !self.needs_tables());
         let tables = tables.map_or(std::ptr::null(), |t| t.as_ptr());
         unsafe { dvvk_map_set_black(&mut self.gpu, tables, black.as_ptr()) };
     }
@@ -183,9 +271,10 @@ impl Map {
     }
 
     /// The frame's mapping: Ok(map), or the frame refused (dv_status).
-    pub fn plan(mode: &OutputMode, metadata: &[u8]) -> Result<Box<Map>, i32> {
+    /// `display`: an LLDV display's own primaries (version 0: none).
+    pub fn plan(mode: &OutputMode, display: &DisplayPrimaries, metadata: &[u8]) -> Result<Box<Map>, i32> {
         let mut out = Box::new(Map {
-            gpu: MapGpu { bytes: [0; 1504] },
+            gpu: MapGpu { bytes: [0; GPU_BYTES] },
             key: 0,
             signal: HdrSignal::default(),
             gamut_prim: [[0.0; 8]; 2],
@@ -194,12 +283,12 @@ impl Map {
         });
         // AVDOVIMetadata is read in place: it must be aligned as ffmpeg allocates it.
         let r = if metadata.as_ptr() as usize % 8 == 0 {
-            unsafe { dvvk_map_plan(mode, metadata.as_ptr(), metadata.len(), &mut *out) }
+            unsafe { dvvk_map_plan_display(mode, display, metadata.as_ptr(), metadata.len(), &mut *out) }
         } else {
             let mut copy = vec![0u64; metadata.len().div_ceil(8)];
             let bytes = unsafe { std::slice::from_raw_parts_mut(copy.as_mut_ptr() as *mut u8, metadata.len()) };
             bytes.copy_from_slice(metadata);
-            unsafe { dvvk_map_plan(mode, copy.as_ptr() as *const u8, metadata.len(), &mut *out) }
+            unsafe { dvvk_map_plan_display(mode, display, copy.as_ptr() as *const u8, metadata.len(), &mut *out) }
         };
         if r == 0 {
             Ok(out)
@@ -282,7 +371,7 @@ mod tests {
         ];
         for (mode, ok) in cases {
             assert_eq!(mode_supported(&mode), ok, "{mode:?}");
-            assert_eq!(Map::plan(&mode, bytes(&md)).is_ok(), ok, "the planner on {mode:?}");
+            assert_eq!(Map::plan(&mode, &DisplayPrimaries::default(), bytes(&md)).is_ok(), ok, "the planner on {mode:?}");
         }
     }
 
@@ -294,7 +383,7 @@ mod tests {
     #[test]
     fn sdr_targets_plan() {
         let md = metadata();
-        let plan = |m: OutputMode| Map::plan(&m, bytes(&md)).unwrap();
+        let plan = |m: OutputMode| Map::plan(&m, &DisplayPrimaries::default(), bytes(&md)).unwrap();
         let trc = |m: &Map| [1424, 1428, 1432, 1436].map(|at| f32_at(m, at));
         let flags = |m: &Map| u32::from_le_bytes(m.gpu.bytes[336..340].try_into().unwrap());
         // Reference: 100 cd/m2, gamma 2.4, black 0 (light 1 = 10000 cd/m2)
@@ -332,5 +421,101 @@ mod tests {
         assert_eq!(flags(&wide) & !8, flags(&reference) & !8 | 64);
         assert_ne!(wide.gpu.bytes[160..208], reference.gpu.bytes[160..208]);
         assert_eq!(trc(&wide), trc(&reference));
+    }
+
+    fn target(mode: u32, flags: u32, peak_nits: f32, min_nits: f32, gamut: u32) -> OutputMode {
+        OutputMode { mode, flags, peak_nits, min_nits, reserved: [gamut, 0, 0, 0] }
+    }
+
+    /// The display-targeted modes take the displays CB1's policy takes
+    /// (dvbridge_policy_validate: peak 50 to 10000, the black's bound by the
+    /// VSVDB's version) and nothing else; plain HDR10 as before.
+    #[test]
+    fn target_modes_validated() {
+        let none = DisplayPrimaries::default();
+        let v = |edid_version| DisplayPrimaries {
+            edid_version,
+            xy: [[0.68, 0.32], [0.265, 0.69], [0.15, 0.06]],
+            reserved: [0; 3],
+        };
+        let (h, l) = (DVVK_OUTPUT_HDR10, DVVK_OUTPUT_LLDV);
+        let cases = [
+            // plain HDR10: no display
+            (target(h, 0, 0.0, 0.0, 0), none, true),
+            (target(h, 0, 1000.0, 0.0, 0), none, false),
+            // HDR10 Rendering Reference
+            (target(h, 1, 1000.0, 0.0, 0), none, true),
+            (target(h, 1, 50.0, 0.0, 1), none, true),
+            (target(h, 1, 10000.0, 0.5, 3), none, true),
+            (target(h, 1, 49.9, 0.0, 0), none, false),
+            (target(h, 1, 10000.5, 0.0, 0), none, false),
+            (target(h, 1, 1000.0, 0.51, 0), none, false),
+            (target(h, 1, 1000.0, -0.01, 0), none, false),
+            (target(h, 1, f32::NAN, 0.0, 0), none, false),
+            (target(h, 1, 1000.0, 0.0, 4), none, false),
+            (target(h, 3, 1000.0, 0.0, 0), none, false),
+            (OutputMode { reserved: [0, 0, 1, 0], ..target(h, 1, 1000.0, 0.0, 0) }, none, false),
+            // LLDV: without primaries the black up to 0.5, a version 1 block 1, version 2 1.029
+            (target(l, 0, 600.0, 0.0, 0), none, true),
+            (target(l, 1, 600.0, 0.5, 0), none, true),
+            (target(l, 0, 600.0, 0.8, 0), none, false),
+            (target(l, 0, 600.0, 0.8, 0), v(1), true),
+            (target(l, 0, 600.0, 1.02, 0), v(1), false),
+            (target(l, 0, 600.0, 1.02, 0), v(2), true),
+            (target(l, 0, 600.0, 1.03, 0), v(2), false),
+            (target(l, 0, 600.0, 0.0, 0), v(3), false),
+            (target(l, 2, 600.0, 0.0, 0), none, false),
+            (target(l, 0, 40.0, 0.0, 0), none, false),
+            (target(l, 0, 600.0, 0.0, 0), DisplayPrimaries { xy: [[0.0, 0.32], [0.265, 0.69], [0.15, 0.06]], ..v(2) }, false),
+            (target(l, 0, 600.0, 0.0, 0), DisplayPrimaries { reserved: [1, 0, 0], ..v(2) }, false),
+        ];
+        let md = metadata();
+        for (mode, display, ok) in cases {
+            assert_eq!(mode_supported_with(&mode, &display), ok, "{mode:?} {display:?}");
+            assert_eq!(Map::plan(&mode, &display, bytes(&md)).is_ok(), ok, "the planner on {mode:?} {display:?}");
+        }
+    }
+
+    /// What a player signals: LLDV its display, its useful bits, no
+    /// InfoFrame; HDR10 Rendering Reference the virtual target's static
+    /// metadata; plain HDR10 the film's, as before.
+    #[test]
+    fn target_signals() {
+        let md = metadata();
+        let none = DisplayPrimaries::default();
+        let plan = |m: OutputMode, d: &DisplayPrimaries| Map::plan(&m, d, bytes(&md)).unwrap();
+        let plain = plan(target(DVVK_OUTPUT_HDR10, 0, 0.0, 0.0, 0), &none);
+        assert!(!plain.expert() && plain.signal.max_luminance == 1000);
+        let lldv = plan(target(DVVK_OUTPUT_LLDV, 0, 600.0, 0.0, 0), &none);
+        assert!(lldv.expert() && lldv.lldv());
+        let s = lldv.signal;
+        assert_eq!((s.mode, s.eotf, s.max_luminance, s.min_luminance, s.reserved[0]), (4, 2, 600, 0, 12));
+        assert_eq!(s.primaries, [[35400, 14600], [8500, 39850], [6550, 2300]]);
+        let ten = plan(target(DVVK_OUTPUT_LLDV, 1, 600.0, 0.005, 0), &none);
+        assert_eq!((ten.signal.min_luminance, ten.signal.reserved[0]), (50, 10));
+        let edid = DisplayPrimaries { edid_version: 2, xy: [[0.6758, 0.3203], [0.2539, 0.6836], [0.1442, 0.0516]], reserved: [0; 3] };
+        let own = plan(target(DVVK_OUTPUT_LLDV, 0, 774.87, 0.0, 0), &edid);
+        assert_eq!(own.signal.primaries[0], [33790, 16015]);
+        assert_eq!(own.signal.max_luminance, 775);
+        let hdr10 = plan(target(DVVK_OUTPUT_HDR10, 1, 1000.0, 0.005, 0), &none);
+        assert!(hdr10.expert() && !hdr10.lldv());
+        let s = hdr10.signal;
+        assert_eq!((s.mode, s.eotf, s.max_luminance, s.min_luminance, s.max_cll, s.max_fall), (1, 2, 1000, 50, 0, 0));
+        assert_eq!(s.primaries, [[34000, 16000], [13250, 34500], [7500, 3000]]);
+        let rec709 = plan(target(DVVK_OUTPUT_HDR10, 1, 100.0, 0.05, 1), &none);
+        assert_eq!(rec709.signal.primaries, [[32000, 16500], [15000, 30000], [7500, 3000]]);
+    }
+
+    /// dvvk_lldv_display_from_vsvdb through the Rust export: a version 2
+    /// block (yblod/tests/vsvdb.c has the rest)
+    #[test]
+    fn vsvdb_target() {
+        let v2 = [0xebu8, 0x01, 0x46, 0xd0, 0x00, 0x48, 0x03, 0x76, 0x82, 0x5e, 0x6d, 0x95];
+        let mut d = LldvDisplay::default();
+        assert_eq!(unsafe { crate::capi::dvvk_lldv_display_from_vsvdb(v2.as_ptr(), v2.len(), &mut d) }, 0);
+        assert_eq!((d.status, d.version), (0, 2));
+        assert!((d.peak_nits - 774.869).abs() < 1e-3 && d.min_nits == 0.0);
+        assert_eq!(unsafe { crate::capi::dvvk_lldv_display_from_vsvdb(v2.as_ptr(), 4, &mut d) }, -2);
+        assert_eq!(unsafe { crate::capi::dvvk_lldv_display_from_vsvdb(std::ptr::null(), 12, &mut d) }, -1);
     }
 }

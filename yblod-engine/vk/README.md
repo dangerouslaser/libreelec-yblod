@@ -297,6 +297,94 @@ engine, where CB1 runs it in Kodi's GL renderer on the reshaped Y'CbCr.
   one-code accuracy). RCAS costs about 1.35 ms more. At playback's 23.976
   Hz that is +3 ms of a 41.7 ms frame.
 
+**After 0.5.1: CB1's display-targeted outputs** (ABI 3 still; a new mode,
+flag values, `dvvk_output_mode`'s fields and `reserved[0]`, and the optional
+`dvvk_set_display_primaries`, `dvvk_target_flags` and
+`dvvk_lldv_display_from_vsvdb`; layouts and soname unchanged). CroqueMr's
+CB1 maps Dolby Vision to a stated display with one recipe, his "Expert"
+(`CB1/src/cb1_hdr10_expert.c`), behind two front ends; the engine has both:
+- *Player-led Dolby Vision* (`DVVK_OUTPUT_LLDV`, CB1's "LLDV Reference -
+  Native", `CB1-DVLLDV`): the picture mapped to the TV's own peak, black and
+  primaries (`peak_nits`, `min_nits`, `dvvk_set_display_primaries` with the
+  VSVDB's version; without them `reserved[DVVK_TARGET_GAMUT_WORD]`'s gamut,
+  BT.2020 by default) and sent as BT.2020 PQ Y'CbCr 4:2:2 limited range in
+  the HDR10 output's 12-bit carrier, 12 useful bits or 10
+  (`DVVK_LLDV_10BIT`). The TV shows it without mapping it again: the player
+  signals the Dolby VSIF with the low-latency bit, AVI 4:2:2 BT.2020
+  limited, and no HDR static metadata (this tree's kernel:
+  `DVBRIDGE_TUNNEL_FORMAT` "lldv"). `dvvk_output_signal`: mode 4, eotf 2,
+  the display's primaries and luminance, `reserved[0]` the useful bits.
+- *HDR10 Rendering Reference* (`DVVK_OUTPUT_HDR10 | DVVK_HDR10_TARGET`,
+  CB1's "LLDV Reference - HDR10 Output", `CB1-DVHDR10X`): the same map to a
+  display the user states (peak 50 to 10000 cd/m2, black 0 to 0.5: CB1's
+  OLED 0, LCD 0.005, projector 0.05; gamut BT.709, P3-D65 by default, or
+  BT.2020), sent as the HDR10 output is; `dvvk_output_signal` the virtual
+  target's static metadata (its primaries, max and min luminance, MaxCLL
+  and MaxFALL 0). A flag of the HDR10 mode, not a mode: carrier, signalling
+  and overlay are the HDR10 output's, only the map's target differs; plain
+  `DVVK_OUTPUT_HDR10` (flags 0, peaks 0) keeps its bytes.
+- *A display's target from its EDID*: `dvvk_lldv_display_from_vsvdb` turns
+  a raw Dolby Vision VSVDB (from its CTA header byte on) into peak, black,
+  primaries fitted inside BT.2020, version and capabilities (TV-led Dolby
+  Vision, 12-bit 4:2:2, 4:4:4 depths), or a status saying why there is none
+  (no low-latency 4:2:2, invalid primaries, outside BT.2020, ...): CB1's
+  Kodi `ReadLldvDisplay` and `dvbridge_parse_edid`, ported to C for one block
+  (`yblod/lldv_vsvdb.c`), for Kodi and mpv alike.
+
+The map: `yblod/dv_map.c` turns the mode into CB1's policy
+(`dvbridge_policy_validate` decides what is a display), runs his plan
+vendored unchanged (`cb1_player_led_prepare` / `cb1_hdr10_expert_prepare`:
+libplacebo's ST 2094-10 curve when the scene's L1 maximum is above the
+peak, else a clip, over PQ(black)..PQ(peak), 1024 or 4096 entries; L1 with
+L6 or the source peak as fallback; the L2 anchors' slope, offset and power
+bent into the curve by his 9918 libplacebo patch's fill, `yblod/placebo/
+cb1_expert_tone.c`; L8's CM4.0 controls through `player_led_trims`, LLDV
+only), then makes the decisions his shaders make: `pl_shader_color_map_ex`
+with an explicit curve (the fast path, or IPT, the curve on I with the hull
+desaturation, libplacebo's perceptual gamut map into the display's
+primaries), the EDID basis, his CM4 shader (`dvbridge_creative_cm4_shader`'s
+coefficients), `cb1_hdr10_expert_trim`'s chroma, saturation and cap; then
+the tail: `dvbridge_pack_player_led_422`'s matrix and scale (LLDV), or
+`reference_output`'s BT.2020 PQ adapter and the Expert ceiling (HDR10). The
+shaders (`shaders/common/dv_map.glsl` `map_expert`, under the constant
+`MAP_EXPERT`, so the other outputs' pipelines compile from their old code)
+compute the same in float, CB1's CM4 GLSL as he wrote it; the 3D LUT is
+HDR10's cube, checked at 19 points a cell, and an LLDV sample in a marked
+cell is computed in the pack (its pair's chroma needs the neighbour's
+sample, which `map_fixup`'s list doesn't carry). LLDV decodes as CB1's
+player-led path does (codes / 4096, the RPU's offsets as given, no clamp at
+1: the cube's top faces are marked); the HDR10 target as the HDR10 output.
+LLDV's pack: each pixel its pair's chroma, the overlay (the
+`dvvk_set_overlay` buffer alone, as for SDR) blended after the map in the
+display's linear light as `player_led_gui` does (Kodi's sRGB LUT, BT.709 to
+the display, 203 cd/m2 white; the texel as it is, which is premultiplied in
+Kodi's GUI buffer: CB1's player-led code, unlike his tunnel blend, doesn't
+divide by alpha, and neither does this), BT.2020 PQ, the pair's chroma the
+1-2-1 mean at its even pixel (left edge replicated), the codes on the
+carrier's grid. Black outside the active area (L5) in both, as CB1 masks
+it; an HDR10 target's overlay in the bars, blended before the map as the
+HDR10 output's, keeps its colour.
+
+Not done: CB1's optional CM2.9 -> CM4.0 append and L2 removal for
+player-led output (`player_led_options`, `cb1_cmv40.c`, not ported): an
+LLDV frame whose `dm_options` asks for them is refused (-2). The engine
+doesn't prepare the new pipelines in `dvvk-prepare`; the first frame of
+each output compiles them (about 0.3 s, then cached).
+
+Checks (UHD 770, Mesa 26.2.6): `tools/target-check.sh` with
+`tools/target.sha256` (as `sdr-check.sh`: each picture against
+`dvvk-map-test`'s double-precision map of the same reconstructed picture,
+`--output lldv`, `--target`, `--peak`, `--black`, `--gamut`, `--primaries`,
+`--edid-version`, `--bits`, and its hash for the GPU the file names);
+`tools/dvvk-lldv-oracle.c` (CB1's own AVX2 pack, `tools/cb1/cb1_lldv_cpu.c`,
+on the engine's linear picture, against the engine's pack definition and the
+GPU's bytes; not built by `tools.sh`); `cargo test` runs CB1's plan,
+continuity, policy and trim tests and YBLOD's VSVDB tests. `dvvk-bench`
+drives both outputs (`--output lldv`, `--target`, the same display options,
+and `--l8-target N`, which retargets a stream's L8 trims for a test).
+Accuracy and cost:
+[OUTPUT-MODES.md](../docs/intel-dv/OUTPUT-MODES.md#player-led-dolby-vision-and-hdr10-rendering-reference).
+
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
 headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus|sdr`,
 `--canvas W,H`, `--source hdr10|hlg`; SDR's `--white`, `--black`, `--gamma22`,

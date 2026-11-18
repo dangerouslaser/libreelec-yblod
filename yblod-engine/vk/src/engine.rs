@@ -669,6 +669,11 @@ const SDR_LAYER: u32 = 2;
 /// Added to either: the source is HLG (the shaders' MAP_SDR 2). Made on
 /// first use, never by the prepare run: an HLG video is rare.
 const SDR_HLG: u32 = 4;
+/// The display-targeted outputs' packs (the shaders' MAP_EXPERT 1 and 2,
+/// without MAP_SDR); LLDV with SDR_LAYER for its layer after the map. Made
+/// on first use.
+const EXPERT_HDR10: u32 = 8;
+const EXPERT_LLDV: u32 = 16;
 
 /// A variant's constants with MAP (HDR10 output) and STATS (HDR10+), or for
 /// SDR output (`sdr`: 0 not, SDR_PLAIN, SDR_LAYER). One place for the
@@ -677,14 +682,16 @@ const SDR_HLG: u32 = 4;
 /// SDR: nothing is added to them).
 fn pack_map_spec(o: &crate::options::EngineOptions, variant: PackVariant, stats: bool, sdr: u32) -> Vec<(u32, u32)> {
     let mut spec = pack_spec(o, variant);
-    if sdr & !SDR_HLG == SDR_LAYER {
+    if sdr & SDR_LAYER != 0 {
         for c in spec.iter_mut().filter(|c| c.0 == 2) {
             c.1 = 4;
         }
     }
     spec.push((8, map_spec(o)));
     spec.push((9, stats as u32));
-    if sdr != 0 {
+    if sdr & (EXPERT_HDR10 | EXPERT_LLDV) != 0 {
+        spec.push((20, if sdr & EXPERT_LLDV != 0 { 2 } else { 1 }));
+    } else if sdr != 0 {
         spec.push((10, if sdr & SDR_HLG != 0 { 2 } else { 1 }));
     }
     spec
@@ -1029,6 +1036,11 @@ pub struct Engine {
     // gamut they are for.
     map_sdr: Option<[Pipeline; 4]>,
     map_sdr_hlg: Option<[Pipeline; 4]>, // the same for an HLG source (MAP_SDR 2)
+    // The display-targeted outputs (made on their first frame): map_bake's
+    // passes and map_fixup with MAP_EXPERT 1 (HDR10 target) and 2 (LLDV), on
+    // HDR10's cube; LLDV's display primaries (dvvk_set_display_primaries)
+    map_expert: [Option<[Pipeline; 4]>; 2],
+    map_display: crate::map::DisplayPrimaries,
     // its own 3D LUT (map.rs SDR_LUT: over the codes, not a cube) and nodes
     map_sdr_lut: Option<(gpu::Lut3d, DeviceBuffer)>,
     map_tables: Option<HostBuffer>,
@@ -1412,7 +1424,11 @@ impl Engine {
                 error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_coeff: construction.keep(HostBuffer::new(&d, 128, vk::BufferUsageFlags::STORAGE_BUFFER)?),
                 gui_error: construction.keep(HostBuffer::new(&d, 16, vk::BufferUsageFlags::STORAGE_BUFFER)?),
-                map_params: construction.keep(HostBuffer::new(&d, 2048, vk::BufferUsageFlags::STORAGE_BUFFER)?),
+                map_params: construction.keep(HostBuffer::new(
+                    &d,
+                    crate::map::GPU_BYTES as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+                )?),
                 stats: construction.keep(HostBuffer::new(
                     &d,
                     (STATS_WORDS * 4).next_multiple_of(256) as u64,
@@ -1550,6 +1566,8 @@ impl Engine {
             pack_map,
             map_sdr,
             map_sdr_hlg: None,
+            map_expert: [None, None],
+            map_display: crate::map::DisplayPrimaries::default(),
             map_sdr_lut: None,
             map_tables: None,
             map_table_words: Vec::new(),
@@ -1967,15 +1985,21 @@ impl Engine {
         self.map.as_ref().is_some_and(|m| m.sdr())
     }
 
-    /// SDR output's overlay: the shell's layer, blended by the pack after
-    /// the map (submit refused any other overlay source).
+    /// LLDV output (the frame's mapping says so).
+    fn lldv(&self) -> bool {
+        self.map.as_ref().is_some_and(|m| m.lldv())
+    }
+
+    /// SDR and LLDV output's overlay: the shell's layer, blended by the pack
+    /// after the map (submit refused any other overlay source).
     fn sdr_layer(&self) -> bool {
-        self.sdr() && self.plan.overlay_visible != 0
+        (self.sdr() || self.lldv()) && self.plan.overlay_visible != 0
     }
 
     fn fused_overlay(&self) -> bool {
         !self.cb1_overlay()
             && !self.sdr()
+            && !self.lldv()
             && self.plan.overlay_visible != 0
             && self.sources_used
             && self.sources.shell().is_some()
@@ -2011,12 +2035,12 @@ impl Engine {
         pack_source(&self.route())
     }
 
-    /// The pack's overlay before the map. SDR output has none: its layer
-    /// comes after (sdr_layer).
+    /// The pack's overlay before the map. SDR and LLDV output have none:
+    /// their layer comes after (sdr_layer).
     fn pack_overlay(&self) -> u32 {
         if self.cb1_overlay() {
             3
-        } else if self.plan.overlay_visible == 0 || self.sdr() {
+        } else if self.plan.overlay_visible == 0 || self.sdr() || self.lldv() {
             0
         } else if self.fused_overlay() {
             2
@@ -2076,8 +2100,13 @@ impl Engine {
             (true, false) => SDR_PLAIN,
             (true, true) => SDR_LAYER,
         };
+        let expert = match self.map.as_ref() {
+            Some(m) if m.lldv() => EXPERT_LLDV | if self.sdr_layer() { SDR_LAYER } else { 0 },
+            Some(m) if m.expert() => EXPERT_HDR10,
+            _ => 0,
+        };
         let hlg = if self.map.as_ref().is_some_and(|m| m.hlg()) { SDR_HLG } else { 0 };
-        Self::pack_map_key(variant, self.stats(), sdr | hlg)
+        Self::pack_map_key(variant, self.stats(), sdr | hlg | expert)
     }
 
     /// SDR output's pipelines and tables, before a frame of it is recorded:
@@ -2136,6 +2165,13 @@ impl Engine {
             std::mem::replace(&mut self.map_cells, larger).destroy(&self.d);
             self.map_baked = None;
         }
+        self.ensure_tables(map)
+    }
+
+    /// The map's tables (map.rs TABLE_WORDS) and the gamut LUT the shaders
+    /// sample, made when the gamut they hold changes (SDR, and an Expert
+    /// output that maps the gamut).
+    fn ensure_tables(&mut self, map: &crate::map::Map) -> Result<()> {
         if self.map_gamut.is_none() {
             self.map_gamut = Some(gpu::Lut3d::new_sized(&self.d, crate::map::GAMUT_SIZE)?);
         }
@@ -2169,6 +2205,40 @@ impl Engine {
         })
     }
 
+    /// The display-targeted outputs' bake and fix-up (MAP_EXPERT 1 or 2), on
+    /// their first frame, and their tables when they map the gamut.
+    fn ensure_expert(&mut self, map: &crate::map::Map) -> Result<()> {
+        // the shaders' MAP_EXPERT: 1 HDR10 target, 2 LLDV
+        let kind = if map.lldv() { 2 } else { 1 };
+        if self.map_expert[kind as usize - 1].is_none() {
+            let storage = self.map_fixup.bindings.clone();
+            let start = std::time::Instant::now();
+            let mut made = Vec::new();
+            let result = (|| {
+                for pass in 0..3 {
+                    made.push(Pipeline::new_deferred(&self.d, "map_bake", &storage, 8, &[(0, pass), (2, kind)])?);
+                }
+                made.push(Pipeline::new_deferred(&self.d, "map_fixup", &storage, 8, &[(1, kind)])?);
+                Ok(())
+            })();
+            if let Err(e) = result {
+                for p in &made {
+                    p.destroy(&self.d);
+                }
+                return Err(e);
+            }
+            eprintln!("dvvk Expert bake and fix-up: creation_ms={:.1}", start.elapsed().as_secs_f64() * 1000.0);
+            let mut p = made.into_iter();
+            self.map_expert[kind as usize - 1] =
+                Some([p.next().unwrap(), p.next().unwrap(), p.next().unwrap(), p.next().unwrap()]);
+            self.d.save_pipeline_cache();
+        }
+        if map.needs_tables() {
+            self.ensure_tables(map)?;
+        }
+        Ok(())
+    }
+
     /// HDR10+ output: the pack measures the film (pack.comp STATS).
     fn stats(&self) -> bool {
         self.map.as_ref().is_some_and(|m| m.signal.mode == crate::map::DVVK_OUTPUT_HDR10PLUS)
@@ -2194,7 +2264,15 @@ impl Engine {
         let pipe = Pipeline::new_deferred(&self.d, "pack", &bindings, std::mem::size_of::<PackPush>() as u32, &spec)?;
         eprintln!(
             "dvvk {} pack: {variant:?} creation_ms={:.1}",
-            if key.3 != 0 { "SDR" } else { "HDR10" },
+            if key.3 & EXPERT_LLDV != 0 {
+                "LLDV"
+            } else if key.3 & EXPERT_HDR10 != 0 {
+                "HDR10 target"
+            } else if key.3 != 0 {
+                "SDR"
+            } else {
+                "HDR10"
+            },
             start.elapsed().as_secs_f64() * 1000.0
         );
         self.pack_map.insert(key, pipe);
@@ -2249,7 +2327,7 @@ impl Engine {
 
     /// dvvk_set_output_mode: from the next frame.
     pub fn set_output_mode(&mut self, mode: &crate::map::OutputMode) -> Result<()> {
-        if !crate::map::mode_supported(mode) {
+        if !crate::map::mode_supported_with(mode, &self.map_display) {
             return Err(Error::Unsupported(format!(
                 "output mode {} (flags {:#x}, {} .. {} cd/m2)",
                 mode.mode, mode.flags, mode.min_nits, mode.peak_nits
@@ -2257,6 +2335,26 @@ impl Engine {
         }
         if *mode != self.map_mode {
             self.map_mode = *mode;
+            self.map = None;
+            self.map_baked = None;
+        }
+        Ok(())
+    }
+
+    /// dvvk_set_display_primaries: an LLDV display's own (None or version 0:
+    /// none), from the next frame. Refused (the earlier ones kept) where CB1's
+    /// policy refuses them, alone or with the LLDV mode set.
+    pub fn set_display_primaries(&mut self, display: Option<&crate::map::DisplayPrimaries>) -> Result<()> {
+        let display = display.copied().unwrap_or_default();
+        let probe = crate::map::OutputMode { mode: crate::map::DVVK_OUTPUT_LLDV, peak_nits: 1000.0, ..Default::default() };
+        let lldv = self.map_mode.mode == crate::map::DVVK_OUTPUT_LLDV;
+        if !crate::map::mode_supported_with(&probe, &display)
+            || (lldv && !crate::map::mode_supported_with(&self.map_mode, &display))
+        {
+            return Err(Error::Unsupported(format!("display primaries {display:?}")));
+        }
+        if display != self.map_display {
+            self.map_display = display;
             self.map = None;
             self.map_baked = None;
         }
@@ -2521,13 +2619,22 @@ impl Engine {
         // Desktop frames (the film in a box) stay the tunnel's business.
         self.map = None;
         if self.map_mode.mode != crate::map::DVVK_OUTPUT_DV {
-            match crate::map::Map::plan(&self.map_mode, f.metadata) {
+            match crate::map::Map::plan(&self.map_mode, &self.map_display, f.metadata) {
+                // LLDV: CB1 applies its CM4.0 append and L2 removal to the
+                // player-led map's metadata; not implemented, so refused
+                // (the CM4 mode, bits 0-2, and DVVK_DM_NO_L2: what changes the metadata)
+                Ok(m) if m.lldv() && plan_in.dm_options & (7 | 1 << 12) != 0 => return Ok((-2, 0)),
                 Ok(mut m) => {
                     let black = [self.plan.black[0], self.plan.black[1], self.plan.black[2]];
                     if m.sdr() {
                         self.ensure_sdr(&m)?;
                         m.set_black(black, Some(&self.map_table_words));
                         m.set_list(crate::map::sdr_list());
+                    } else if m.expert() {
+                        self.ensure_expert(&m)?;
+                        m.set_black(black, m.needs_tables().then_some(&self.map_table_words[..]));
+                        m.set_lut_n(self.map_lut.n);
+                        m.set_list(self.map_list);
                     } else {
                         m.set_black(black, None);
                         m.set_lut_n(self.map_lut.n);
@@ -2565,7 +2672,7 @@ impl Engine {
         // combined subtitle sources on their existing paths. DVVK_OVERLAY_PREPARE
         // also retains the prepared blend.
         self.cb1 = None;
-        let native = !self.d.options.overlay_prepare && !self.sdr();
+        let native = !self.d.options.overlay_prepare && !self.sdr() && !self.lldv();
         if native
             && self.sources_used
             && plan_in.cb1_contract != 0
@@ -3123,14 +3230,15 @@ impl Engine {
             (Some((lut, _)), true) => lut.view,
             _ => self.map_lut.view,
         };
-        // SDR output's tables (any buffer for the pipelines that never read them)
-        let tables = match (&self.map_tables, sdr) {
+        // the map's tables (any buffer for the pipelines that never read them)
+        let with_tables = self.map.as_ref().is_some_and(|m| m.needs_tables());
+        let tables = match (&self.map_tables, with_tables) {
             (Some(t), true) => t.buffer,
             _ => slot.error,
         };
         // the gamut LUT: the tables' texels copied into it when they changed
         // (any 3D image for the pipelines that never sample it)
-        let gamut = match (self.map_gamut.as_mut(), sdr) {
+        let gamut = match (self.map_gamut.as_mut(), with_tables) {
             (Some(g), true) => {
                 if self.map_gamut_stale || !g.ready {
                     gpu::compute_barrier(d, cmd);
@@ -3142,10 +3250,20 @@ impl Engine {
             _ => self.map_lut.view,
         };
         let hlg = self.map.as_ref().is_some_and(|m| m.hlg());
-        let (map_bake, map_fixup) = match (if hlg { &self.map_sdr_hlg } else { &self.map_sdr }, sdr) {
-            (Some(p), true) => (&p[..3], &p[3]),
+        // the display-targeted outputs' (MAP_EXPERT 1, 2), else SDR's or HDR10's
+        let expert = match self.map.as_ref() {
+            Some(m) if m.expert() => Some(usize::from(m.lldv())),
+            _ => None,
+        };
+        let (map_bake, map_fixup) = match (if hlg { &self.map_sdr_hlg } else { &self.map_sdr }, sdr, expert) {
+            (_, _, Some(k)) => match &self.map_expert[k] {
+                Some(p) => (&p[..3], &p[3]),
+                // submit made them (ensure_expert) before such a frame got here
+                None => return Err(Error::Missing("the Expert bake pipelines")),
+            },
+            (Some(p), true, _) => (&p[..3], &p[3]),
             // submit made them (ensure_sdr) before a frame of SDR output got here
-            (None, true) => return Err(Error::Missing("the SDR bake pipelines")),
+            (None, true, _) => return Err(Error::Missing("the SDR bake pipelines")),
             _ => (&self.map_bake[..], &self.map_fixup),
         };
         if let Some(m) = self.map.as_ref() {
@@ -3193,7 +3311,8 @@ impl Engine {
         } else {
             self.map_lut.record_init(d, cmd);
         }
-        let fixup = mapped && map_spec(&self.d.options) == 1;
+        // (LLDV computes its marked samples in the pack: a pair needs its neighbour's)
+        let fixup = mapped && map_spec(&self.d.options) == 1 && expert != Some(1);
         if fixup {
             // map_fixup's list emptied (the last frame's fix-up read it)
             gpu::indirect_barrier(d, cmd);
@@ -4009,7 +4128,7 @@ impl Drop for Engine {
         for p in self.pack_map.values().chain(self.map_bake.iter()).chain(std::iter::once(&self.map_fixup)) {
             p.destroy(d);
         }
-        for p in self.map_sdr.iter().chain(self.map_sdr_hlg.iter()).flatten() {
+        for p in self.map_sdr.iter().chain(self.map_sdr_hlg.iter()).chain(self.map_expert.iter().flatten()).flatten() {
             p.destroy(d);
         }
         if let Some(t) = &self.map_tables {

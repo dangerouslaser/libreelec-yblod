@@ -17,6 +17,11 @@
 // MAP_SDR 2: SDR output of an HLG source (DVVK_MAP_HLG). A constant and not
 // the parameters' flag, so that the pipelines of PQ sources are compiled
 // from the code they had before there was HLG: their bytes stay.
+//
+// MAP_EXPERT (a specialization constant, id MAP_EXPERT_ID; with MAP_SDR 0):
+// CroqueMr's CB1 Expert recipe for a stated display (DVVK_MAP_EXPERT,
+// yblod/dv_map.c expert_display), 1 to HDR10 (DVVK_HDR10_TARGET), 2 to
+// LLDV (DVVK_OUTPUT_LLDV). Its own constant for the same reason as HLG's.
 struct DvMap {
     vec4 ycc[3];
     vec4 ycc_offset;
@@ -41,8 +46,39 @@ struct DvMap {
     vec2 lut_box;    // SDR: the LUT's domain in codes: luma 0 .. x, chroma 2048 -+ y
     vec4 src_trc;    // an HLG source: x the black lift, y gamma - 1, z the peak
     vec4 src_luma;
+    // Expert (dvvk_map.h ex_*; 1 = 203 cd/m2 linear light)
+    uint ex_flags;   // DVVK_EX_*
+    uint ex_lut_n;
+    uint ex_bits;
+    uint ex_pad;
+    vec4 ex_fast[3];
+    vec4 ex_basis[3];
+    vec4 ex_to_trim[3];
+    vec4 ex_from_trim[3];
+    vec4 ex_cm4_sop;
+    vec4 ex_cm4_shape;
+    vec4 ex_cm4_flags;
+    vec4 ex_cm4_luma;
+    vec4 ex_cm4_rgb_lms[3];   // columns, as CB1's mat3 uniforms
+    vec4 ex_cm4_lms_rgb[3];
+    vec4 ex_cm4_residual[3];
+    vec4 ex_cm4_centres[2];
+    vec4 ex_cm4_gains[2];
+    vec4 ex_cm4_turns[2];
+    vec4 ex_chroma;  // x, y: expert_chroma; z: expert_cap
+    vec4 ex_luma;
+    vec4 ex_out[3];
+    vec4 ex_scale;   // LLDV: x 203 / peak, y peak / 203; HDR10: z the PQ ceiling
+    vec4 ex_gui[3];
+    vec4 ex_out_inv[3];
+    float ex_tone_lut[4096];
 };
 layout(binding = MAP_PARAMS_BINDING, std430) readonly buffer MapParams { DvMap mp; };
+#ifdef MAP_EXPERT_ID
+layout(constant_id = MAP_EXPERT_ID) const uint MAP_EXPERT = 0u;
+#else
+const uint MAP_EXPERT = 0u;
+#endif
 #ifdef MAP_SDR_ID
 layout(constant_id = MAP_SDR_ID) const uint MAP_SDR = 0u;
 layout(binding = MAP_TABLES_BINDING, std430) readonly buffer MapTables { uint map_tables[]; };
@@ -75,6 +111,11 @@ vec3 map_pq_oetf(vec3 v)
 // (dvvk_map_nonlinear).
 vec3 map_nonlinear(vec3 codes)
 {
+#ifdef MAP_EXPERT_ID
+    // LLDV: CB1's player-led decode clamps at 0 only (dvvk_map_nonlinear)
+    if (MAP_EXPERT == 2u)
+        return max(map_m3(mp.ycc, codes * (1.0 / 4095.0)) + mp.ycc_offset.xyz, 0.0);
+#endif
 #ifdef MAP_SDR_ID
     if (MAP_SDR == 2u)
         return max(map_m3(mp.ycc, codes * (1.0 / 4095.0)) + mp.ycc_offset.xyz, 0.0);
@@ -179,6 +220,194 @@ vec3 map_sdr(vec3 lin)
     lin = map_m3(mp.lms2rgb, map_pq_eotf_sdr(map_m3(mp.ipt2lms, ipt)));
     return clamp(pow(max(mp.out_trc.x * lin + mp.out_trc.y, 0.0), vec3(mp.out_trc.z)) - mp.out_trc.w, 0.0, 1.0);
 }
+
+#ifdef MAP_EXPERT_ID
+// Expert's tone LUT (ex_lut_n entries over tone_in), as libplacebo samples it
+float map_ex_tone(float x)
+{
+    float t = clamp((x - mp.tone_in.x) * mp.tone_in.z, 0.0, 1.0) * float(mp.ex_lut_n - 1u);
+    uint i = min(uint(t), mp.ex_lut_n - 2u);
+    return mix(mp.ex_tone_lut[i], mp.ex_tone_lut[i + 1u], t - float(i));
+}
+
+// CB1's CM4.0 controls (dvbridge_render.c dvbridge_creative_cm4_shader), its
+// GLSL: the IPT and its inverse in difference form for a float's precision.
+// The secondary (six-vector) trims are neutral in the Expert plan: left out.
+vec3 cb1_cm4_log1p(vec3 x)
+{
+    vec3 v = x * (vec3(1.0) - x * (vec3(0.5) - x * (vec3(1.0 / 3.0) - x * (vec3(0.25) - x * (vec3(0.2) - x * (vec3(1.0 / 6.0) -
+             x * (vec3(1.0 / 7.0) - x / 8.0)))))));
+    if (all(lessThanEqual(abs(x), vec3(0.125))))
+        return v;
+    return mix(v, log(max(vec3(1.0) + x, vec3(1e-30))), greaterThan(abs(x), vec3(0.125)));
+}
+vec3 cb1_cm4_expm1(vec3 x)
+{
+    vec3 v = x * (vec3(1.0) + x * (vec3(0.5) + x * (vec3(1.0 / 6.0) + x * (vec3(1.0 / 24.0) + x * (vec3(1.0 / 120.0) +
+             x * (vec3(1.0 / 720.0) + x * (vec3(1.0 / 5040.0) + x / 40320.0)))))));
+    if (all(lessThanEqual(abs(x), vec3(0.25))))
+        return v;
+    return mix(v, exp(x) - vec3(1.0), greaterThan(abs(x), vec3(0.25)));
+}
+vec3 cb1_cm4_pq_u(vec3 n)
+{
+    vec3 v = pow(max(n, 0.0) / 10000.0, vec3(2610.0 / 16384.0));
+    return (21.0 / 128.0) * (vec3(1.0) - v) / fma(vec3(2392.0 / 128.0), v, vec3(1.0));
+}
+vec3 cb1_cm4_pq(vec3 n)
+{
+    vec3 u = cb1_cm4_pq_u(n);
+    return exp((2523.0 / 32.0) * cb1_cm4_log1p(-u));
+}
+vec3 cb1_cm4_ipt(vec3 rgb, out vec3 lms, out vec3 q, out vec3 u)
+{
+    lms = fma(mp.ex_cm4_rgb_lms[2].xyz, vec3(rgb.b), fma(mp.ex_cm4_rgb_lms[1].xyz, vec3(rgb.g), mp.ex_cm4_rgb_lms[0].xyz * rgb.r));
+    u = cb1_cm4_pq_u(lms);
+    float g = exp((2523.0 / 32.0) * cb1_cm4_log1p(vec3(-u.g)).x);
+    vec3 delta = g * cb1_cm4_expm1((2523.0 / 32.0) * cb1_cm4_log1p((vec3(u.g) - u) / (1.0 - u.g)));
+    q = vec3(g) + delta;
+    return vec3(g + 0.4 * delta.r + 0.2 * delta.b, 4.455 * delta.r + 0.396 * delta.b, 0.8056 * delta.r - 1.1628 * delta.b);
+}
+// Apply the colour delta around the input, not a large neutral RGB sum.
+vec3 cb1_cm4_rgb(vec3 rgb, vec2 change, vec3 n, vec3 q, vec3 w)
+{
+    vec3 d = vec3(dot(change, vec2(0.0975689, 0.205226)), dot(change, vec2(-0.113876, 0.133217)),
+                  dot(change, vec2(0.0326151, -0.676887)));
+    d += vec3(dot(q, vec3(-4.849e-7, -6.7e-9, 4.916e-7)), dot(q, vec3(2.0352e-6, -2.4116e-6, 3.764e-7)),
+              dot(q, vec3(1.033e-7, 1.135e-7, -2.168e-7)));
+    d = clamp(d, vec3(1e-30) - q, vec3(1.0) - q);
+    vec3 dw = -(vec3(1.0) - w) * cb1_cm4_expm1((32.0 / 2523.0) * cb1_cm4_log1p(d / q));
+    float a = 21.0 / 128.0, b = 2392.0 / 128.0;
+    vec3 delta = n * cb1_cm4_expm1((16384.0 / 2610.0) * (cb1_cm4_log1p(-dw / max(vec3(a) - w, vec3(1e-30))) -
+                                                       cb1_cm4_log1p(b * dw / (vec3(a) + b * w))));
+    mat3 residual = mat3(mp.ex_cm4_residual[0].xyz, mp.ex_cm4_residual[1].xyz, mp.ex_cm4_residual[2].xyz);
+    return fma(mp.ex_cm4_lms_rgb[2].xyz, vec3(delta.b), fma(mp.ex_cm4_lms_rgb[1].xyz, vec3(delta.g),
+               fma(mp.ex_cm4_lms_rgb[0].xyz, vec3(delta.r), rgb + residual * rgb)));
+}
+vec3 map_ex_cm4(vec3 colour)
+{
+    vec3 rgb = colour * 203.0;
+    float peak = mp.ex_cm4_sop.w;
+    vec4 sop = mp.ex_cm4_sop, shape = mp.ex_cm4_shape, flags = mp.ex_cm4_flags;
+    if (flags.x != 0.0) {
+        vec3 x = clamp(rgb / peak * sop.x + sop.y, 0.0, 1.0);
+        if (sop.z != 1.0)
+            x = pow(x, vec3(sop.z));
+        rgb = peak * x;
+    }
+    if (flags.y != 0.0 || flags.z != 0.0) {
+        bool gray = rgb.r == rgb.g && rgb.g == rgb.b;
+        if (flags.y != 0.0) {
+            float Y = gray ? rgb.r : dot(rgb, mp.ex_cm4_luma.xyz);
+            if (Y > 0.0) {
+                float x = clamp(Y / peak, 0.0, 1.0);
+                float a = pow(x, shape.x), b = pow(1.0 - x, shape.x), v = peak * a / (a + b);
+                rgb = gray ? vec3(v) : rgb * (v / Y);
+            }
+        }
+        if (flags.z != 0.0) {
+            float Y = gray ? rgb.r : dot(rgb, mp.ex_cm4_luma.xyz);
+            if (Y > 0.0) {
+                float x = clamp(Y / peak, 0.0, 1.0), t = clamp((x - 0.5) / 0.5, 0.0, 1.0);
+                float v = peak * clamp(x + shape.y * x * t * t * (3.0 - 2.0 * t), 0.0, 1.0);
+                rgb = gray ? vec3(v) : rgb * (v / Y);
+            }
+        }
+    }
+    if (flags.w != 0.0 && max(rgb.r, max(rgb.g, rgb.b)) - min(rgb.r, min(rgb.g, rgb.b)) > 1e-12) {
+        vec3 lms, q, u;
+        vec3 ipt = cb1_cm4_ipt(rgb, lms, q, u);
+        vec2 authored = ipt.yz;
+        if (length(ipt.yz) >= 1e-7) {
+            float z = clamp(ipt.x / cb1_cm4_pq(vec3(peak)).x, 0.0, 1.0);
+            float primary_log = log(2.0) * (shape.w + shape.z * (2.0 * z - 1.0));
+            // (no secondary trims: g 0, turn 0)
+            float gm = cb1_cm4_expm1(vec3(primary_log)).x;
+            vec2 change = vec2(gm * authored.x, gm * authored.y);
+            rgb = cb1_cm4_rgb(rgb, change, lms, q, u);
+        }
+    }
+    return rgb / 203.0;
+}
+
+// The display's linear light (1 = 203 cd/m2, its primaries) of a sample
+// before the output's tail (dv_map.c expert_display); black: signal black.
+vec3 map_ex_display(vec3 nl, out bool black)
+{
+    uint f = mp.ex_flags;
+    vec3 lin = max(map_m3(mp.src_lms2rgb, map_pq_eotf_sdr(nl)), 0.0) * (10000.0 / 203.0);
+    black = all(lessThanEqual(lin, vec3(0.0)));
+    if (black && (f & 64u) != 0u && (f & 128u) == 0u)
+        return vec3(0.0);
+    vec3 c;
+    if ((f & 2u) != 0u)
+        c = map_m3(mp.ex_fast, lin);
+    else {
+        vec3 ipt = map_m3(mp.lms2ipt, map_pq_oetf_sdr(map_m3(mp.rgb2lms, lin) * (203.0 / 10000.0)));
+        if ((f & 1u) != 0u) {
+            float i0 = ipt.x;
+            ipt.x = map_ex_tone(i0);
+            float h0 = ((i0 - 6.0) * i0 + 9.0) * i0, h1 = ((ipt.x - 6.0) * ipt.x + 9.0) * ipt.x;
+            ipt.yz *= ipt.x > 0.0 && h0 > 0.0 ? min(i0 / ipt.x, h1 / h0) : 0.0;
+        }
+        if ((mp.flags & 8u) != 0u)
+            ipt = map_gamut_lookup_exact(ipt);
+        c = map_m3(mp.lms2rgb, map_pq_eotf_sdr(map_m3(mp.ipt2lms, ipt)) * (10000.0 / 203.0));
+    }
+    if (black && (f & 128u) != 0u)
+        c = vec3(0.0);
+    if ((f & 4u) != 0u)
+        c = map_m3(mp.ex_basis, c);
+    if ((f & 8u) != 0u) {
+        if ((f & 16u) != 0u)
+            c = map_m3(mp.ex_to_trim, c);
+        c = map_ex_cm4(c);
+        if ((f & 16u) != 0u)
+            c = map_m3(mp.ex_from_trim, c);
+    }
+    // cb1_hdr10_expert_trim
+    float cap = mp.ex_chroma.z;
+    c = clamp(c, 0.0, cap);
+    if ((f & 32u) != 0u) {
+        float Y = dot(c, mp.ex_luma.xyz);
+        if (Y > 0.0)
+            for (int k = 0; k < 3; k++)
+                if (c[k] > 0.0)
+                    c[k] *= pow((1.0 + mp.ex_chroma.x) * c[k] / Y, mp.ex_chroma.y);
+        c = clamp(c, 0.0, cap);
+    }
+    return c;
+}
+
+// LLDV: the display's light (0..1 of its peak) to the carrier's BT.2020 PQ
+// R'G'B' (dvbridge_pack_player_led_422's lldv_matrix, clamp, scale, PQ)
+vec3 map_lldv_encode(vec3 v)
+{
+    return map_pq_oetf_sdr(clamp(map_m3(mp.ex_out, v), 0.0, 1.0) * (mp.ex_scale.y * (203.0 / 10000.0)));
+}
+
+// ... and back, for a sample the overlay is blended over (the display's
+// gamut inside BT.2020: lldv_matrix's clamp left it as it was)
+vec3 map_lldv_decode(vec3 rgb)
+{
+    return map_m3(mp.ex_out_inv, map_pq_eotf_sdr(rgb) * (10000.0 / 203.0 / mp.ex_scale.y));
+}
+
+// Expert: the nonlinear source to the output's BT.2020 PQ R'G'B' (LLDV's
+// before the overlay; HDR10's tail is reference_output's)
+vec3 map_expert(vec3 nl)
+{
+    bool black;
+    vec3 c = map_ex_display(nl, black);
+    if (MAP_EXPERT == 2u)
+        return map_lldv_encode(c * mp.ex_scale.x);
+    vec3 t = map_m3(mp.ex_out, c);
+    vec3 rgb = mix(map_pq_oetf_sdr(clamp(t * (203.0 / 10000.0), 0.0, 1.0)), vec3(0.0), lessThanEqual(t, vec3(0.0)));
+    if (black && (mp.ex_flags & 64u) != 0u)
+        rgb = vec3(0.0);
+    return min(rgb, vec3(mp.ex_scale.z));
+}
+#endif
 #endif
 
 // the nonlinear source to the output's PQ R'G'B' (SDR: the display's
@@ -187,6 +416,12 @@ vec3 map_sdr(vec3 lin)
 uint map_rgb(vec3 nl, out vec3 rgb)
 {
     uint regime = 0u;
+#ifdef MAP_EXPERT_ID
+    if (MAP_EXPERT != 0u) {
+        rgb = map_expert(nl);
+        return regime;
+    }
+#endif
 #ifdef MAP_SDR_ID
     if (MAP_SDR == 2u) {
         rgb = map_sdr(max(map_m3(mp.src_lms2rgb, map_hlg(nl)), 0.0));

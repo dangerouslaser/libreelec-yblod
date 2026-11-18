@@ -306,11 +306,11 @@ mod tests {
         let flags = |m: &Map| u32::from_le_bytes(m.gpu.bytes[336..340].try_into().unwrap());
         let mut mode = OutputMode { mode: DVVK_OUTPUT_SDR, ..Default::default() };
         // PQ: the curve (1), not L1's (2), SDR (4), the gamut LUT (8), dither (16)
-        let pq = Map::plan(&mode, md).expect("the SDR map of a plain HDR10 video");
+        let pq = Map::plan(&mode, &crate::map::DisplayPrimaries::default(), md).expect("the SDR map of a plain HDR10 video");
         assert_eq!(flags(&pq), 1 | 4 | 8 | 16);
         mode.flags = 8; // DVVK_SDR_HLG
         assert!(crate::map::mode_supported(&mode));
-        let hlg = Map::plan(&mode, md).expect("the SDR map of a plain HLG video");
+        let hlg = Map::plan(&mode, &crate::map::DisplayPrimaries::default(), md).expect("the SDR map of a plain HLG video");
         assert_eq!(flags(&hlg), 1 | 4 | 8 | 16 | 32);
         assert_ne!(pq.key, hlg.key);
         // BT.2100's 1000 cd/m2 display: system gamma 1.2, peak 0.1 of 10000 cd/m2

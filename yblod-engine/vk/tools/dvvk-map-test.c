@@ -63,12 +63,37 @@
  *     --rgb              stdin lines of BT.2020 PQ (--hlg: HLG) R'G'B' (0..1) -> the
  *                        display's linear BT.709 light in cd/m2 (as the
  *                        research harness's ref printed) and the 8-bit codes
+ *   Display-targeted outputs (CroqueMr's CB1 Expert recipe; --frame --out
+ *   writes the engine's bytes: HDR10's pairs, or LLDV's 4:2:2 with its
+ *   1-2-1 chroma and its overlay):
+ *     --output lldv      player-led Dolby Vision (DVVK_OUTPUT_LLDV)
+ *     --target           with --output hdr10: HDR10 Rendering Reference
+ *                        (DVVK_HDR10_TARGET)
+ *     --peak NITS        the display's peak (default 1000)
+ *     --black NITS       its black (default 0)
+ *     --gamut G          709, p3 or 2020 (default: the mode's, P3 / BT.2020)
+ *     --primaries rx,ry,gx,gy,bx,by  LLDV: the display's own (EDID) primaries
+ *     --edid-version N   ... and its VSVDB's version (default 2)
+ *     --bits 10          LLDV: 10 useful bits (DVVK_LLDV_10BIT)
+ *     --active X0,Y0,X1,Y1  the picture's active area in the frame: the
+ *                        engine's output is black outside it (default: the
+ *                        frame's L5, or all of it)
  *   THRESH=C: the marking threshold in output codes (the engine's defaults:
  *   0.5, SDR 0.35); POINTS=N: the points of a cell the marking looks at (7,
- *   SDR 19).
+ *   SDR and the display-targeted outputs 19).
  */
 #include "../include/dvvk_map.h"
 #include <libavutil/dovi_meta.h>
+/* The display-targeted map's CB1 and libplacebo sources: the library has
+ * them as translation units of their own (build.rs); this tool is built
+ * from dv_map.c and yblod/placebo's colour code alone (tools.sh), so it
+ * takes them in here. */
+#include "../../src/dvbridge_policy.c"
+#include "../../src/dvbridge_placebo.c"
+#include "../../src/dvbridge_creative.c"
+#include "../../src/cb1_hdr10_expert.c"
+#include "../yblod/placebo/libav_dovi.c"
+#include "../yblod/placebo/cb1_expert_tone.c"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -259,11 +284,116 @@ static int ramp(void)
     return bad;
 }
 
+/* The display-targeted outputs: where the picture is (the engine's output is
+ * black outside it): --active, else the frame's L5, else all of it. */
+static void active_area(const AVDOVIMetadata *m, const int given[4], int area[4])
+{
+    area[0] = area[1] = 0;
+    area[2] = W;
+    area[3] = H;
+    if (given[0] >= 0) {
+        memcpy(area, given, 4 * sizeof(int));
+        return;
+    }
+    for (int i = 0; i < m->num_ext_blocks; i++) {
+        const AVDOVIDmData *e = av_dovi_get_ext(m, i);
+        if (e->level == 5) {
+            area[0] = e->l5.left_offset;
+            area[1] = e->l5.top_offset;
+            area[2] = W - e->l5.right_offset;
+            area[3] = H - e->l5.bottom_offset;
+        }
+    }
+}
+
+/* A 12-bit code on the carrier's grid of `bits` useful bits */
+static int carrier_code(double v, unsigned bits)
+{
+    const double step = (double)(1u << (12 - bits));
+    return (int)(floor(v / step + 0.5) * step);
+}
+
+/* The display-targeted outputs' bytes of a tunnel dump, on the CPU (the
+ * reference of dvvk-hdr10-compare): HDR10 as the pack's pairs (each
+ * sample's luma with the pair's chroma, the chroma the even sample's), LLDV
+ * as dvbridge_pack_player_led_422 packs CB1's player-led picture (each
+ * pixel its pair's chroma, the overlay blended in the display's light, a
+ * pair's chroma the 1-2-1 mean of the PQ R'G'B' at its even pixel). Black
+ * outside the active area (HDR10: where the stream's black is, not an
+ * overlay blended into it before the map). */
+static void expert_frame(const unsigned char *fb, unsigned char *o, size_t stride, const unsigned char *layer,
+                         const int area[4])
+{
+    const int lldv = (g->flags & DVVK_MAP_LLDV) != 0;
+    const unsigned bits = lldv ? g->ex_bits : 12;
+    double *ycc = malloc(sizeof(double) * 3 * W);
+    for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++) {
+            const unsigned char *q = fb + y * stride + 4 * (x & ~1);
+            const int yy = (q[4 * (x & 1) + 1] << 4) | (q[4 * (x & 1)] & 15);
+            const int cb = (q[2] << 4) | (q[0] >> 4), cr = (q[6] << 4) | (q[4] >> 4);
+            const int inside = x >= area[0] && x < area[2] && y >= area[1] && y < area[3];
+            double c[3] = {yy, cb, cr}, nl[3], v[3] = {0, 0, 0}, pq[3];
+            if (!lldv) {
+                /* HDR10: the BT.2020 PQ R'G'B'; outside: PQ 0 */
+                if (inside || (unsigned)yy != g->black_in[0] || (unsigned)cb != g->black_in[1] ||
+                    (unsigned)cr != g->black_in[2])
+                    dvvk_map_sample(g, tables, c, v);
+                else
+                    v[0] = v[1] = v[2] = 0.0;
+                memcpy(ycc + 3 * x, v, sizeof(v));
+                continue;
+            }
+            if (inside) {
+                dvvk_map_nonlinear(g, c, nl);
+                dvvk_map_expert_display(g, tables, nl, v);
+            }
+            if (layer) {
+                const unsigned char *lp = layer + ((size_t)y * W + x) * 4;
+                const uint8_t rgba[4] = {lp[2], lp[1], lp[0], lp[3]};
+                dvvk_map_lldv_gui(g, rgba, v);
+            }
+            dvvk_map_lldv_encode(g, v, pq);
+            dvvk_map_ycc(pq, ycc + 3 * x);
+        }
+        for (int x = 0; x < W; x += 2) {
+            const double *e = ycc + 3 * x, *od = ycc + 3 * (x + 1), *l = ycc + 3 * (x ? x - 1 : 0);
+            int Y0, Y1, Cb, Cr;
+            if (lldv) {
+                const double cbf = (l[1] + 2.0 * e[1] + od[1]) * 0.25, crf = (l[2] + 2.0 * e[2] + od[2]) * 0.25;
+                Y0 = carrier_code(256.0 + 3504.0 * fmin(fmax(e[0], 0.0), 1.0), bits);
+                Y1 = carrier_code(256.0 + 3504.0 * fmin(fmax(od[0], 0.0), 1.0), bits);
+                Cb = carrier_code(2048.0 + 3584.0 * fmin(fmax(cbf, -0.5), 0.5), bits);
+                Cr = carrier_code(2048.0 + 3584.0 * fmin(fmax(crf, -0.5), 0.5), bits);
+            } else {
+                Y0 = carrier_code(256.0 + 3504.0 * e[0], 12);
+                Y1 = carrier_code(256.0 + 3504.0 * od[0], 12);
+                Cb = carrier_code(2048.0 + 3584.0 * e[1], 12);
+                Cr = carrier_code(2048.0 + 3584.0 * e[2], 12);
+            }
+            const int v[2][2] = {{Y0, Cb}, {Y1, Cr}};
+            unsigned char *p = o + y * stride + 4 * x;
+            for (int k = 0; k < 2; k++) {
+                p[4 * k] = (unsigned char)(((v[k][1] & 15) << 4) | (v[k][0] & 15));
+                p[4 * k + 1] = (unsigned char)(v[k][0] >> 4);
+                p[4 * k + 2] = (unsigned char)(v[k][1] >> 4);
+                p[4 * k + 3] = 0xff;
+            }
+        }
+    }
+    free(ycc);
+}
+
 int main(int argc, char **argv)
 {
     int n = 65, samples = 200000, do_ramp = 0, do_rgb = 0, no_l1 = 0, l9 = -1, no_l6 = 0, pair_chroma = 0, plain = 0;
     const char *frame = NULL, *outpath = NULL, *src = NULL, *l1 = NULL, *overlay = NULL, *oracle = NULL;
     dvvk_output_mode mode = {.mode = DVVK_OUTPUT_HDR10};
+    /* the display-targeted outputs' display (--output lldv, --target) */
+    float peak = 1000.0f, minimum = 0.0f;
+    uint32_t gamut = DVVK_GAMUT_DEFAULT, bits10 = 0, target = 0;
+    dvvk_display_primaries display = {0};
+    int active[4] = {-1, -1, -1, -1};
     int i = 1, failed = 0;
     for (; i < argc && argv[i][0] == '-'; i++) {
         if (!strcmp(argv[i], "--n") && i + 1 < argc)
@@ -280,12 +410,35 @@ int main(int argc, char **argv)
             overlay = argv[++i];
         else if (!strcmp(argv[i], "--oracle") && i + 1 < argc)
             oracle = argv[++i];
-        else if (!strcmp(argv[i], "--output") && i + 1 < argc)
-            mode.mode = !strcmp(argv[++i], "sdr") ? DVVK_OUTPUT_SDR : DVVK_OUTPUT_HDR10;
+        else if (!strcmp(argv[i], "--output") && i + 1 < argc) {
+            i++;
+            mode.mode = !strcmp(argv[i], "sdr") ? DVVK_OUTPUT_SDR : !strcmp(argv[i], "lldv") ? DVVK_OUTPUT_LLDV
+                                                                                           : DVVK_OUTPUT_HDR10;
+        } else if (!strcmp(argv[i], "--target"))
+            target = 1;
+        else if (!strcmp(argv[i], "--peak") && i + 1 < argc)
+            peak = (float)atof(argv[++i]);
+        else if (!strcmp(argv[i], "--gamut") && i + 1 < argc) {
+            i++;
+            gamut = !strcmp(argv[i], "709") ? DVVK_GAMUT_BT709 : !strcmp(argv[i], "p3") ? DVVK_GAMUT_P3D65
+                    : !strcmp(argv[i], "2020")                                            ? DVVK_GAMUT_BT2020
+                                                                                          : 99;
+        } else if (!strcmp(argv[i], "--primaries") && i + 1 < argc) {
+            float *xy = &display.xy[0][0];
+            if (sscanf(argv[++i], "%f,%f,%f,%f,%f,%f", xy, xy + 1, xy + 2, xy + 3, xy + 4, xy + 5) != 6)
+                return fprintf(stderr, "--primaries rx,ry,gx,gy,bx,by\n"), 2;
+            if (!display.edid_version)
+                display.edid_version = 2;
+        } else if (!strcmp(argv[i], "--edid-version") && i + 1 < argc)
+            display.edid_version = (uint32_t)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--bits") && i + 1 < argc)
+            bits10 = atoi(argv[++i]) == 10;
+        else if (!strcmp(argv[i], "--active") && i + 1 < argc)
+            sscanf(argv[++i], "%d,%d,%d,%d", &active[0], &active[1], &active[2], &active[3]);
         else if (!strcmp(argv[i], "--white") && i + 1 < argc)
             mode.peak_nits = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--black") && i + 1 < argc)
-            mode.min_nits = (float)atof(argv[++i]);
+            minimum = mode.min_nits = (float)atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamma22"))
             mode.flags |= DVVK_SDR_GAMMA22;
         else if (!strcmp(argv[i], "--gamma") && i + 1 < argc) {
@@ -324,6 +477,13 @@ int main(int argc, char **argv)
             return fprintf(stderr, "unknown option %s\n", argv[i]), 2;
     }
     const int sdr = mode.mode == DVVK_OUTPUT_SDR;
+    const int lldv = mode.mode == DVVK_OUTPUT_LLDV, expert = lldv || target;
+    if (expert) {
+        mode.flags = lldv ? (bits10 ? DVVK_LLDV_10BIT : 0) : DVVK_HDR10_TARGET;
+        mode.peak_nits = peak;
+        mode.min_nits = minimum;
+        mode.reserved[DVVK_TARGET_GAMUT_WORD] = gamut;
+    }
     uint32_t *words = malloc(sizeof(uint32_t) * DVVK_MAP_TABLE_WORDS);
     uint64_t have_gamut = 0;
     for (; i < argc; i++) {
@@ -335,13 +495,13 @@ int main(int argc, char **argv)
         }
         edit(md, src, l1, no_l1, l9, no_l6);
         static dvvk_map map;
-        int r = dvvk_map_plan(&mode, md, size, &map);
+        int r = dvvk_map_plan_display(&mode, &display, md, size, &map);
         printf("%s: plan %d flags %#x key %016llx\n", argv[i], r, map.gpu.flags, (unsigned long long)map.key);
         if (r)
             continue;
         g = &map.gpu;
         tables = words;
-        if (sdr && (!have_gamut || have_gamut != map.gamut_key)) {
+        if ((sdr || (g->flags & DVVK_MAP_GAMUT)) && (!have_gamut || have_gamut != map.gamut_key)) {
             struct timespec t0, t1;
             clock_gettime(CLOCK_MONOTONIC, &t0);
             dvvk_map_tables(&map, words);
@@ -362,9 +522,23 @@ int main(int argc, char **argv)
         printf("  tone in %.5f..%.5f out %.5f..%.5f (PQ); signal max %u min %u (1e-4) prim R %u,%u\n",
                g->tone_in[0], g->tone_in[1], g->tone_out[0], g->tone_out[1], map.signal.max_luminance,
                map.signal.min_luminance, map.signal.primaries[0][0], map.signal.primaries[0][1]);
-        if (g->flags & 1)
+        if ((g->flags & 1) && !expert)
             printf("  lut[0] %.5f lut[64] %.5f lut[128] %.5f lut[192] %.5f lut[255] %.5f\n", g->tone_lut[0],
                    g->tone_lut[64], g->tone_lut[128], g->tone_lut[192], g->tone_lut[255]);
+        if (expert) {
+            const unsigned ln = g->ex_lut_n;
+            printf("  expert flags %#x (tone %u entries), chroma %.5f %.5f cap %.5f, scale %.6g %.6g ceiling %.6f, bits %u\n",
+                   g->ex_flags, ln, g->ex_chroma[0], g->ex_chroma[1], g->ex_chroma[2], g->ex_scale[0], g->ex_scale[1],
+                   g->ex_scale[2], g->ex_bits);
+            if (ln)
+                printf("  lut[0] %.5f lut[n/4] %.5f lut[n/2] %.5f lut[3n/4] %.5f lut[n-1] %.5f\n", g->ex_tone_lut[0],
+                       g->ex_tone_lut[ln / 4], g->ex_tone_lut[ln / 2], g->ex_tone_lut[3 * ln / 4], g->ex_tone_lut[ln - 1]);
+            if (g->ex_flags & DVVK_EX_CM4)
+                printf("  cm4 sop %.5f %.5f %.5f peak %.1f shape %.5f %.5f %.5f %.5f flags %g %g %g %g\n", g->ex_cm4_sop[0],
+                       g->ex_cm4_sop[1], g->ex_cm4_sop[2], g->ex_cm4_sop[3], g->ex_cm4_shape[0], g->ex_cm4_shape[1],
+                       g->ex_cm4_shape[2], g->ex_cm4_shape[3], g->ex_cm4_flags[0], g->ex_cm4_flags[1],
+                       g->ex_cm4_flags[2], g->ex_cm4_flags[3]);
+        }
         printf("  ycc %.5f %.5f %.5f / %.5f %.5f %.5f / %.5f %.5f %.5f off %.5f %.5f %.5f\n", g->ycc[0], g->ycc[1],
                g->ycc[2], g->ycc[4], g->ycc[5], g->ycc[6], g->ycc[8], g->ycc[9], g->ycc[10], g->ycc_offset[0],
                g->ycc_offset[1], g->ycc_offset[2]);
@@ -448,6 +622,9 @@ int main(int argc, char **argv)
         /* cells whose interpolation misses the exact value by more than
          * THRESH codes at the centre or a face centre */
         double thresh = getenv("THRESH") ? atof(getenv("THRESH")) : sdr ? 0.35 : 0.5;
+        /* LLDV: the cube's top faces hold the samples above it (its decode
+         * clamps at 0 only): marked whatever they hold */
+        const int top_faces = (g->flags & DVVK_MAP_LLDV) != 0;
         const size_t cells = CELL(0, 0, nn[2] - 1);
         unsigned char *cellf = calloc(cells, 1);
         long flagged_nodes = 0;
@@ -457,14 +634,15 @@ int main(int argc, char **argv)
                                           {.5, .5, 1}, {.5, 0, 0}, {.5, 1, 0}, {.5, 0, 1}, {.5, 1, 1}, {0, .5, 0},
                                           {1, .5, 0}, {0, .5, 1}, {1, .5, 1}, {0, 0, .5}, {1, 0, .5}, {0, 1, .5},
                                           {1, 1, .5}};
-        const int npts = getenv("POINTS") ? atoi(getenv("POINTS")) : sdr ? 19 : 7;
+        const int npts = getenv("POINTS") ? atoi(getenv("POINTS")) : sdr || expert ? 19 : 7;
         for (int z = 0; z < nn[2] - 1; z++)
             for (int y = 0; y < nn[1] - 1; y++)
                 for (int x = 0; x < nn[0] - 1; x++) {
                     /* SDR: the cells of the box's faces hold the samples
                      * outside it too: marked whatever they hold */
-                    double err = sdr && ((x == nn[0] - 2 && g->lut_box[0] < 4095.0f) || !y || y == nn[1] - 2 || !z ||
-                                         z == nn[2] - 2)
+                    double err = (sdr && ((x == nn[0] - 2 && g->lut_box[0] < 4095.0f) || !y || y == nn[1] - 2 || !z ||
+                                          z == nn[2] - 2)) ||
+                                         (top_faces && (x == nn[0] - 2 || y == nn[1] - 2 || z == nn[2] - 2))
                                      ? 2 * thresh + 1
                                      : 0;
                     for (int q = 0; q < npts && err <= thresh; q++) {
@@ -626,7 +804,13 @@ int main(int argc, char **argv)
                 unsigned char *layer = overlay ? load(overlay, &lsize) : NULL;
                 if (overlay && (!layer || lsize < (size_t)W * H * 4))
                     return fprintf(stderr, "%s: can't read a %dx%d BGRA overlay\n", overlay, W, H), 1;
-                for (int y = 0; y < H; y++)
+                if (expert) {
+                    int area[4];
+                    active_area(md, active, area);
+                    printf("  active area %d,%d..%d,%d\n", area[0], area[1], area[2], area[3]);
+                    expert_frame(fb, o, stride, layer, area);
+                }
+                for (int y = 0; y < H && !expert; y++)
                     for (int x = 0; x < W; x += 2) {
                         unsigned char *p = o + y * stride + 4 * x;
                         const unsigned char *q = fb + y * stride + 4 * x;

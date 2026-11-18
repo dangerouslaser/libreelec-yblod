@@ -20,6 +20,14 @@
 #include <libplacebo/gamut_mapping.h>
 #include <libplacebo/tone_mapping.h>
 #include "colorspace.h"   /* yblod/placebo: pl_signal_black */
+#include "cb1_expert_tone.h"   /* yblod/placebo: CB1's Expert tone LUT */
+/* yblod-engine/src: CB1's Expert plan (build.rs has it on the path;
+ * tools.sh, which builds dvvk-map-test, has only the source tree) */
+#if __has_include("cb1_hdr10_expert.h")
+#include "cb1_hdr10_expert.h"
+#else
+#include "../../src/cb1_hdr10_expert.h"
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,11 +151,355 @@ static int sdr_display(const dvvk_output_mode *mode, float *white, float *black,
                    DVVK_SDR_BLACK | DVVK_SDR_BT2020));
 }
 
+/* The display a display-targeted mode states, as CB1's policy (Kodi's
+ * DVOutputSettings: tv, expert_black_nits, the LLDV EDID fields): 1 a
+ * valid one, 0 not; -1 not such a mode. */
+static int expert_policy(const dvvk_output_mode *mode, const dvvk_display_primaries *display,
+                         struct dvbridge_policy *policy)
+{
+    const int lldv = mode->mode == DVVK_OUTPUT_LLDV;
+    if (!lldv && !(mode->mode == DVVK_OUTPUT_HDR10 && (mode->flags & DVVK_HDR10_TARGET)))
+        return -1;
+    if (mode->flags & ~(lldv ? (uint32_t)DVVK_LLDV_10BIT : (uint32_t)DVVK_HDR10_TARGET))
+        return 0;
+    for (int i = 1; i < 4; i++)
+        if (mode->reserved[i])
+            return 0;
+    uint32_t gamut = mode->reserved[DVVK_TARGET_GAMUT_WORD];
+    if (gamut > DVVK_GAMUT_BT2020)
+        return 0;
+    /* CB1's defaults: P3-D65 for HDR10 Rendering Reference, BT.2020 for player-led (Kodi) */
+    if (gamut == DVVK_GAMUT_DEFAULT)
+        gamut = lldv ? DVVK_GAMUT_BT2020 : DVVK_GAMUT_P3D65;
+    *policy = (struct dvbridge_policy) {
+        .revision = 1,
+        .mode = lldv ? DVBRIDGE_MODE_PLAYER_LED : DVBRIDGE_MODE_HDR10_EXPERT,
+        .tv = {mode->peak_nits, DVBRIDGE_PANEL_UNSET,
+               gamut == DVVK_GAMUT_BT709 ? DVBRIDGE_GAMUT_BT709 : gamut == DVVK_GAMUT_P3D65 ? DVBRIDGE_GAMUT_P3_D65
+                                                                                         : DVBRIDGE_GAMUT_BT2020},
+        .expert_black_nits = mode->min_nits,
+    };
+    if (lldv && display && display->edid_version) {
+        for (int i = 0; i < 3; i++)
+            if (display->reserved[i])
+                return 0;
+        policy->lldv_edid_version = display->edid_version;
+        for (int i = 0; i < 6; i++)
+            policy->lldv_primaries[i] = display->xy[i / 2][i % 2];
+    }
+    return dvbridge_policy_validate(policy) == DVBRIDGE_POLICY_VALID;
+}
+
+int dvvk_map_target_valid(const dvvk_output_mode *mode, const dvvk_display_primaries *display)
+{
+    struct dvbridge_policy policy;
+    return mode ? expert_policy(mode, display, &policy) : -1;
+}
+
+/* CB1's dvbridge_creative_cm4_shader (dvbridge_render.c): its variables, as
+ * it computes them; 0: the shader isn't added (identity), -1: it fails. */
+static int expert_cm4_plan(dvvk_map_gpu *g, const struct dvbridge_cm4_coefficients *c)
+{
+    if (!isfinite(c->peak_nits) || c->peak_nits <= 0 || c->peak_nits > 10000 || !(c->chroma_base > 0) ||
+        !(c->saturation_gain > 0) || !(c->mid_exponent > 0))
+        return -1;
+    float sop[4] = {c->sop[0], c->sop[1], c->sop[2], c->peak_nits};
+    float shape[4] = {c->mid_exponent, c->clip_strength, log2(c->chroma_base), log2(c->saturation_gain)};
+    int secondary_active = 0;
+    float luma[3], forward[9], inverse[9], residual[9], centres[6], gains[6], turns[6];
+    float flags[4] = {c->sop[0] != 1 || c->sop[1] != 0 || c->sop[2] != 1, c->mid_exponent != 1, c->clip_strength != 0,
+                      c->chroma_base != 1 || c->saturation_gain != 1};
+    for (int i = 0; i < 3; i++) {
+        luma[i] = c->luma[i];
+        for (int j = 0; j < 3; j++) {
+            forward[j * 3 + i] = c->rgb_to_lms[i * 3 + j];
+            inverse[j * 3 + i] = c->lms_to_rgb[i * 3 + j];
+            double v = 0;
+            for (int k = 0; k < 3; k++)
+                v += c->lms_to_rgb[i * 3 + k] * c->rgb_to_lms[k * 3 + j];
+            residual[j * 3 + i] = v - (i == j);
+        }
+    }
+    for (int i = 0; i < 6; i++) {
+        if (!(c->secondary_gain[i] > 0))
+            return -1;
+        centres[i] = c->hue_centres[i];
+        gains[i] = log(c->secondary_gain[i]);
+        turns[i] = c->secondary_rotation[i];
+        secondary_active |= c->secondary_gain[i] != 1 || turns[i] != 0;
+        flags[3] = flags[3] || secondary_active;
+    }
+    const float *fields[] = {sop, shape, luma, forward, inverse, residual, centres, gains, turns};
+    const unsigned counts[] = {4, 4, 3, 9, 9, 9, 6, 6, 6};
+    for (unsigned i = 0; i < 9; i++)
+        for (unsigned j = 0; j < counts[i]; j++)
+            if (!isfinite(fields[i][j]))
+                return -1;
+    if (!flags[0] && !flags[1] && !flags[2] && !flags[3])
+        return 0;
+    /* Expert's plan is CB1's HDR10 Expert creative policy: the secondary
+     * (six-vector) trims are neutral (dvbridge_creative_cm4_coefficients) */
+    if (secondary_active)
+        return -1;
+    memcpy(g->ex_cm4_sop, sop, sizeof(sop));
+    memcpy(g->ex_cm4_shape, shape, sizeof(shape));
+    memcpy(g->ex_cm4_flags, flags, sizeof(flags));
+    memcpy(g->ex_cm4_luma, luma, sizeof(luma));
+    /* the GLSL's mat3 columns (forward[j*3+i] is column j) */
+    for (int j = 0; j < 3; j++)
+        for (int i = 0; i < 3; i++) {
+            g->ex_cm4_rgb_lms[4 * j + i] = forward[j * 3 + i];
+            g->ex_cm4_lms_rgb[4 * j + i] = inverse[j * 3 + i];
+            g->ex_cm4_residual[4 * j + i] = residual[j * 3 + i];
+        }
+    for (int i = 0; i < 6; i++) {
+        g->ex_cm4_centres[i] = centres[i];
+        g->ex_cm4_gains[i] = gains[i];
+        g->ex_cm4_turns[i] = turns[i];
+    }
+    return 1;
+}
+
+/* CroqueMr's CB1 Expert recipe for a stated display (dv_engine_vk.h
+ * DVVK_HDR10_TARGET, DVVK_OUTPUT_LLDV): his plan (cb1_hdr10_expert.c,
+ * vendored unchanged: the curve, L1/L6, the L2 shape, L8's CM4 controls),
+ * then the decisions his renderer's shaders make with it, in order:
+ * player_led_map (LLDV) or reference_output (HDR10), each with libplacebo's
+ * pl_shader_color_map_ex for an explicit cb1_tone_map (patch 9918), the
+ * EDID basis, CB1's CM4 shader, cb1_hdr10_expert_trim; then the output's
+ * tail: dvbridge_pack_player_led_422's matrix and scale (LLDV), or the
+ * BT.2020 PQ adapter and the Expert ceiling (HDR10). */
+static int expert_plan(const dvvk_output_mode *mode, const dvvk_display_primaries *display, const AVDOVIMetadata *m,
+                       size_t size, dvvk_map *out)
+{
+    struct dvbridge_policy policy;
+    if (expert_policy(mode, display, &policy) != 1)
+        return -1;
+    const int lldv = mode->mode == DVVK_OUTPUT_LLDV;
+    if (!mappable(m))
+        return -2;
+    struct cb1_hdr10_expert_plan plan;
+    struct dvbridge_cm4_coefficients cm4 = {0};
+    /* the engine pairs the EL itself (dvvk_plan): the plan's FEL gate passes */
+    if (!(lldv ? cb1_player_led_prepare(&plan, &cm4, &policy, m, size, true)
+               : cb1_hdr10_expert_prepare(&plan, &policy, m, size, true)))
+        return -2;
+    const struct pl_tone_map_params *tone = &plan.tone;
+    /* pl_shader_color_map_ex's checks of an explicit curve (patch 9918) */
+    int shaped = 0;
+    for (int i = 0; i < 3; i++) {
+        if (!isfinite(plan.tone_shape[i]) || fabsf(plan.tone_shape[i]) > 1)
+            return -2;
+        shaped |= plan.tone_shape[i] != 0;
+    }
+    if ((tone->function != &pl_tone_map_st2094_10 && tone->function != &pl_tone_map_clip) ||
+        !isfinite(tone->input_min) || !isfinite(tone->input_max) || !isfinite(tone->input_avg) ||
+        !isfinite(tone->output_min) || !isfinite(tone->output_max) || tone->input_min < 0 ||
+        tone->input_min > tone->output_min || tone->input_max <= tone->input_min || tone->input_max > 1 ||
+        tone->input_avg < 0 || tone->input_avg > tone->input_max || tone->output_min < 0 ||
+        tone->output_min >= tone->output_max || tone->output_max > tone->input_max || tone->lut_size < 2 ||
+        tone->lut_size > DVVK_MAP_EXPERT_LUT)   /* (and param 0: prepare's literal leaves it so) */
+        return -2;
+
+    /* pl_shader_color_map_ex: the explicit curve replaces the inferred one */
+    struct pl_color_space src = plan.source.color, dst = plan.target;
+    pl_color_space_infer_map(&src, &dst);
+    struct pl_gamut_map_params gamut = {
+        .function = &pl_gamut_map_perceptual,
+        .input_gamut = src.hdr.prim,
+        .output_gamut = dst.hdr.prim,
+    };
+    pl_color_space_nominal_luma_ex(pl_nominal_luma_params(.color = &dst, .metadata = PL_HDR_METADATA_HDR10,
+                                                          .scaling = PL_HDR_PQ, .out_min = &gamut.min_luma,
+                                                          .out_max = &gamut.max_luma));
+    gamut.min_luma = pl_signal_black(gamut.min_luma, PL_HDR_PQ);
+    /* gamut_expansion off (both of CB1's mappers), and perceptual is bidirectional */
+    if (pl_primaries_compatible(&gamut.input_gamut, &gamut.output_gamut))
+        gamut.output_gamut = pl_primaries_clip(&gamut.output_gamut, &gamut.input_gamut);
+    const int need_tone = !pl_tone_map_params_noop(tone) || tone->input_min > 0 || shaped;
+    const int need_gamut = !pl_gamut_map_params_noop(&gamut);
+
+    memset(out, 0, sizeof(*out));
+    dvvk_map_gpu *g = &out->gpu;
+    const AVDOVIColorMetadata *colour = av_dovi_get_color(m);
+    /* The decode. LLDV: CB1's player-led texture holds the Master
+     * Reference codes as code / 4095 times 1 - 2^-12 (code / 4096), the RPU
+     * matrix on them less its offsets as given (player_led_map's
+     * normalize). HDR10: the HDR10 output's (dvvk_map_plan's) decode. */
+    const double offset_scale = lldv ? 1.0 : 65536.0 / 65535.0, code_scale = lldv ? 4095.0 / 4096.0 : 1.0;
+    for (int i = 0; i < 3; i++) {
+        double c = 0;
+        for (int j = 0; j < 3; j++) {
+            double v = (float)q2d(colour->ycc_to_rgb_matrix[3 * i + j]);
+            g->ycc[4 * i + j] = (float)(v * code_scale);
+            c -= v * (float)q2d(colour->ycc_to_rgb_offset[j]) * offset_scale;
+        }
+        g->ycc_offset[i] = (float)c;
+    }
+    pl_matrix3x3 dovi_lms2rgb = {{
+        {3.06441879, -2.16597676, 0.10155818},
+        {-0.65612108, 1.78554118, -0.12943749},
+        {0.01736321, -0.04725154, 1.03004253},
+    }};
+    pl_matrix3x3 linear;
+    for (int i = 0; i < 9; i++)
+        (&linear.m[0][0])[i] = (float)q2d(colour->rgb_to_lms_matrix[i]);
+    pl_matrix3x3_mul(&dovi_lms2rgb, &linear);
+    rows(g->src_lms2rgb, &dovi_lms2rgb);
+    pl_matrix3x3 rgb2lms = pl_ipt_rgb2lms(pl_raw_primaries_get(src.primaries));
+    pl_matrix3x3 lms2rgb = pl_ipt_lms2rgb(pl_raw_primaries_get(dst.primaries));
+    rows(g->rgb2lms, &rgb2lms);
+    rows(g->lms2rgb, &lms2rgb);
+    rows(g->lms2ipt, &pl_ipt_lms2ipt);
+    rows(g->ipt2lms, &pl_ipt_ipt2lms);
+    g->flags = DVVK_MAP_EXPERT | (lldv ? DVVK_MAP_LLDV : 0u);
+    g->lut_n = 65;
+    if (need_tone) {
+        g->flags |= DVVK_MAP_TONE;
+        g->ex_flags |= DVVK_EX_TONE;
+        g->tone_in[0] = tone->input_min;
+        g->tone_in[1] = tone->input_max;
+        g->tone_in[2] = 1.0f / (tone->input_max - tone->input_min);
+        g->tone_out[0] = tone->output_min;
+        g->tone_out[1] = tone->output_max;
+        g->ex_lut_n = (uint32_t)tone->lut_size;
+        pl_cb1_expert_tone_generate(g->ex_tone_lut, tone, plan.tone_shape);
+    }
+    if (need_gamut) {
+        g->flags |= DVVK_MAP_GAMUT;
+        const float range = gamut.max_luma - gamut.min_luma;
+        g->gamut_at[0] = 1.0f / range;
+        g->gamut_at[1] = -gamut.min_luma / range;
+        memcpy(out->gamut_prim[0], &gamut.input_gamut, sizeof(out->gamut_prim[0]));
+        memcpy(out->gamut_prim[1], &gamut.output_gamut, sizeof(out->gamut_prim[1]));
+        out->gamut_luma[0] = gamut.min_luma;
+        out->gamut_luma[1] = gamut.max_luma;
+        out->gamut_key = fnv1a(out->gamut_prim, sizeof(out->gamut_prim) + sizeof(out->gamut_luma));
+        g->gamut_key[0] = (uint32_t)out->gamut_key;
+        g->gamut_key[1] = (uint32_t)(out->gamut_key >> 32);
+    }
+    if (!need_tone && !need_gamut) {
+        /* the fast path: a conversion between primaries, if any */
+        pl_matrix3x3 fast = pl_matrix3x3_identity;
+        if (src.primaries != dst.primaries) {
+            fast = lms2rgb;
+            pl_matrix3x3_mul(&fast, &rgb2lms);
+        }
+        g->ex_flags |= DVVK_EX_FAST;
+        rows(g->ex_fast, &fast);
+    }
+    /* signal black: exact zero with a zero black (player_led_map's
+     * preserve_black, reference_output's keep_black); a positive CM4 offset
+     * lifts it after the map (lift_black) */
+    if (!tone->output_min)
+        g->ex_flags |= DVVK_EX_KEEP_BLACK;
+    if (lldv && plan.creative.backend == DVBRIDGE_CREATIVE_CM4 && cm4.sop[1] > 0)
+        g->ex_flags |= DVVK_EX_LIFT_BLACK;
+    const int edid = lldv && plan.creative.policy.lldv_edid_version;
+    const struct pl_raw_primaries *basis = pl_raw_primaries_get(plan.target.primaries);
+    const struct pl_raw_primaries *target = &plan.target.hdr.prim;
+    if (edid) {
+        g->ex_flags |= DVVK_EX_EDID;
+        const pl_matrix3x3 b = pl_get_color_mapping_matrix(basis, target, PL_INTENT_RELATIVE_COLORIMETRIC);
+        rows(g->ex_basis, &b);
+    }
+    if (lldv && plan.creative.backend == DVBRIDGE_CREATIVE_CM4) {
+        const int r = expert_cm4_plan(g, &cm4);
+        if (r < 0)
+            return -2;
+        if (r) {
+            g->ex_flags |= DVVK_EX_CM4;
+            if (edid) {
+                const struct pl_raw_primaries *trim = &plan.creative.cm4_output.primaries;
+                const pl_matrix3x3 to = pl_get_color_mapping_matrix(target, trim, PL_INTENT_RELATIVE_COLORIMETRIC);
+                const pl_matrix3x3 from = pl_get_color_mapping_matrix(trim, target, PL_INTENT_RELATIVE_COLORIMETRIC);
+                g->ex_flags |= DVVK_EX_CM4_TRIM;
+                rows(g->ex_to_trim, &to);
+                rows(g->ex_from_trim, &from);
+            }
+        }
+    }
+    /* cb1_hdr10_expert_trim: the chroma and saturation (codes 3, 4), and the
+     * output volume */
+    g->ex_chroma[0] = (float)(plan.creative.codes[3] / 4096 - .5);
+    g->ex_chroma[1] = (float)(plan.creative.codes[4] / 4096 - .5);
+    if (plan.creative.codes[4] != 2048)
+        g->ex_flags |= DVVK_EX_CHROMA;
+    {
+        const struct pl_raw_primaries trim_display =
+            plan.creative.policy.lldv_edid_version ? cb1_display_primaries(&plan.creative.policy)
+                                                   : *pl_raw_primaries_get(plan.target.primaries);
+        const pl_matrix3x3 xyz = pl_get_rgb2xyz_matrix(&trim_display);
+        for (int i = 0; i < 3; i++)
+            g->ex_luma[i] = xyz.m[1][i];
+        float cap = plan.creative.policy.tv.peak_nits / 203;
+        if ((double)cap * 203 > plan.creative.policy.tv.peak_nits)
+            cap = nextafterf(cap, 0);
+        g->ex_chroma[2] = cap;
+    }
+    if (lldv) {
+        /* player_led_map's player_led_relative, then the pack's lldv_matrix
+         * and lldv_scale (dvbridge_pack_player_led_422) */
+        g->ex_scale[0] = PL_COLOR_SDR_WHITE / policy.tv.peak_nits;
+        g->ex_scale[1] = policy.tv.peak_nits / PL_COLOR_SDR_WHITE;
+        const struct pl_raw_primaries prim = cb1_display_primaries(&policy);
+        const pl_matrix3x3 to2020 = !policy.lldv_edid_version && policy.tv.gamut == DVBRIDGE_GAMUT_BT2020
+                                        ? pl_matrix3x3_identity
+                                        : pl_get_color_mapping_matrix(&prim, pl_raw_primaries_get(PL_COLOR_PRIM_BT_2020),
+                                                                      PL_INTENT_RELATIVE_COLORIMETRIC);
+        rows(g->ex_out, &to2020);
+        pl_matrix3x3 back = to2020;
+        pl_matrix3x3_invert(&back);
+        rows(g->ex_out_inv, &back);
+        /* player_led_gui: BT.709 to the display, 203 cd/m2 white */
+        const pl_matrix3x3 gui = pl_get_color_mapping_matrix(pl_raw_primaries_get(PL_COLOR_PRIM_BT_709), &prim,
+                                                             PL_INTENT_RELATIVE_COLORIMETRIC);
+        rows(g->ex_gui, &gui);
+        g->ex_bits = mode->flags & DVVK_LLDV_10BIT ? 10 : 12;
+    } else {
+        /* reference_output's composed matrix (xyz2rgb(BT.2020) * rgb2xyz of
+         * the target's primaries), then the Expert ceiling (no output grid:
+         * the carrier's Y'CbCr, not R'G'B', is quantised) */
+        pl_matrix3x3 to2020 = pl_get_xyz2rgb_matrix(pl_raw_primaries_get(PL_COLOR_PRIM_BT_2020));
+        const pl_matrix3x3 xyz = pl_get_rgb2xyz_matrix(pl_raw_primaries_get(plan.target.primaries));
+        pl_matrix3x3_mul(&to2020, &xyz);
+        rows(g->ex_out, &to2020);
+        g->ex_scale[2] = cb1_hdr10_expert_ceiling(&policy);
+    }
+    out->key = fnv1a(g, sizeof(*g));
+
+    dvvk_hdr_signal *s = &out->signal;
+    s->mode = mode->mode;
+    s->eotf = 2;
+    /* the virtual target's (LLDV: the display's) primaries and luminance */
+    const struct pl_raw_primaries prim = cb1_display_primaries(&policy);
+    const struct pl_cie_xy *xy[4] = {&prim.red, &prim.green, &prim.blue, &prim.white};
+    for (int i = 0; i < 3; i++) {
+        s->primaries[i][0] = (uint16_t)lround(fmin(fmax(xy[i]->x, 0.0), 1.0) * 50000.0);
+        s->primaries[i][1] = (uint16_t)lround(fmin(fmax(xy[i]->y, 0.0), 1.0) * 50000.0);
+    }
+    s->white[0] = (uint16_t)lround(xy[3]->x * 50000.0);
+    s->white[1] = (uint16_t)lround(xy[3]->y * 50000.0);
+    s->max_luminance = (uint16_t)plan.signal.max_luminance;
+    s->min_luminance = (uint16_t)plan.signal.min_luminance;
+    if (lldv)
+        s->reserved[DVVK_SIGNAL_BITS_WORD] = g->ex_bits;
+    return 0;
+}
+
 int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t metadata_size, dvvk_map *out)
+{
+    return dvvk_map_plan_display(mode, NULL, metadata, metadata_size, out);
+}
+
+int dvvk_map_plan_display(const dvvk_output_mode *mode, const dvvk_display_primaries *display, const void *metadata,
+                          size_t metadata_size, dvvk_map *out)
 {
     if (!mode || !metadata || !out || metadata_size < sizeof(AVDOVIMetadata) ||
         (uintptr_t)metadata % _Alignof(AVDOVIMetadata))
         return -1;
+    if (mode->mode == DVVK_OUTPUT_LLDV || (mode->mode == DVVK_OUTPUT_HDR10 && mode->flags))
+        return expert_plan(mode, display, metadata, metadata_size, out);
     const int sdr = mode->mode == DVVK_OUTPUT_SDR;
     if (mode->mode != DVVK_OUTPUT_HDR10 && mode->mode != DVVK_OUTPUT_HDR10PLUS && !sdr)
         return -1;
@@ -391,7 +743,9 @@ int dvvk_map_plan(const dvvk_output_mode *mode, const void *metadata, size_t met
         g->out_code[0] = mode->flags & DVVK_SDR_LIMITED ? 219.0f : 255.0f;
         g->out_code[1] = mode->flags & DVVK_SDR_LIMITED ? 16.0f : 0.0f;
     }
-    out->key = fnv1a(g, sizeof(*g));   /* black_in/out still 0: not in the key */
+    /* black_in/out still 0: not in the key; nor the Expert fields (all 0
+     * here), so that these keys are what they were before them */
+    out->key = fnv1a(g, offsetof(dvvk_map_gpu, ex_flags));
 
     dvvk_hdr_signal *s = &out->signal;
     s->mode = mode->mode;
@@ -539,10 +893,240 @@ static void gamut_map(const dvvk_map_gpu *p, const uint32_t *tables, double ipt[
     ipt[2] = (v[2] - 32768.0) / 65535.0;
 }
 
+/* Expert's tone LUT as pl_shader_color_map_ex samples it (SH_LUT_LINEAR:
+ * texel centres at the domain's ends) */
+static double expert_tone(const dvvk_map_gpu *p, double x)
+{
+    const int n = (int)p->ex_lut_n;
+    double t = fmin(fmax((x - p->tone_in[0]) * p->tone_in[2], 0.0), 1.0) * (n - 1);
+    int i = (int)floor(t);
+    if (i >= n - 1)
+        return p->ex_tone_lut[n - 1];
+    double f = t - i;
+    return p->ex_tone_lut[i] * (1.0 - f) + p->ex_tone_lut[i + 1] * f;
+}
+
+/* CB1's CM4.0 shader (dvbridge_creative_cm4_shader) on c (1 = 203 cd/m2):
+ * its CPU twin, CB1's dvbridge_creative_cm4_apply (vendored), on the
+ * shader's coefficients; the shader evaluates the same arithmetic in its
+ * difference form for a float's precision. */
+static void expert_cm4(const dvvk_map_gpu *p, double c[3])
+{
+    struct dvbridge_cm4_coefficients k = {
+        .peak_nits = p->ex_cm4_sop[3],
+        .sop = {p->ex_cm4_sop[0], p->ex_cm4_sop[1], p->ex_cm4_sop[2]},
+        .chroma_base = exp2(p->ex_cm4_shape[2]),
+        .saturation_gain = exp2(p->ex_cm4_shape[3]),
+        .mid_exponent = p->ex_cm4_shape[0],
+        .clip_strength = p->ex_cm4_shape[1],
+        .luma = {p->ex_cm4_luma[0], p->ex_cm4_luma[1], p->ex_cm4_luma[2]},
+    };
+    /* the flags the shader tests, as the parameters cm4_apply tests */
+    if (p->ex_cm4_flags[0] == 0)
+        k.sop[0] = 1, k.sop[1] = 0, k.sop[2] = 1;
+    if (p->ex_cm4_flags[1] == 0)
+        k.mid_exponent = 1;
+    if (p->ex_cm4_flags[2] == 0)
+        k.clip_strength = 0;
+    if (p->ex_cm4_flags[3] == 0)
+        k.chroma_base = k.saturation_gain = 1;
+    for (int i = 0; i < 6; i++)
+        k.secondary_gain[i] = exp(p->ex_cm4_gains[i]);
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++) {
+            /* the coefficients' rows from the shader's columns */
+            k.rgb_to_lms[i * 3 + j] = p->ex_cm4_rgb_lms[4 * j + i];
+            k.lms_to_rgb[i * 3 + j] = p->ex_cm4_lms_rgb[4 * j + i];
+        }
+    double in[3] = {c[0] * 203.0, c[1] * 203.0, c[2] * 203.0}, o[3];
+    if (dvbridge_creative_cm4_apply(&k, in, o))
+        for (int i = 0; i < 3; i++)
+            c[i] = o[i] / 203.0;
+}
+
+/* Expert, from the nonlinear source to the display's linear light (1 = 203
+ * cd/m2, the display's primaries), before the output's tail. *black: the
+ * sample was signal black (all channels' light 0). */
+static void expert_display(const dvvk_map_gpu *p, const uint32_t *tables, const double nl[3], double c[3], int *black)
+{
+    const uint32_t f = p->ex_flags;
+    double n[3], lin[3];
+    /* pl_shader_decode_color_ex's cb1_dovi_linear: PQ, Dolby's LMS to
+     * BT.2020, negative light 0, then libplacebo's 203-relative light */
+    for (int i = 0; i < 3; i++)
+        n[i] = pq_eotf(nl[i]);
+    mul(p->src_lms2rgb, n, lin);
+    for (int i = 0; i < 3; i++)
+        lin[i] = fmax(lin[i], 0.0) * (10000.0 / 203.0);
+    *black = lin[0] <= 0.0 && lin[1] <= 0.0 && lin[2] <= 0.0;
+    if (*black && (f & DVVK_EX_KEEP_BLACK) && !(f & DVVK_EX_LIFT_BLACK)) {
+        c[0] = c[1] = c[2] = 0.0;
+        return;
+    }
+    /* pl_shader_color_map_ex with the explicit curve */
+    if (f & DVVK_EX_FAST)
+        mul(p->ex_fast, lin, c);
+    else {
+        double lms[3], ipt[3];
+        mul(p->rgb2lms, lin, lms);
+        for (int i = 0; i < 3; i++)
+            lms[i] = pq_oetf(lms[i] * (203.0 / 10000.0));
+        mul(p->lms2ipt, lms, ipt);
+        if (f & DVVK_EX_TONE) {
+            const double i0 = ipt[0];
+            ipt[0] = expert_tone(p, i0);
+            const double h0 = ((i0 - 6.0) * i0 + 9.0) * i0, h1 = ((ipt[0] - 6.0) * ipt[0] + 9.0) * ipt[0];
+            const double k = ipt[0] > 0.0 && h0 > 0.0 ? fmin(i0 / ipt[0], h1 / h0) : 0.0;
+            ipt[1] *= k;
+            ipt[2] *= k;
+        }
+        if (p->flags & DVVK_MAP_GAMUT)
+            gamut_map(p, tables, ipt);
+        mul(p->ipt2lms, ipt, lms);
+        for (int i = 0; i < 3; i++)
+            lms[i] = pq_eotf(lms[i]) * (10000.0 / 203.0);
+        mul(p->lms2rgb, lms, c);
+    }
+    /* player_led_map: signal black restored before the creative grading */
+    if (*black && (f & DVVK_EX_LIFT_BLACK))
+        c[0] = c[1] = c[2] = 0.0;
+    if (f & DVVK_EX_EDID) {
+        double b[3];
+        mul(p->ex_basis, c, b);
+        memcpy(c, b, sizeof(b));
+    }
+    if (f & DVVK_EX_CM4) {
+        double t[3];
+        if (f & DVVK_EX_CM4_TRIM) {
+            mul(p->ex_to_trim, c, t);
+            memcpy(c, t, sizeof(t));
+        }
+        expert_cm4(p, c);
+        if (f & DVVK_EX_CM4_TRIM) {
+            mul(p->ex_from_trim, c, t);
+            memcpy(c, t, sizeof(t));
+        }
+    }
+    /* cb1_hdr10_expert_trim */
+    const double cap = p->ex_chroma[2];
+    for (int i = 0; i < 3; i++)
+        c[i] = fmin(fmax(c[i], 0.0), cap);
+    if (f & DVVK_EX_CHROMA) {
+        const double y = p->ex_luma[0] * c[0] + p->ex_luma[1] * c[1] + p->ex_luma[2] * c[2];
+        if (y > 0.0)
+            for (int i = 0; i < 3; i++)
+                if (c[i] > 0.0)
+                    c[i] *= pow((1.0 + p->ex_chroma[0]) * c[i] / y, p->ex_chroma[1]);
+        for (int i = 0; i < 3; i++)
+            c[i] = fmin(fmax(c[i], 0.0), cap);
+    }
+}
+
+void dvvk_map_expert_display(const dvvk_map_gpu *p, const uint32_t *tables, const double nl[3], double v[3])
+{
+    int black;
+    expert_display(p, tables, nl, v, &black);
+    if (p->flags & DVVK_MAP_LLDV)
+        for (int i = 0; i < 3; i++)
+            v[i] *= p->ex_scale[0];
+}
+
+void dvvk_map_lldv_encode(const dvvk_map_gpu *p, const double v[3], double pq[3])
+{
+    double t[3];
+    mul(p->ex_out, v, t);
+    for (int i = 0; i < 3; i++)
+        pq[i] = pq_oetf(fmin(fmax(t[i], 0.0), 1.0) * p->ex_scale[1] * (203.0 / 10000.0));
+}
+
+/* the engine's degamma LUT (cb1_overlay.c dvvk_cb1_luts: 256 half floats of
+ * the sRGB EOTF) sampled linearly at the code's normalised coordinate, as
+ * player_led_gui's textureLod(ll_gui_degamma, vec2(ui.r, .5)) */
+static double half_float(float x)
+{
+    if (!(x > 0.0f))
+        return 0.0;
+    int e;
+    frexp(x, &e);   /* x in [2^(e-1), 2^e) */
+    /* 11 significant bits (subnormals below 2^-14: a fixed 2^-24 step), to nearest even */
+    const double q = e - 1 >= -14 ? ldexp(1.0, e - 11) : ldexp(1.0, -24);
+    double r = x / q, fl = floor(r), d = r - fl;
+    if (d > 0.5 || (d == 0.5 && fmod(fl, 2.0) != 0.0))
+        fl += 1.0;
+    return fl * q;
+}
+
+double dvvk_map_lldv_degamma(double code)
+{
+    static double lut[256];
+    static int ready;
+    if (!ready) {
+        for (int i = 0; i < 256; i++) {
+            float v = (float)i / 255;
+            lut[i] = half_float(v <= 0.04045f ? v / 12.92f : powf((v + 0.055f) / 1.055f, 2.4f));
+        }
+        ready = 1;
+    }
+    double t = code / 255.0 * 256.0 - 0.5;
+    int i = (int)floor(t);
+    double f = t - i;
+    if (i < 0)
+        return lut[0];
+    if (i >= 255)
+        return lut[255];
+    return lut[i] * (1.0 - f) + lut[i + 1] * f;
+}
+
+void dvvk_map_lldv_gui(const dvvk_map_gpu *p, const uint8_t rgba[4], double v[3])
+{
+    if (!rgba[3])
+        return;
+    /* the texel as player_led_gui reads it (its colour as stored, alpha the mix) */
+    double rgb[3], d[3];
+    rgb[0] = dvvk_map_lldv_degamma(rgba[0]);
+    rgb[1] = rgb[2] = rgb[0];
+    if (rgba[0] != rgba[1] || rgba[0] != rgba[2]) {
+        rgb[1] = dvvk_map_lldv_degamma(rgba[1]);
+        rgb[2] = dvvk_map_lldv_degamma(rgba[2]);
+    }
+    mul(p->ex_gui, rgb, d);
+    const double a = rgba[3] / 255.0;
+    for (int i = 0; i < 3; i++) {
+        const double g = fmin(fmax(d[i] * p->ex_scale[0], 0.0), 1.0);
+        v[i] = fmin(fmax(v[i], 0.0), 1.0) * (1.0 - a) + g * a;
+    }
+}
+
+/* Expert: the 3D LUT's function, the output's BT.2020 PQ R'G'B' (LLDV's
+ * before the overlay); HDR10's tail is reference_output's */
+static uint32_t expert_rgb(const dvvk_map_gpu *p, const uint32_t *tables, const double nl[3], double rgb[3])
+{
+    double c[3];
+    int black;
+    expert_display(p, tables, nl, c, &black);
+    if (p->flags & DVVK_MAP_LLDV) {
+        for (int i = 0; i < 3; i++)
+            c[i] *= p->ex_scale[0];
+        dvvk_map_lldv_encode(p, c, rgb);
+        return (uint32_t)black;
+    }
+    double t[3];
+    mul(p->ex_out, c, t);
+    for (int i = 0; i < 3; i++) {
+        rgb[i] = t[i] <= 0.0 ? 0.0 : pq_oetf(fmin(fmax(t[i] * (203.0 / 10000.0), 0.0), 1.0));
+        if (black && (p->ex_flags & DVVK_EX_KEEP_BLACK))
+            rgb[i] = 0.0;
+        rgb[i] = fmin(rgb[i], p->ex_scale[2]);
+    }
+    return (uint32_t)black;
+}
+
 uint32_t dvvk_map_rgb(const dvvk_map_gpu *p, const uint32_t *tables, const double nl[3], double rgb[3])
 {
     double n[3], lin[3];
     uint32_t regime = 0;
+    if (p->flags & DVVK_MAP_EXPERT)
+        return expert_rgb(p, tables, nl, rgb);
     if (p->flags & DVVK_MAP_HLG) {
         /* pl_shader_linearize: HLG's inverse OETF (the scene's light over 12),
          * then its OOTF */
@@ -622,7 +1206,9 @@ void dvvk_map_nonlinear(const dvvk_map_gpu *p, const double codes[3], double nl[
      * above 1 (a reshaped Profile 8.4 picture's edge had 1.12, which
      * libplacebo shows as the blue it is and a clamp as a paler one), up to
      * 1.5: PQ's inverse has a pole near 2. HDR10 output keeps CB1's range. */
-    const double top = p->flags & DVVK_MAP_HLG ? INFINITY : p->flags & DVVK_MAP_SDR ? 1.5 : 1.0;
+    /* LLDV: CB1's player-led decode clamps at 0 only (pl_shader_decode_color's
+     * PQ EOTF of max(v, 0)) */
+    const double top = p->flags & (DVVK_MAP_HLG | DVVK_MAP_LLDV) ? INFINITY : p->flags & DVVK_MAP_SDR ? 1.5 : 1.0;
     for (int i = 0; i < 3; i++)
         nl[i] = fmin(fmax(nl[i] + p->ycc_offset[i], 0.0), top);
 }
@@ -688,6 +1274,13 @@ void dvvk_map_set_black(dvvk_map_gpu *p, const uint32_t *tables, const uint32_t 
     if (p->flags & DVVK_MAP_SDR) {
         for (int i = 0; i < 3; i++)
             p->black_out[i] = (uint32_t)floor(p->out_code[0] * o[i] + 0.5) + (uint32_t)p->out_code[1];
+        return;
+    }
+    if (p->flags & DVVK_MAP_LLDV) {
+        /* LLDV: the unrounded codes (as float bits): the pack filters a
+         * pair's chroma before it rounds */
+        const float c[3] = {256.0 + 3504.0 * o[0], 2048.0 + 3584.0 * o[1], 2048.0 + 3584.0 * o[2]};
+        memcpy(p->black_out, c, sizeof(c));
         return;
     }
     p->black_out[0] = code(o[0], 256.0, 3504.0);

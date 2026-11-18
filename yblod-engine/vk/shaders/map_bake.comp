@@ -26,6 +26,7 @@
 #define MAP_TABLES_BINDING 3
 #define MAP_GAMUT_BINDING 4
 #define MAP_SDR_ID 1
+#define MAP_EXPERT_ID 2
 #include "dv_map.glsl"
 layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 layout(constant_id = 0) const uint PASS = 0;
@@ -143,8 +144,10 @@ void main()
                                   vec3(.5, 1, .5), vec3(.5, .5, 0), vec3(.5, .5, 1), vec3(.5, 0, 0), vec3(.5, 1, 0),
                                   vec3(.5, 0, 1), vec3(.5, 1, 1), vec3(0, .5, 0), vec3(1, .5, 0), vec3(0, .5, 1),
                                   vec3(1, .5, 1), vec3(0, 0, .5), vec3(1, 0, .5), vec3(0, 1, .5), vec3(1, 1, .5));
-    const uint points = MAP_SDR != 0u ? 19u : 7u;
-    float err = 0.0;
+    // Expert: the 19 points (its gamut LUT, its clamps); LLDV's top faces
+    // hold the samples above the cube (its decode doesn't clamp at 1)
+    const uint points = MAP_SDR != 0u || MAP_EXPERT != 0u ? 19u : 7u;
+    float err = MAP_EXPERT == 2u && any(equal(g, uvec3(m - 1u))) ? 2.0 * thresh + 1.0 : 0.0;
     for (uint q = 0u; q < points && err <= thresh; q++) {
         vec3 f = pts[q], exact;
         map_rgb((vec3(g) + f) / float(m), exact);

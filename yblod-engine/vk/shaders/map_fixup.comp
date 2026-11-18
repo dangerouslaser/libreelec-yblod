@@ -17,6 +17,7 @@
 #define MAP_TABLES_BINDING 3
 #define MAP_GAMUT_BINDING 4
 #define MAP_SDR_ID 0
+#define MAP_EXPERT_ID 1
 #include "dv_map.glsl"
 layout(local_size_x = 64) in;
 layout(binding = 0, std430) buffer Out { uint pixels[]; };

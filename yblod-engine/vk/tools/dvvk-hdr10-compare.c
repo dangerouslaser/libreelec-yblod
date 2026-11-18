@@ -9,6 +9,10 @@
  *                          R'G'B' full range, 6 bytes a pixel) or rgb10a2
  *                          (A2B10G10R10/A2R10G10B10 words, --ref-order rgba|bgra)
  *                          or f32 (float R'G'B' PQ 0..1, 12 bytes a pixel)
+ *                          or carrier (another dump in this layout: the codes
+ *                          compared as they are, e.g. dvvk-map-test --out's
+ *                          LLDV or HDR10 target reference; also prints the
+ *                          share of equal samples)
  *     --ref-stride BYTES   the reference's row stride
  *     --flip               the reference's rows bottom first
  *     --rows A,B           compare rows A..B-1 only (the active area)
@@ -113,7 +117,7 @@ int main(int argc, char **argv)
             refpath = argv[++i];
         else if (!strcmp(argv[i], "--ref-format") && i + 1 < argc) {
             i++;
-            ref_format = !strcmp(argv[i], "rgb10a2") ? 1 : !strcmp(argv[i], "f32") ? 2 : 0;
+            ref_format = !strcmp(argv[i], "rgb10a2") ? 1 : !strcmp(argv[i], "f32") ? 2 : !strcmp(argv[i], "carrier") ? 3 : 0;
         } else if (!strcmp(argv[i], "--ref-order") && i + 1 < argc)
             ref_order_bgra = !strcmp(argv[++i], "bgra");
         else if (!strcmp(argv[i], "--ref-stride") && i + 1 < argc)
@@ -221,16 +225,23 @@ int main(int argc, char **argv)
             return fprintf(stderr, "%s: can't read\n", refpath), 1;
         if (!ref_stride)
             ref_stride = rsize / H;
-        long n = 0, over[3][4] = {{0}};
+        long n = 0, over[3][4] = {{0}}, equal[3] = {0};
         double sum[3] = {0}, sq[3] = {0}, worst[3] = {0};
         int wx[3] = {0}, wy[3] = {0};
         for (int y = row0; y < row1; y++)
             for (int x = 0; x < W; x += 2) {
                 double rgb0[3], rgb1[3], c0[3], c1[3];
-                ref_rgb(ref, x, y, rgb0);
-                ref_rgb(ref, x + 1, y, rgb1);
-                ycc_codes(rgb0, c0);
-                ycc_codes(rgb1, c1);
+                if (ref_format == 3) {
+                    int ry0, rcb, ry1, rcr;
+                    unpack(ref, ref_stride, x, ref_flip ? H - 1 - y : y, &ry0, &rcb);
+                    unpack(ref, ref_stride, x + 1, ref_flip ? H - 1 - y : y, &ry1, &rcr);
+                    c0[0] = ry0, c0[1] = rcb, c0[2] = rcr, c1[0] = ry1;
+                } else {
+                    ref_rgb(ref, x, y, rgb0);
+                    ref_rgb(ref, x + 1, y, rgb1);
+                    ycc_codes(rgb0, c0);
+                    ycc_codes(rgb1, c1);
+                }
                 int y0, cb, y1, cr;
                 unpack(d, stride, x, y, &y0, &cb);
                 unpack(d, stride, x + 1, y, &y1, &cr);
@@ -245,6 +256,7 @@ int main(int argc, char **argv)
                         wx[ch] = x + (k == 1);
                         wy[ch] = y;
                     }
+                    equal[ch] += e == 0.0;
                     over[ch][0] += e > 1.0;
                     over[ch][1] += e > 2.0;
                     over[ch][2] += e > 4.0;
@@ -255,9 +267,12 @@ int main(int argc, char **argv)
         const char *names[3] = {"Y", "Cb", "Cr"};
         for (int ch = 0; ch < 3; ch++) {
             double cnt = ch == 0 ? 2.0 * n : (double)n;
-            printf("  %-2s vs ref (12-bit): mean %+.3f rms %.3f max %.1f at %d,%d; >1 %.4f%% >2 %.4f%% >4 %.4f%% >16 %.4f%%\n",
+            printf("  %-2s vs ref (12-bit): mean %+.3f rms %.3f max %.1f at %d,%d; >1 %.4f%% >2 %.4f%% >4 %.4f%% >16 %.4f%%",
                    names[ch], sum[ch] / cnt, sqrt(sq[ch] / cnt), worst[ch], wx[ch], wy[ch], 100.0 * over[ch][0] / cnt,
                    100.0 * over[ch][1] / cnt, 100.0 * over[ch][2] / cnt, 100.0 * over[ch][3] / cnt);
+            if (ref_format == 3)
+                printf("; equal %.4f%%", 100.0 * equal[ch] / cnt);
+            printf("\n");
         }
     }
     return 0;

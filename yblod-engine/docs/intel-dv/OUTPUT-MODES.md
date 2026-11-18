@@ -282,6 +282,119 @@ colours, so few samples are exact and it is the cheapest. The exact-weight
 lookup itself adds 1 to 2.5 ms where it is used (measured against the
 sampler on the same displays).
 
+## Player-led Dolby Vision and HDR10 Rendering Reference
+
+After 0.5.1, in the engine only: Kodi's and mpv's settings, and reading
+the TV's EDID for them, come later. Built and checked on the build host's
+UHD 770; **nothing of it has been on a display**, and the kernel's `lldv`
+signalling (linux patches, `DVBRIDGE_TUNNEL_FORMAT` "lldv") has never been
+exercised.
+
+CroqueMr's CB1 maps Dolby Vision to a stated display with one recipe, his
+"Expert", behind two front ends. The engine has both
+(`include/dv_engine_vk.h`):
+
+| Output | `dvvk_output_mode` | What the player signals |
+| --- | --- | --- |
+| Player-led Dolby Vision (CB1's "LLDV Reference - Native") | `{DVVK_OUTPUT_LLDV, 0 or DVVK_LLDV_10BIT, the TV's peak, its black, {gamut}}`, the TV's primaries with `dvvk_set_display_primaries` (first) | The Dolby VSIF with the low-latency bit, AVI YCbCr 4:2:2 BT.2020 limited range, **no** HDR static metadata InfoFrame: this tree's kernel does that for the 12-bit 4:2:2 carrier when `DVBRIDGE_TUNNEL_FORMAT` is "lldv". The TV shows the picture without mapping it again. |
+| HDR10 Rendering Reference (CB1's "LLDV Reference - HDR10 Output") | `{DVVK_OUTPUT_HDR10, DVVK_HDR10_TARGET, peak 50..10000, black 0..0.5, {DVVK_GAMUT_*}}` (CB1's black presets: OLED 0, LCD 0.005, projector 0.05; gamut P3-D65 by default) | As Convert to HDR10, with `dvvk_output_signal`'s static metadata: the virtual target's primaries, max and min luminance, MaxCLL and MaxFALL 0. |
+
+`dvvk_lldv_display_from_vsvdb` gives the LLDV target from the TV's Dolby
+Vision VSVDB (version 1 or 2; CB1's Kodi parser): the peak and black go in
+`dvvk_output_mode`, the primaries (fitted inside BT.2020) and version in
+`dvvk_set_display_primaries`; it says whether the TV takes low-latency 4:2:2
+at all, and at 12 bits (else ask for `DVVK_LLDV_10BIT`).
+
+**What it is.** The film mapped scene by scene to the display, not to the
+film's own peak: libplacebo's ST 2094-10 curve over PQ(black)..PQ(peak) when
+the scene's L1 maximum is above the display's peak, else a clip to it; the
+nearest L2 trims' slope, offset and power bent into the curve; for LLDV,
+the L8 (CM4.0) trims of a target in the display's gamut instead, applied
+pointwise after the map; the trims' chroma weight and saturation; the gamut
+mapped into the display's own primaries; then the BT.2020 PQ the link
+carries. CB1's plan code runs unchanged in the engine; his shaders'
+arithmetic is ported. Kodi's GUI is blended (LLDV) after the map in the
+display's light, at 203 cd/m2 white, as CB1 does; the HDR10 target's GUI as
+Convert to HDR10's.
+
+**Checks** (UHD 770, Mesa 26.2.6):
+
+1. *The engine against its CPU map* (`tools/target-check.sh`,
+   `tools/target.sha256`): 28 pictures of 14 configurations (FEL, MEL,
+   Profile 8.1, Profile 5; LLDV at 600 and 1000 cd/m2, scenes above and
+   below the peak, the TV's own primaries, CM4.0 trims, 10 bits, a
+   projector, the GUI; HDR10 targets at 1000 cd/m2 P3, 600 BT.2020 with an
+   LCD's black, 100 cd/m2 BT.709 with a projector's, the GUI): every sample
+   of 26 of the 28 within one code of the carrier's grid (one 10-bit code at
+   10 bits) of a CPU double-precision map of the same reconstructed picture,
+   66 to 99.96 % of a channel's samples equal, the GUI's FLIP_Y twin
+   identical. **Not met** in one
+   configuration, CM4.0 trims through the TV's own primaries (28 Years
+   Later, its L8 retargeted to a 1000 cd/m2 P3 target, a version 2 VSVDB's
+   primaries): 4 of 16.4 million samples of one picture are 2 to 4 codes
+   off, 1 sample of the other picture 2 codes. They are where the trims' negative
+   offset leaves a channel within about 0.001 cd/m2 of zero, where PQ's
+   slope has no bound: float arithmetic (CB1's shader is float too) can't
+   hold that channel's light to a code there; the light differs by about
+   0.001 cd/m2. Computing every sample exactly gives the same samples, so it
+   is not the 3D LUT. `target-check.sh` allows this one configuration up to
+   4 codes and names it in its result; every other picture must be within
+   one, and the hashes are compared as usual.
+2. *CB1's own pack* (`tools/dvvk-lldv-oracle.c`, his AVX2
+   `cb1_lldv_cpu.c` unchanged): on the same linear picture it and the
+   engine's pack definition agree to within one code (at most 0.08 % of a
+   channel's samples differ, by his 22-bit PQ table); the GPU's bytes are
+   within one code of his pack's (12 bits; one 10-bit code at 10 bits), GUI
+   included. His `player_led_cpu` test passes.
+3. *CB1's tests* of the plan (Expert and player-led plans, scene and target
+   continuity, policy validation, the trim contract) run unchanged in
+   `cargo test`; YBLOD's test the VSVDB parser on version 1 and 2 blocks and
+   what it refuses.
+
+**What is CB1's, what is close, what differs.**
+- *The same code*: the plan (curve, its domain and LUT size, L1/L6, the L2
+  shape, the CM4 resolver and coefficients, the policy's limits), the CM4.0
+  arithmetic on the CPU (his `dvbridge_creative_cm4_apply`) and the VSVDB
+  parsing (ported line for line).
+- *Byte comparison*: the LLDV pack, against his `cb1_lldv_cpu.c` on
+  identical input (check 2).
+- *From reading his source only*: the per-pixel map his renderer runs
+  (`player_led_map`, `reference_output`, libplacebo's
+  `pl_shader_color_map_ex` with his explicit curve, his CM4 and chroma
+  shaders); his renderer itself (libplacebo on GLES) can't run here.
+- *Deliberately different*: the engine's PQ is the curve itself where CB1
+  uses LUT encoders in places (his HDR10 Expert's 4096-entry PQ texture,
+  the pack's table); the HDR10 target keeps Convert to HDR10's decode and
+  4:2:2 (the even sample's chroma), CB1 renders that circuit to RGB; each
+  pixel takes its pair's chroma as CB1's Master Reference reconstruction
+  hands it on, from the engine's reconstruction; CB1's optional CM2.9 ->
+  CM4.0 append and L2 removal for player-led output are not implemented (a
+  frame asking for them, `dm_options`, is refused); his RGB10 and 4:4:4
+  LLDV formats are not offered (the carrier is the 12-bit 4:2:2 one).
+
+**Cost**, GPU ms a picture at 3840x2160 (`DVVK_PROFILE`, mean of three
+runs, the first 160 pictures; with `--cb1`):
+
+| Output | 1917 (P7 FEL) | 28 Years Later (P8.1) | Gemini Man (P7 MEL) |
+| --- | --- | --- | --- |
+| Dolby Vision (tunnel) | 8.8 | 3.7 | 5.5 |
+| Convert to HDR10 | 10.0 | 4.8 | 6.8 |
+| LLDV, 600 cd/m2 | 12.4 | 17.8 | 10.1 |
+| LLDV, 1000 cd/m2 | 12.3 | 18.1 | 10.3 |
+| LLDV, 600 cd/m2, with the GUI | 14.7 | 20.2 | 14.1 |
+| LLDV, 1000 cd/m2, the TV's own primaries | 14.9 | 18.2 | 12.4 |
+| HDR10 target, 1000 cd/m2 P3 | 12.7 | 9.8 | 9.5 |
+| HDR10 target, 600 cd/m2 BT.2020, black 0.005 | 11.9 | 11.3 | 8.4 |
+
+28 Years Later's dark frames are the expensive case: about two thirds of
+their samples fall in cells of the 3D LUT the bake marks (near black, where
+a channel's light crosses zero and PQ is steepest), and LLDV computes those
+exactly in the pack (a pair's chroma needs its neighbour's sample, so the
+fix-up pass, which lists pairs, isn't used). 24p titles fit the UHD 770 with
+room; the N150, about twice as slow, would be near the limit on such frames.
+The first frame of each output compiles its pipelines (about 0.3 s;
+`dvvk-prepare` doesn't make them).
+
 ## Video
 
 | Setting | What it sets |

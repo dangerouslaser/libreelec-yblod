@@ -58,6 +58,29 @@ Implementation references and boundaries:
   Advanced Micro Devices, Inc.: the notice is in the shader, the licence in
   `vk/LICENSES/MIT-AMD-FidelityFX-FSR.txt`. One deliberate change from AMD's
   code, in both: RCAS's resolve divides exactly (`vk/README.md`).
+- After YBLOD 0.5.1, the display-targeted outputs (CB1's Expert recipe:
+  LLDV and HDR10 Rendering Reference): `cb1_hdr10_expert.c/.h` now its plan
+  as well (`cb1_hdr10_expert_prepare`, `cb1_player_led_prepare`,
+  `cb1_hdr10_expert_ceiling`; everything but the libplacebo shader
+  `cb1_hdr10_expert_trim`, whose arithmetic `vk/yblod/dv_map.c` and
+  `vk/shaders/common/dv_map.glsl` carry), and `dvbridge_placebo.c/.h` (a
+  subset: `dvbridge_map_color`), CroqueMr's CB1 at the same commit with its
+  notice and that pin, and his tests `hdr10_expert_plan.c`,
+  `hdr10_expert_continuity.c` (with `hdr10_expert_fixture.h`), `policy.c` and
+  `trim_contract.c`, unchanged, in `vk/yblod/tests/cb1`. From his patched
+  libplacebo (LGPL-2.1-or-later): `vk/yblod/placebo/libav_dovi.c` (the
+  Dolby Vision mapping of `utils/libav_internal.h`) and
+  `vk/yblod/placebo/cb1_expert_tone.c` (the tone LUT of his
+  `libplacebo-9918-expert-tone.patch`).
+  Test-only, not in the engine: his CPU player-led pack
+  `cb1_lldv_cpu.c/.h` and its test `player_led_cpu.c` (MIT), unchanged in
+  `vk/tools/cb1`, the oracle `vk/tools/dvvk-lldv-oracle.c` compares the
+  engine's LLDV pack with. `vk/yblod/lldv_vsvdb.c`
+  (`dvvk_lldv_display_from_vsvdb`) is a C port of his Kodi patches' Dolby
+  VSVDB parsing (`DVBridgeEdid.h` `dvbridge_parse_edid`, MIT;
+  `DVBridgeLldv.h` `ReadLldvDisplay`, `ValidLldvPrimaries`,
+  `FitLldvPrimaries`, GPL-2.0-or-later) at the same commit, the arithmetic
+  and decisions unchanged, for one block instead of a whole EDID.
 
 References:
 
