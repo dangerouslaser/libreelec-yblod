@@ -1,0 +1,293 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 12:00:00 +0000
+Subject: [PATCH] nvidia-drm: build on Linux 7.4
+
+Linux 7.4 removed the plane and CRTC .reset hooks and
+drm_atomic_helper_{plane,crtc}_reset() (5589ef09f93b, e62864df82f6,
+f1bcb90506a9, 5354d1e5fba4; .atomic_create_state replaces them, added in
+7.3), and moved the fbdev helpers to drm/clients/drm_fbdev_helper.h
+(6ccc5b5fc1d3). 580.196.07, the newest release of the 580 branch, does
+not build there.
+
+This takes NVIDIA's own adaptation from 620.73.04 (open-gpu-kernel-modules,
+kernel-open/): the drm/clients/drm_fbdev_helper.h header test, which the
+drm_fbdev_generic_setup, drm_fbdev_ttm_setup and drm_client_setup
+conftests and nvidia-drm-drv.c include when it is there; and the
+drm_{plane,crtc}_funcs_has_atomic_create_state and
+drm_atomic_helper_{plane,crtc}_state_init conftests, with
+.atomic_create_state hooks that allocate nvidia-drm's own state where the
+.reset hooks did. The plane state is allocated as 580's reset hook does
+(620 has a helper for it). On kernels without .atomic_create_state
+nothing changes.
+---
+ kernel/conftest.sh                      | 80 +++++++++++++++++++++++++
+ kernel/header-presence-tests.mk         |  1 +
+ kernel/nvidia-drm/nvidia-drm-crtc.c     | 59 ++++++++++++++++++
+ kernel/nvidia-drm/nvidia-drm-drv.c      |  4 ++
+ kernel/nvidia-drm/nvidia-drm-sources.mk |  4 ++
+ 5 files changed, 148 insertions(+)
+
+diff --git a/kernel/conftest.sh b/kernel/conftest.sh
+index f270e7f25b5b..ee37fa98a706 100755
+--- a/kernel/conftest.sh
++++ b/kernel/conftest.sh
+@@ -4265,7 +4265,11 @@ compile_test() {
+             # in v6.11.
+             #
+             CODE="
++            #if defined(NV_DRM_CLIENTS_DRM_FBDEV_HELPER_H_PRESENT)
++            #include <drm/clients/drm_fbdev_helper.h>
++            #else
+             #include <drm/drm_fb_helper.h>
++            #endif
+             #if defined(NV_DRM_DRM_FBDEV_GENERIC_H_PRESENT)
+             #include <drm/drm_fbdev_generic.h>
+             #endif
+@@ -4285,7 +4289,11 @@ compile_test() {
+             # 1000634477d8 ("drm/fbdev-ttm:Convert to client-setup") in v6.13.
+             #
+             CODE="
++            #if defined(NV_DRM_CLIENTS_DRM_FBDEV_HELPER_H_PRESENT)
++            #include <drm/clients/drm_fbdev_helper.h>
++            #else
+             #include <drm/drm_fb_helper.h>
++            #endif
+             #if defined(NV_DRM_DRM_FBDEV_TTM_H_PRESENT)
+             #include <drm/drm_fbdev_ttm.h>
+             #endif
+@@ -4307,7 +4315,11 @@ compile_test() {
+             # in linux-next b86711c6d6e2.
+             #
+             CODE="
++            #if defined(NV_DRM_CLIENTS_DRM_FBDEV_HELPER_H_PRESENT)
++            #include <drm/clients/drm_fbdev_helper.h>
++            #else
+             #include <drm/drm_fb_helper.h>
++            #endif
+             #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
+             #include <drm/drm_client_setup.h>
+             #elif defined(NV_DRM_CLIENTS_DRM_CLIENT_SETUP_H_PRESENT)
+@@ -5111,6 +5123,74 @@ compile_test() {
+             compile_check_conftest "$CODE" "NV_DRM_ATOMIC_COMMIT_STRUCT_PRESENT" "" "types"
+         ;;
+ 
++        drm_atomic_helper_crtc_state_init)
++            #
++            # Determine if __drm_atomic_helper_crtc_state_init is present.
++            #
++            # Added by commit 915fdd2c7e87 ("drm/atomic-state-helper: Rename
++            # __drm_atomic_helper_crtc_state_reset()") in v7.3-rc1.
++            #
++            CODE="
++            #include <drm/drm_atomic_helper.h>
++
++            void conftest_drm_atomic_helper_crtc_state_init() {
++                __drm_atomic_helper_crtc_state_init();
++            }"
++
++            compile_check_conftest "$CODE" "NV_DRM_ATOMIC_HELPER_CRTC_STATE_INIT" "" "functions"
++        ;;
++
++        drm_atomic_helper_plane_state_init)
++            #
++            # Determine if __drm_atomic_helper_plane_state_init is present.
++            #
++            # Added by commit 3e5656ea5e73 ("drm/atomic-state-helper: Rename
++            # __drm_atomic_helper_plane_state_reset()") in v7.3-rc1.
++            #
++            CODE="
++            #include <drm/drm_atomic_helper.h>
++
++            void conftest_drm_atomic_helper_plane_state_init() {
++                __drm_atomic_helper_plane_state_init();
++            }"
++
++            compile_check_conftest "$CODE" "NV_DRM_ATOMIC_HELPER_PLANE_STATE_INIT" "" "functions"
++        ;;
++
++        drm_crtc_funcs_has_atomic_create_state)
++            #
++            # Determine if drm_crtc_funcs has a 'atomic_create_state' function pointer.
++            #
++            # Added by commit 58d426b5ed0d ("drm/crtc: Add new atomic_create_state callback")
++            # in v7.3-rc1.
++            #
++            CODE="
++            #include <drm/drm_atomic_helper.h>
++
++            int conftest_drm_crtc_funcs_has_atomic_create_state(void) {
++                return offsetof(struct drm_crtc_funcs, atomic_create_state);
++            }"
++
++            compile_check_conftest "$CODE" "NV_DRM_CRTC_FUNCS_HAS_ATOMIC_CREATE_STATE" "" "types"
++        ;;
++
++        drm_plane_funcs_has_atomic_create_state)
++            #
++            # Determine if drm_plane_funcs has a 'atomic_create_state' function pointer.
++            #
++            # Added by commit 1a185ddecaf9 ("drm/plane: Add new atomic_create_state callback")
++            # in v7.3-rc1.
++            #
++            CODE="
++            #include <drm/drm_atomic_helper.h>
++
++            int conftest_drm_plane_funcs_has_atomic_create_state(void) {
++                return offsetof(struct drm_plane_funcs, atomic_create_state);
++            }"
++
++            compile_check_conftest "$CODE" "NV_DRM_PLANE_FUNCS_HAS_ATOMIC_CREATE_STATE" "" "types"
++        ;;
++
+         # When adding a new conftest entry, please use the correct format for
+         # specifying the relevant upstream Linux kernel commit.  Please
+         # avoid specifying -rc kernels, and only use SHAs that actually exist
+diff --git a/kernel/header-presence-tests.mk b/kernel/header-presence-tests.mk
+index 7ca0bd2a8593..e529e23b127a 100644
+--- a/kernel/header-presence-tests.mk
++++ b/kernel/header-presence-tests.mk
+@@ -11,6 +11,7 @@ NV_HEADER_PRESENCE_TESTS = \
+   drm/drm_client_setup.h \
+   drm/drm_probe_helper.h \
+   drm/clients/drm_client_setup.h \
++  drm/clients/drm_fbdev_helper.h \
+   dt-bindings/interconnect/tegra_icc_id.h \
+   generated/autoconf.h \
+   generated/compile.h \
+diff --git a/kernel/nvidia-drm/nvidia-drm-crtc.c b/kernel/nvidia-drm/nvidia-drm-crtc.c
+index 47463bdfaf9f..1c7ff9e8a182 100644
+--- a/kernel/nvidia-drm/nvidia-drm-crtc.c
++++ b/kernel/nvidia-drm/nvidia-drm-crtc.c
+@@ -1912,6 +1912,31 @@ static int nv_drm_plane_atomic_get_property(
+     return -EINVAL;
+ }
+ 
++#if defined(NV_DRM_PLANE_FUNCS_HAS_ATOMIC_CREATE_STATE)
++/**
++ * nv_drm_plane_atomic_create_state - plane state creation hook
++ * @plane: DRM plane
++ *
++ * Allocate an empty DRM plane state.
++ */
++static struct drm_plane_state *nv_drm_plane_atomic_create_state(struct drm_plane *plane)
++{
++    struct nv_drm_plane_state *nv_plane_state =
++        nv_drm_calloc(1, sizeof(*nv_plane_state));
++
++    if (!nv_plane_state) {
++        return ERR_PTR(-ENOMEM);
++    }
++
++#if defined(NV_DRM_ATOMIC_HELPER_PLANE_STATE_INIT)
++    __drm_atomic_helper_plane_state_init(&nv_plane_state->base, plane);
++#else
++    __drm_atomic_helper_plane_state_reset(&nv_plane_state->base, plane);
++#endif
++
++    return &nv_plane_state->base;
++}
++#else
+ /**
+  * nv_drm_plane_atomic_reset - plane state reset hook
+  * @plane: DRM plane
+@@ -1942,6 +1967,7 @@ static void nv_drm_plane_atomic_reset(struct drm_plane *plane)
+         kfree(nv_plane_state);
+     }
+ }
++#endif
+ 
+ 
+ static struct drm_plane_state *
+@@ -2056,7 +2082,11 @@ static const struct drm_plane_funcs nv_plane_funcs = {
+     .update_plane           = drm_atomic_helper_update_plane,
+     .disable_plane          = drm_atomic_helper_disable_plane,
+     .destroy                = nv_drm_plane_destroy,
++#if defined(NV_DRM_PLANE_FUNCS_HAS_ATOMIC_CREATE_STATE)
++    .atomic_create_state    = nv_drm_plane_atomic_create_state,
++#else
+     .reset                  = nv_drm_plane_atomic_reset,
++#endif
+     .atomic_get_property    = nv_drm_plane_atomic_get_property,
+     .atomic_set_property    = nv_drm_plane_atomic_set_property,
+     .atomic_duplicate_state = nv_drm_plane_atomic_duplicate_state,
+@@ -2143,6 +2173,30 @@ static inline struct nv_drm_crtc_state *nv_drm_crtc_state_alloc(void)
+ }
+ 
+ 
++#if defined(NV_DRM_CRTC_FUNCS_HAS_ATOMIC_CREATE_STATE)
++/**
++ * nv_drm_atomic_crtc_atomic_create_state - crtc state creation hook
++ * @crtc: DRM crtc
++ *
++ * Allocate an empty DRM crtc state.
++ */
++static struct drm_crtc_state *nv_drm_atomic_crtc_atomic_create_state(struct drm_crtc *crtc)
++{
++    struct nv_drm_crtc_state *nv_state = nv_drm_crtc_state_alloc();
++
++    if (!nv_state) {
++        return ERR_PTR(-ENOMEM);
++    }
++
++#if defined(NV_DRM_ATOMIC_HELPER_CRTC_STATE_INIT)
++    __drm_atomic_helper_crtc_state_init(&nv_state->base, crtc);
++#else
++    __drm_atomic_helper_crtc_state_reset(&nv_state->base, crtc);
++#endif
++
++    return &nv_state->base;
++}
++#else
+ /**
+  * nv_drm_atomic_crtc_reset - crtc state reset hook
+  * @crtc: DRM crtc
+@@ -2172,6 +2226,7 @@ static void nv_drm_atomic_crtc_reset(struct drm_crtc *crtc)
+         kfree(nv_state);
+     }
+ }
++#endif
+ 
+ /**
+  * nv_drm_atomic_crtc_duplicate_state - crtc state duplicate hook
+@@ -2265,7 +2320,11 @@ static void nv_drm_atomic_crtc_destroy_state(struct drm_crtc *crtc,
+ static struct drm_crtc_funcs nv_crtc_funcs = {
+     .set_config             = drm_atomic_helper_set_config,
+     .page_flip              = drm_atomic_helper_page_flip,
++#if defined(NV_DRM_CRTC_FUNCS_HAS_ATOMIC_CREATE_STATE)
++    .atomic_create_state    = nv_drm_atomic_crtc_atomic_create_state,
++#else
+     .reset                  = nv_drm_atomic_crtc_reset,
++#endif
+     .destroy                = nv_drm_crtc_destroy,
+     .atomic_get_property    = nv_drm_atomic_crtc_get_property,
+     .atomic_set_property    = nv_drm_atomic_crtc_set_property,
+diff --git a/kernel/nvidia-drm/nvidia-drm-drv.c b/kernel/nvidia-drm/nvidia-drm-drv.c
+index f8376c46e001..905efdc1965e 100644
+--- a/kernel/nvidia-drm/nvidia-drm-drv.c
++++ b/kernel/nvidia-drm/nvidia-drm-drv.c
+@@ -64,8 +64,12 @@
+ #endif
+ 
+ #if defined(NV_DRM_FBDEV_AVAILABLE)
++#if defined(NV_DRM_CLIENTS_DRM_FBDEV_HELPER_H_PRESENT)
++#include <drm/clients/drm_fbdev_helper.h>
++#else
+ #include <drm/drm_fb_helper.h>
+ #endif
++#endif
+ 
+ #if defined(NV_DRM_DRM_CLIENT_SETUP_H_PRESENT)
+ #include <drm/drm_client_setup.h>
+diff --git a/kernel/nvidia-drm/nvidia-drm-sources.mk b/kernel/nvidia-drm/nvidia-drm-sources.mk
+index abbce8e07f71..39240c1401cb 100644
+--- a/kernel/nvidia-drm/nvidia-drm-sources.mk
++++ b/kernel/nvidia-drm/nvidia-drm-sources.mk
+@@ -108,3 +108,7 @@ NV_CONFTEST_TYPE_COMPILE_TESTS += drm_driver_has_date
+ NV_CONFTEST_TYPE_COMPILE_TESTS += drm_connector_helper_funcs_mode_valid_has_const_mode_arg
+ NV_CONFTEST_TYPE_COMPILE_TESTS += drm_fb_create_takes_format_info
+ NV_CONFTEST_TYPE_COMPILE_TESTS += drm_atomic_commit_struct_present
++NV_CONFTEST_TYPE_COMPILE_TESTS += drm_atomic_helper_crtc_state_init
++NV_CONFTEST_TYPE_COMPILE_TESTS += drm_atomic_helper_plane_state_init
++NV_CONFTEST_TYPE_COMPILE_TESTS += drm_crtc_funcs_has_atomic_create_state
++NV_CONFTEST_TYPE_COMPILE_TESTS += drm_plane_funcs_has_atomic_create_state
