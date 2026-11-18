@@ -88,8 +88,8 @@ bilinear, one that refuses a method keeps the one it has (logged). Kodi never
 calls `dvvk_set_scaler` while both are bilinear, so the default is the engine
 as before.
 
-Player-led Dolby Vision (kodi-9965) has its own section below; its check is
-item 14 here.
+Player-led Dolby Vision and HDR10 Rendering Reference (kodi-9965, kodi-9966)
+have their own section below; their checks are items 14 and 15 here.
 
 ### To check on a display
 
@@ -193,15 +193,35 @@ separate check.
     - Stop, seek, next title, a refresh-rate change (24p after 60p): the
       desktop comes back, no HDMI blanking loop. `DV_LLDV_OUTPUT=0` removes
       the option.
+15. **HDR10 Rendering Reference** (kodi-9966; not yet on a display). HDR10
+    conversion: Rendering Reference, on an HDR10 TV (Dolby Vision or not)
+    with Convert to HDR10, and with Dolby Vision (TV-led) on a TV without
+    Dolby Vision (the fallback):
+    - kodi.log: `Vulkan engine output: HDR10, Rendering Reference (CroqueMr's
+      CB1 Expert) to the display 1000 nits, black 0.0000, P3-D65`, then
+      `Vulkan engine HDR10 pts=...: mastering 1000 / 0.0000 cd/m2, MaxCLL 0,
+      MaxFALL 0` (the stated display, not the film's mastering). The TV's
+      HDR info (HDFury, the TV's service menu) shows the same.
+    - With the TV's dynamic tone mapping off, against Master Reference on
+      the same scene: with the peak set to the TV's own, highlights keep
+      their detail rather than clip; a peak far above the TV's should look
+      like Master Reference; 100 nits on the projector.
+    - Black presets (OLED, LCD, projector, custom 0.0005) and the three
+      gamuts: dark scenes and saturated colours change as expected, greys
+      stay neutral. Player information: Playback "HDR10 conversion
+      (Rendering Reference)", Target the display.
+    - Master Reference (the default) must give the log line and the HDR10
+      metadata of before (`HDR10, the Master Reference conversion`).
 
-## Player-led Dolby Vision
+## Player-led Dolby Vision and HDR10 Rendering Reference
 
-After 0.5.1 (kodi-9965; the engine's `DVVK_OUTPUT_LLDV`,
-[vk/README.md](../vk/README.md)): CroqueMr's CB1 maps Dolby Vision to the
-TV's own target. New, and not seen on a display (item 14 above). With the
-settings at their defaults it is not used: Kodi makes no new engine call and
-writes no new DRM property, and the Automatic fallback chooses what it chose
-before.
+After 0.5.1 (kodi-9965, kodi-9966; the engine's `DVVK_OUTPUT_LLDV` and
+`DVVK_HDR10_TARGET`, [vk/README.md](../vk/README.md)): CroqueMr's CB1 maps
+Dolby Vision to a stated display, the TV's own (player-led Dolby Vision) or
+one the user describes (HDR10 Rendering Reference). Both are new and have
+not been seen on a display (item 14 and 15 above). With the settings at
+their defaults neither is used: Kodi makes no new engine call and writes no
+new DRM property, and the Automatic fallback chooses what it chose before.
 
 **Player-led Dolby Vision** (Output mode "Dolby Vision (player-led)",
 `DVBRIDGE::OutputMode::PlayerLed`, 5). Offered in the setting and in the
@@ -249,18 +269,35 @@ no picture of another kind is sent with the lldv signal. A title whose
 pictures the engine refuses one by one plays as its base layer, as for
 Dolby Vision (kodi-9961).
 
-Player information shows the TV's target (Target), and Playback "Dolby
-Vision (player-led)".
+**HDR10 Rendering Reference** (HDR10 conversion: Master Reference, the
+default, or Rendering Reference, with Display peak brightness 50 to 10000
+nits, Display black level OLED 0 / LCD 0.005 / projector 0.05 / custom 0 to
+0.5 nits, Display colours P3-D65 (default), BT.2020, BT.709). Shown where
+this connection has the HDR10 output and the library `DVVK_HDR10_TARGET`,
+or while Rendering Reference is saved. It applies to every use of the
+engine's HDR10 output: Convert to HDR10, the fallback to it, and Convert to
+HDR10+ on a TV without HDR10+ or after its fallback to HDR10 (HDR10+ output
+itself is not mapped). The engine gets `{DVVK_OUTPUT_HDR10,
+DVVK_HDR10_TARGET, peak, black, {gamut}}` and the HDR static metadata the
+TV gets is `dvvk_output_signal`'s: the stated display's primaries, max and
+min luminance, MaxCLL and MaxFALL 0. A library without the flag, a value
+out of range from `native-dv.env`, or the engine refusing it give the
+Master Reference conversion (one log line): an HDR10 picture all the same.
 
-Videos without Dolby Vision do not take it: an HDR10, HDR10+ or HLG video
-plays as before (as Kodi shows it, converted to SDR, or as Dolby Vision
-TV-led through "HDR10+ videos" and the OSD's Convert to Dolby Vision, which
-stay TV-led only).
+Player information shows the target (Target) for both, and Playback
+"Dolby Vision (player-led)" or "HDR10 conversion (Rendering Reference)".
+
+Videos without Dolby Vision do not take either: an HDR10, HDR10+ or HLG
+video plays as before (as Kodi shows it, converted to SDR, or as Dolby
+Vision TV-led through "HDR10+ videos" and the OSD's Convert to Dolby
+Vision, which stay TV-led only).
 
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `DV_LLDV_OUTPUT` | 1 | 0: player-led Dolby Vision is never offered, also where it is saved (the fallback's output then). |
 | `DV_LLDV_BITS` | 12 | 10: 10 useful bits in the 12-bit carrier (`DVVK_LLDV_10BIT`), for a TV whose low-latency 4:2:2 takes 10. No setting. |
+| `DV_HDR10_TARGET` | 0 | 1: Rendering Reference (HDR10 conversion). |
+| `DV_HDR10_TARGET_PEAK`, `_BLACK`, `_GAMUT` | 1000, 0, p3 | The display: 50 to 10000 cd/m2; 0 to 0.5 cd/m2; `p3`, `bt2020`, `bt709`. |
 
 ## Presentation (0.5.0)
 

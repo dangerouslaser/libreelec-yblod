@@ -11,7 +11,7 @@ renderer.
 | --- | --- |
 | Dolby Vision (TV-led) | Default. The engine reconstructs the picture (FEL included) and sends it with frame-matched Dolby Vision metadata through the DV tunnel (RGB 8-bit container); the TV's Dolby Vision processing maps it. |
 | Dolby Vision (player-led) | After 0.5.1 (kodi-9965), **not yet seen on a TV**. The engine maps the picture to the TV's own peak, black and primaries from its EDID's Dolby Vision block (CroqueMr's CB1 "LLDV Reference - Native") and sends it as low-latency Dolby Vision: the tunnel's 12-bit YCbCr 4:2:2 with `DVBRIDGE_TUNNEL_FORMAT` lldv (the Dolby VSIF with its low-latency bit, AVI 4:2:2 BT.2020 limited range, no HDR static metadata). The TV shows it without mapping it again. See [Player-led Dolby Vision and HDR10 Rendering Reference](#player-led-dolby-vision-and-hdr10-rendering-reference). |
-| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9928), with HDR static metadata from the film (L6 or its source peak, L9 primaries). |
+| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9928), with HDR static metadata from the film (L6 or its source peak, L9 primaries). With HDR10 conversion "Rendering Reference" (after 0.5.1, kodi-9966) it maps to a display the user describes instead, with that display's static metadata. |
 | Convert to HDR10+ | Dolby Vision to HDR10+ (CroqueMr's CB1 method): the engine sends the Master Reference reconstruction in BT.2020 PQ **without** tone mapping, through the tunnel as for HDR10 (same static metadata), and with each picture an HDR10+ vendor InfoFrame (`HDR10PLUS_METADATA`, linux-9932) in the same atomic commit as that picture. The TV applies the HDR10+ curve. The metadata is made from the picture's Dolby Vision L1 (L3 folded in), L2 or L8 trims where their response fits one HDR10+ curve for a 992-nit reference, and statistics the engine measures on the film area of each picture (maxRGB histogram, average, channel maxima), one picture late at most. |
 | Convert to SDR | For a TV or projector without HDR (after 0.5.0). The engine converts the reconstructed picture to an ordinary BT.709 picture, scene by scene from the Dolby Vision metadata (L1), and the bridge shows it as 8-bit RGB with no tunnel and no HDR signalling, at the display's own mode. YBLOD's conversion, not Dolby's: see [Convert to SDR](#convert-to-sdr). |
 | Off | Kodi's ordinary playback of the base layer: HDR10 or SDR as the stream's base layer is, without the enhancement layer. Profile 5 has no compatible base layer and its colours are wrong. |
@@ -288,12 +288,12 @@ sampler on the same displays).
 
 ## Player-led Dolby Vision and HDR10 Rendering Reference
 
-After 0.5.1. In the engine, and in Kodi since kodi-9965 (player-led); Kodi's
-HDR10 Rendering Reference and mpv's settings come later. Built and
+After 0.5.1. In the engine, and in Kodi since kodi-9965 (player-led) and
+kodi-9966 (HDR10 Rendering Reference); mpv's settings come later. Built and
 checked on the build host's UHD 770; **nothing of it has been on a
 display**, and the kernel's `lldv` signalling (linux patches,
 `DVBRIDGE_TUNNEL_FORMAT` "lldv") has never been exercised. The checks to
-make on a TV are item 14 of
+make on a TV are items 14 and 15 of
 [integration/README.md](../../integration/README.md#to-check-on-a-display).
 
 **In Kodi.**
@@ -301,10 +301,12 @@ make on a TV are item 14 of
 | Setting | What it sets |
 | --- | --- |
 | Output mode: Dolby Vision (player-led) | The TV's own target, read by `dvvk_lldv_display_from_vsvdb` from the Dolby Vision VSVDB of its EDID. Offered (also in the video OSD) only where the engine library has the mode, the TV's block has the low-latency interface (by the kernel's test, and the engine's parser returns a target) and the connector's `DVBRIDGE_TUNNEL_FORMAT` has its lldv value, at progressive 3840x2160; kodi.log says which is missing. Never chosen by the Automatic fallback. Selected where it is not here, the video takes the fallback as Dolby Vision (TV-led) does on a TV without Dolby Vision: Convert to HDR10, then Convert to SDR (or the base layer). If the engine refuses the TV's target, or the kernel refuses ten player-led commits in a row, it is withdrawn until Kodi restarts and the title restarts with that fallback. The Dolby Vision metadata settings (CM4.0, L2) do not apply to it. `DV_LLDV_BITS` 12 (default) or 10 useful bits; `DV_LLDV_OUTPUT=0` removes it. |
+| HDR10 conversion | **Master Reference** (default, the conversion as before) or **Rendering Reference** (CroqueMr's CB1 "LLDV Reference - HDR10 Output"): the engine maps to the display described by **Display peak brightness** (50 to 10000 nits, 1000 by default), **Display black level** (OLED 0, LCD 0.005, projector 0.05, or a custom 0 to 0.5 nits) and **Display colours** (P3-D65 by default, BT.2020, BT.709), and the TV gets that display's static metadata (`dvvk_output_signal`: its primaries, max and min luminance, MaxCLL and MaxFALL 0). Wherever the HDR10 output is used: Convert to HDR10, the fallback to it, Convert to HDR10+ while it is HDR10. Offered where the HDR10 output is and the library takes `DVVK_HDR10_TARGET`; a library without it, or values out of range from `native-dv.env`, give the Master Reference conversion with a log line. `DV_HDR10_TARGET`, `_PEAK`, `_BLACK`, `_GAMUT`. |
 
-Player information's Playback says "Dolby Vision (player-led)", and Target
-the TV's target. HDR10, HDR10+ and HLG videos without Dolby Vision do not
-take it.
+Player information's Playback says "Dolby Vision (player-led)" or "HDR10
+conversion (Rendering Reference)", and Target the display mapped to. HDR10,
+HDR10+ and HLG videos without Dolby Vision take neither (they do not pass
+through the HDR10 output).
 
 CroqueMr's CB1 maps Dolby Vision to a stated display with one recipe, his
 "Expert", behind two front ends. The engine has both
@@ -479,7 +481,7 @@ looks like: an 8-bit RGB picture, dithered, at the display's mode.
 
 **Enhanced player information** replaces the stock information panel. Press **O** to open or close it; **Esc/Back** closes it. Disable the option to restore the stock panel. The existing **Ctrl+Shift+O** diagnostic remains unchanged.
 
-The panel separates source metadata, reconstruction and output. Target names the display the engine maps to (player-led Dolby Vision) and is hidden otherwise. Upscaling names the engine's upscaler (Bilinear, FSR 1, FSR 1 + sharpening) while it enlarges the picture, and is hidden otherwise. SDR, HDR10 and HLG use a compact video/audio/rendering layout without DV sections. Static HDR metadata appears only when available. Dolby Vision sources retain their detailed panel, including during the HDR10 conversion. Missing or inapplicable fields are hidden. FEL presence is not reported as successful reconstruction until a corresponding frame is presented. Drop and skip values are Kodi's own counters; pattern correction is not a dropped-frame counter.
+The panel separates source metadata, reconstruction and output. Target names the display the engine maps to (player-led Dolby Vision, HDR10 Rendering Reference) and is hidden otherwise. Upscaling names the engine's upscaler (Bilinear, FSR 1, FSR 1 + sharpening) while it enlarges the picture, and is hidden otherwise. SDR, HDR10 and HLG use a compact video/audio/rendering layout without DV sections. Static HDR metadata appears only when available. Dolby Vision sources retain their detailed panel, including during the HDR10 conversion. Missing or inapplicable fields are hidden. FEL presence is not reported as successful reconstruction until a corresponding frame is presented. Drop and skip values are Kodi's own counters; pattern correction is not a dropped-frame counter.
 
 The bottom-aligned panel fits its tallest visible column, with no close-action footer. No Dolby logos or speaker diagram are included. Metadata refresh is limited to twice per second while the panel is open.
 
