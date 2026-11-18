@@ -57,7 +57,7 @@ LibreELEC's, unchanged, none dropped (7.4 has none of their changes):
 
 No upstream backports are added (see the candidates after the triage).
 
-YBLOD's 13:
+YBLOD's 13 (14 with linux-9925, below):
 - linux-9900, 9901, 9912, 9913, 9922, 9923, 9924, 9930, 9931: files
   unchanged, some hunks at offsets (9900: 4, 9901: 6, 9913: 6, 9922: 1,
   9923: 6, 9924: 1, 9930: 7, 9931: 13).
@@ -99,12 +99,19 @@ linux-9923's HDR pass does not run there (as with Broadcast RGB forced);
 DRM core now parses HDMI VRR, ALLM and the AMD VSDB into display_info,
 and linux-9910 and linux-9933 keep their own EDID parsers.
 
-Not ported, known 7.4 behaviour change: e4dca268eea6 (in 7.4-rc1) makes
-amdgpu call a native HDMI sink FreeSync-capable only with the EDID's MCCS
-VCP code, which TVs do not have (an LG B4's AMD VSDB has 0), so such TVs
-read vrr_capable 0 on amdgpu. big-fella's linux-9929
-(amdgpu.freesync_hdmi_vcp) undoes it. YBLOD carries no change for it
-here.
+7.4 behaviour change, undone by a new patch: e4dca268eea6 (in 7.4-rc1)
+makes amdgpu call a native HDMI (TMDS) sink FreeSync-capable only with
+the EDID's MCCS VCP code, which TVs do not have (an LG B4's AMD VSDB has
+0), so such TVs read vrr_capable 0 on amdgpu; it also undoes 7.4's HDMI
+2.1 VRR (HF-VSDB) fallback. 7.3.4 looked at the VCP code only when MCCS
+was read. linux-9925 (yblod/patches/linux, with the other FreeSync and
+general amdgpu HDMI patches; 992x is the amdgpu group) is big-fella's
+linux-9929, unchanged: amdgpu.freesync_hdmi_vcp, default 0 (not
+required on native HDMI), 1 for upstream's check; PCON and MCCS as
+upstream. It applies with no fuzz and no offset after linux-9924, on an
+amdgpu_dm_connector.c byte-identical to big-fella's (same blob ids), and
+the series after it applies as before. Not run on an AMD box with such
+a TV.
 
 Packages that build against the kernel (from tools/viewplan for
 Generic): nvidia, wireguard-tools and ipset (kernel packages, rebuilt
@@ -198,7 +205,7 @@ ARCH=x86_64):
   to pristine 7.4-rc3 with GNU patch --fuzz=0: all apply, no fuzz; the
   result is identical to the git-rebased tree. scripts/unpack linux, which
   fetched the recipe's URL and checked its SHA256, applied all 16 with no
-  fuzz.
+  fuzz (17 with linux-9925).
 - tools/adjust_kernel_config olddefconfig, then scripts/config --module
   AMD_PMC and --module RTW88_8723BS and olddefconfig again.
 - scripts/build_mt linux: kernel 7.4.0-rc3 compiled and linked (bzImage,
@@ -211,10 +218,18 @@ ARCH=x86_64):
   vermagic 7.4.0-rc3; the sysroot's linux/version.h is 7.4.0.
 - tools/pkgcheck linux: clean. yblod/tools/link-patches.sh: patch links
   OK.
-- footprint.sh: 57 paths, the 54 of the 2026-11-18 resync plus
-  packages/linux/package.mk and projects/Generic/linux/linux.x86_64.conf
-  (modified upstream) and the link
-  projects/Generic/patches/nvidia/nvidia-9900-nvidia-drm-linux-7.4.patch.
+- footprint.sh: 62 paths on feat/croque-parity-kernel-vrr: the 55 of
+  ba8b701d6c, three Kodi patch links of feat/croque-parity's Kodi
+  commits, and four from this move: packages/linux/package.mk and
+  projects/Generic/linux/linux.x86_64.conf (modified upstream) and the
+  links projects/Generic/patches/nvidia/nvidia-9900-*.patch and
+  projects/Generic/patches/linux/linux-9925-*.patch.
+- linux-9925: the series with it applied to pristine 7.4-rc3 in build
+  order with no fuzz (9925 itself with no offset) and equal to the git
+  tree; scripts/build_mt linux in the build copy compiled and linked
+  7.4.0-rc3 with it (amdgpu is built in; modules.builtin.modinfo lists
+  amdgpu.freesync_hdmi_vcp, bool); the same 4 warnings, none in patched
+  code.
 
 Also changed: yblod-engine/docs/intel-dv/CHANGES.md names the kernel the
 series is for.

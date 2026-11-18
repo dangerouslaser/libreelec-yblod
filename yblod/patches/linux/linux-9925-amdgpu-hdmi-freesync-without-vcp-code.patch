@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 12:00:00 +0000
+Subject: [PATCH] drm/amd/display: HDMI FreeSync/VRR without an MCCS VCP code
+
+7.4 (e4dca268eea6, "Restore FreeSync VCP code check for HDMI/PCON
+sinks") clears freesync_capable for a native HDMI (TMDS) sink whose EDID
+has no FreeSync MCCS VCP code. TVs have no MCCS: an LG B4 with FreeSync
+Premium on sends the AMD VSDB 6d1a000002012878000000000000 (FreeSync,
+40-120 Hz, VCP code 0), so amdgpu reported a VRR range of 40-120 and
+vrr_capable 0. The same check also undoes 7.4's HDMI 2.1 VRR range
+(HF-VSDB) fallback, which a sink without an AMD VSDB reaches with VCP
+code 0 too. On 7.3.4 the VCP code was only looked at when MCCS was read
+(do_mccs), so such TVs were VRR-capable there, and YBLOD's opt-in
+FreeSync (Kodi's variable refresh rate) worked on them.
+
+amdgpu.freesync_hdmi_vcp (default 0): 0, native HDMI does not need the
+VCP code; 1, upstream's check. The PCON whitelist case and the MCCS
+block (do_mccs) are upstream's either way: a sink with a VCP code that
+MCCS says does not support FreeSync still loses it. HDMI FRL sinks are
+not affected by the check upstream and are not changed here.
+
+Nothing else on the HDMI path looks at the VCP code: with an AMD VSDB
+that says FreeSync, amdgpu_dm_update_freesync_state_on_stream() sends
+the FreeSync SPD packet (PACKET_TYPE_VRR, v1); without one, HDMI VRR's
+VTEM. No KUnit test covers HDMI with an AMD VSDB and VCP code 0 (the
+HDMI test has no VSDB and still expects no FreeSync).
+
+From big-fella (linux-yblod 7.4rc2-2,
+linux-9929-big-fella-amdgpu-hdmi-freesync-no-vcp.patch), unchanged: it
+applies to YBLOD's 7.4-rc3 series at the same place, on a byte-identical
+amdgpu_dm_connector.c. big-fella records the failure on ryzen-fella's LG
+B4 (vrr_capable 0), not a run with this patch; it has not run on YBLOD.
+---
+ .../display/amdgpu_dm/amdgpu_dm_connector.c   | 22 +++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
+index 5aa71e456ca9..b2bd204ba351 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
+@@ -3791,6 +3791,21 @@ STATIC_IFN_KUNIT int get_amd_vsdb(struct amdgpu_dm_connector *aconnector,
+ }
+ EXPORT_IF_KUNIT(get_amd_vsdb);
+ 
++/*
++ * big-fella: upstream (e4dca268eea6) reports a native HDMI sink without an
++ * EDID FreeSync VCP code (the AMD VSDB's MCCS VCP code) as not FreeSync
++ * capable. TVs have no MCCS: an LG B4 with FreeSync Premium on sends an AMD
++ * VSDB with FreeSync 40-120 Hz and VCP code 0, and its HDMI 2.1 VRR range
++ * (HF-VSDB) was thrown away by the same check. 0 (default): not required on
++ * native HDMI; 1: upstream's check. The PCON whitelist case and MCCS
++ * (do_mccs) are upstream's either way.
++ */
++static bool freesync_hdmi_vcp;
++module_param(freesync_hdmi_vcp, bool, 0644);
++MODULE_PARM_DESC(freesync_hdmi_vcp,
++	"Native HDMI FreeSync/VRR needs an EDID FreeSync MCCS VCP code, as upstream "
++	"(big-fella; default false: TVs have none; read at the next EDID update)");
++
+ /**
+  * amdgpu_dm_update_freesync_caps - Update Freesync capabilities
+  *
+@@ -3989,8 +4004,11 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
+ 			amdgpu_dm_connector->min_vfreq;
+ 	}
+ 
+-	/* HDMI/PCON without an EDID FreeSync VCP code is not FreeSync-capable. */
+-	if ((sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
++	/* HDMI/PCON without an EDID FreeSync VCP code is not FreeSync-capable.
++	 * big-fella: on native HDMI only with amdgpu.freesync_hdmi_vcp=1; TVs
++	 * have no MCCS and leave the AMD VSDB's VCP code 0.
++	 */
++	if (((sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A && freesync_hdmi_vcp) ||
+ 	     as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) &&
+ 	    !sink->edid_caps.freesync_vcp_code)
+ 		freesync_capable = false;

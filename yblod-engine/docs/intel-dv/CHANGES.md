@@ -104,6 +104,7 @@ it was tested on. Until 0.4.1 the series was 30 files (`linux-9900-00` to
 | [linux-9922-amdgpu-avi-itc-no-data.patch](../../../yblod/patches/linux/linux-9922-amdgpu-avi-itc-no-data.patch) | amdgpu: AVI InfoFrame ITC=0 for content type No Data. |
 | [linux-9923-hdr-10bpc-ycbcr420.patch](../../../yblod/patches/linux/linux-9923-hdr-10bpc-ycbcr420.patch) | amdgpu, i915: HDR at 4K50/60 as 10 bpc YCbCr 4:2:0 instead of 8 bpc RGB. |
 | [linux-9924-amdgpu-dcn10-black-background.patch](../../../yblod/patches/linux/linux-9924-amdgpu-dcn10-black-background.patch) | amdgpu: DCN 1.x blends against black, not green, on YCbCr links. |
+| [linux-9925-amdgpu-hdmi-freesync-without-vcp-code.patch](../../../yblod/patches/linux/linux-9925-amdgpu-hdmi-freesync-without-vcp-code.patch) | amdgpu: HDMI TVs without an MCCS VCP code stay FreeSync/VRR-capable on Linux 7.4 (`amdgpu.freesync_hdmi_vcp`). |
 | [linux-9930-i915-dolby-vision-dp-hdmi-converter.patch](../../patches/linux/linux-9930-i915-dolby-vision-dp-hdmi-converter.patch) | i915: Dolby Vision through an onboard DP-to-HDMI converter (INUC 11). |
 | [linux-9931-i915-dolby-vision-lspcon-level-shifter.patch](../../patches/linux/linux-9931-i915-dolby-vision-lspcon-level-shifter.patch) | i915: Dolby Vision through the NUC7's MCDP2800 LSPCON in level-shifter mode. |
 | [linux-9932-drm-hdr10plus-metadata.patch](../../patches/linux/linux-9932-drm-hdr10plus-metadata.patch) | DRM core, HDMI helpers, i915, amdgpu: HDR10+ dynamic metadata (`HDR10PLUS_METADATA`). |
