@@ -1,0 +1,75 @@
+LibreELEC base resync, 2026-11-18
+
+Prior YBLOD main: b7b2b5ab2fec3fd14227648365ebb24888a71781 (0.5.1)
+Previous shared LibreELEC ancestor: 0081967aaa23422dff30141a4f37cb60eeaf0f5e
+Merged LibreELEC master: 3a98afddff5b38120e34487da8851558425b06cf
+Branch: update/le-20261118
+
+This brings in 137 upstream commits (108 without merges), most of them
+add-ons and other boards. It changes no YBLOD feature.
+
+Generic platform updates: Kodi e6192109 -> 22.0rc2-Piers, Linux 7.3 ->
+7.3.4, Mesa 26.2.5 -> 26.3.0, media-driver 26.4.1 -> 26.4.2, intel-ucode
+20260925 -> 20261110, iwlwifi-firmware and rust 1.100.0. The one FFmpeg
+commit moves the Amlogic FFmpeg only; Generic stays on FFmpeg 9.0.2.
+
+Git merged every file without a conflict. The two recipes YBLOD also
+changes, kodi and mesa package.mk, took upstream's version and checksum
+lines next to YBLOD's lines, which are unchanged.
+
+Preserved without changes to their patch files:
+- Kodi: kodi-9900 to kodi-9909, kodi-9950 to kodi-9962 and kodi-9990.
+  22.0rc2 is 7 commits (13 with merges) on e6192109; the one file they
+  share with the series, ActiveAE.cpp, changes in SyncStream
+  (passthrough stays muted while the sync error is measured), away from
+  kodi-9903's hunks.
+- Linux: linux-9900, 9901, 9910, 9912, 9913, 9920, 9922, 9923, 9924,
+  9930, 9931, 9932 and 9933. 7.3.4 changes no i915 display, drm core
+  (bar drm_panic), video/hdmi or include/drm file. Of the 38 files the
+  series patches, it changes amdgpu_drv.c (the runtime PM pstate restore
+  is removed, far from linux-9913's module parameters) and amdgpu_dm.c
+  (the IPS exit in dm_resume is reverted, and the runtime PM reference is
+  taken when a CRTC turns on); linux-9920 and linux-9932 therefore apply
+  1 and 4 lines higher, with the same context.
+- FFmpeg: ffmpeg-9900 and ffmpeg-9901.
+- LibreELEC-settings: yblod-0001-update-server.
+
+Dropped:
+- mesa-002-fix-radv-lgcc-link: linked RADV with -lgcc for addrlib's
+  __builtin_cpu_supports(). Mesa 26.3.0 checks CPUID directly (MR 45011)
+  and has no __builtin_cpu_* or __cpu_model reference left; LibreELEC
+  dropped mesa-001, the same fix for the DRI target, with the update.
+  packages/graphics/mesa is LibreELEC's again.
+
+Kernel configuration: YBLOD carries no change to linux.x86_64.conf.
+Upstream's two lines are taken: CONFIG_MEDIA_CEC_SUPPORT=y and
+CONFIG_DRM_DISPLAY_DP_AUX_CEC=y, so i915 registers a CEC device for a
+DP branch device that tunnels CEC over AUX, as the DP-to-HDMI converters
+of linux-9930 and linux-9931 may. libcec is still built without the
+Linux CEC API (CEC_FRAMEWORK_SUPPORT stays "no"), so Kodi does not use
+those devices.
+
+Also changed: yblod/tools/footprint.sh's default base, which was still
+the 0.2 resync's cd5ed44f, is 3a98afdd; KODI-PATCHES.md and the
+integration README name Kodi 22.0rc2-Piers.
+
+Source checks (on Ollie, tools/docker/noble, PROJECT=Generic ARCH=x86_64):
+- scripts/unpack fetched kodi, linux, ffmpeg, mesa and LibreELEC-settings
+  against their recipe SHA256s and applied every LibreELEC and YBLOD
+  patch.
+- Every YBLOD patch was applied again, in the order scripts/unpack uses,
+  on a fresh tree with GNU patch 2.7.6 --fuzz=0: all apply. Only
+  linux-9920 and linux-9932 have line offsets. LibreELEC's own
+  1007-handle-SIGTERM needs fuzz 1 on 22.0rc2, as upstream ships it.
+- Mesa 26.3.0 unpacks with no patch.
+- yblod/tools/link-patches.sh: patch links OK.
+- footprint.sh lists 54 paths: the 56 of 0.5.1 against 0081967a, less
+  mesa-002 and the mesa recipe.
+- tools/pkgcheck: mesa, kodi, linux and LibreELEC-settings pass; ffmpeg
+  gives LibreELEC's own warning 065 (get_graphicdrivers), as upstream.
+
+Not checked: nothing was compiled. Kodi, Linux, Mesa (RADV without -lgcc
+is the one real build risk) and FFmpeg still need a build, an image and
+the hardware checks of a release. yblod-engine/vk/tools/sdr.sha256 holds
+GPU hashes recorded with Mesa 26.2.6 and needs recording again with Mesa
+26.3.0 before it is compared. No main merge or release is implied.
