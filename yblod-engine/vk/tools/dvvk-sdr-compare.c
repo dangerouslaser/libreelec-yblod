@@ -20,6 +20,9 @@
  *     --white NITS         the display the pictures were made for (default
  *     --black NITS         203, white / 1000, BT.1886): dE ITP's display
  *     --gamma22            model
+ *     --gamma G            a pure power G instead (DVVK_SDR_POWER)
+ *     --exact-black NITS   the display's black as given, 0 included
+ *     --bt2020             the display's primaries are BT.2020
  *     --limited            OURS holds codes 16..235
  *     --rows A,B           compare rows A..B-1 only (the active picture)
  *     --cols A,B           and columns A..B-1
@@ -55,16 +58,16 @@ static unsigned char *load(const char *path, size_t *size)
     return p;
 }
 
-static double white = 203.0, black = 0.0;
-static int gamma22 = 0, limited = 0, ours_f32 = 0;
+static double white = 203.0, black = 0.0, power = 0.0;
+static int gamma22 = 0, limited = 0, ours_f32 = 0, exact_black = 0, bt2020 = 0;
 
 /* The light an SDR display shows for R'G'B' v (dv_map.c's target: BT.1886
  * with the display's black, or a 2.2 power scaled between black and white). */
 static double shown(double v)
 {
     v = fmin(fmax(v, 0.0), 1.0);
-    if (gamma22)
-        return black + (white - black) * pow(v, 2.2);
+    if (gamma22 || power > 0)
+        return black + (white - black) * pow(v, power > 0 ? power : 2.2);
     double lb = pow(black, 1 / 2.4), lw = pow(white, 1 / 2.4);
     return pow((lw - lb) * (v + lb / (lw - lb)), 2.4);
 }
@@ -83,6 +86,8 @@ static void itp(const double rgb[3], double out[3])
     /* BT.709 to BT.2020 (BT.2087), then BT.2100's LMS */
     double R = 0.6274 * r + 0.3293 * g + 0.0433 * b, G = 0.0691 * r + 0.9195 * g + 0.0114 * b,
            B = 0.0164 * r + 0.0880 * g + 0.8956 * b;
+    if (bt2020)
+        R = r, G = g, B = b;
     double l = pq((1688 * R + 2146 * G + 262 * B) / 4096), m = pq((683 * R + 2951 * G + 462 * B) / 4096),
            s = pq((99 * R + 309 * G + 3688 * B) / 4096);
     out[0] = 0.5 * l + 0.5 * m;
@@ -120,6 +125,13 @@ int main(int argc, char **argv)
             black = atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamma22"))
             gamma22 = 1;
+        else if (!strcmp(argv[i], "--gamma") && i + 1 < argc)
+            power = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--exact-black") && i + 1 < argc) {
+            black = atof(argv[++i]);
+            exact_black = 1;
+        } else if (!strcmp(argv[i], "--bt2020"))
+            bt2020 = 1;
         else if (!strcmp(argv[i], "--limited"))
             limited = 1;
         else if (!strcmp(argv[i], "--f32"))
@@ -145,7 +157,7 @@ int main(int argc, char **argv)
         row1 = H;
     if (col1 < 0)
         col1 = W;
-    if (black <= 0)
+    if (black <= 0 && !exact_black)
         black = white / 1000.0;
     size_t size;
     unsigned char *d = load(ours, &size);
@@ -263,8 +275,8 @@ int main(int argc, char **argv)
                blur ? " (2x2 means)" : "", code_sum[0] / n, code_abs[0] / n, code_max[0], code_sum[1] / n,
                code_abs[1] / n, code_max[1], code_sum[2] / n, code_abs[2] / n, code_max[2]);
         printf("  dE ITP on a %.0f cd/m2 %s display: mean %.3f, max %.1f at %d,%d; >1 %.3f%% >2 %.3f%% >3 %.4f%% >6 %.4f%%\n",
-               white, gamma22 ? "gamma 2.2" : "BT.1886", de_sum / n, de_max, dx, dy, 100.0 * over[0] / n,
-               100.0 * over[1] / n, 100.0 * over[2] / n, 100.0 * over[3] / n);
+               white, power > 0 ? "pure power" : gamma22 ? "gamma 2.2" : "BT.1886", de_sum / n, de_max, dx, dy,
+               100.0 * over[0] / n, 100.0 * over[1] / n, 100.0 * over[2] / n, 100.0 * over[3] / n);
         free(o);
     }
     if (preview) {

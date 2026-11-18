@@ -45,12 +45,18 @@
  *                  a reconstruction independent of the engine's. Needs
  *                  libavutil (built with -DORACLE_RESHAPE)
  *     --node PATH  render node (default /dev/dri/renderD128)
+ *   PARAMS' optional "target GAMMA PRIMARIES" (dvvk-map-test writes it for
+ *   CroqueMr's CB1 targets): a pure power and BT.709 or BT.2020 (709, 2020),
+ *   rendered as CB1 renders them (dvbridge_render.c sdr_container: GAMMA22 or
+ *   GAMMA24, another gamma GAMMA24's signal to the power 2.4 / GAMMA in an
+ *   output hook)
  */
 #define _GNU_SOURCE
 #include <libplacebo/opengl.h>
 #include <libplacebo/renderer.h>
 #include <libplacebo/tone_mapping.h>
 #include <libplacebo/gamut_mapping.h>
+#include <libplacebo/shaders/custom.h>
 #ifdef ORACLE_RESHAPE
 #include <libplacebo/utils/libav.h>
 #endif
@@ -85,6 +91,16 @@ static const double *opt(const char *k)
         if (!strcmp(key[i], k))
             return val[i];
     return NULL;
+}
+
+/* CB1's sdr_gamma hook in full range: the signal to the power priv */
+static struct pl_hook_res custom_gamma(void *priv, const struct pl_hook_params *p)
+{
+    const struct pl_shader_var var = {.var = pl_var_float("oracle_gamma_ratio"), .data = priv, .dynamic = true};
+    bool ok = pl_shader_custom(p->sh, &(struct pl_custom_shader) {
+        .input = PL_SHADER_SIG_COLOR, .output = PL_SHADER_SIG_COLOR, .variables = &var, .num_variables = 1,
+        .body = "color.rgb = pow(max(color.rgb, vec3(0.0)), vec3(oracle_gamma_ratio));"});
+    return (struct pl_hook_res) {.failed = !ok, .output = PL_HOOK_SIG_NONE};
 }
 
 static void read_params(const char *path)
@@ -270,13 +286,16 @@ int main(int argc, char **argv)
         return fprintf(stderr, "--reshape: built without ORACLE_RESHAPE\n"), 2;
 #endif
     }
+    const double *tg = opt("target");
+    const double gamma = tg ? tg[0] : 0;
     struct pl_frame target = {
         .num_planes = 1,
         .planes = {{.texture = out, .components = 4, .component_mapping = {0, 1, 2, 3}}},
         .repr = pl_color_repr_rgb,
         .color = {
-            .primaries = PL_COLOR_PRIM_BT_709,
-            .transfer = display[2] != 0 ? PL_COLOR_TRC_GAMMA22 : PL_COLOR_TRC_BT_1886,
+            .primaries = tg && tg[1] == 2020 ? PL_COLOR_PRIM_BT_2020 : PL_COLOR_PRIM_BT_709,
+            .transfer = gamma > 0 ? (gamma == 2.2 ? PL_COLOR_TRC_GAMMA22 : PL_COLOR_TRC_GAMMA24)
+                        : display[2] != 0 ? PL_COLOR_TRC_GAMMA22 : PL_COLOR_TRC_BT_1886,
             .hdr = {.min_luma = (float)display[1], .max_luma = (float)display[0]},
         },
         .crop = {0, 0, W, H},
@@ -310,6 +329,14 @@ int main(int argc, char **argv)
     params.min_fbo_precision = 32;
     if (!strcmp(chroma, "bilinear"))
         params.plane_upscaler = &pl_filter_bilinear;
+    float ratio = (float)(2.4 / gamma);
+    const struct pl_hook hook = {.stages = PL_HOOK_OUTPUT, .input = PL_HOOK_SIG_COLOR, .priv = &ratio,
+                                 .hook = custom_gamma};
+    const struct pl_hook *hooks[] = {&hook};
+    if (gamma > 0 && gamma != 2.2 && gamma != 2.4) {
+        params.hooks = hooks;
+        params.num_hooks = 1;
+    }
     pl_renderer rr = pl_renderer_create(log, gpu);
     if (!rr || !pl_render_image(rr, &image, &target, &params))
         return fprintf(stderr, "pl_render_image failed\n"), 1;
@@ -326,7 +353,7 @@ int main(int argc, char **argv)
         fwrite(rgba + 4 * i, sizeof(float), 3, of);
     fclose(of);
     printf("sdr-oracle: %s chroma, target %s %.4g..%.4g cd/m2, metadata %s -> %s\n", chroma,
-           display[2] != 0 ? "gamma 2.2" : "BT.1886", display[1], display[0],
+           gamma > 0 ? "pure power" : display[2] != 0 ? "gamma 2.2" : "BT.1886", display[1], display[0],
            l1[0] > 0 ? "L1" : h10p ? "HDR10+" : "static", args[2]);
     pl_renderer_destroy(&rr);
     pl_tex_destroy(gpu, &ytex);

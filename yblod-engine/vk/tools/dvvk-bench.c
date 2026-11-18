@@ -59,6 +59,11 @@
  *                        overlay's white in the other modes
  *     --black NITS       sdr: the display's black (default white / 1000)
  *     --gamma22          sdr: a 2.2 power instead of BT.1886
+ *     --gamma G          sdr: a pure power G, 1.8 to 2.8 (DVVK_SDR_POWER)
+ *     --exact-black NITS sdr: the display's black as given, 0 a true zero
+ *                        (DVVK_SDR_BLACK; CB1's presets: --gamma 2.4
+ *                        --exact-black 0 --white 100 is Reference)
+ *     --bt2020           sdr: BT.2020 primaries (DVVK_SDR_BT2020)
  *     --limited          sdr: codes 16..235
  *     --no-dither        sdr: rounded codes
  *     --source KIND      hdr10 or hlg: the video played as a plain one, its
@@ -266,7 +271,7 @@ int main(int argc, char **argv)
     int dump_at[MAX_DUMPS], dumps = 0, dumped = 0, metadata_frames = 2;
     const char *metadata_prefix = NULL;
     double start = 0, rate = 23.976, white = 203.0, black = 0;
-    unsigned sdr_flags = 0;
+    unsigned sdr_flags = 0, sdr_gamma = 0;
     int source = 0;   /* 1 hdr10, 2 hlg: dvvk_hdr10_to_dovi's metadata; 3 hdr10plus */
     static _Alignas(16) uint8_t plain[DVVK_HDR10PLUS_DOVI_BYTES];
     size_t plain_size = 0;
@@ -353,6 +358,14 @@ int main(int argc, char **argv)
             black = atof(argv[++i]);
         else if (!strcmp(argv[i], "--gamma22"))
             sdr_flags |= DVVK_SDR_GAMMA22;
+        else if (!strcmp(argv[i], "--gamma") && i + 1 < argc) {
+            sdr_flags |= DVVK_SDR_POWER;
+            sdr_gamma = (unsigned)lround(atof(argv[++i]) * 1000.0);
+        } else if (!strcmp(argv[i], "--exact-black") && i + 1 < argc) {
+            sdr_flags |= DVVK_SDR_BLACK;
+            black = atof(argv[++i]);
+        } else if (!strcmp(argv[i], "--bt2020"))
+            sdr_flags |= DVVK_SDR_BT2020;
         else if (!strcmp(argv[i], "--limited"))
             sdr_flags |= DVVK_SDR_LIMITED;
         else if (!strcmp(argv[i], "--no-dither"))
@@ -410,6 +423,7 @@ int main(int argc, char **argv)
             om.flags = sdr_flags;
             om.peak_nits = (float)white;
             om.min_nits = (float)black;
+            om.reserved[DVVK_SDR_GAMMA_WORD] = sdr_gamma;
         }
         if (dvvk_set_output_mode(e, &om))
             return fprintf(stderr, "dvvk_set_output_mode failed\n"), 1;
