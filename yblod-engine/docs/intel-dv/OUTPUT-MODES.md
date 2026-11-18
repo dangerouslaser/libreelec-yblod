@@ -154,7 +154,8 @@ byte for byte (CB1 has no SDR circuit, Dolby's is not public). Three checks,
 all on the build host's UHD 770:
 
 1. *The engine against itself* (`tools/sdr-check.sh`): 78 pictures of 39
-   configurations (FEL, MEL, Profile 8.1 and 5; white 100 and 203, gamma 2.2,
+   configurations, and 14 of 7 for [CB1's targets](#cb1s-sdr-targets)
+   (FEL, MEL, Profile 8.1 and 5; white 100 and 203, gamma 2.2,
    limited range, with and without the GUI; canvases 3840x2160, 1920x1080,
    1280x720 and 4096x2160; HDR10 and HLG sources), every sample within one
    8-bit code of a CPU double-precision map of the same reconstructed
@@ -204,6 +205,82 @@ at the limit (about 18 ms of 16.7); "HDR videos on an SDR display" can be
 set to Kodi's tone mapping there.
 The first SDR picture of an engine compiles its pipelines when
 `dv-prepare` has not (about 0.2 s once; cached afterwards).
+
+### CB1's SDR targets
+
+After 0.5.1, in the engine only (Kodi's settings above do not offer them
+yet): the SDR output also takes every display CroqueMr's CB1 SDR
+rendering offers (`dvbridge_sdr_target`, `sdr_container`). A player sets
+them with `dvvk_set_output_mode` (`include/dv_engine_vk.h`):
+
+| CB1 preset | White | Gamma | Black | `dvvk_output_mode` |
+| --- | --- | --- | --- | --- |
+| Reference | 100 cd/m2 | 2.4 (pure power) | 0 | `{DVVK_OUTPUT_SDR, DVVK_SDR_POWER \| DVVK_SDR_BLACK, 100, 0, {2400}}` |
+| Bright room | 200 cd/m2 | 2.2 | 0 | `{DVVK_OUTPUT_SDR, DVVK_SDR_POWER \| DVVK_SDR_BLACK, 200, 0, {2200}}` |
+| Custom / projector | 20 to 500 | 1.8 to 2.8 | 0 to 5, below white | `{DVVK_OUTPUT_SDR, DVVK_SDR_POWER \| DVVK_SDR_BLACK, white, black, {gamma x 1000}}` |
+
+- **Gamut.** Add `DVVK_SDR_BT2020` for CB1's BT.2020 output: the gamut is
+  mapped to BT.2020, `dvvk_output_signal` reports BT.2020 primaries (the
+  link is then to be signalled as BT.2020 RGB, as CB1's Kodi patch does
+  with the connector's `Colorspace` BT2020_RGB), and Kodi's GUI is
+  converted from BT.709 to the same light on the BT.2020 display.
+- **Range** as before: `DVVK_SDR_LIMITED`.
+- **The curve.** A pure power scaled between the display's black and white,
+  `V = ((L - black) / (white - black))^(1 / gamma)`: libplacebo's GAMMA22
+  and GAMMA24, and CB1's custom gamma (GAMMA24, then the signal to the
+  power 2.4 / gamma) is the same function. A black of 0 is a true zero
+  (libplacebo's `PL_COLOR_HDR_BLACK`), so Reference is a pure 2.4 power,
+  which the BT.1886 setting with its white / 1000 black is not.
+- **Compatibility.** The settings' displays (BT.1886 or 2.2, white 100 to
+  300, black white / 1000) give the same bytes as before. A library
+  without these flags refuses such a mode (-2; `dvvk_sdr_flags` says
+  beforehand what a library takes); a reserved word without its flag is
+  refused too.
+
+**Near black.** A pure power above a black floor has an unbounded slope at
+the floor. Two consequences, both libplacebo's recipe and not a difference
+between the engine and its CPU reference: libplacebo's gamut LUT stores a
+neutral colour's P and T with an offset of 32767 and reads them with
+32768, and at a 5 cd/m2 floor of a 20 cd/m2 white that small offset lifts
+signal black to about 0.9 (G) and 1.4 (B) codes (0.7 and 1.1 at 0.05 of
+48 with gamma 2.6; nothing visible at a zero black); greys there are about
+0.1 code off neutral. And the GPU sampler's 8-bit filtering weights on
+that LUT were two codes from the exact map in 0.0005 % of the samples, on
+a dark first row of 1917 (gamma 1.8, 5 of 20 cd/m2): with a black above
+zero the engine therefore reads the LUT with exact weights (eight texels),
+which costs the time in the table below.
+
+**Checks** (UHD 770, Mesa 26.2.6): `sdr-check.sh` has 14 more pictures
+(Reference, Bright room, Custom 48 cd/m2 gamma 2.6 black 0.05, 20 cd/m2
+gamma 1.8 black 5, 500 cd/m2 gamma 2.8, BT.2020 Reference with the GUI
+and from HLG; FEL, MEL and Profile 5): every sample within one code of
+the CPU's double-precision map, 97.86 to 99.44 % of a channel's samples
+equal, hashes in `sdr.sha256`. The 78 earlier hashes, golden.sh's, the
+HDR10 dumps and the CPU tools' output are unchanged. libplacebo itself
+(`sdr-oracle.c`) was not run on these targets: it needs CB1's patched
+libplacebo (stock 7.360.1's GLES backend on this GPU has no renderable
+float formats), which is not in the build host's image.
+
+**Cost**, GPU ms a picture at 3840x2160, as above (`DVVK_PROFILE`, mean
+of three runs; exact samples a frame in brackets for 28 Years Later):
+
+| Display | 1917 (P7 FEL) | 28 Years Later (P8.1) | Gemini Man (P7 MEL) | Landscape demo (P5) |
+| --- | --- | --- | --- | --- |
+| The default (203 cd/m2, BT.1886), the same session | 11.9 | 7.2 (0.36 M) | 8.9 | 10.6 |
+| Reference | 11.7 | 10.7 (1.53 M) | 9.1 | 10.4 |
+| Bright room | 11.7 | 10.4 (1.44 M) | 8.9 | 10.5 |
+| Custom 48 cd/m2, gamma 2.6, black 0.05 (exact weights) | 11.7 | 11.7 (1.60 M) | 9.4 | 11.1 |
+| Custom 20 cd/m2, gamma 1.8, black 5 (exact weights) | 18.9 | 11.0 | | 16.9 |
+| Reference, BT.2020 | 11.7 | 6.2 (0.04 M) | 8.8 | 10.3 |
+
+Most of the difference is the curve, not the new code: a pure power at
+a true zero black is steep where a film is dark, so more of the 3D LUT's
+cells are computed exactly (28 Years Later: 0.36 million pairs a frame at
+the default, 1.05 million at BT.1886 100 cd/m2, 1.53 million at
+Reference). With BT.2020 the gamut LUT's kinks leave the picture's
+colours, so few samples are exact and it is the cheapest. The exact-weight
+lookup itself adds 1 to 2.5 ms where it is used (measured against the
+sampler on the same displays).
 
 ## Video
 

@@ -164,9 +164,44 @@ symbols and enum values only, the layouts and the soname unchanged):
   `dvbridge_dv_is_mel` in `dvbridge_metadata_bounds.h`. Compiled in, not
   used: the HDR10+ policy has no player-led display.
 
+**After 0.5.1: CroqueMr's CB1 SDR targets** (ABI 3 still; new flag values,
+`dvvk_output_mode.reserved[0]` and the optional `dvvk_sdr_flags`; layouts
+and soname unchanged). The SDR output takes every display CB1's SDR
+rendering offers (`CB1/src/dvbridge_policy.c dvbridge_sdr_target`,
+`dvbridge_render.c sdr_container`):
+- *A pure power* (`DVVK_SDR_POWER`, the gamma in thousandths in
+  `reserved[DVVK_SDR_GAMMA_WORD]`, 1.8 to 2.8): black-scaled like
+  `DVVK_SDR_GAMMA22` (2.2 gives that flag's bytes), as libplacebo's GAMMA24
+  and CB1's custom gamma (GAMMA24 then the signal to the power 2.4 / gamma).
+- *The black as given* (`DVVK_SDR_BLACK`): `min_nits` 0 to 5 cd/m2 and
+  below the white, 0 a true zero (libplacebo's `PL_COLOR_HDR_BLACK`, as
+  CB1); without the flag 0 still means white / 1000.
+- *White from 20 cd/m2* (was 40; to 1000 as before).
+- *BT.2020* (`DVVK_SDR_BT2020`): the display's primaries for the gamut
+  mapping and the output matrix; `dvvk_output_signal` names them for the link's colorimetry; the
+  overlay's sRGB colours are converted through the display's transfer
+  (`map_sdr_layer_bt2020`, its greys keep their codes).
+- Presets (`dvvk_output_mode {mode, flags, peak_nits, min_nits, reserved}`):
+  Reference `{SDR, POWER|BLACK, 100, 0, {2400}}`, Bright room
+  `{SDR, POWER|BLACK, 200, 0, {2200}}`, Custom / projector
+  `{SDR, POWER|BLACK, 20..500, 0..5, {gamma x 1000}}`, each `| BT2020` for
+  CB1's BT.2020 gamut. An older library refuses these modes (-2) rather
+  than approximating them; a reserved word without its flag is refused too.
+- With a black above zero a pure power's slope at the black has no bound,
+  and the sampler's 8-bit weights on libplacebo's gamut LUT put samples two
+  codes from the CPU map there (gamma 1.8, 5 of 20 cd/m2): such modes read
+  that LUT with exact weights (`DVVK_MAP_GAMUT_EXACT`, eight texels). The
+  earlier displays keep the sampler and their bytes.
+- Checks: golden, the HDR10 dumps, the 78 earlier `sdr.sha256` hashes and
+  `cpu-baseline.txt` unchanged; 14 new `sdr-check.sh` pictures (each
+  preset, gammas 1.8, 2.6 and 2.8, blacks 0.05 and 5, BT.2020 with the GUI
+  and from HLG) within one code of `dvvk-map-test`. Accuracy and cost:
+  [OUTPUT-MODES.md](../docs/intel-dv/OUTPUT-MODES.md#cb1s-sdr-targets).
+
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
 headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus|sdr`,
-`--canvas W,H`, `--source hdr10|hlg`) with `golden.sh` and
+`--canvas W,H`, `--source hdr10|hlg`; SDR's `--white`, `--black`, `--gamma22`,
+`--gamma G`, `--exact-black NITS`, `--bt2020`, `--limited`) with `golden.sh` and
 `golden.sha256` (the byte-for-byte oracle; runs in the image's root, busybox
 included), `dvvk-routes`, `dvvk-fence`, `vkprobe`, `dvvk-prepare`, and the
 `dvvk-interop` binary in the crate. `cargo test` covers plan.c's packets, CB1's
