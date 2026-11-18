@@ -115,7 +115,7 @@ TEST_ONLY to probe) unless all of:
   sets the CRTC's primary plane with a framebuffer (the picture the
   packet describes); CRTC active; no async flip (page-flip with
   DRM_MODE_PAGE_FLIP_ASYNC); no 3D mode;
-- amdgpu: the stream is native HDMI TMDS with no HDMI VIC.
+- amdgpu: the stream is native HDMI (TMDS or FRL) with no HDMI VIC.
 
 Lifetime:
 - Per commit: the packet goes out with the framebuffer of the same commit
@@ -168,8 +168,13 @@ Changed for Linux 7.4 (amdgpu; neither has run on hardware):
 - 7.4's amdgpu_dm_commit_planes() passes the stream update to DC only
   when stream_update_needed is set. A new packet sets it, or the packet
   would not go out with its frame.
+
+Changed since YBLOD 0.5.1:
+- amdgpu: an HDMI FRL stream qualifies as well as TMDS (the check is
+  dc_is_hdmi_signal(), not SIGNAL_TYPE_HDMI_TYPE_A), as CroqueMr's CB1
+  570de37442 does for HDR10 and HDR10+. Not run on an FRL sink.
 ---
- .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 140 ++++++++++++++++++
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 141 ++++++++++++++++++
  .../display/amdgpu_dm/amdgpu_dm_connector.c   |  19 ++-
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  |   9 ++
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h  |   4 +
@@ -190,11 +195,11 @@ Changed for Linux 7.4 (amdgpu; neither has run on hardware):
  include/drm/drm_hdr10plus.h                   |  48 ++++++
  include/drm/drm_mode_config.h                 |   2 +
  include/linux/hdmi.h                          |  14 ++
- 21 files changed, 616 insertions(+), 5 deletions(-)
+ 21 files changed, 617 insertions(+), 5 deletions(-)
  create mode 100644 include/drm/drm_hdr10plus.h
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 17c9e920fa49..963c1cb958b2 100644
+index 17c9e920fa49..b6356c269766 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 @@ -97,6 +97,7 @@
@@ -205,7 +210,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  #include <drm/drm_eld.h>
  #include <drm/drm_mode.h>
  #include <drm/drm_vblank.h>
-@@ -3852,6 +3853,103 @@ STATIC_IFN_KUNIT void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *ac
+@@ -3852,6 +3853,104 @@ STATIC_IFN_KUNIT void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *ac
  }
  EXPORT_IF_KUNIT(dm_arm_vblank_event_pre_programming);
  
@@ -256,8 +261,9 @@ index 17c9e920fa49..963c1cb958b2 100644
 + * A commit that sets a new HDR10+ packet must carry the CRTC's primary
 + * framebuffer too (@frame_mask, taken before helpers add planes): the packet
 + * goes out in the same stream update as that surface. A commit that leaves the
-+ * packet as it is needs none and keeps it on the link. Native HDMI TMDS, a
-+ * real >= 10 bpc stream, no DV tunnel, no HDMI VIC, no 3D, no async flip.
++ * packet as it is needs none and keeps it on the link. Native HDMI (TMDS or
++ * FRL), a real >= 10 bpc stream, no DV tunnel, no HDMI VIC, no 3D, no async
++ * flip.
 + */
 +static int amdgpu_dm_hdr10plus_atomic_check(struct drm_atomic_commit *state,
 +					    u32 frame_mask)
@@ -288,7 +294,7 @@ index 17c9e920fa49..963c1cb958b2 100644
 +		    (to_dm_connector_state(conn)->dv_lab_standard &&
 +		     !amdgpu_dm_hdr10plus_tunnel(conn)) ||
 +		    !crtc_state->active ||
-+		    !stream->hdr10plus || stream->signal != SIGNAL_TYPE_HDMI_TYPE_A ||
++		    !stream->hdr10plus || !dc_is_hdmi_signal(stream->signal) ||
 +		    stream->timing.hdmi_vic ||
 +		    /* the HDR10 tunnel's 8 bpc stream carries 12-bit 4:2:2 */
 +		    (amdgpu_dm_convert_dc_color_depth_into_bpc(stream->timing.display_color_depth) < 10 &&
@@ -309,7 +315,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  				    struct drm_device *dev,
  				    struct amdgpu_display_manager *dm,
-@@ -3885,6 +3983,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -3885,6 +3984,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  		struct dc_scaling_info scaling_infos[MAX_SURFACES];
  		struct dc_flip_addrs flip_addrs[MAX_SURFACES];
  		struct dc_stream_update stream_update;
@@ -317,7 +323,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  	} *bundle;
  
  	bundle = kzalloc_obj(*bundle);
-@@ -4182,6 +4281,27 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -4182,6 +4282,27 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  			flush_workqueue(dm->vblank_control_workqueue);
  
  		bundle->stream_update.stream = acrtc_state->stream;
@@ -345,7 +351,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  		if (new_pcrtc_state->mode_changed) {
  			bundle->stream_update.src = acrtc_state->stream->src;
  			bundle->stream_update.dst = acrtc_state->stream->dst;
-@@ -5598,6 +5718,16 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5598,6 +5719,16 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  				goto fail;
  		}
  
@@ -362,7 +368,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  		/*
  		 * If we already removed the old stream from the context
  		 * (and set the new stream to NULL) then we can't reuse
-@@ -5610,6 +5740,8 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5610,6 +5741,8 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  		if (amdgpu_freesync_vid_mode &&
  		    dm_new_crtc_state->stream &&
  		    dm_new_conn_state->dv_lab_standard == dm_old_conn_state->dv_lab_standard &&
@@ -371,7 +377,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  		    amdgpu_dm_is_timing_unchanged_for_freesync(new_crtc_state, old_crtc_state))
  			goto skip_modeset;
  
-@@ -6291,6 +6423,9 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6291,6 +6424,9 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
  	struct drm_dp_mst_topology_state *mst_state;
  	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
  
@@ -381,7 +387,7 @@ index 17c9e920fa49..963c1cb958b2 100644
  	trace_amdgpu_dm_atomic_check_begin(state);
  
  	ret = drm_atomic_helper_check_modeset(dev, state);
-@@ -6770,6 +6905,11 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6770,6 +6906,11 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
  	if (ret)
  		goto fail;
  
