@@ -43,8 +43,8 @@ stays installed as the fallback.
 engine can also render a picture exactly as CroqueMr's CB1 Master Reference
 does (libreelec-x86-DV): the stream's chroma siting also with an EL, 4:2:0
 reshaping, no chroma phase pre-filter, the ETSI GS CCM 001 Annex B EL and
-4:2:2 filters, and CB1's metadata serializer (block order, L5 always, packet
-id on a payload change). Checked byte for byte against CB1's own code with
+4:2:2 filters, and CB1's metadata serializer (block order, an L5 where CB1
+sends one, packet id on a payload change). Checked byte for byte against CB1's own code with
 `dvvk-mr-compare` in that tree (P7 FEL, P7 MEL, P8.1, letterboxed P8.1, P5;
 Intel and AMD). Kodi's adapter (patch kodi-9956) asks for it for unscaled
 pictures when `DV_VULKAN_CB1=1` (on in runtime.env); scaled pictures, and the
@@ -132,6 +132,17 @@ symbols and enum values only, the layouts and the soname unchanged):
   takes the 4:2:0 P010 piecewise kernel (`piecewise[3]`, CB1's contract 1
   luma guide), which a guard from the OpenCL port refused (-2) at 4K.
   dvvk-mr-compare: CB1's Master Reference byte for byte.
+
+**CB1 at b5149a09d7** (ABI 3, layouts unchanged):
+- *No L5 invented for an RPU without one* (CB1 4b80e75da2) under
+  `cb1_contract`: the serializer appended a zero (full-raster) L5 to such
+  an RPU, which makes a display (an LG C1, a Hisense) apply the L2 lift to
+  the letterbox bars. Now the placement adds an L5 only for the borders it
+  makes, and none while an overlay shows (CB1 places with zero margins
+  then). An RPU's own L5, and its zeroing under an overlay, are unchanged.
+  yblod's own serializer already added an L5 only for placement borders.
+  The fixtures and golden.sh's pictures all carry an L5: its hashes are
+  unchanged.
 
 Test tools (`tools/`, not in the image): `dvvk-bench` (the engine alone,
 headless; `--flip` for Kodi's GUI framebuffer, `--el-scaler`, `--output hdr10|hdr10plus|sdr`,
