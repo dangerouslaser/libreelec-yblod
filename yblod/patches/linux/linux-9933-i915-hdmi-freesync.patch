@@ -57,10 +57,10 @@ Changed since YBLOD 0.4.1:
  2 files changed, 236 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 0a5e70681f6f..c8d263d21cb6 100644
+index 90d8af1c0c21..26957682e90b 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -1442,6 +1442,9 @@ struct intel_crtc_state {
+@@ -1468,6 +1468,9 @@ struct intel_crtc_state {
  		u8 tfr, base_vfront;
  		u16 base_vtotal;
  		u32 lines_num, lines_den;
@@ -69,9 +69,9 @@ index 0a5e70681f6f..c8d263d21cb6 100644
 +		u8 fs_min, fs_max;
  	} qms;
  
- 	/* Content Match Refresh Rate state */
+ 	/* Stream Splitter for eDP MSO */
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index c50213893a30..08715c0743f8 100644
+index 8c5c0caea405..1badea023e06 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -2809,6 +2809,167 @@ static bool intel_hdmi_sink_has_qms(const struct drm_connector *connector)
