@@ -1,5 +1,10 @@
 # Validation
 
+> History: validation records of CroqueMr's R0.2.1a-opt1 and R0.3.0 and of
+> YBLOD's converter routes (0.3.4, 0.3.5), kept at this path because a kernel
+> patch (linux-9930) and the release notes cite it. What each output needs
+> now: [HARDWARE.md](HARDWARE.md) and [OUTPUT-MODES.md](OUTPUT-MODES.md).
+
 ## R0.3.0
 
 The final image was installed on i7-11390H. Native Kodi Player > Videos exposes

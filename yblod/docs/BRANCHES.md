@@ -37,18 +37,22 @@ from the LibreELEC commit of the last resync. Those are the only files a merge c
 on. After merging, run `yblod/tools/link-patches.sh` (it fails on a missing or wrong patch
 link, a link without an owner patch, a dangling link and a regular patch file in a folder
 the owner folders feed; `--fix` repairs links) and pass the new LibreELEC commit to
-`footprint.sh` to check the list is still short.
+`footprint.sh` to check the list is still short. The last resync merged
+LibreELEC master `3a98afdd` of 2026-11-14 ([RESYNC-20261118.txt](RESYNC-20261118.txt)),
+which is `footprint.sh`'s default base.
 
-## Contributing to CroqueMr's libreelec-x86-DV
+## Contributing to CroqueMr's libreelec-CB1
 
-All YBLOD work lives in this repository. `dangerouslaser/intel-dv-libreelec` is kept as a
-clean fork of [CroqueMr/libreelec-x86-DV](https://github.com/CroqueMr/libreelec-x86-DV):
-its `main` matches CroqueMr's `main` (refresh with GitHub "Sync fork"), and nothing else is
-committed there. To offer a change upstream:
+All YBLOD work lives in this repository. `dangerouslaser/intel-dv-libreelec` is
+the fork of [CroqueMr/libreelec-CB1](https://github.com/CroqueMr/libreelec-CB1)
+(named intel-dv-libreelec, then libreelec-x86-DV, before; the fork kept the
+first name). Its `main` follows CroqueMr's `main` (refresh it with GitHub
+"Sync fork" before branching), and a change offered upstream goes on its own
+branch there:
 
     git clone https://github.com/dangerouslaser/intel-dv-libreelec.git
     git switch -c <feature> origin/main     # CroqueMr's tree, with his CB1 engine
-    # port the change (not the YBLOD engine) and open a pull request to CroqueMr/libreelec-x86-DV
+    # port the change (not the YBLOD engine) and open a pull request to CroqueMr/libreelec-CB1
 
 The fork's history before 2026-10-12 is kept as tags `intel-dv-libreelec/*` here (its last
 `main` is `intel-dv-libreelec/archive/2026-10-12/main-before-croque-reset`), and as tag

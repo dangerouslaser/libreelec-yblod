@@ -11,9 +11,9 @@ renderer.
 | --- | --- |
 | Dolby Vision (TV-led) | Default. The engine reconstructs the picture (FEL included) and sends it with frame-matched Dolby Vision metadata through the DV tunnel (RGB 8-bit container); the TV's Dolby Vision processing maps it. |
 | Dolby Vision (player-led) | After 0.5.1 (kodi-9965), **not yet seen on a TV**. The engine maps the picture to the TV's own peak, black and primaries from its EDID's Dolby Vision block (CroqueMr's CB1 "LLDV Reference - Native") and sends it as low-latency Dolby Vision: the tunnel's 12-bit YCbCr 4:2:2 with `DVBRIDGE_TUNNEL_FORMAT` lldv (the Dolby VSIF with its low-latency bit, AVI 4:2:2 BT.2020 limited range, no HDR static metadata). The TV shows it without mapping it again. See [Player-led Dolby Vision and HDR10 Rendering Reference](#player-led-dolby-vision-and-hdr10-rendering-reference). |
-| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9928), with HDR static metadata from the film (L6 or its source peak, L9 primaries). With HDR10 conversion "Rendering Reference" (after 0.5.1, kodi-9966) it maps to a display the user describes instead, with that display's static metadata. |
+| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9901 and linux-9920), with HDR static metadata from the film (L6 or its source peak, L9 primaries). With HDR10 conversion "Rendering Reference" (after 0.5.1, kodi-9966) it maps to a display the user describes instead, with that display's static metadata. |
 | Convert to HDR10+ | Dolby Vision to HDR10+ (CroqueMr's CB1 method): the engine sends the Master Reference reconstruction in BT.2020 PQ **without** tone mapping, through the tunnel as for HDR10 (same static metadata), and with each picture an HDR10+ vendor InfoFrame (`HDR10PLUS_METADATA`, linux-9932) in the same atomic commit as that picture. The TV applies the HDR10+ curve. The metadata is made from the picture's Dolby Vision L1 (L3 folded in), L2 or L8 trims where their response fits one HDR10+ curve for a 992-nit reference, and statistics the engine measures on the film area of each picture (maxRGB histogram, average, channel maxima), one picture late at most. |
-| Convert to SDR | For a TV or projector without HDR (after 0.5.0). The engine converts the reconstructed picture to an ordinary BT.709 picture, scene by scene from the Dolby Vision metadata (L1), and the bridge shows it as 8-bit RGB with no tunnel and no HDR signalling, at the display's own mode. YBLOD's conversion, not Dolby's: see [Convert to SDR](#convert-to-sdr). |
+| Convert to SDR | For a TV or projector without HDR (since 0.5.1). The engine converts the reconstructed picture to an ordinary BT.709 picture, scene by scene from the Dolby Vision metadata (L1), and the bridge shows it as 8-bit RGB with no tunnel and no HDR signalling, at the display's own mode. YBLOD's conversion, not Dolby's: see [Convert to SDR](#convert-to-sdr). |
 | Off | Kodi's ordinary playback of the base layer: HDR10 or SDR as the stream's base layer is, without the enhancement layer. Profile 5 has no compatible base layer and its colours are wrong. |
 
 **Convert to HDR10** is offered only where it can be had: an HDR10 display
@@ -25,7 +25,7 @@ level-shifter mode (linux-9931) has it but its kernel takes only Dolby
 Vision, so after ten refused HDR10 commits on a connection that never
 took one, the option is withdrawn until Kodi restarts and the title plays
 without conversion (notification). The converter routes get Dolby Vision
-or nothing (plan decision 3). The GL HDR10 conversion of 0.3 (libplacebo
+or nothing (decision 3 of the [0.4.0 plan](../../../yblod/docs/history/YBLOD-0.4.0-PLAN.md)). The GL HDR10 conversion of 0.3 (libplacebo
 spline tone mapping in a 10-bit framebuffer) is gone with the compatibility
 renderer.
 
@@ -55,13 +55,17 @@ Not yet tested on an HDR10+ TV (no HDR10+ TV in the lab): compile-checked,
 with the engine's statistics checked against a CPU reference (PR #30).
 
 The HDR10 conversion is the engine's. The author's check: within one 12-bit
-code of a CPU double-precision map of the same conversion; the comparison
-against CB1 Reference Basic on the four reference titles and the TV test are
-0.4.0 workstream C validation, not yet done.
+code of a CPU double-precision map of the same conversion. Against CB1's own
+Reference Basic renderer on three titles (0.4.0's release check): largest
+12-bit differences 7.5/29.7/18.5 (Y/Cb/Cr, 1917), 9.7/2.3/2.2 (28 Years
+Later) and 2.1 (Gemini Man), mean absolute difference at most 1.76. 0.4.0
+shipped it before it had been played on a TV.
 
 ## Output mode during playback
 
-After 0.5.0 (0.5.1). While a video plays: OSD > **Settings** > **Video
+The menu entry is in 0.5.1, but there the choice never took effect: the
+title restarted with the output it had. It works from kodi-9967, after
+0.5.1 (below). While a video plays: OSD > **Settings** > **Video
 settings** > **Output mode**. The choice is for the playing title only: the
 settings above do not change, and the next title, or the same one played
 again, has the settings' output.
@@ -111,9 +115,9 @@ title's output from the video OSD: B`, followed by the new output's
 
 ## Convert to SDR
 
-Not part of 0.5.0. Built and checked on the build host's GPU; **not yet seen
-on a display** (the hardware list is in
-[integration/README.md](../../integration/README.md#sdr-output)).
+Since 0.5.1. Checked on the build host's GPU and seen on a display once, an
+LG TV through AMD graphics; the rest of the hardware list is in
+[integration/README.md](../../integration/README.md#sdr-output).
 
 **What it is.** The HDR10 conversion's recipe with another target: libplacebo's
 spline tone curve on IPT's I, driven by the picture's L1 (the static source
@@ -491,4 +495,4 @@ The bottom-aligned panel fits its tallest visible column, with no close-action f
 
 ## Diagnostics
 
-Output selection, metadata origin, presentation failures and restoration are recorded automatically in kodi.log. A playback-health summary records native frame counters, video queue state and Kodi render-engine usage every 10 seconds, including with the panel closed. Existing bounded kernel diagnostics remain available. No per-frame metadata dumps or image readbacks are added. See [playback diagnostics](PLAYBACK-HEALTH.md).
+Output selection, metadata origin, presentation failures and restoration are recorded automatically in kodi.log. With `DVBRIDGE_DIAGNOSTICS=1` or Kodi's debug logging, a playback-health summary records native frame counters, video queue state and Kodi render-engine usage every 10 seconds, including with the panel closed. Existing bounded kernel diagnostics remain available. No per-frame metadata dumps or image readbacks are added. See [playback diagnostics](PLAYBACK-HEALTH.md).

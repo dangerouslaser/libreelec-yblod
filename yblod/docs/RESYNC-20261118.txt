@@ -1,5 +1,8 @@
 LibreELEC base resync, 2026-11-18
 
+This is the base YBLOD is on. The Generic kernel has moved since, from
+7.3.4 to Linux 7.4-rc3 (KERNEL-74-20261118.txt).
+
 Prior YBLOD main: b7b2b5ab2fec3fd14227648365ebb24888a71781 (0.5.1)
 Previous shared LibreELEC ancestor: 0081967aaa23422dff30141a4f37cb60eeaf0f5e
 Merged LibreELEC master: 3a98afddff5b38120e34487da8851558425b06cf
@@ -53,7 +56,7 @@ Also changed: yblod/tools/footprint.sh's default base, which was still
 the 0.2 resync's cd5ed44f, is 3a98afdd; KODI-PATCHES.md and the
 integration README name Kodi 22.0rc2-Piers.
 
-Source checks (on Ollie, tools/docker/noble, PROJECT=Generic ARCH=x86_64):
+Source checks (on the build host, tools/docker/noble, PROJECT=Generic ARCH=x86_64):
 - scripts/unpack fetched kodi, linux, ffmpeg, mesa and LibreELEC-settings
   against their recipe SHA256s and applied every LibreELEC and YBLOD
   patch.

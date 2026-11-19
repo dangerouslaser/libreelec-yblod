@@ -1,54 +1,36 @@
 # yblod-engine/vk: the source-tunnel engine on Vulkan compute
 
 `libdv_engine_vk.so.1`, a Rust crate (`ash`, GLSL compute shaders compiled to
-SPIR-V by `glslc`) that does what `libdv_source_private.so.1` does for the
-source tunnel: reconstruction, the pack, letterbox, metadata packets and the
-GUI overlay. The tables and metadata come from yblod's own host C in `../src`,
-compiled in by `build.rs` (`YBLOD_ENGINE_SRC`), so both engines see the same
-numbers. The C API is `include/dv_engine_vk.h`.
+SPIR-V by `glslc`): YBLOD's Dolby Vision engine, the only one since 0.4.0.
+It reconstructs each picture from the decoded VAAPI surfaces and makes the
+output: the source tunnel (the pack, letterbox, metadata packets and the GUI
+overlay) or one of the conversions below. The tables and metadata come from
+yblod's own host C in `../src`, compiled in by `build.rs`
+(`YBLOD_ENGINE_SRC`). The C API is `include/dv_engine_vk.h`.
+`packages/graphics/yblod-engine-vk` builds and installs it; Kodi's adapter
+(patch kodi-9956-dv-vulkan-engine-adapter) dlopens it, and if it is missing
+or does not start, Dolby Vision titles play as plain base-layer video.
 
-Imported from big-fella's `dv-engine-vk` at commit 40ef696 (2026-10-27), where
-it was ported from this engine and checked against OpenCL on the N150 frame by
-frame: every movie byte identical on every route and both EL scalers; under
-the GUI, about 0.2 % of pixels differ by at most one luma or two chroma codes
-(`pow` in the sRGB/PQ conversion). big-fella's docs/vulkan-engine.md has the
-design and the results. Its nearest EL scaler patch is folded into `../src`.
-
-**Synced with big-fella's 0.1.0-18** (c727cc74e9, 2026-11-01): the crate as
-big-fella has it, plus what only Kodi uses:
+Imported on 2026-10-27 from big-fella's `dv-engine-vk` at 40ef696, which had
+been ported there from YBLOD's OpenCL engine, and synced from it on
+2026-11-01 (c727cc74e9) and 2026-11-08 (the HDR10 output); the import and
+the syncs are in [history/](history/README.md). Two things only Kodi uses:
 - `dvvk_set_overlay_ex` with `DVVK_OVERLAY_FLIP_Y`: Kodi's GUI framebuffer
   (rows bottom first) read in place, also by CB1's tile occupancy scan;
-- `DVVK_SURFACE_CHECK=1` (set in runtime.env): each decoded surface exported
-  every frame, since Kodi's adapter doesn't reset the engine when the decoder's
-  surface pool changes (big-fella's mpv does, and trusts imports by id).
-
-From big-fella since the first sync: damage (output buffers rewritten only
-where something changed), the native CB1 GUI blend under the contract (Kodi's
-transfer LUTs; 8-bit unscaled overlay at 203 nits, no subtitles), tables
-planned only when the composer config changes, FEL planning reusing unchanged
-components, 49 instead of 66 pipelines and a pipeline cache, `dvvk_drain` /
-`dvvk_reset_checked`, a panic-safe C API, `dvvk_abi_version` (ABI 2: the soname
-is now `.so.1`) and CroqueMr's optional CM2.9 -> CM4.0 metadata and L2 trim
-removal (`dvvk_plan_in.dm_options`; Kodi: `DV_VULKAN_CM4`, off by default).
-`dvvk_overlay_changes` and `dvvk_last_gpu_ms` are gone. Checked on Ollie's UHD
-770: big-fella's 90 golden hashes (recorded on the N150) identical, the
-`FLIP_Y` twins identical to their upright runs, CB1's Master Reference
-byte for byte on the five titles below, `cargo test`.
-
-Kodi uses it when Settings > Player > Dolby Vision > Engine is Vulkan
-(packages/graphics/yblod-engine-vk; Kodi patch kodi-9956-dv-vulkan-engine-adapter). The OpenCL engine
-stays installed as the fallback.
+- `DVVK_SURFACE_CHECK=1`: each decoded surface exported every frame and
+  compared. Kodi's adapter resets the engine when either layer's surfaces
+  come from another pool, so runtime.env ships it 0.
 
 **CB1 Master Reference's processing** (`dvvk_plan_in.cb1_contract`): the
 engine can also render a picture exactly as CroqueMr's CB1 Master Reference
-does (libreelec-x86-DV): the stream's chroma siting also with an EL, 4:2:0
+does (libreelec-CB1): the stream's chroma siting also with an EL, 4:2:0
 reshaping, no chroma phase pre-filter, the ETSI GS CCM 001 Annex B EL and
 4:2:2 filters, and CB1's metadata serializer (block order, an L5 where CB1
 sends one, packet id on a payload change). Checked byte for byte against CB1's own code with
 `dvvk-mr-compare` in that tree (P7 FEL, P7 MEL, P8.1, letterboxed P8.1, P5;
 Intel and AMD). Kodi's adapter (patch kodi-9956) asks for it for unscaled
-pictures when `DV_VULKAN_CB1=1` (on in runtime.env); scaled pictures, and the
-OpenCL engine, stay yblod's own. The code forks on `cb1_contract` in
+pictures with Enhancement layer upscaling Annex B (`DV_EL_SCALER=annexb`,
+the default); scaled pictures, and Bilinear, stay yblod's own. The code forks on `cb1_contract` in
 `yblod/plan.c` and on `chroma_filter` / `ANNEXB` in `shaders/pack.comp`.
 
 **YBLOD 0.4.0** (ABI 3, soname still `.so.1`; the layouts are unchanged):
@@ -61,7 +43,7 @@ OpenCL engine, stay yblod's own. The code forks on `cb1_contract` in
   FEL takes the fused route (`fel_chroma` + the pack's luma), Annex B stays
   staged; `cb1_contract` is always Annex B. golden.sh: every Annex B hash
   unchanged, the former nearest runs now bilinear (`fel-bl*`, recorded on
-  Ollie's UHD 770; DVVK_VERIFY fused = staged).
+  the build host's UHD 770; DVVK_VERIFY fused = staged).
 - *Dolby Vision -> HDR10+.* `dvvk_set_output_mode(DVVK_OUTPUT_HDR10PLUS)`:
   the HDR10 output's reconstruction without its tone curve, the pack
   measuring the active film area before the overlay (`STATS`: 16-nit maxRGB
@@ -274,9 +256,9 @@ engine, where CB1 runs it in Kodi's GL renderer on the reshaped Y'CbCr.
   - HDR10, HDR10+ and SDR (also with SDR's layer);
   - the fused shell, the prepared overlay (`DVVK_OVERLAY_PREPARE=1`) and
     the rect damage.
-  Run it as `vk.sh run 'GOLDEN=/t/vk/tools/scaler.sha256 WORK=/o/work/scaler
-  sh /t/vk/tools/scaler-check.sh check /clips/p81-3840x1744-l5full.mkv
-  /clips/28yl-p81.mkv /clips/1917-fel.mkv /clips/gemini-mel.mkv'`.
+  Run it on a box with the GPU as `WORK=<work dir> sh tools/scaler-check.sh
+  check p81-3840x1744-l5full.mkv 28yl-p81.mkv 1917-fel.mkv gemini-mel.mkv`
+  (the reference clips; `GOLDEN` defaults to `tools/scaler.sha256`).
 - *Not used with FSR.* `DVVK_VERIFY` skips FSR frames: its reference pack
   is bilinear, and their reconstruction is staged already. `dvvk-prepare`
   leaves the FSR pipelines to first use: only a player that selects FSR
@@ -394,5 +376,5 @@ included), `scaler-check.sh` with `dvvk-scaler-compare` and `scaler.sha256`,
 `dvvk-routes`, `dvvk-fence`, `vkprobe`, `dvvk-prepare`, and the
 `dvvk-interop` binary in the crate. `cargo test` covers plan.c's packets, CB1's
 order and ids, CM4, pack selection, damage and the ABI layouts (CPU only).
-The OpenCL comparison (`dvvk-compare`, `regress.sh`) went with big-fella's
-OpenCL engine; git history has it.
+The OpenCL comparison (`dvvk-compare`, `regress.sh`) was removed with the
+sync of 2026-11-01; git history has it.

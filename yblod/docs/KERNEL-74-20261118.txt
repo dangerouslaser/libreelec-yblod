@@ -33,7 +33,7 @@ unchanged. Worth knowing:
   (RTL8723BS=m); rtw88's driver for the same SDIO chip replaces it, and
   kernel-firmware already ships rtw88/*.
 - DRM_AMD_DC_DCE=y: DC for the older DCE 8-12 ASICs, a separate option
-  in 7.4, on by default (big-fella's config has it too).
+  in 7.4, on by default.
 - CHECK_WX=y and PTDUMP=y replace the unset DEBUG_WX: 7.4's default, a
   one-time check of the kernel page tables for writable+executable
   mappings at boot.
@@ -75,9 +75,8 @@ YBLOD's 13 (14 with linux-9925, below):
   HDMI VRR VTEM (a sink with HDMI VRR and no AMD VSDB, VRR on or not) and
   the ALLM HF-VSIF in vsp_infopacket, where the tunnel's Dolby VSIF is.
   Neither is built for a tunnel stream (stream->dv_lab), which is what
-  the patch did on 7.3: no VTEM, no HF-VSIF. big-fella made the same two
-  changes on 7.4-rc2 (linux-yblod 7.4rc2-1 and -3), after its LG B4 showed
-  the tunnel's pixels in magenta.
+  the patch did on 7.3: no VTEM, no HF-VSIF. Without these two changes an
+  LG B4 on amdgpu showed the tunnel's pixels in magenta on 7.4-rc2.
 - linux-9932 (HDR10+), regenerated and adapted, amdgpu only: the HF-VSIF
   above is not built for an HDR10+ stream either (stream->hdr10plus), whose
   VSIF is also in vsp_infopacket; and 7.4's amdgpu_dm_commit_planes()
@@ -197,7 +196,7 @@ series) and applied with no fuzz and no offset, in this order, and YBLOD's
 To take one: git cherry-pick -x it onto an unpacked 7.4 tree and save it
 as a patch in yblod/patches/linux, numbered to sort before linux-9900.
 
-Checks (on Ollie, image yblod-parity-build:noble, in a copy of the
+Checks (on the build host, in a noble build container, in a copy of the
 development build tree of this branch's base, 10g, no swap, 5 jobs, one
 build at a time under the build lock; PROJECT=Generic DEVICE=Generic
 ARCH=x86_64):

@@ -7,8 +7,8 @@ only one image logs is a primary source.
 
 | File | Runs on | Does |
 | :--- | :--- | :--- |
-| `install-image.sh` | workstation | puts an image on the N150 as a bench profile and boots it (ryzen-fella: see "The AMD box") |
-| `reboot-image.sh` | workstation | boots the installed profile once more (through big-fella) |
+| `install-image.sh` | workstation | puts an image on the N150 as a bench profile and boots it (for the AMD box, see "The AMD box") |
+| `reboot-image.sh` | workstation | boots the installed profile once more (through the box's other system) |
 | `bench.py prepare` | workstation | copies `box/` to the box and prepares the profile |
 | `bench.py env` | workstation | sets the profile's `native-dv.env` and restarts Kodi |
 | `bench.py run` | workstation | plays the matrix and writes one JSON per run |
@@ -28,13 +28,13 @@ Nothing is installed on the box; `box/` lives in `/storage/yblod-bench`.
 
 ```sh
 cd yblod/tools/bench
-BOX=root@192.168.1.179
+BOX=root@<box address>
 NAME=y050t1                      # the bench profile's name: one per image
-RESULTS=~/yblod-bench-results    # copied to Ollie afterwards
+RESULTS=~/yblod-bench-results    # copied to the build host afterwards
 
 # 1. the image's KERNEL and SYSTEM (from the build host), onto the box
-scp ollie:Projects/libreelec-yblod-vk/target/LibreELEC-Generic.x86_64-13.0-VERSION.kernel /tmp/KERNEL
-scp ollie:Projects/libreelec-yblod-vk/target/LibreELEC-Generic.x86_64-13.0-VERSION.system /tmp/SYSTEM
+scp BUILD_HOST:<build tree>/target/LibreELEC-Generic.x86_64-13.0-VERSION.kernel /tmp/KERNEL
+scp BUILD_HOST:<build tree>/target/LibreELEC-Generic.x86_64-13.0-VERSION.system /tmp/SYSTEM
 ./install-image.sh "${BOX}" "${NAME}" /tmp/KERNEL /tmp/SYSTEM
 
 # 2. the profile (also waits for yblod-dv-prepare to build the pipeline cache)
@@ -44,7 +44,7 @@ scp ollie:Projects/libreelec-yblod-vk/target/LibreELEC-Generic.x86_64-13.0-VERSI
 ./bench.py run --host "${BOX}" --image "${NAME}" --out "${RESULTS}" \
   --display-note "TV on, Dolby Vision picture mode"
 ./report.py "${RESULTS}/y041" "${RESULTS}/${NAME}" --md comparison.md --json comparison.json
-rsync -a "${RESULTS}/${NAME}" ollie:yblod-050/bench/results/
+rsync -a "${RESULTS}/${NAME}" BUILD_HOST:<results archive>/
 ```
 
 `bench.py run` continues where it stopped: a run that has its JSON is
@@ -57,7 +57,7 @@ on: stop the player and check both before the next run. `--scenarios A,B`, `--fi
 awake (`caffeinate -i` on a Mac): a repetition takes 66 minutes. Under a
 supervisor that stops a job after two hours, run one repetition per job
 (`--reps 1`, then `--reps 1 --first-rep 2`). The 0.4.1 baseline's raw
-files are on Ollie in `~/yblod-050/bench/results/y041`; its summary is in
+files are in the build host's results archive (`y041`); its summary is in
 `yblod/docs/releases/data/`.
 
 ## A variant of an image
@@ -109,9 +109,9 @@ what only eyes can confirm stays open.
 
 The owner's N150 (LG TV behind a Denon AVR) dual-boots from one eMMC:
 
-- `mmcblk0p1` "System": LibreELEC's `KERNEL` and `SYSTEM` **and big-fella's
-  boot loader**. `install-image.sh` writes there only through
-  `/var/lib/yblod-bench/le-switch.sh` (on big-fella), which replaces
+- `mmcblk0p1` "System": LibreELEC's `KERNEL` and `SYSTEM` **and the other
+  system's boot loader**. `install-image.sh` writes there only through
+  `/var/lib/yblod-bench/le-switch.sh` (on the other system), which replaces
   `KERNEL`, `SYSTEM`, `syslinux.cfg`, `EFI/BOOT/grub.cfg`,
   `mount-storage.sh` and `bench-name` and nothing else.
   `le-switch.sh restore` puts the owner's LibreELEC back from
@@ -119,23 +119,25 @@ The owner's N150 (LG TV behind a Denon AVR) dual-boots from one eMMC:
 - `mmcblk0p2` "Storage": the owner's LibreELEC data. A bench profile's
   `/storage` is `Storage:/.bench/NAME`; nothing outside `/.bench` is used.
   An existing `/.bench/NAME` is kept, so use a new name for a new image.
-- `mmcblk0p3/p4`: big-fella. First in `BootOrder`, never changed. LibreELEC
-  ("UEFI OS", `Boot0005`) is booted once with `efibootmgr -n 0005`; a reboot
-  from LibreELEC returns to big-fella.
+- `mmcblk0p3/p4`: the other system, an Arch Linux install reached over SSH
+  as the same `BOX` (the scripts recognise it by its os-release name and
+  call it big-fella in their messages). First in `BootOrder`, never changed.
+  LibreELEC ("UEFI OS", `Boot0005`) is booted once with `efibootmgr -n
+  0005`; a reboot from LibreELEC returns to the other system.
 
 Every reboot and every Kodi restart is preceded by a check that nothing is
 playing, and is not done otherwise: `Player.GetActivePlayers` in LibreELEC;
-no `mpv` and no running audio stream in big-fella. `bench.py run` likewise
-refuses to start while something plays, and checks that the box runs the
-profile it was asked to measure (`/flash/bench-name`).
+no `mpv` and no running audio stream in the other system. `bench.py run`
+likewise refuses to start while something plays, and checks that the box
+runs the profile it was asked to measure (`/flash/bench-name`).
 
 Do not use `paste` on the box: in LibreELEC it uploads its input to
 paste.libreelec.tv.
 
-## The AMD box (ryzen-fella)
+## The AMD box
 
-`ryzen-fella` (Ryzen 5 3500U, Vega 8 / Raven, DCN 1.0; LG TV on its HDMI,
-no AVR) runs the owner's desktop system big-fella from one btrfs disk.
+The AMD box (Ryzen 5 3500U, Vega 8 / Raven, DCN 1.0; LG TV on its HDMI,
+no AVR) runs another Linux system from one btrfs disk, with systemd-boot.
 `install-image.sh` and `reboot-image.sh` are for the N150 and do not apply.
 There a LibreELEC image boots as a bench profile without repartitioning:
 
@@ -151,21 +153,21 @@ there (the owner's, not changed by the harness) picks the storage
 subvolume from `SYSTEM_IMAGE`. The harness takes the profile's name from
 the same place when there is no `/flash/bench-name`.
 
-Rules of the box: the default entry stays `big-fella.conf` and a profile is
-booted **once** (`bootctl set-oneshot`), so a power cycle always lands in
-big-fella; nothing plays before a reboot or a Kodi restart; **never write
-`power_dpm_force_performance_level`, `pp_dpm_sclk`, `pp_od_clk_voltage` or
-the debugfs `amdgpu_force_sclk`**: forcing the GPU clock hangs this machine
-hard. While a Dolby Vision title plays the engine itself selects the
-`COMPUTE` power profile (the level then reads `manual`); both are back to
-`auto`/`BOOTUP_DEFAULT` when it stops. big-fella has a login user with sudo
-(root login refused); LibreELEC is `root` with another host key in every
-profile, so ssh to it with `-o UserKnownHostsFile=/dev/null -o
-StrictHostKeyChecking=no` (`YBLOD_BENCH_KNOWN_HOSTS=/dev/null` for the
-scripts).
+Rules of the box: the default entry stays the other system's and a profile
+is booted **once** (`bootctl set-oneshot`), so a power cycle always lands in
+the other system; nothing plays before a reboot or a Kodi restart; **never
+write `power_dpm_force_performance_level`, `pp_dpm_sclk`,
+`pp_od_clk_voltage` or the debugfs `amdgpu_force_sclk`**: forcing the GPU
+clock hangs this machine hard. While a Dolby Vision title plays the engine
+itself selects the `COMPUTE` power profile (the level then reads `manual`);
+both are back to `auto`/`BOOTUP_DEFAULT` when it stops. The other system has
+a login user with sudo (root login refused); LibreELEC is `root` with
+another host key in every profile, so ssh to it with `-o
+UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no`
+(`YBLOD_BENCH_KNOWN_HOSTS=/dev/null` for the scripts).
 
-A new image as profile NAME, from big-fella (release `.tar` checked against
-`SHA256SUMS` first; `target/KERNEL` and `target/SYSTEM` from it in
+A new image as profile NAME, from the other system (release `.tar` checked
+against `SHA256SUMS` first; `target/KERNEL` and `target/SYSTEM` from it in
 `/var/tmp/NAME-image/`; FROM is a profile whose storage has the NFS source
 and the closed wizard, e.g. `y050`):
 
@@ -185,7 +187,7 @@ sync; umount /run/btrtop-rw"'
 
 (The caches are removed so that `yblod-dv-prepare` builds the pipeline
 cache from scratch and its time means something.) To boot a profile, from
-big-fella, after checking that nothing plays (no `RUNNING` in
+the other system, after checking that nothing plays (no `RUNNING` in
 `/proc/asound/card*/pcm*p/sub*/status`, `gpu_busy_percent` near 0):
 
 ```sh
@@ -193,12 +195,12 @@ ssh USER@AMD_BOX 'sudo bootctl set-oneshot bench-NAME.conf && sudo systemctl reb
 ```
 
 From LibreELEC, `reboot` (after `Player.GetActivePlayers` answered `[]`)
-lands in big-fella. Boot to SSH takes about a minute.
+lands in the other system. Boot to SSH takes about a minute.
 
-Drive long runs from Ollie, not from a laptop that sleeps: Ollie's
-passphrase-less key `~/.ssh/id_ollie_auto` goes into the profile's
-`/storage/.ssh/authorized_keys`, and `~/yblod-051/bench-amd/env.sh` there
-puts an `ssh` wrapper using it first on `PATH`, sets
+Drive long runs from the build host, not from a laptop that sleeps: a
+passphrase-less key of the build host's goes into the profile's
+`/storage/.ssh/authorized_keys`, and an environment script there puts an
+`ssh` wrapper using that key first on `PATH`, sets
 `YBLOD_BENCH_KNOWN_HOSTS=/dev/null`, `BOX` and `RESULTS`; start a run under
 `setsid nohup` and read its log.
 
