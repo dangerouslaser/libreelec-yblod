@@ -63,7 +63,9 @@ shipped it before it had been played on a TV.
 
 ## Output mode during playback
 
-Since 0.5.1. While a video plays: OSD > **Settings** > **Video
+The menu entry is in 0.5.1, but there the choice never took effect: the
+title restarted with the output it had. It works from kodi-9967, after
+0.5.1 (below). While a video plays: OSD > **Settings** > **Video
 settings** > **Output mode**. The choice is for the playing title only: the
 settings above do not change, and the next title, or the same one played
 again, has the settings' output.

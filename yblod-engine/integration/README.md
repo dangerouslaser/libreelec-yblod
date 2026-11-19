@@ -2,7 +2,7 @@
 
 The Kodi side of YBLOD's Dolby Vision output is the patch series in
 `yblod-engine/patches/kodi/` (Kodi `22.0rc2-Piers`, linked into
-`projects/Generic/patches/kodi/`), `kodi-9950` to `kodi-9966`; see
+`projects/Generic/patches/kodi/`), `kodi-9950` to `kodi-9968`; see
 [KODI-PATCHES.md](../../yblod/docs/KODI-PATCHES.md) for what each holds and
 where the older patch numbers below went. Since 0.4.0 it drives one renderer,
 the Vulkan engine (`yblod-engine/vk`). The engine's adapter

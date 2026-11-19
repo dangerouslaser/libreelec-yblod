@@ -66,7 +66,7 @@ The table below covers the files of the Intel Dolby Vision tunnel (`linux-9900`,
 ## kodi
 
 One series on Kodi `22.0rc2-Piers`: `kodi-9900` to `kodi-9910` and
-`kodi-9990` in `yblod/patches/kodi/`, `kodi-9950` to `kodi-9966` in
+`kodi-9990` in `yblod/patches/kodi/`, `kodi-9950` to `kodi-9968` in
 `yblod-engine/patches/kodi/`. [KODI-PATCHES.md](../../../yblod/docs/KODI-PATCHES.md)
 says what each patch does and where the older patches named in this
 repository's history went; each file's message says what it changes. The
