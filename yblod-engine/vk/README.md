@@ -1,29 +1,36 @@
 # yblod-engine/vk: the source-tunnel engine on Vulkan compute
 
 `libdv_engine_vk.so.1`, a Rust crate (`ash`, GLSL compute shaders compiled to
-SPIR-V by `glslc`) that does what `libdv_source_private.so.1` does for the
-source tunnel: reconstruction, the pack, letterbox, metadata packets and the
-GUI overlay. The tables and metadata come from yblod's own host C in `../src`,
-compiled in by `build.rs` (`YBLOD_ENGINE_SRC`), so both engines see the same
-numbers. The C API is `include/dv_engine_vk.h`.
+SPIR-V by `glslc`): YBLOD's Dolby Vision engine, the only one since 0.4.0.
+It reconstructs each picture from the decoded VAAPI surfaces and makes the
+output: the source tunnel (the pack, letterbox, metadata packets and the GUI
+overlay) or one of the conversions below. The tables and metadata come from
+yblod's own host C in `../src`, compiled in by `build.rs`
+(`YBLOD_ENGINE_SRC`). The C API is `include/dv_engine_vk.h`.
+`packages/graphics/yblod-engine-vk` builds and installs it; Kodi's adapter
+(patch kodi-9956-dv-vulkan-engine-adapter) dlopens it, and if it is missing
+or does not start, Dolby Vision titles play as plain base-layer video.
 
-The import from big-fella's `dv-engine-vk` and the syncs with it are in
-[history/](history/README.md).
-
-Kodi uses it when Settings > Player > Dolby Vision > Engine is Vulkan
-(packages/graphics/yblod-engine-vk; Kodi patch kodi-9956-dv-vulkan-engine-adapter). The OpenCL engine
-stays installed as the fallback.
+Imported on 2026-10-27 from big-fella's `dv-engine-vk` at 40ef696, which had
+been ported there from YBLOD's OpenCL engine, and synced from it on
+2026-11-01 (c727cc74e9) and 2026-11-08 (the HDR10 output); the import and
+the syncs are in [history/](history/README.md). Two things only Kodi uses:
+- `dvvk_set_overlay_ex` with `DVVK_OVERLAY_FLIP_Y`: Kodi's GUI framebuffer
+  (rows bottom first) read in place, also by CB1's tile occupancy scan;
+- `DVVK_SURFACE_CHECK=1`: each decoded surface exported every frame and
+  compared. Kodi's adapter resets the engine when either layer's surfaces
+  come from another pool, so runtime.env ships it 0.
 
 **CB1 Master Reference's processing** (`dvvk_plan_in.cb1_contract`): the
 engine can also render a picture exactly as CroqueMr's CB1 Master Reference
-does (libreelec-x86-DV): the stream's chroma siting also with an EL, 4:2:0
+does (libreelec-CB1): the stream's chroma siting also with an EL, 4:2:0
 reshaping, no chroma phase pre-filter, the ETSI GS CCM 001 Annex B EL and
 4:2:2 filters, and CB1's metadata serializer (block order, an L5 where CB1
 sends one, packet id on a payload change). Checked byte for byte against CB1's own code with
 `dvvk-mr-compare` in that tree (P7 FEL, P7 MEL, P8.1, letterboxed P8.1, P5;
 Intel and AMD). Kodi's adapter (patch kodi-9956) asks for it for unscaled
-pictures when `DV_VULKAN_CB1=1` (on in runtime.env); scaled pictures, and the
-OpenCL engine, stay yblod's own. The code forks on `cb1_contract` in
+pictures with Enhancement layer upscaling Annex B (`DV_EL_SCALER=annexb`,
+the default); scaled pictures, and Bilinear, stay yblod's own. The code forks on `cb1_contract` in
 `yblod/plan.c` and on `chroma_filter` / `ANNEXB` in `shaders/pack.comp`.
 
 **YBLOD 0.4.0** (ABI 3, soname still `.so.1`; the layouts are unchanged):

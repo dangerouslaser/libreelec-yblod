@@ -1,4 +1,4 @@
-# Native source-domain renderer — work in progress
+# yblod-engine: YBLOD's Dolby Vision pipeline
 
 See [LICENSE](LICENSE) and [source references](SOURCES.md) for distribution
 terms, implementation scope and limitations.
@@ -7,17 +7,20 @@ Since YBLOD 0.4.0 the Dolby Vision renderer is the Vulkan engine in `vk/`
 (big-fella's dv-engine-vk with YBLOD's additions, packaged by
 `packages/graphics/yblod-engine-vk`, `libdv_engine_vk.so.1`). It keeps decoded
 VAAPI surfaces on the GPU, reconstructs the source signal and writes the
-tunnel picture with matching metadata for TV-led output, or converts to HDR10.
-Its `build.rs` compiles YBLOD's host C from `src/` (tables, the metadata
-serializer, `dv_ffmpeg_metadata.c`, plan inputs). The OpenCL engine
+tunnel picture with matching metadata for TV-led output, or converts it to
+HDR10, HDR10+, SDR or player-led Dolby Vision. Its `build.rs` compiles
+YBLOD's host C from `src/` (tables, the metadata serializer,
+`dv_ffmpeg_metadata.c`, plan inputs). The OpenCL engine
 (`libdv_source_private`, OpenCL kernels and runtime packages) and the
 libplacebo compatibility renderer in Kodi were removed in 0.4.0, and so were
 their sources in `src/` and the OpenCL GPU tests in `tests/`.
 
-Everything specific to the Dolby Vision pipeline lives in this folder: the engine
-(`src/`, `tests/`, `integration/`), its patches for Kodi, FFmpeg and the kernel
-(`patches/<package>/`, linked into LibreELEC's patch folders), tools (`tools/`),
-docs (`docs/`) and licences (`licenses/`, `LICENSES/`). See `../yblod/README.md`.
+Everything specific to the Dolby Vision pipeline lives in this folder: the
+engine (`vk/`, the host C in `src/`, its CPU tests in `tests/`), Kodi's
+runtime environment (`integration/`), its patches for Kodi, FFmpeg and the
+kernel (`patches/<package>/`, linked into LibreELEC's patch folders), tools
+(`tools/`), docs (`docs/`, indexed in [docs/README.md](docs/README.md)) and
+licences (`licenses/`, `LICENSES/`). See `../yblod/README.md`.
 
 `CMakeLists.txt` builds only the host C's CPU contract tests (no playback
 dependencies):

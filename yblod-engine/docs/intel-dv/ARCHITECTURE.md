@@ -2,8 +2,9 @@
 
 ```text
 Kodi VideoPlayer → FFmpeg / VAAPI → owned frame metadata + paired BL/EL surfaces
-                → Vulkan engine (libdv_engine_vk.so.1) → one of two private
-                  scanout buffers: the DV tunnel (RGB 8-bit) or HDR10 (12-bit 4:2:2)
+                → Vulkan engine (libdv_engine_vk.so.1) → Kodi's private scanout
+                  buffers: the DV tunnel (RGB 8-bit), HDR10, HDR10+ or player-led
+                  DV (12-bit 4:2:2 in it), or SDR (8-bit RGB at the mode's size)
                 → Kodi GBM atomic presentation (+ tunnel format, HDR metadata)
                 → Intel/AMD DRM/KMS → TV
 ```
@@ -18,7 +19,8 @@ Kodi VideoPlayer → FFmpeg / VAAPI → owned frame metadata + paired BL/EL surf
   surfaces (FEL included; CB1 Master Reference's processing for unscaled
   pictures with Annex B upscaling), composes Kodi's GUI over it, serializes
   the frame's display metadata (optionally with CM4.0 levels) and writes the
-  tunnel picture, or converts to HDR10 (the Master Reference conversion). It
+  tunnel picture, or converts it: to HDR10 (the Master Reference conversion
+  or a stated display), HDR10+, SDR or player-led Dolby Vision. It
   compiles YBLOD's host C from `yblod-engine/src` (tables, the metadata
   serializer, plan inputs) through its `build.rs`. It is YBLOD's only Dolby
   Vision renderer since 0.4.0; the OpenCL engine and the libplacebo
@@ -26,8 +28,9 @@ Kodi VideoPlayer → FFmpeg / VAAPI → owned frame metadata + paired BL/EL surf
 - **Kodi** keeps its normal decoding, buffering, refresh-rate selection,
   controls and GUI. Its adapter (`CDVPrivateSource`, `CDVPrivateVulkan`)
   hands the engine each picture and the GUI (in place, as a dmabuf), owns the
-  two scanout buffers' slots and pairs FEL surfaces by timestamp; the window
-  commits the ready buffer with the tunnel's signal. The menu output
+  scanout buffers' slots (two, a third with queued flips) and pairs FEL
+  surfaces by timestamp; the window commits the ready buffer with the
+  tunnel's signal. The menu output
   (graphics-only frames with static metadata) is packed by Kodi on the GPU,
   not by the engine. The adapter is selected only for eligible source,
   decoder, display and transport combinations; if the engine cannot start,
@@ -52,7 +55,8 @@ commit waits for the scanout buffer's fence, and the decoded surfaces stay
 leased until the engine reports the frame done. The adapter captures and
 restores display state; ending DV playback returns control to Kodi's normal
 path. A picture the engine does not take is not shown (logged); there is no
-fallback renderer.
+fallback renderer, and a title whose pictures it keeps refusing (3 s of
+them) restarts where it was as plain base-layer video (kodi-9961).
 
 Ordinary SDR/HDR playback and software metadata probes do not enter the DV
 path. This does not remove the independent Intel HDR10 link-precision

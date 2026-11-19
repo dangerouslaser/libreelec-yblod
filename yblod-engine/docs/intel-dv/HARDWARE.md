@@ -33,7 +33,8 @@ sold with the same CPU.
 3. A valid Dolby EDID v0, v1 or v2 block advertising Standard DV. Both Kodi and
    the driver use the same validation. V0 and applicable v1 sinks use legacy
    Standard-DV HDMI signaling; modern sinks retain the Dolby-OUI packet.
-   LLDV-only, malformed and unsupported-version blocks remain ineligible.
+   LLDV-only, malformed and unsupported-version blocks remain ineligible for
+   TV-led Dolby Vision (player-led Dolby Vision has its own conditions below).
    The newly added v0/v1 routes have software coverage, not physical qualification.
 4. A supported progressive 3840 × 2160 display mode in Kodi, atomic GBM/GLES
    output and the required texture/rendering precision.
@@ -61,6 +62,25 @@ routes), an HDR10+ Vendor-Specific Video Data Block in the TV's EDID (Kodi
 reads its application version and sends packets of that version), and the
 Vulkan engine with HDR10+ output. LG TVs have no HDR10+; Samsung, and
 Panasonic/Philips models with HDR10+, do. Untested on hardware so far.
+
+## Conditions for SDR output (Convert to SDR)
+
+The Vulkan engine with SDR output and a display mode the engine takes as its
+canvas (both sides multiples of 4, 64 to 4096, progressive: 1920x1080 and
+3840x2160, not 1366x768), on any connector: native HDMI, the converter
+routes, DisplayPort. The picture is ordinary KMS, so no kernel patch and no
+particular Intel generation is needed. See OUTPUT-MODES.md (Convert to SDR).
+
+## Conditions for player-led Dolby Vision
+
+A connector with the tunnel and the `lldv` value of `DVBRIDGE_TUNNEL_FORMAT`
+(linux-9901 for i915 on display version 12 and later, linux-9920 for
+amdgpu; not the converter routes), progressive 3840 × 2160, an engine with
+the player-led output, and a Dolby Vision VSVDB in the TV's EDID with the
+low-latency interface and a target the engine accepts (low-latency 4:2:2,
+valid luminance, primaries inside BT.2020). Not yet seen on a TV. The full
+list: yblod-engine/integration/README.md (Player-led Dolby Vision and HDR10
+Rendering Reference).
 
 ## HDR10+ videos as Dolby Vision
 
