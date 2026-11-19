@@ -63,8 +63,8 @@ Kodi:
   `DVBridge output: SDR (...)`, `Vulkan engine output: SDR (...)`, and
   `DVBridge output: mode N is not available on this display; using M`.
 
-Switches (`runtime.env`; the settings for brightness, gamma and HDR videos
-take precedence over their entries):
+Switches (`runtime.env`; the settings for the display, brightness, gamma,
+BT.2020 colours and HDR videos take precedence over their entries):
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -72,8 +72,24 @@ take precedence over their entries):
 | `DV_SDR_HDR_SOURCES` | 1 | 0: HDR10, HDR10+ and HLG videos stay with Kodi's tone mapping. |
 | `DV_SDR_WHITE`, `DV_SDR_BLACK` | 203, 0 | The display's white (40 to 1000) and black (0: white / 1000) in cd/m2. |
 | `DV_SDR_GAMMA` | bt1886 | `2.2` for a 2.2 power. |
+| `DV_SDR_TARGET` | default | The display (SDR display, kodi-9963): `default` the three above; CroqueMr's CB1 presets `reference` (100 cd/m2, pure 2.4 power, black 0) and `brightroom` (200, 2.2, 0); `custom`. A library without CB1's targets (`dvvk_sdr_flags`), or a custom value out of range, leaves no SDR output (one log line) rather than another display's. |
+| `DV_SDR_CUSTOM_WHITE`, `_GAMMA`, `_BLACK` | 100, 2.4, 0 | The custom display: white 20 to 500 cd/m2, a pure power 1.8 to 2.8, black 0 (a true zero) to 5 cd/m2. |
+| `DV_SDR_BT2020` | 0 | 1: BT.2020 colours where the library has `DVVK_SDR_BT2020`, the connector's `Colorspace` has `BT2020_RGB` and the EDID lists BT.2020 RGB; else BT.709. Each picture's gamut is committed with its `Colorspace`; three refused BT.2020 commits fall back to BT.709 from the next picture. |
 | `DV_SDR_RANGE` | auto | `auto` follows Kodi's "Use limited colour range"; `full`, `limited`. |
 | `DV_SDR_DITHER` | 1 | 0: rounded codes. |
+
+The upscaler (kodi-9964; the engine's `dvvk_set_scaler`, every output mode,
+not only SDR): `DV_UPSCALER` for sources of 1080p and above (1920 wide or
+1080 high) and `DV_UPSCALER_SD` for smaller ones, `bilinear` (default),
+`fsr1` or `fsr1-sharp`, set by Upscaling (1080p and above) and Upscaling
+(below 1080p). The method is chosen for each picture's source size and the
+engine applies it only to an enlargement; a library without the symbol stays
+bilinear, one that refuses a method keeps the one it has (logged). Kodi never
+calls `dvvk_set_scaler` while both are bilinear, so the default is the engine
+as before.
+
+Player-led Dolby Vision and HDR10 Rendering Reference (kodi-9965, kodi-9966)
+have their own section below; their checks are items 14 and 15 here.
 
 ### To check on a display
 
@@ -126,6 +142,162 @@ separate check.
 11. **VRR** (kodi-9990). On a FreeSync display with Kodi's variable refresh
     rate setting on: the refresh-rate changes before and after an SDR-output
     video, which the tunnel outputs have been through and SDR output has not.
+12. **CB1's displays** (kodi-9963): Reference, Bright room and a Custom
+    display (48 cd/m2, gamma 2.6, black 0.05 on the projector) against the
+    default on the same title; the log's `Vulkan engine output: SDR (...)`
+    names the display. With BT.2020 colours on: a display whose EDID lists
+    BT.2020 RGB on Intel and AMD (the `Colorspace` modeset at the first
+    picture, Signal `SDR / BT.2020` in player information, the GUI's colours),
+    one whose EDID does not (BT.709, the log line), and the fallback when the
+    kernel refuses the commit.
+13. **Upscaler** (kodi-9964): FSR 1 and FSR 1 + sharpening on a 1080p title
+    at 3840x2160, the dropped-frame counter and `DVVK_PROFILE=1` on the UHD
+    770, the N150 and Vega 8 at 24p and 60p; Upscaling in player information
+    only while the picture is enlarged; a 4K title on the 4K display is not
+    touched.
+14. **Player-led Dolby Vision** (kodi-9965; nothing of it has been on a
+    display, and nothing had ever set `DVBRIDGE_TUNNEL_FORMAT` "lldv"). On a
+    Dolby Vision TV whose EDID has a low-latency Dolby block (most LG OLEDs
+    from 2019; Sony and others with LLDV), Intel gen12+ and AMD native HDMI:
+    - kodi.log at the settings page: `DVBridge output: player-led Dolby
+      Vision available: the TV's target P / B cd/m2, primaries ..., VSVDB
+      version N, 12 useful bits (the block says 12|10 ...)`. Compare the
+      target with the TV's specification. A TV without the block says `not
+      available:` and why; the option must then be missing.
+    - Select it, play 1917 (P7 FEL), 28 Years Later (P8.1), Gemini Man (60p
+      MEL) and a Profile 5 title. Expected: the TV reports Dolby Vision (its
+      info banner; LG's "Dolby Vision" picture modes are offered), the
+      picture is steady and not black. The log: `DVBridge output: player-led
+      Dolby Vision through the tunnel`, `Vulkan engine output: player-led
+      Dolby Vision for the TV's target (...)`, `Vulkan engine player-led
+      Dolby Vision pts=...: mode 4 eotf 2`. Player information: Playback
+      "Dolby Vision (player-led)", Target the TV's values.
+    - Against TV-led Dolby Vision of the same scene (OSD > Video settings >
+      Output mode): overall brightness and colour should be close; the
+      bright highlights of 1917's night scenes and 28 Years Later's dark
+      scenes are where they differ. A picture much too dark or too bright
+      means the TV maps it again or the target is wrong; colours too
+      saturated or washed out mean the primaries or the 4:2:2 matrix.
+      Report with the log and a photo of both.
+    - 10 bits: `DV_LLDV_BITS=10` in `/storage/.config/native-dv.env` on a TV
+      whose block says 10; banding in slow gradients against 12.
+    - The GUI over the film (OSD, seek bar, subtitles): white about 203 nits,
+      not glaring, colours right.
+    - Refusal: a TV whose block has no low-latency interface (or an HDFury
+      EDID without it) must not offer it; with it saved, the video falls
+      back to Convert to HDR10 (notification "Player-led Dolby Vision is not
+      available...") or SDR. The kernel refusing it (`DVBridge: 10
+      player-led Dolby Vision commits in a row refused`) must end in the
+      title restarting with the fallback's output within a few seconds, not
+      a black or frozen screen.
+    - Stop, seek, next title, a refresh-rate change (24p after 60p): the
+      desktop comes back, no HDMI blanking loop. `DV_LLDV_OUTPUT=0` removes
+      the option.
+15. **HDR10 Rendering Reference** (kodi-9966; not yet on a display). HDR10
+    conversion: Rendering Reference, on an HDR10 TV (Dolby Vision or not)
+    with Convert to HDR10, and with Dolby Vision (TV-led) on a TV without
+    Dolby Vision (the fallback):
+    - kodi.log: `Vulkan engine output: HDR10, Rendering Reference (CroqueMr's
+      CB1 Expert) to the display 1000 nits, black 0.0000, P3-D65`, then
+      `Vulkan engine HDR10 pts=...: mastering 1000 / 0.0000 cd/m2, MaxCLL 0,
+      MaxFALL 0` (the stated display, not the film's mastering). The TV's
+      HDR info (HDFury, the TV's service menu) shows the same.
+    - With the TV's dynamic tone mapping off, against Master Reference on
+      the same scene: with the peak set to the TV's own, highlights keep
+      their detail rather than clip; a peak far above the TV's should look
+      like Master Reference; 100 nits on the projector.
+    - Black presets (OLED, LCD, projector, custom 0.0005) and the three
+      gamuts: dark scenes and saturated colours change as expected, greys
+      stay neutral. Player information: Playback "HDR10 conversion
+      (Rendering Reference)", Target the display.
+    - Master Reference (the default) must give the log line and the HDR10
+      metadata of before (`HDR10, the Master Reference conversion`).
+
+## Player-led Dolby Vision and HDR10 Rendering Reference
+
+After 0.5.1 (kodi-9965, kodi-9966; the engine's `DVVK_OUTPUT_LLDV` and
+`DVVK_HDR10_TARGET`, [vk/README.md](../vk/README.md)): CroqueMr's CB1 maps
+Dolby Vision to a stated display, the TV's own (player-led Dolby Vision) or
+one the user describes (HDR10 Rendering Reference). Both are new and have
+not been seen on a display (item 14 and 15 above). With the settings at
+their defaults neither is used: Kodi makes no new engine call and writes no
+new DRM property, and the Automatic fallback chooses what it chose before.
+
+**Player-led Dolby Vision** (Output mode "Dolby Vision (player-led)",
+`DVBRIDGE::OutputMode::PlayerLed`, 5). Offered in the setting and in the
+video OSD's Output mode list only where all of these hold
+(`CWinSystemGbmGLESContext::SupportsTunnelLLDV`; kodi.log says which fails
+when the answer changes):
+
+- `DV_LLDV_OUTPUT` is not 0, and it has not been refused before in this
+  Kodi run;
+- the connector is connected, atomic, and has `DVBRIDGE_DV_STANDARD_LAB`
+  and the "lldv" value of `DVBRIDGE_TUNNEL_FORMAT` (linux-9901 for i915
+  gen12+, linux-9920 for amdgpu; not the converter routes);
+- the mode is progressive 3840x2160 (the tunnel's);
+- the engine library has the mode (`dvvk_output_modes` bit 4,
+  `dvvk_set_display_primaries`, `dvvk_lldv_display_from_vsvdb`; with
+  `DV_LLDV_BITS=10` also `DVVK_LLDV_10BIT` in `dvvk_target_flags`);
+- the TV's EDID has a Dolby Vision VSVDB with the low-latency interface by
+  the kernel's own test (`dvbridge_sink_lldv`, Kodi's copy of the parser),
+  and `dvvk_lldv_display_from_vsvdb` on that block returns the TV's target
+  (status READY: low-latency 4:2:2, valid luminance, primaries inside
+  BT.2020).
+
+Playing, the window begins the tunnel with `playbackTunnelLLDV` and the
+target; the engine sets `dvvk_set_display_primaries` (the block's version
+and fitted primaries) and then `DVVK_OUTPUT_LLDV` with the peak and black
+(`DVVK_LLDV_10BIT` for 10 bits), sends every frame with `dm_options` 0 (the
+engine refuses CM4.0 and L2 removal for player-led output; Dolby Vision
+metadata's settings do not apply), and marks each picture it made
+player-led. The commit that shows such a picture stages
+`DVBRIDGE_TUNNEL_FORMAT` lldv with no `HDR_OUTPUT_METADATA` and no HDR10+
+(the kernel then sends the Dolby VSIF with the low-latency bit and the AVI
+YCbCr 4:2:2 BT.2020 limited range); `dvvk_output_signal` (mode 4, eotf 2,
+the useful bits) is only logged. It is never chosen by the fallback, and a
+display without it takes the fallback as Dolby Vision (TV-led) would on a
+TV without Dolby Vision: Convert to HDR10, then Convert to SDR (an HDR base
+layer to an HDR display as it is), or the base layer with Automatic
+fallback off; the notification says player-led is not available.
+
+When it cannot start: the engine refusing the TV's primaries or target
+(`Vulkan engine refused player-led Dolby Vision (...)`), or ten refused
+player-led commits in a row (`DVBridge: 10 player-led Dolby Vision commits
+in a row refused`), withdraw it until Kodi restarts, with a notification,
+and restart the title where it was with the fallback's output. Until then
+no picture of another kind is sent with the lldv signal. A title whose
+pictures the engine refuses one by one plays as its base layer, as for
+Dolby Vision (kodi-9961).
+
+**HDR10 Rendering Reference** (HDR10 conversion: Master Reference, the
+default, or Rendering Reference, with Display peak brightness 50 to 10000
+nits, Display black level OLED 0 / LCD 0.005 / projector 0.05 / custom 0 to
+0.5 nits, Display colours P3-D65 (default), BT.2020, BT.709). Shown where
+this connection has the HDR10 output and the library `DVVK_HDR10_TARGET`,
+or while Rendering Reference is saved. It applies to every use of the
+engine's HDR10 output: Convert to HDR10, the fallback to it, and Convert to
+HDR10+ on a TV without HDR10+ or after its fallback to HDR10 (HDR10+ output
+itself is not mapped). The engine gets `{DVVK_OUTPUT_HDR10,
+DVVK_HDR10_TARGET, peak, black, {gamut}}` and the HDR static metadata the
+TV gets is `dvvk_output_signal`'s: the stated display's primaries, max and
+min luminance, MaxCLL and MaxFALL 0. A library without the flag, a value
+out of range from `native-dv.env`, or the engine refusing it give the
+Master Reference conversion (one log line): an HDR10 picture all the same.
+
+Player information shows the target (Target) for both, and Playback
+"Dolby Vision (player-led)" or "HDR10 conversion (Rendering Reference)".
+
+Videos without Dolby Vision do not take either: an HDR10, HDR10+ or HLG
+video plays as before (as Kodi shows it, converted to SDR, or as Dolby
+Vision TV-led through "HDR10+ videos" and the OSD's Convert to Dolby
+Vision, which stay TV-led only).
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `DV_LLDV_OUTPUT` | 1 | 0: player-led Dolby Vision is never offered, also where it is saved (the fallback's output then). |
+| `DV_LLDV_BITS` | 12 | 10: 10 useful bits in the 12-bit carrier (`DVVK_LLDV_10BIT`), for a TV whose low-latency 4:2:2 takes 10. No setting. |
+| `DV_HDR10_TARGET` | 0 | 1: Rendering Reference (HDR10 conversion). |
+| `DV_HDR10_TARGET_PEAK`, `_BLACK`, `_GAMUT` | 1000, 0, p3 | The display: 50 to 10000 cd/m2; 0 to 0.5 cd/m2; `p3`, `bt2020`, `bt709`. |
 
 ## Presentation (0.5.0)
 

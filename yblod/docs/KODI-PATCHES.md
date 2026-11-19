@@ -36,6 +36,7 @@ A new patch takes the next free number in its range.
 | `yblod/patches/kodi/kodi-9907-ffmpeg-keep-draining-hardware-decoder.patch` | FFmpeg: keep draining a hardware decoder until it reaches EOF | +4 / -0 |
 | `yblod/patches/kodi/kodi-9908-live-tv-start.patch` | VideoPlayer: start live TV sooner | +44 / -11 |
 | `yblod/patches/kodi/kodi-9909-videoplayer-hable-default-tone-mapping.patch` | VideoPlayer: Hable is the default tone mapping method (it was off) | +1 / -1 |
+| `yblod/patches/kodi/kodi-9910-videoplayer-mastering-luminance-by-value.patch` | VideoPlayer: mastering luminance compared by value, not by fraction (a periodic HDR10 renderer reconfiguration) | +8 / -4 |
 | `yblod-engine/patches/kodi/kodi-9950-dv-stream-and-picture-metadata.patch` | Dolby Vision: carry stream and picture metadata through VideoPlayer | +101 / -1 |
 | `yblod-engine/patches/kodi/kodi-9951-dv-dvbridge-library.patch` | Dolby Vision: add the tools/dvbridge library | +1571 / -1 |
 | `yblod-engine/patches/kodi/kodi-9952-dv-decoder.patch` | Dolby Vision: decode both layers and the metadata in the FFmpeg decoder | +618 / -2 |
@@ -47,6 +48,10 @@ A new patch takes the next free number in its range.
 | `yblod-engine/patches/kodi/kodi-9958-dv-bridge-at-the-mode-size.patch` | Dolby Vision: the bridge (scanout, GUI raster, engine canvas) at the display mode's size | +84 / -34 |
 | `yblod-engine/patches/kodi/kodi-9959-dv-sdr-output-and-fallback.patch` | Dolby Vision: "Convert to SDR" (the engine's SDR output as an ordinary RGB picture), its settings, automatic fallback | +440 / -66 |
 | `yblod-engine/patches/kodi/kodi-9960-dv-hdr-videos-through-the-sdr-output.patch` | Dolby Vision: HDR10, HDR10+ and HLG videos through the SDR output, with the switch back to Kodi's tone mapping | +288 / -46 |
+| `yblod-engine/patches/kodi/kodi-9963-dv-sdr-displays-and-bt2020.patch` | Dolby Vision: CroqueMr's CB1 SDR displays (SDR display) and BT.2020 colours, strings 45146 to 45160 | +509 / -25 |
+| `yblod-engine/patches/kodi/kodi-9964-dv-picture-upscaling.patch` | Dolby Vision: picture upscaling with FSR 1 (two tiers by source size), strings 45161 to 45166 | +193 / -1 |
+| `yblod-engine/patches/kodi/kodi-9965-dv-player-led-dolby-vision.patch` | Dolby Vision: player-led Dolby Vision (the engine's LLDV to the TV's target from its Dolby Vision VSVDB, `DVBRIDGE_TUNNEL_FORMAT` lldv), strings 45167 to 45170 | +501 / -23 |
+| `yblod-engine/patches/kodi/kodi-9966-dv-hdr10-rendering-reference.patch` | Dolby Vision: HDR10 Rendering Reference (the HDR10 output mapped to a display the user describes), strings 45171 to 45188 | +338 / -5 |
 | `yblod/patches/kodi/kodi-9990-variable-refresh-rate.patch` | windowing: variable refresh rate (FreeSync) for refresh rate changes | +251 / -2 |
 
 The patches up to `kodi-9957` and `kodi-9990` add the 10538 lines and remove

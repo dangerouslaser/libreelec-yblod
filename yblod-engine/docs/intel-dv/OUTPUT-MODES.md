@@ -10,7 +10,8 @@ renderer.
 | Output mode | Result |
 | --- | --- |
 | Dolby Vision (TV-led) | Default. The engine reconstructs the picture (FEL included) and sends it with frame-matched Dolby Vision metadata through the DV tunnel (RGB 8-bit container); the TV's Dolby Vision processing maps it. |
-| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9928), with HDR static metadata from the film (L6 or its source peak, L9 primaries). |
+| Dolby Vision (player-led) | After 0.5.1 (kodi-9965), **not yet seen on a TV**. The engine maps the picture to the TV's own peak, black and primaries from its EDID's Dolby Vision block (CroqueMr's CB1 "LLDV Reference - Native") and sends it as low-latency Dolby Vision: the tunnel's 12-bit YCbCr 4:2:2 with `DVBRIDGE_TUNNEL_FORMAT` lldv (the Dolby VSIF with its low-latency bit, AVI 4:2:2 BT.2020 limited range, no HDR static metadata). The TV shows it without mapping it again. See [Player-led Dolby Vision and HDR10 Rendering Reference](#player-led-dolby-vision-and-hdr10-rendering-reference). |
+| Convert to HDR10 | The engine converts Dolby Vision to HDR10 with the Master Reference conversion (CroqueMr's CB1 Reference Basic mapping) and sends BT.2020 PQ through the tunnel as 12-bit YCbCr 4:2:2 (`DVBRIDGE_TUNNEL_FORMAT` hdr10, linux-9928), with HDR static metadata from the film (L6 or its source peak, L9 primaries). With HDR10 conversion "Rendering Reference" (after 0.5.1, kodi-9966) it maps to a display the user describes instead, with that display's static metadata. |
 | Convert to HDR10+ | Dolby Vision to HDR10+ (CroqueMr's CB1 method): the engine sends the Master Reference reconstruction in BT.2020 PQ **without** tone mapping, through the tunnel as for HDR10 (same static metadata), and with each picture an HDR10+ vendor InfoFrame (`HDR10PLUS_METADATA`, linux-9932) in the same atomic commit as that picture. The TV applies the HDR10+ curve. The metadata is made from the picture's Dolby Vision L1 (L3 folded in), L2 or L8 trims where their response fits one HDR10+ curve for a 992-nit reference, and statistics the engine measures on the film area of each picture (maxRGB histogram, average, channel maxima), one picture late at most. |
 | Convert to SDR | For a TV or projector without HDR (after 0.5.0). The engine converts the reconstructed picture to an ordinary BT.709 picture, scene by scene from the Dolby Vision metadata (L1), and the bridge shows it as 8-bit RGB with no tunnel and no HDR signalling, at the display's own mode. YBLOD's conversion, not Dolby's: see [Convert to SDR](#convert-to-sdr). |
 | Off | Kodi's ordinary playback of the base layer: HDR10 or SDR as the stream's base layer is, without the enhancement layer. Profile 5 has no compatible base layer and its colours are wrong. |
@@ -67,15 +68,16 @@ again, has the settings' output.
 
 | Playing video | Choices |
 | --- | --- |
-| Dolby Vision | Dolby Vision, Convert to HDR10, Convert to HDR10+, Convert to SDR |
+| Dolby Vision | Dolby Vision, Dolby Vision (player-led), Convert to HDR10, Convert to HDR10+, Convert to SDR |
 | HDR10+ | HDR10+ (original), Convert to Dolby Vision, Convert to SDR |
 | HDR10 | HDR10 (original), Convert to Dolby Vision, Convert to SDR |
 | HLG | HLG (original), Convert to SDR |
 | SDR | none: the entry is not shown |
 
 A choice is listed only where it can be had now, with the same tests as the
-settings: Dolby Vision on a Dolby Vision TV and connection, Convert to
-HDR10 and HDR10+ where the Output mode setting offers them, Convert to SDR
+settings: Dolby Vision on a Dolby Vision TV and connection, Dolby Vision
+(player-led), Convert to HDR10 and HDR10+ where the Output mode setting
+offers them, Convert to SDR
 where the engine has the SDR output for the display's mode ("HDR videos on
 an SDR display"'s `DV_SDR_HDR_SOURCES=0` removes it for videos without
 Dolby Vision), an HDR10+, HDR10 or HLG video's own format where Kodi
@@ -134,9 +136,11 @@ resolution anyway).
 
 | Setting | What it sets |
 | --- | --- |
+| SDR display | After 0.5.1. **Brightness and gamma** (default): the two settings below, as in 0.5.1. **Reference** (100 nits, a pure 2.4 power, true black) and **Bright room** (200 nits, 2.2, true black): CroqueMr's CB1 presets. **Custom**: White (20 to 500 nits), Gamma (a pure power, 1.8 to 2.8 in steps of 0.05) and Black (0, a true zero, to 5 nits). `DV_SDR_TARGET` `default`, `reference`, `brightroom`, `custom` with `DV_SDR_CUSTOM_WHITE`, `_GAMMA`, `_BLACK`; [CB1's SDR targets](#cb1s-sdr-targets) says what the engine does with them. Offered where the engine library takes CB1's targets (`dvvk_sdr_flags`). Should an older library be loaded with one of them saved, the setting stays shown so that it can be set back, and the SDR output is not used (as on a display without it, with a log line) instead of making the picture for another display. |
 | SDR display brightness | White of the display the picture is made for: 100 (projector), 150, 203 (default) or 300 nits (`DV_SDR_WHITE`). 203 is BT.2408's and libplacebo's reference and keeps more of the highlights apart; 100 gives brighter mid-tones. The display's own brightness control is not touched. Black is white / 1000. |
 | SDR gamma | BT.1886 (gamma 2.4, default) or a 2.2 power (`DV_SDR_GAMMA`). |
-| Automatic fallback | On by default. When the display does not have the selected output mode, the next one it has is used: Dolby Vision, then Convert to HDR10, then Convert to SDR. One exception: a display Kodi sends HDR to (Kodi's "Adjust display HDR mode" on, HDR in the EDID) still gets an HDR10 or HLG base layer from Kodi as it is, since that keeps more of the picture than an SDR conversion; Profile 5 and the SDR-compatible profiles are converted. A notification says once which output is used. Off: a video whose output mode is missing plays as its base layer, as before. |
+| BT.2020 colours | After 0.5.1, off by default (`DV_SDR_BT2020`). The engine maps the picture to BT.2020 instead of BT.709 (`DVVK_SDR_BT2020`) and the link is signalled as BT.2020 RGB (the connector's `Colorspace`), for a display with wide colours in SDR. Used only where the engine library has it, the driver has `Colorspace` `BT2020_RGB` on the connector and the display's EDID lists BT.2020 RGB in its colorimetry block, as CB1 requires; anywhere else the picture is BT.709 and the log says why (`DVBridge output: SDR in BT.709, not BT.2020: ...`). A picture's gamut and the `Colorspace` of the commit that shows it always match (the engine says which each picture is). Three refused commits in BT.2020 make the rest of the video BT.709, from the next picture, with a notification; where none was ever taken, BT.2020 is not tried again until Kodi restarts. Player information's Signal says `SDR / BT.2020`. |
+| Automatic fallback | On by default. When the display does not have the selected output mode, the next one it has is used: Dolby Vision, then Convert to HDR10, then Convert to SDR. One exception: a display Kodi sends HDR to (Kodi's "Adjust display HDR mode" on, HDR in the EDID) still gets an HDR10 or HLG base layer from Kodi as it is, since that keeps more of the picture than an SDR conversion; Profile 5 and the SDR-compatible profiles are converted. A notification says once which output is used. The fallback never chooses Dolby Vision (player-led); selected where it is not available, it falls back as Dolby Vision does. Off: a video whose output mode is missing plays as its base layer, as before. |
 | HDR videos on an SDR display | **YBLOD's SDR conversion** (default): HDR10, HDR10+ and HLG videos take the same conversion where Kodi would otherwise tone-map them (the display is not sent HDR): HDR10+ scene by scene from its metadata (`dvvk_hdr10plus_to_dovi`), HDR10 and HLG with one curve for the whole video from the mastering display's peak (`dvvk_hdr10_to_dovi`; HLG as BT.2100's 1000-nit display would show it). **Kodi's tone mapping**: Kodi's shader, which is cheaper on a slow GPU (`DV_SDR_HDR_SOURCES=0` does the same). |
 
 RGB range follows Kodi's "Use limited colour range" (`DV_SDR_RANGE`), for the
@@ -208,8 +212,8 @@ The first SDR picture of an engine compiles its pipelines when
 
 ### CB1's SDR targets
 
-After 0.5.1, in the engine only (Kodi's settings above do not offer them
-yet): the SDR output also takes every display CroqueMr's CB1 SDR
+After 0.5.1 (Kodi's SDR display and BT.2020 colours settings above,
+kodi-9963): the SDR output also takes every display CroqueMr's CB1 SDR
 rendering offers (`dvbridge_sdr_target`, `sdr_container`). A player sets
 them with `dvvk_set_output_mode` (`include/dv_engine_vk.h`):
 
@@ -284,11 +288,25 @@ sampler on the same displays).
 
 ## Player-led Dolby Vision and HDR10 Rendering Reference
 
-After 0.5.1, in the engine only: Kodi's and mpv's settings, and reading
-the TV's EDID for them, come later. Built and checked on the build host's
-UHD 770; **nothing of it has been on a display**, and the kernel's `lldv`
-signalling (linux patches, `DVBRIDGE_TUNNEL_FORMAT` "lldv") has never been
-exercised.
+After 0.5.1. In the engine, and in Kodi since kodi-9965 (player-led) and
+kodi-9966 (HDR10 Rendering Reference); mpv's settings come later. Built and
+checked on the build host's UHD 770; **nothing of it has been on a
+display**, and the kernel's `lldv` signalling (linux patches,
+`DVBRIDGE_TUNNEL_FORMAT` "lldv") has never been exercised. The checks to
+make on a TV are items 14 and 15 of
+[integration/README.md](../../integration/README.md#to-check-on-a-display).
+
+**In Kodi.**
+
+| Setting | What it sets |
+| --- | --- |
+| Output mode: Dolby Vision (player-led) | The TV's own target, read by `dvvk_lldv_display_from_vsvdb` from the Dolby Vision VSVDB of its EDID. Offered (also in the video OSD) only where the engine library has the mode, the TV's block has the low-latency interface (by the kernel's test, and the engine's parser returns a target) and the connector's `DVBRIDGE_TUNNEL_FORMAT` has its lldv value, at progressive 3840x2160; kodi.log says which is missing. Never chosen by the Automatic fallback. Selected where it is not here, the video takes the fallback as Dolby Vision (TV-led) does on a TV without Dolby Vision: Convert to HDR10, then Convert to SDR (or the base layer). If the engine refuses the TV's target, or the kernel refuses ten player-led commits in a row, it is withdrawn until Kodi restarts and the title restarts with that fallback. The Dolby Vision metadata settings (CM4.0, L2) do not apply to it. `DV_LLDV_BITS` 12 (default) or 10 useful bits; `DV_LLDV_OUTPUT=0` removes it. |
+| HDR10 conversion | **Master Reference** (default, the conversion as before) or **Rendering Reference** (CroqueMr's CB1 "LLDV Reference - HDR10 Output"): the engine maps to the display described by **Display peak brightness** (50 to 10000 nits, 1000 by default), **Display black level** (OLED 0, LCD 0.005, projector 0.05, or a custom 0 to 0.5 nits) and **Display colours** (P3-D65 by default, BT.2020, BT.709), and the TV gets that display's static metadata (`dvvk_output_signal`: its primaries, max and min luminance, MaxCLL and MaxFALL 0). Wherever the HDR10 output is used: Convert to HDR10, the fallback to it, Convert to HDR10+ while it is HDR10. Offered where the HDR10 output is and the library takes `DVVK_HDR10_TARGET`; a library without it, or values out of range from `native-dv.env`, give the Master Reference conversion with a log line. `DV_HDR10_TARGET`, `_PEAK`, `_BLACK`, `_GAMUT`. |
+
+Player information's Playback says "Dolby Vision (player-led)" or "HDR10
+conversion (Rendering Reference)", and Target the display mapped to. HDR10,
+HDR10+ and HLG videos without Dolby Vision take neither (they do not pass
+through the HDR10 output).
 
 CroqueMr's CB1 maps Dolby Vision to a stated display with one recipe, his
 "Expert", behind two front ends. The engine has both
@@ -404,6 +422,7 @@ The first frame of each output compiles its pipelines (about 0.3 s;
 | Dolby Vision metadata | **Original**: the film's metadata. **CM4.0 auto**: neutral CM4.0 levels (L3, L9, L11, L254) added to CM2.9 films where CroqueMr's CB1 rules call for it: L1 within the TV's peak plus 20 %, or, without a known TV peak, a mastering peak up to 1000 nits. **CM4.0 always**: added to every CM2.9 film. No trims are made up. Dolby Vision output only (`DV_VULKAN_CM4`). Off by default (plan decision 6). |
 | TV peak brightness | For CM4.0 auto: from the TV's EDID (desired content max luminance), or 400 to 4000 nits (`DV_VULKAN_TV_PEAK`). |
 | Remove L2 trims | Leaves the film's CM2.9 trims out of the metadata (`DV_VULKAN_NO_L2`). Dolby Vision output only. |
+| Upscaling (1080p and above), Upscaling (below 1080p) | After 0.5.1 (kodi-9964). How the engine enlarges a picture smaller than its place on the screen, by the source's size as CB1 sorts them (1920 wide or 1080 high and above; smaller): **Bilinear** (default, the engine's own interpolation, unchanged), **FSR 1** (AMD FidelityFX Super Resolution 1's EASU on the reconstructed luma) or **FSR 1 + sharpening** (EASU then RCAS), `dvvk_set_scaler` ([the upscaler](../../vk/README.md)); `DV_UPSCALER`, `DV_UPSCALER_SD` (`bilinear`, `fsr1`, `fsr1-sharp`). Every output mode. Pictures shown at their own size or reduced are never touched. Cost on the UHD 770, 1080p into 3840x2160 at full clock: 5.0 ms bilinear, 12.6 ms EASU, 13.9 ms EASU + RCAS a frame; not yet measured on the N150 or Vega 8, where 60p may not keep up. Offered where the library has `dvvk_set_scaler`. Player information shows the upscaler (Upscaling) only while the picture is enlarged. |
 | Enhanced player information | The player information panel below. |
 
 ## Menu output
@@ -462,7 +481,7 @@ looks like: an 8-bit RGB picture, dithered, at the display's mode.
 
 **Enhanced player information** replaces the stock information panel. Press **O** to open or close it; **Esc/Back** closes it. Disable the option to restore the stock panel. The existing **Ctrl+Shift+O** diagnostic remains unchanged.
 
-The panel separates source metadata, reconstruction and output. SDR, HDR10 and HLG use a compact video/audio/rendering layout without DV sections. Static HDR metadata appears only when available. Dolby Vision sources retain their detailed panel, including during the HDR10 conversion. Missing or inapplicable fields are hidden. FEL presence is not reported as successful reconstruction until a corresponding frame is presented. Drop and skip values are Kodi's own counters; pattern correction is not a dropped-frame counter.
+The panel separates source metadata, reconstruction and output. Target names the display the engine maps to (player-led Dolby Vision, HDR10 Rendering Reference) and is hidden otherwise. Upscaling names the engine's upscaler (Bilinear, FSR 1, FSR 1 + sharpening) while it enlarges the picture, and is hidden otherwise. SDR, HDR10 and HLG use a compact video/audio/rendering layout without DV sections. Static HDR metadata appears only when available. Dolby Vision sources retain their detailed panel, including during the HDR10 conversion. Missing or inapplicable fields are hidden. FEL presence is not reported as successful reconstruction until a corresponding frame is presented. Drop and skip values are Kodi's own counters; pattern correction is not a dropped-frame counter.
 
 The bottom-aligned panel fits its tallest visible column, with no close-action footer. No Dolby logos or speaker diagram are included. Metadata refresh is limited to twice per second while the panel is open.
 

@@ -97,6 +97,14 @@ Changed since YBLOD 0.4.1:
   another, so a later blob with another EOTF went out under an engaged
   hdr10 tunnel. i915 already checked every change. Rejected as
   "DVBridge: scanout rejected ... stage=hdr-metadata".
+
+Changed for Linux 7.4 (as big-fella's linux-yblod 7.4rc2-1 and -3):
+- 7.4's amdgpu_dm_update_freesync_state_on_stream() builds, on every
+  flip, an HDMI VRR VTEM for an HDMI VRR sink without an AMD VSDB (VRR
+  on or not) and the ALLM HF-VSIF in vsp_infopacket. Neither is built
+  for a tunnel stream, which keeps it as on 7.3: no VTEM, and the Dolby
+  VSIF in the vendor slot (big-fella saw the HF-VSIF replace it on the
+  next flip: the tunnel's raw pixels in magenta).
 ---
  .../gpu/drm/amd/display/amdgpu_dm/Makefile    |   1 +
  .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c |  19 +
@@ -105,10 +113,10 @@ Changed since YBLOD 0.4.1:
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_crc.c |   9 +-
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  | 480 ++++++++++++++++++
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h  |  35 ++
- .../display/amdgpu_dm/amdgpu_dm_freesync.c    |   4 +-
+ .../display/amdgpu_dm/amdgpu_dm_freesync.c    |  19 +-
  .../gpu/drm/amd/display/dc/core/dc_resource.c |   7 +
  drivers/gpu/drm/amd/display/dc/dc_stream.h    |   8 +
- 10 files changed, 601 insertions(+), 4 deletions(-)
+ 10 files changed, 613 insertions(+), 7 deletions(-)
  create mode 100644 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c
  create mode 100644 drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h
 
@@ -125,10 +133,10 @@ index d1faf2d8370f..fdd77d5dcd1a 100644
  	amdgpu_dm_cursor.o
  
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 47a0ff2ed035..4396874b95f7 100644
+index 0ea45ab12119..17c9e920fa49 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-@@ -50,6 +50,7 @@
+@@ -49,6 +49,7 @@
  #include "amdgpu_ucode.h"
  #include "atom.h"
  #include "amdgpu_dm.h"
@@ -136,7 +144,7 @@ index 47a0ff2ed035..4396874b95f7 100644
  #include "amdgpu_dm_plane.h"
  #include "amdgpu_dm_crtc.h"
  #include "amdgpu_dm_hdcp.h"
-@@ -5471,6 +5472,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5587,6 +5588,16 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  		if (ret)
  			goto fail;
  
@@ -153,7 +161,7 @@ index 47a0ff2ed035..4396874b95f7 100644
  		/*
  		 * If we already removed the old stream from the context
  		 * (and set the new stream to NULL) then we can't reuse
-@@ -5482,6 +5493,7 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5598,6 +5609,7 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  		 */
  		if (amdgpu_freesync_vid_mode &&
  		    dm_new_crtc_state->stream &&
@@ -161,7 +169,7 @@ index 47a0ff2ed035..4396874b95f7 100644
  		    amdgpu_dm_is_timing_unchanged_for_freesync(new_crtc_state, old_crtc_state))
  			goto skip_modeset;
  
-@@ -6615,6 +6627,13 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6751,6 +6763,13 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
  			UPDATE_TYPE_FULL : UPDATE_TYPE_FAST;
  	}
  
@@ -176,7 +184,7 @@ index 47a0ff2ed035..4396874b95f7 100644
  	WARN_ON(ret);
  
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
-index 881c8d1c3cc0..ba0873c1c4e0 100644
+index 1b91fe4c3171..0a6165553184 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.h
 @@ -34,6 +34,7 @@
@@ -187,7 +195,7 @@ index 881c8d1c3cc0..ba0873c1c4e0 100644
  
  /*
   * This file contains the definition for amdgpu_display_manager
-@@ -809,6 +810,12 @@ struct amdgpu_hdmi_vsdb_info {
+@@ -828,6 +829,12 @@ struct amdgpu_hdmi_vsdb_info {
  struct amdgpu_dm_connector {
  
  	struct drm_connector base;
@@ -200,7 +208,7 @@ index 881c8d1c3cc0..ba0873c1c4e0 100644
  	uint32_t connector_id;
  	int bl_idx;
  
-@@ -1069,6 +1076,10 @@ struct dm_atomic_state {
+@@ -1103,6 +1110,10 @@ struct dm_atomic_state {
  
  struct dm_connector_state {
  	struct drm_connector_state base;
@@ -212,10 +220,10 @@ index 881c8d1c3cc0..ba0873c1c4e0 100644
  	enum amdgpu_rmx_type scaling;
  	uint8_t underscan_vborder;
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
-index 45a69bf43971..3d33f6d96a3f 100644
+index b498fc5fbb14..cd4a880ed374 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
-@@ -42,6 +42,7 @@
+@@ -41,6 +41,7 @@
  #include "amdgpu_display.h"
  #include "amdgpu_dm.h"
  #include "amdgpu_dm_connector.h"
@@ -223,7 +231,7 @@ index 45a69bf43971..3d33f6d96a3f 100644
  #include "amdgpu_dm_plane.h"
  #include "amdgpu_dm_crtc.h"
  #include "amdgpu_dm_wb.h"
-@@ -1800,6 +1801,9 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
+@@ -1806,6 +1807,9 @@ int amdgpu_dm_connector_atomic_set_property(struct drm_connector *connector,
  
  	int ret = -EINVAL;
  
@@ -233,7 +241,7 @@ index 45a69bf43971..3d33f6d96a3f 100644
  	if (property == dev->mode_config.scaling_mode_property) {
  		enum amdgpu_rmx_type rmx_type;
  
-@@ -1864,6 +1868,9 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
+@@ -1870,6 +1874,9 @@ int amdgpu_dm_connector_atomic_get_property(struct drm_connector *connector,
  		to_dm_connector_state(state);
  	int ret = -EINVAL;
  
@@ -243,7 +251,7 @@ index 45a69bf43971..3d33f6d96a3f 100644
  	if (property == dev->mode_config.scaling_mode_property) {
  		switch (dm_state->scaling) {
  		case RMX_CENTER:
-@@ -2623,8 +2630,27 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+@@ -2632,8 +2639,27 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
  	}
  
  	crtc = new_con_state->crtc;
@@ -272,7 +280,7 @@ index 45a69bf43971..3d33f6d96a3f 100644
  
  	if (new_con_state->privacy_screen_sw_state != old_con_state->privacy_screen_sw_state) {
  		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
-@@ -3279,6 +3305,9 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+@@ -3302,6 +3328,9 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
  		|| (connector_type == DRM_MODE_CONNECTOR_DisplayPort && !aconnector->mst_root))
  		drm_connector_attach_broadcast_rgb_property(&aconnector->base);
  
@@ -830,10 +838,10 @@ index 000000000000..6f4b76095bef
 +
 +#endif
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
-index 7e484adb4120..f9cbdc8f9a9e 100644
+index 0be4506e9ae5..47cd9a2c132c 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
-@@ -124,7 +124,9 @@ void amdgpu_dm_get_freesync_config_for_crtc(
+@@ -127,7 +127,9 @@ void amdgpu_dm_get_freesync_config_for_crtc(
  
  	aconnector = to_amdgpu_dm_connector(new_con_state->base.connector);
  
@@ -844,11 +852,42 @@ index 7e484adb4120..f9cbdc8f9a9e 100644
  					vrefresh >= aconnector->min_vfreq &&
  					vrefresh <= aconnector->max_vfreq;
  
+@@ -269,8 +271,12 @@ void amdgpu_dm_update_freesync_state_on_stream(
+ 	/*
+ 	 * If the sink does not support FreeSync, but it does support VRR,
+ 	 * we need to build a VTEM packet to enable VRR.
++	 *
++	 * big-fella: not next to the Dolby Vision tunnel, whose stream has
++	 * no VTEM (amdgpu_dm_dv.c).
+ 	 */
+-	if (aconn && !aconn->vsdb_info.freesync_supported &&
++	if (aconn && !new_stream->dv_lab &&
++	    !aconn->vsdb_info.freesync_supported &&
+ 	    aconn->base.display_info.hdmi.vrr_cap.supported &&
+ 	    (new_stream->signal == SIGNAL_TYPE_HDMI_FRL ||
+ 	     new_stream->signal == SIGNAL_TYPE_HDMI_TYPE_A)) {
+@@ -300,9 +306,14 @@ void amdgpu_dm_update_freesync_state_on_stream(
+ 	 * HDMI ALLM: when Gaming-VRR is active (VRR_EN=1) and the sink
+ 	 * advertises ALLM in the SCDS, the Source shall transmit the HF-VSIF
+ 	 * with ALLM_Mode=1 (HDMI 2.1 Section 7.6.6).
++	 *
++	 * big-fella: the Dolby Vision tunnel's VSIF lives in vsp_infopacket
++	 * (amdgpu_dm_dv.c); an HF-VSIF built here would replace it on the
++	 * next flip and the sink would drop out of Dolby Vision.
+ 	 */
+-	if (new_stream->signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+-	    new_stream->signal == SIGNAL_TYPE_HDMI_FRL) {
++	if (!new_stream->dv_lab &&
++	    (new_stream->signal == SIGNAL_TYPE_HDMI_TYPE_A ||
++	     new_stream->signal == SIGNAL_TYPE_HDMI_FRL)) {
+ 		struct dc_info_packet vsp_infopacket = {0};
+ 		bool sink_allm = aconn && aconn->base.display_info.hdmi.allm;
+ 		bool allm = sink_allm &&
 diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
-index fc9080f0c093..a0fe0bde27c0 100644
+index 187486d978da..2ce2cf85ad56 100644
 --- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
 +++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
-@@ -3769,6 +3769,13 @@ bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
+@@ -3891,6 +3891,13 @@ bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
  	if (cur_stream->output_color_space != new_stream->output_color_space)
  		return true;
  
@@ -863,10 +902,10 @@ index fc9080f0c093..a0fe0bde27c0 100644
  		&cur_stream->timing,
  		&new_stream->timing,
 diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
-index 934ae381e730..548584134be4 100644
+index fec5e7a84bb9..643345ccee93 100644
 --- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
 +++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
-@@ -205,6 +205,14 @@ struct dc_stream_state {
+@@ -208,6 +208,14 @@ struct dc_stream_state {
  	 */
  	struct link_encoder *link_enc;
  	struct dc_stream_debug_options debug;

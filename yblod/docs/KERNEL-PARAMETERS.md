@@ -50,6 +50,7 @@ connector.
 | `enable_dv_lab` | on | no | The Dolby Vision tunnel on native HDMI, DCN 1.0 to 3.6: the same two connector properties. `0` removes them. |
 | `hdr_yuv420` | on | yes | As on Intel, for the "color format" AUTO setting. |
 | `hdmi_hpd_debounce_delay_ms` | 3000 | yes | Upstream's HDMI HPD debounce, which upstream leaves off (0). A sink that comes back within the time with the same EDID causes no hotplug event. |
+| `freesync_hdmi_vcp` | 0 | yes | `0`: a native HDMI sink is FreeSync/VRR-capable without an MCCS VCP code in its EDID (TVs have none). `1`: upstream's check since Linux 7.4, which takes VRR away from such TVs. Read at the sink's next EDID update (hotplug). |
 
 Not parameters, and always on: after a hotplug of a connected HDMI sink i915
 looks at the sink's SCDC TMDS configuration again once a second for 4 s and

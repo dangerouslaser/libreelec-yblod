@@ -115,7 +115,7 @@ TEST_ONLY to probe) unless all of:
   sets the CRTC's primary plane with a framebuffer (the picture the
   packet describes); CRTC active; no async flip (page-flip with
   DRM_MODE_PAGE_FLIP_ASYNC); no 3D mode;
-- amdgpu: the stream is native HDMI TMDS with no HDMI VIC.
+- amdgpu: the stream is native HDMI (TMDS or FRL) with no HDMI VIC.
 
 Lifetime:
 - Per commit: the packet goes out with the framebuffer of the same commit
@@ -158,16 +158,32 @@ Changed since YBLOD 0.4.1:
 - i915's internal modesets no longer add the primary plane (CB1's
   linux-9942): they leave the packet as it is, so they pass without it,
   and they did it whether or not HDR10+ was in use.
+
+Changed for Linux 7.4 (amdgpu; neither has run on hardware):
+- 7.4's amdgpu_dm_update_freesync_state_on_stream() rebuilds the ALLM
+  HF-VSIF into vsp_infopacket on every flip of an HDMI stream, which
+  would replace the HDR10+ VSIF. It is not built for an HDR10+ stream,
+  as linux-9920 does for the Dolby Vision tunnel, so HDR10+ owns the
+  vendor slot as on 7.3.
+- 7.4's amdgpu_dm_commit_planes() passes the stream update to DC only
+  when stream_update_needed is set. A new packet sets it, or the packet
+  would not go out with its frame.
+
+Changed since YBLOD 0.5.1:
+- amdgpu: an HDMI FRL stream qualifies as well as TMDS (the check is
+  dc_is_hdmi_signal(), not SIGNAL_TYPE_HDMI_TYPE_A), as CroqueMr's CB1
+  570de37442 does for HDR10 and HDR10+. Not run on an FRL sink.
 ---
- .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 138 ++++++++++++++++++
+ .../gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 141 ++++++++++++++++++
  .../display/amdgpu_dm/amdgpu_dm_connector.c   |  19 ++-
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.c  |   9 ++
  .../drm/amd/display/amdgpu_dm/amdgpu_dm_dv.h  |   4 +
+ .../display/amdgpu_dm/amdgpu_dm_freesync.c    |   3 +-
  .../gpu/drm/amd/display/dc/core/dc_resource.c |   4 +-
  drivers/gpu/drm/amd/display/dc/dc_stream.h    |   2 +
  drivers/gpu/drm/drm_atomic_state_helper.c     |   3 +
  drivers/gpu/drm/drm_atomic_uapi.c             |  14 ++
- drivers/gpu/drm/drm_connector.c               | 107 ++++++++++++++
+ drivers/gpu/drm/drm_connector.c               | 107 +++++++++++++
  drivers/gpu/drm/drm_edid.c                    |   9 ++
  drivers/gpu/drm/i915/display/intel_atomic.c   |  14 ++
  drivers/gpu/drm/i915/display/intel_display.c  |  26 +++-
@@ -179,24 +195,24 @@ Changed since YBLOD 0.4.1:
  include/drm/drm_hdr10plus.h                   |  48 ++++++
  include/drm/drm_mode_config.h                 |   2 +
  include/linux/hdmi.h                          |  14 ++
- 20 files changed, 612 insertions(+), 4 deletions(-)
+ 21 files changed, 617 insertions(+), 5 deletions(-)
  create mode 100644 include/drm/drm_hdr10plus.h
 
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-index 4396874b95f7..e134395f7e84 100644
+index 17c9e920fa49..b6356c269766 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
-@@ -98,6 +98,7 @@
+@@ -97,6 +97,7 @@
  #include <drm/drm_fixed.h>
  #include <drm/drm_fourcc.h>
  #include <drm/drm_edid.h>
 +#include <drm/drm_hdr10plus.h>
  #include <drm/drm_eld.h>
  #include <drm/drm_mode.h>
- #include <drm/drm_utils.h>
-@@ -3798,6 +3799,103 @@ static void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *acrtc,
- 		drm_crtc_vblank_get(&acrtc->base);
+ #include <drm/drm_vblank.h>
+@@ -3852,6 +3853,104 @@ STATIC_IFN_KUNIT void dm_arm_vblank_event_pre_programming(struct amdgpu_crtc *ac
  }
+ EXPORT_IF_KUNIT(dm_arm_vblank_event_pre_programming);
  
 +/*
 + * linux-9932: HDR10+ (CB1 linux-9920/9940/9941, ported to YBLOD's 7.3).
@@ -245,8 +261,9 @@ index 4396874b95f7..e134395f7e84 100644
 + * A commit that sets a new HDR10+ packet must carry the CRTC's primary
 + * framebuffer too (@frame_mask, taken before helpers add planes): the packet
 + * goes out in the same stream update as that surface. A commit that leaves the
-+ * packet as it is needs none and keeps it on the link. Native HDMI TMDS, a
-+ * real >= 10 bpc stream, no DV tunnel, no HDMI VIC, no 3D, no async flip.
++ * packet as it is needs none and keeps it on the link. Native HDMI (TMDS or
++ * FRL), a real >= 10 bpc stream, no DV tunnel, no HDMI VIC, no 3D, no async
++ * flip.
 + */
 +static int amdgpu_dm_hdr10plus_atomic_check(struct drm_atomic_commit *state,
 +					    u32 frame_mask)
@@ -277,7 +294,7 @@ index 4396874b95f7..e134395f7e84 100644
 +		    (to_dm_connector_state(conn)->dv_lab_standard &&
 +		     !amdgpu_dm_hdr10plus_tunnel(conn)) ||
 +		    !crtc_state->active ||
-+		    !stream->hdr10plus || stream->signal != SIGNAL_TYPE_HDMI_TYPE_A ||
++		    !stream->hdr10plus || !dc_is_hdmi_signal(stream->signal) ||
 +		    stream->timing.hdmi_vic ||
 +		    /* the HDR10 tunnel's 8 bpc stream carries 12-bit 4:2:2 */
 +		    (amdgpu_dm_convert_dc_color_depth_into_bpc(stream->timing.display_color_depth) < 10 &&
@@ -298,7 +315,7 @@ index 4396874b95f7..e134395f7e84 100644
  static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  				    struct drm_device *dev,
  				    struct amdgpu_display_manager *dm,
-@@ -3830,6 +3928,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -3885,6 +3984,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  		struct dc_scaling_info scaling_infos[MAX_SURFACES];
  		struct dc_flip_addrs flip_addrs[MAX_SURFACES];
  		struct dc_stream_update stream_update;
@@ -306,7 +323,7 @@ index 4396874b95f7..e134395f7e84 100644
  	} *bundle;
  
  	bundle = kzalloc_obj(*bundle);
-@@ -4087,6 +4186,25 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
+@@ -4182,6 +4282,27 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
  			flush_workqueue(dm->vblank_control_workqueue);
  
  		bundle->stream_update.stream = acrtc_state->stream;
@@ -325,14 +342,16 @@ index 4396874b95f7..e134395f7e84 100644
 +				if (!amdgpu_dm_hdr10plus_info_packet(conn->hdr10plus_metadata,
 +								     &bundle->hdr10plus) &&
 +				    memcmp(&bundle->hdr10plus, &acrtc_state->stream->vsp_infopacket,
-+					   sizeof(bundle->hdr10plus)))
++					   sizeof(bundle->hdr10plus))) {
 +					bundle->stream_update.vsp_infopacket = &bundle->hdr10plus;
++					stream_update_needed = true;
++				}
 +			}
 +		}
  		if (new_pcrtc_state->mode_changed) {
  			bundle->stream_update.src = acrtc_state->stream->src;
  			bundle->stream_update.dst = acrtc_state->stream->dst;
-@@ -5482,6 +5600,16 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5598,6 +5719,16 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  				goto fail;
  		}
  
@@ -349,7 +368,7 @@ index 4396874b95f7..e134395f7e84 100644
  		/*
  		 * If we already removed the old stream from the context
  		 * (and set the new stream to NULL) then we can't reuse
-@@ -5494,6 +5622,8 @@ static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
+@@ -5610,6 +5741,8 @@ STATIC_IFN_KUNIT int dm_update_crtc_state(struct amdgpu_display_manager *dm,
  		if (amdgpu_freesync_vid_mode &&
  		    dm_new_crtc_state->stream &&
  		    dm_new_conn_state->dv_lab_standard == dm_old_conn_state->dv_lab_standard &&
@@ -358,7 +377,7 @@ index 4396874b95f7..e134395f7e84 100644
  		    amdgpu_dm_is_timing_unchanged_for_freesync(new_crtc_state, old_crtc_state))
  			goto skip_modeset;
  
-@@ -6155,6 +6285,9 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6291,6 +6424,9 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
  	struct drm_dp_mst_topology_state *mst_state;
  	struct dsc_mst_fairness_vars vars[MAX_PIPES] = {0};
  
@@ -368,7 +387,7 @@ index 4396874b95f7..e134395f7e84 100644
  	trace_amdgpu_dm_atomic_check_begin(state);
  
  	ret = drm_atomic_helper_check_modeset(dev, state);
-@@ -6634,6 +6767,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
+@@ -6770,6 +6906,11 @@ STATIC_IFN_KUNIT int amdgpu_dm_atomic_check(struct drm_device *dev,
  	if (ret)
  		goto fail;
  
@@ -381,10 +400,10 @@ index 4396874b95f7..e134395f7e84 100644
  	WARN_ON(ret);
  
 diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
-index 97eb9c20eccb..023b7bc8636b 100644
+index 5aa71e456ca9..86d2e84e0d11 100644
 --- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
 +++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_connector.c
-@@ -2675,6 +2675,19 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+@@ -2684,6 +2684,19 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
  
  	trace_amdgpu_dm_connector_atomic_check(new_con_state);
  
@@ -404,7 +423,7 @@ index 97eb9c20eccb..023b7bc8636b 100644
  	if (conn->connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
  		ret = drm_dp_mst_root_conn_atomic_check(new_con_state, &aconn->mst_mgr);
  		if (ret < 0)
-@@ -2696,7 +2709,9 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+@@ -2705,7 +2718,9 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
  	    /* big-fella: and changing what an engaged tunnel carries */
  	    (to_dm_connector_state(new_con_state)->dv_lab_standard &&
  	     to_dm_connector_state(new_con_state)->dv_tunnel_format !=
@@ -415,7 +434,7 @@ index 97eb9c20eccb..023b7bc8636b 100644
  		new_crtc_state = drm_atomic_get_crtc_state(state, crtc);
  		if (IS_ERR(new_crtc_state))
  			return PTR_ERR(new_crtc_state);
-@@ -3382,6 +3397,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
+@@ -3405,6 +3420,8 @@ void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
  	if (connector_type == DRM_MODE_CONNECTOR_HDMIA) {
  		/* Content Type is currently only implemented for HDMI. */
  		drm_connector_attach_content_type_property(&aconnector->base);
@@ -454,11 +473,26 @@ index 6f4b76095bef..2f4cceea000a 100644
 +bool amdgpu_dm_hdr10plus_tunnel(const struct drm_connector_state *conn);
 +
  #endif
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
+index 47cd9a2c132c..1b0240776699 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_freesync.c
+@@ -310,8 +310,9 @@ void amdgpu_dm_update_freesync_state_on_stream(
+ 	 * big-fella: the Dolby Vision tunnel's VSIF lives in vsp_infopacket
+ 	 * (amdgpu_dm_dv.c); an HF-VSIF built here would replace it on the
+ 	 * next flip and the sink would drop out of Dolby Vision.
++	 * linux-9932: nor an HDR10+ stream's, whose VSIF is there too.
+ 	 */
+-	if (!new_stream->dv_lab &&
++	if (!new_stream->dv_lab && !new_stream->hdr10plus &&
+ 	    (new_stream->signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+ 	     new_stream->signal == SIGNAL_TYPE_HDMI_FRL)) {
+ 		struct dc_info_packet vsp_infopacket = {0};
 diff --git a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
-index d878012231ca..6b10c9f8de24 100644
+index 9e2c513e2965..f05c7dff0cc6 100644
 --- a/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
 +++ b/drivers/gpu/drm/amd/display/dc/core/dc_resource.c
-@@ -3773,7 +3773,9 @@ bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
+@@ -3895,7 +3895,9 @@ bool dc_is_timing_changed(struct dc_stream_state *cur_stream,
  	 * and the formatter (from CB1).
  	 */
  	if (cur_stream->dv_lab != new_stream->dv_lab ||
@@ -470,10 +504,10 @@ index d878012231ca..6b10c9f8de24 100644
  
  	return memcmp(
 diff --git a/drivers/gpu/drm/amd/display/dc/dc_stream.h b/drivers/gpu/drm/amd/display/dc/dc_stream.h
-index 548584134be4..6baf9c92db85 100644
+index 643345ccee93..81dd4a871216 100644
 --- a/drivers/gpu/drm/amd/display/dc/dc_stream.h
 +++ b/drivers/gpu/drm/amd/display/dc/dc_stream.h
-@@ -213,6 +213,8 @@ struct dc_stream_state {
+@@ -216,6 +216,8 @@ struct dc_stream_state {
  	 * AVI and vendor InfoFrames, so a change is a timing change for DC
  	 */
  	u8 dv_tunnel_format;
@@ -483,10 +517,10 @@ index 548584134be4..6baf9c92db85 100644
  	struct dc_crtc_timing timing;
  	struct dc_crtc_timing_adjust adjust;
 diff --git a/drivers/gpu/drm/drm_atomic_state_helper.c b/drivers/gpu/drm/drm_atomic_state_helper.c
-index a2ef272e9f27..9a06c0d2e8c7 100644
+index 406157a3660f..03c51fa112d9 100644
 --- a/drivers/gpu/drm/drm_atomic_state_helper.c
 +++ b/drivers/gpu/drm/drm_atomic_state_helper.c
-@@ -728,6 +728,8 @@ __drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector,
+@@ -642,6 +642,8 @@ __drm_atomic_helper_connector_duplicate_state(struct drm_connector *connector,
  
  	if (state->hdr_output_metadata)
  		drm_property_blob_get(state->hdr_output_metadata);
@@ -495,7 +529,7 @@ index a2ef272e9f27..9a06c0d2e8c7 100644
  
  	/* Don't copy over a writeback job, they are used only once */
  	state->writeback_job = NULL;
-@@ -778,6 +780,7 @@ __drm_atomic_helper_connector_destroy_state(struct drm_connector_state *state)
+@@ -692,6 +694,7 @@ __drm_atomic_helper_connector_destroy_state(struct drm_connector_state *state)
  		drm_writeback_cleanup_job(state->writeback_job);
  
  	drm_property_blob_put(state->hdr_output_metadata);
@@ -504,7 +538,7 @@ index a2ef272e9f27..9a06c0d2e8c7 100644
  EXPORT_SYMBOL(__drm_atomic_helper_connector_destroy_state);
  
 diff --git a/drivers/gpu/drm/drm_atomic_uapi.c b/drivers/gpu/drm/drm_atomic_uapi.c
-index 68d59e17ffc2..f0faa9f443d8 100644
+index 1eebcf6f5e05..158ed2f35b3e 100644
 --- a/drivers/gpu/drm/drm_atomic_uapi.c
 +++ b/drivers/gpu/drm/drm_atomic_uapi.c
 @@ -28,6 +28,7 @@
@@ -515,7 +549,7 @@ index 68d59e17ffc2..f0faa9f443d8 100644
  #include <drm/drm_atomic_helper.h>
  #include <drm/drm_atomic_uapi.h>
  #include <drm/drm_framebuffer.h>
-@@ -917,6 +918,17 @@ static int drm_atomic_connector_set_property(struct drm_connector *connector,
+@@ -924,6 +925,17 @@ static int drm_atomic_connector_set_property(struct drm_connector *connector,
  		 */
  		if (state->link_status != DRM_LINK_STATUS_GOOD)
  			state->link_status = val;
@@ -533,7 +567,7 @@ index 68d59e17ffc2..f0faa9f443d8 100644
  	} else if (property == config->hdr_output_metadata_property) {
  		ret = drm_property_replace_blob_from_id(dev,
  				&state->hdr_output_metadata,
-@@ -1032,6 +1044,8 @@ drm_atomic_connector_get_property(struct drm_connector *connector,
+@@ -1039,6 +1051,8 @@ drm_atomic_connector_get_property(struct drm_connector *connector,
  	} else if (property == config->hdr_output_metadata_property) {
  		*val = state->hdr_output_metadata ?
  			state->hdr_output_metadata->base.id : 0;
@@ -543,7 +577,7 @@ index 68d59e17ffc2..f0faa9f443d8 100644
  		*val = state->content_protection;
  	} else if (property == config->hdcp_content_type_property) {
 diff --git a/drivers/gpu/drm/drm_connector.c b/drivers/gpu/drm/drm_connector.c
-index 8b4baed060f3..8d8968b9162d 100644
+index 893716a9e489..bd1625bda1e0 100644
 --- a/drivers/gpu/drm/drm_connector.c
 +++ b/drivers/gpu/drm/drm_connector.c
 @@ -21,6 +21,8 @@
@@ -555,7 +589,7 @@ index 8b4baed060f3..8d8968b9162d 100644
  #include <drm/drm_connector.h>
  #include <drm/drm_drv.h>
  #include <drm/drm_edid.h>
-@@ -1902,6 +1904,11 @@ int drm_connector_create_standard_properties(struct drm_device *dev)
+@@ -2051,6 +2053,11 @@ int drm_connector_create_standard_properties(struct drm_device *dev)
  	if (!prop)
  		return -ENOMEM;
  	dev->mode_config.hdr_output_metadata_property = prop;
@@ -567,7 +601,7 @@ index 8b4baed060f3..8d8968b9162d 100644
  
  	return 0;
  }
-@@ -2909,6 +2916,106 @@ void drm_connector_attach_hdr_output_metadata_property(struct drm_connector *con
+@@ -3058,6 +3065,106 @@ void drm_connector_attach_hdr_output_metadata_property(struct drm_connector *con
  }
  EXPORT_SYMBOL(drm_connector_attach_hdr_output_metadata_property);
  
@@ -675,10 +709,10 @@ index 8b4baed060f3..8d8968b9162d 100644
   * drm_connector_attach_broadcast_rgb_property - attach "Broadcast RGB" property
   * @connector: connector to attach the property on.
 diff --git a/drivers/gpu/drm/drm_edid.c b/drivers/gpu/drm/drm_edid.c
-index 07970e5b5f65..62bec406b979 100644
+index b8f882a17c8f..d87b8cbee568 100644
 --- a/drivers/gpu/drm/drm_edid.c
 +++ b/drivers/gpu/drm/drm_edid.c
-@@ -43,6 +43,7 @@
+@@ -44,6 +44,7 @@
  
  #include <drm/drm_drv.h>
  #include <drm/drm_edid.h>
@@ -686,7 +720,7 @@ index 07970e5b5f65..62bec406b979 100644
  #include <drm/drm_eld.h>
  #include <drm/drm_encoder.h>
  #include <drm/drm_print.h>
-@@ -6510,6 +6511,12 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
+@@ -6654,6 +6655,12 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
  	cea_db_iter_for_each(db, &iter) {
  		/* FIXME: convert parsers to use struct cea_db */
  		const u8 *data = (const u8 *)db;
@@ -699,7 +733,7 @@ index 07970e5b5f65..62bec406b979 100644
  
  		if (cea_db_is_hdmi_vsdb(db))
  			drm_parse_hdmi_vsdb_video(connector, data);
-@@ -6693,6 +6700,8 @@ static void drm_reset_display_info(struct drm_connector *connector)
+@@ -6837,6 +6844,8 @@ static void drm_reset_display_info(struct drm_connector *connector)
  	info->rgb_quant_range_selectable = false;
  	memset(&info->hdmi, 0, sizeof(info->hdmi));
  	memset(&info->hdr_sink_metadata, 0, sizeof(info->hdr_sink_metadata));
@@ -709,7 +743,7 @@ index 07970e5b5f65..62bec406b979 100644
  	info->edid_hdmi_rgb444_dc_modes = 0;
  	info->edid_hdmi_ycbcr444_dc_modes = 0;
 diff --git a/drivers/gpu/drm/i915/display/intel_atomic.c b/drivers/gpu/drm/i915/display/intel_atomic.c
-index c55a77cf56ed..9e09cb76cc2e 100644
+index 5d0945d0ee49..8339d840b9bf 100644
 --- a/drivers/gpu/drm/i915/display/intel_atomic.c
 +++ b/drivers/gpu/drm/i915/display/intel_atomic.c
 @@ -36,6 +36,7 @@
@@ -748,10 +782,10 @@ index c55a77cf56ed..9e09cb76cc2e 100644
  	    new_conn_state->broadcast_rgb != old_conn_state->broadcast_rgb ||
  	    new_conn_state->base.colorspace != old_conn_state->base.colorspace ||
 diff --git a/drivers/gpu/drm/i915/display/intel_display.c b/drivers/gpu/drm/i915/display/intel_display.c
-index a67b07528fb6..36973e590781 100644
+index da6f433edd18..131ccd3830f5 100644
 --- a/drivers/gpu/drm/i915/display/intel_display.c
 +++ b/drivers/gpu/drm/i915/display/intel_display.c
-@@ -4472,6 +4472,10 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
+@@ -4555,6 +4555,10 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
  	if (ret)
  		return ret;
  
@@ -762,7 +796,7 @@ index a67b07528fb6..36973e590781 100644
  	return intel_dv_lab_scanout_check(state, crtc);
  }
  
-@@ -5571,7 +5575,12 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
+@@ -5654,7 +5658,12 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
  	PIPE_CONF_CHECK_X(infoframes.gcp);
  	PIPE_CONF_CHECK_INFOFRAME(avi);
  	PIPE_CONF_CHECK_INFOFRAME(spd);
@@ -776,7 +810,7 @@ index a67b07528fb6..36973e590781 100644
  	if (!fastset) {
  		PIPE_CONF_CHECK_INFOFRAME(drm);
  		PIPE_CONF_CHECK_DP_AS_SDP(as_sdp);
-@@ -6570,6 +6579,9 @@ int intel_atomic_check(struct drm_device *dev,
+@@ -6659,6 +6668,9 @@ int intel_atomic_check(struct drm_device *dev,
  	if (!intel_display_driver_check_access(display))
  		return -ENODEV;
  
@@ -786,7 +820,7 @@ index a67b07528fb6..36973e590781 100644
  	for_each_oldnew_intel_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state) {
  		/*
  		 * crtc's state no longer considered to be inherited
-@@ -7008,6 +7020,7 @@ static void intel_update_crtc(struct intel_atomic_state *state,
+@@ -7100,6 +7112,7 @@ static void intel_update_crtc(struct intel_atomic_state *state,
  		commit_pipe_pre_planes(state, crtc);
  
  		intel_crtc_planes_update_arm(NULL, state, crtc);
@@ -794,7 +828,7 @@ index a67b07528fb6..36973e590781 100644
  
  		commit_pipe_post_planes(state, crtc);
  
-@@ -7433,6 +7446,17 @@ static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
+@@ -7539,6 +7552,17 @@ static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
  
  	if (state->base.legacy_cursor_update)
  		return;
@@ -813,10 +847,10 @@ index a67b07528fb6..36973e590781 100644
  	/* FIXME deal with everything */
  	new_crtc_state->use_flipq =
 diff --git a/drivers/gpu/drm/i915/display/intel_display_types.h b/drivers/gpu/drm/i915/display/intel_display_types.h
-index 79016feb5815..0a5e70681f6f 100644
+index 6b7af1109f77..90d8af1c0c21 100644
 --- a/drivers/gpu/drm/i915/display/intel_display_types.h
 +++ b/drivers/gpu/drm/i915/display/intel_display_types.h
-@@ -660,6 +660,8 @@ struct dpll {
+@@ -663,6 +663,8 @@ struct dpll {
  
  struct intel_atomic_state {
  	struct drm_atomic_commit base;
@@ -826,7 +860,7 @@ index 79016feb5815..0a5e70681f6f 100644
  	struct ref_tracker *wakeref;
  
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.c b/drivers/gpu/drm/i915/display/intel_hdmi.c
-index 0884d1b037ca..c50213893a30 100644
+index a43781c49351..8c5c0caea405 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.c
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.c
 @@ -795,6 +795,15 @@ void intel_read_infoframe(struct intel_encoder *encoder,
@@ -994,12 +1028,12 @@ index 0884d1b037ca..c50213893a30 100644
  	if (!HAS_GMCH(display))
  		drm_connector_attach_max_bpc_property(&connector->base, 8, 12);
 diff --git a/drivers/gpu/drm/i915/display/intel_hdmi.h b/drivers/gpu/drm/i915/display/intel_hdmi.h
-index 4fa0bd063ef6..1bd4544afc25 100644
+index 4b8c5254e82e..92a69d48c8d4 100644
 --- a/drivers/gpu/drm/i915/display/intel_hdmi.h
 +++ b/drivers/gpu/drm/i915/display/intel_hdmi.h
-@@ -14,7 +14,9 @@ enum port;
- struct drm_connector;
+@@ -15,7 +15,9 @@ struct drm_connector;
  struct drm_connector_state;
+ struct drm_display_mode;
  struct drm_encoder;
 +struct intel_atomic_state;
  struct intel_connector;
@@ -1007,7 +1041,7 @@ index 4fa0bd063ef6..1bd4544afc25 100644
  struct intel_crtc_state;
  struct intel_digital_port;
  struct intel_encoder;
-@@ -39,6 +41,12 @@ void intel_infoframe_init(struct intel_digital_port *dig_port);
+@@ -40,6 +42,12 @@ void intel_infoframe_init(struct intel_digital_port *dig_port);
  u32 intel_hdmi_infoframes_enabled(struct intel_encoder *encoder,
  				  const struct intel_crtc_state *crtc_state);
  u32 intel_hdmi_infoframe_enable(unsigned int type);
@@ -1121,10 +1155,10 @@ index 16d440453fab..103f601a99da 100644
  	if (size < HDMI_INFOFRAME_HEADER_SIZE)
  		return -EINVAL;
 diff --git a/include/drm/drm_connector.h b/include/drm/drm_connector.h
-index a0cf0268de48..1ef2b5d18aec 100644
+index 2ee7c59329aa..7e5b8efd57f5 100644
 --- a/include/drm/drm_connector.h
 +++ b/include/drm/drm_connector.h
-@@ -926,6 +926,10 @@ struct drm_display_info {
+@@ -994,6 +994,10 @@ struct drm_display_info {
  	 * @hdr_sink_metadata: HDR Metadata Information read from sink
  	 */
  	struct hdr_sink_metadata hdr_sink_metadata;
@@ -1135,7 +1169,7 @@ index a0cf0268de48..1ef2b5d18aec 100644
  
  	/**
  	 * @non_desktop: Non desktop display (HMD).
-@@ -1284,6 +1288,8 @@ struct drm_connector_state {
+@@ -1363,6 +1367,8 @@ struct drm_connector_state {
  	 * DRM blob property for HDR output metadata
  	 */
  	struct drm_property_blob *hdr_output_metadata;
@@ -1144,7 +1178,7 @@ index a0cf0268de48..1ef2b5d18aec 100644
  
  	/**
  	 * @hdmi: HDMI-related variable and properties. Filled by
-@@ -2675,6 +2681,11 @@ void drm_connector_attach_panel_type_property(struct drm_connector *connector);
+@@ -2887,6 +2893,11 @@ void drm_connector_attach_panel_type_property(struct drm_connector *connector);
  int drm_connector_attach_broadcast_rgb_property(struct drm_connector *connector);
  int drm_connector_attach_colorspace_property(struct drm_connector *connector);
  void drm_connector_attach_hdr_output_metadata_property(struct drm_connector *connector);
@@ -1211,7 +1245,7 @@ index 000000000000..bbab27128e57
 +}
 +#endif
 diff --git a/include/drm/drm_mode_config.h b/include/drm/drm_mode_config.h
-index d8f5b7e9673e..839a066535be 100644
+index 084517beb924..a34191444254 100644
 --- a/include/drm/drm_mode_config.h
 +++ b/include/drm/drm_mode_config.h
 @@ -896,6 +896,8 @@ struct drm_mode_config {
@@ -1224,10 +1258,10 @@ index d8f5b7e9673e..839a066535be 100644
  	/**
  	 * @content_protection_property: DRM ENUM property for content
 diff --git a/include/linux/hdmi.h b/include/linux/hdmi.h
-index b3a0f68ab349..51193ab0a05c 100644
+index 8841f62e0677..96ca62cbd1df 100644
 --- a/include/linux/hdmi.h
 +++ b/include/linux/hdmi.h
-@@ -59,6 +59,7 @@ enum hdmi_infoframe_type {
+@@ -71,6 +71,7 @@ enum hdmi_infoframe_type {
  #define HDMI_IEEE_OUI 0x000c03
  #define HDMI_FORUM_IEEE_OUI 0xc45dd8
  #define HDMI_DOLBY_IEEE_OUI 0x00d046
@@ -1235,7 +1269,7 @@ index b3a0f68ab349..51193ab0a05c 100644
  #define HDMI_INFOFRAME_HEADER_SIZE  4
  #define HDMI_AVI_INFOFRAME_SIZE    13
  #define HDMI_SPD_INFOFRAME_SIZE    25
-@@ -447,6 +448,18 @@ int hdmi_dolby_vendor_infoframe_check(const struct hdmi_dolby_vendor_infoframe *
+@@ -459,6 +460,18 @@ int hdmi_dolby_vendor_infoframe_check(const struct hdmi_dolby_vendor_infoframe *
  ssize_t hdmi_dolby_vendor_infoframe_pack(const struct hdmi_dolby_vendor_infoframe *frame,
  				       void *buffer, size_t size);
  
@@ -1254,7 +1288,7 @@ index b3a0f68ab349..51193ab0a05c 100644
  union hdmi_vendor_any_infoframe {
  	struct {
  		enum hdmi_infoframe_type type;
-@@ -456,6 +469,7 @@ union hdmi_vendor_any_infoframe {
+@@ -468,6 +481,7 @@ union hdmi_vendor_any_infoframe {
  	} any;
  	struct hdmi_vendor_infoframe hdmi;
  	struct hdmi_dolby_vendor_infoframe dolby;

@@ -1,0 +1,575 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 17:45:00 -0500
+Subject: [PATCH] Dolby Vision: HDR10 Rendering Reference
+
+The Vulkan engine's HDR10 output can map to a display the user
+describes instead of to the film's own peak (DVVK_HDR10_TARGET,
+CroqueMr's CB1 "LLDV Reference - HDR10 Output"), sending that
+display's static metadata, but Kodi had only the Master Reference
+conversion.
+
+Settings > Player > Dolby Vision gets HDR10 conversion: Master
+Reference (the default, the conversion and signalling as before) or
+Rendering Reference, with Display peak brightness (50 to 10000 nits,
+1000), Display black level (CB1's OLED 0, LCD 0.005, projector 0.05,
+or a custom 0 to 0.5 nits) and Display colours (P3-D65, BT.2020,
+BT.709), shown only for Rendering Reference (DV_HDR10_TARGET, _PEAK,
+_BLACK, _GAMUT). It applies wherever the engine's HDR10 output is
+used: Convert to HDR10, the Automatic fallback to it, Convert to
+HDR10+ while it is HDR10. The HDR static metadata is
+dvvk_output_signal's, as before.
+
+The settings are offered where the HDR10 output is and the library
+takes DVVK_HDR10_TARGET (dvvk_target_flags), and stay shown while
+Rendering Reference is saved. A library without it, values out of
+range from native-dv.env, or the engine refusing the mode give the
+Master Reference conversion with a log line: still an HDR10 picture.
+Player information names Rendering Reference and the display.
+
+Not yet seen on a display. With Master Reference the engine gets the
+same mode as before and dvvk_target_flags is not called while playing.
+
+Strings 45171 to 45188; Custom is 45151.
+---
+ .../resources/strings.po                      | 90 +++++++++++++++++++
+ system/settings/settings.xml                  | 77 ++++++++++++++++
+ .../DVDCodecs/Video/DVOutputSettings.h        | 10 +++
+ .../DVDCodecs/Video/DVPlaybackInfo.h          |  7 +-
+ .../VideoRenderers/DVBridgeGLES.cpp           |  4 +-
+ .../VideoRenderers/DVEngineSettings.h         | 31 +++++++
+ .../VideoRenderers/DVPrivateVulkan.cpp        | 82 ++++++++++++++++-
+ .../VideoRenderers/DVPrivateVulkan.h          |  6 ++
+ xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp   |  3 +-
+ xbmc/settings/Settings.cpp                    |  5 ++
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 28 ++++++
+ 11 files changed, 338 insertions(+), 5 deletions(-)
+
+diff --git a/addons/resource.language.en_gb/resources/strings.po b/addons/resource.language.en_gb/resources/strings.po
+index 409c643..65c3fda 100644
+--- a/addons/resource.language.en_gb/resources/strings.po
++++ b/addons/resource.language.en_gb/resources/strings.po
+@@ -26595,3 +26595,93 @@ msgstr ""
+ msgctxt "#45170"
+ msgid "This connection does not take player-led Dolby Vision. The video starts again with another output, and player-led is not offered again until Kodi restarts."
+ msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45171"
++msgid "HDR10 conversion"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45172"
++msgid "How Dolby Vision is converted to HDR10, by Convert to HDR10 and where the automatic fallback converts to HDR10. Master Reference: the conversion as before, to the film's own brightness (CroqueMr's CB1 Reference Basic), which the TV then maps to what it can show. Rendering Reference: new, and not yet seen on a TV. YBLOD maps the picture scene by scene to the display described below (its peak brightness, black and colours), as CroqueMr's CB1 does, and tells the TV that range, so the TV has little left to map; turn off the TV's own dynamic tone mapping for it. If the picture looks wrong, go back to Master Reference. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45173"
++msgid "Master Reference"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45174"
++msgid "Rendering Reference"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45175"
++msgid "Display peak brightness"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45176"
++msgid "HDR10 Rendering Reference only. The brightness of the display's brightest white in its HDR picture mode, 50 to 10000 nits: its measured or stated peak, about 600 to 1000 for many OLED TVs, 1000 to 2000 for bright LCD TVs, 100 to 300 for a projector. Above the display's own peak, its brightest highlights are left to the TV, which may clip them; below it, they are compressed more than needed. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45177"
++msgid "Display black level"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45178"
++msgid "HDR10 Rendering Reference only. The brightness of the display's black: OLED (0 nits, a true black), LCD (0.005 nits), projector (0.05 nits), CroqueMr's CB1 estimates rather than measurements, or a custom value. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45179"
++msgid "OLED (0 nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45180"
++msgid "LCD (0.005 nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45181"
++msgid "Projector (0.05 nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45182"
++msgid "Custom black (nits)"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45183"
++msgid "HDR10 Rendering Reference with a custom black level only. The display's black, 0 to 0.5 nits. Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45184"
++msgid "Display colours"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45185"
++msgid "HDR10 Rendering Reference only. The colours the display can show, into which the picture's colours are mapped: P3-D65 (the default, most HDR TVs and projectors), BT.2020 (a display that covers it) or BT.709 (a display without wide colours). Applies to the next video."
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45186"
++msgid "P3-D65"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45187"
++msgid "BT.2020"
++msgstr ""
++
++#: system/settings/settings.xml
++msgctxt "#45188"
++msgid "BT.709"
++msgstr ""
+diff --git a/system/settings/settings.xml b/system/settings/settings.xml
+index ab0ce01..8f14af6 100755
+--- a/system/settings/settings.xml
++++ b/system/settings/settings.xml
+@@ -349,6 +349,83 @@
+           </dependencies>
+           <control type="toggle" />
+         </setting>
++        <setting id="dvbridge.hdr10method" type="integer" label="45171" help="45172">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45173">0</option>
++              <option label="45174">1</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgehdr10target" />
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.hdr10peak" type="integer" parent="dvbridge.hdr10method" label="45175" help="45176">
++          <level>1</level>
++          <default>1000</default>
++          <constraints>
++            <options>dvbridgehdr10target</options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgehdr10target" />
++            <dependency type="visible" setting="dvbridge.hdr10method">1</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.hdr10black" type="integer" parent="dvbridge.hdr10method" label="45177" help="45178">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>
++              <option label="45179">0</option>
++              <option label="45180">1</option>
++              <option label="45181">2</option>
++              <option label="45151">3</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgehdr10target" />
++            <dependency type="visible" setting="dvbridge.hdr10method">1</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.hdr10blackcustom" type="integer" parent="dvbridge.hdr10black" label="45182" help="45183">
++          <level>1</level>
++          <default>0</default>
++          <constraints>
++            <options>dvbridgehdr10target</options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgehdr10target" />
++            <dependency type="visible" setting="dvbridge.hdr10method">1</dependency>
++            <dependency type="visible" setting="dvbridge.hdr10black">3</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
++        <setting id="dvbridge.hdr10gamut" type="integer" parent="dvbridge.hdr10method" label="45184" help="45185">
++          <level>1</level>
++          <default>2</default>
++          <constraints>
++            <options>
++              <option label="45186">2</option>
++              <option label="45187">3</option>
++              <option label="45188">1</option>
++            </options>
++          </constraints>
++          <dependencies>
++            <dependency type="visible" on="property" name="dvbridgehdr10target" />
++            <dependency type="visible" setting="dvbridge.hdr10method">1</dependency>
++            <dependency type="enable" setting="dvbridge.outputmode" operator="!is">2</dependency>
++          </dependencies>
++          <control type="spinner" format="string" />
++        </setting>
+         <setting id="dvbridge.sdrtarget" type="integer" label="45146" help="45147">
+           <level>1</level>
+           <default>0</default>
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index 3dab828..3799ee7 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -303,6 +303,16 @@ bool SDRBT2020Available(const std::string& condition,
+ bool UpscalerAvailable(const std::string& condition,
+                        const std::string& value,
+                        const std::shared_ptr<const CSetting>& setting);
++// The HDR10 conversion's Rendering Reference settings are shown: this connection has the HDR10
++// output and the engine library takes DVVK_HDR10_TARGET, or Rendering Reference is saved (so it
++// can be set back). Settings condition "dvbridgehdr10target", WinSystemGbmGLESContext; the
++// filler of the same name gives the display's peak and custom black values.
++bool HDR10TargetAvailable(const std::string& condition,
++                          const std::string& value,
++                          const std::shared_ptr<const CSetting>& setting);
++void HDR10TargetOptions(const std::shared_ptr<const CSetting>& setting,
++                        IntegerSettingOptions& list,
++                        int& current);
+ // The values of the custom SDR display's white, gamma and black (settings.xml's
+ // "dvbridgesdrcustom" filler).
+ void SDRCustomOptions(const std::shared_ptr<const CSetting>& setting,
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+index c306893..5fe42e6 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVPlaybackInfo.h
+@@ -13,11 +13,16 @@ struct CDVPlaybackInfo
+   // The engine enlarged the picture (Picture upscaling), with FSR 1 or FSR 1 and RCAS (else
+   // bilinear).
+   enum : unsigned { ENLARGED = 64, FSR1 = 128, RCAS = 256 };
++  // The HDR10 output in Rendering Reference (DVVK_HDR10_TARGET).
++  enum : unsigned { TARGET = 1024 };
+   inline static std::atomic<unsigned> presented{0};
+   // The engine's last picture: 0, or ENLARGED and its method (DVPrivateVulkan).
+   inline static std::atomic<unsigned> upscaler{0};
++  // The engine's output mode: 0, or TARGET (DVPrivateVulkan).
++  inline static std::atomic<unsigned> outputTarget{0};
+ 
+-  // The display the engine maps to (player-led Dolby Vision): empty for the other outputs.
++  // The display the engine maps to (player-led Dolby Vision, HDR10 Rendering Reference): empty
++  // for the other outputs.
+   static void SetTarget(std::string target)
+   {
+     std::lock_guard lock(TargetLock());
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+index 3e62617..bc38b9e 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVBridgeGLES.cpp
+@@ -199,7 +199,9 @@ bool CDVBridgeGLES::PrepareHardware(const Layer& decoded, const AVFrame* enhance
+                       (fel ? CDVPlaybackInfo::FEL : 0u) |
+                       (DVBRIDGE::playbackSDR.load() && DVBRIDGE::pictureSDRBT2020.load()
+                            ? CDVPlaybackInfo::BT2020 : 0u) |
+-                      CDVPlaybackInfo::upscaler.load();
++                      CDVPlaybackInfo::upscaler.load() |
++                      (DVBRIDGE::playbackTunnelHDR10.load() ? CDVPlaybackInfo::outputTarget.load()
++                                                            : 0u);
+       const char* trace = std::getenv("DV_PRIVATE_ROUTE_TRACE");
+       if (entering && trace && std::strcmp(trace, "1") == 0)
+         CLog::Log(LOGINFO, "Private source composition: pts={} enhancement={} fel={} prepared=true",
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+index 92c32fa..676cef7 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVEngineSettings.h
+@@ -47,6 +47,19 @@ inline Values Bool(const Settings& settings, const char* id, const Values& on, c
+   return settings->GetBool(id) ? on : off;
+ }
+ 
++// HDR10 Rendering Reference's black: CroqueMr's CB1 presets OLED 0, LCD 0.005, projector 0.05
++// cd/m2, or the custom value (0.0001 cd/m2 in the setting).
++inline Values HDR10TargetBlack(const Settings& s)
++{
++  static constexpr const char* presets[] = {"0", "0.005", "0.05"};
++  const int preset = s->GetInt("dvbridge.hdr10black");
++  if (preset >= 0 && preset <= 2)
++    return {{"DV_HDR10_TARGET_BLACK", presets[preset]}};
++  const int black = s->GetInt("dvbridge.hdr10blackcustom");
++  return {{"DV_HDR10_TARGET_BLACK",
++           StringUtils::Format("{:.4f}", (black >= 0 && black <= 5000 ? black : 0) / 10000.0)}};
++}
++
+ inline const std::vector<Mapping>& Mappings()
+ {
+   static const std::vector<Mapping> mappings = {
+@@ -135,6 +148,24 @@ inline const std::vector<Mapping>& Mappings()
+       {"dvbridge.sdrbt2020",
+        [](const Settings& s) { return Bool(s, "dvbridge.sdrbt2020", {{"DV_SDR_BT2020", "1"}},
+                                            {{"DV_SDR_BT2020", "0"}}); }},
++      // The HDR10 conversion: Master Reference (the default) or Rendering Reference to the
++      // display described here (DVPrivateVulkan Hdr10Target).
++      {"dvbridge.hdr10method",
++       [](const Settings& s) -> Values {
++         return {{"DV_HDR10_TARGET", s->GetInt("dvbridge.hdr10method") == 1 ? "1" : "0"}};
++       }},
++      {"dvbridge.hdr10peak",
++       [](const Settings& s) -> Values {
++         const int nits = s->GetInt("dvbridge.hdr10peak");
++         return {{"DV_HDR10_TARGET_PEAK", std::to_string(nits >= 50 && nits <= 10000 ? nits : 1000)}};
++       }},
++      {"dvbridge.hdr10black", HDR10TargetBlack},
++      {"dvbridge.hdr10blackcustom", HDR10TargetBlack},
++      {"dvbridge.hdr10gamut",
++       [](const Settings& s) -> Values {
++         const int gamut = s->GetInt("dvbridge.hdr10gamut");
++         return {{"DV_HDR10_TARGET_GAMUT", gamut == 1 ? "bt709" : gamut == 3 ? "bt2020" : "p3"}};
++       }},
+       // Performance (Kodi's GUI composition over the video)
+       {"dvbridge.guicache",
+        [](const Settings& s) { return Bool(s, "dvbridge.guicache", {{"DV_PRIVATE_GUI_CACHE", "1"}},
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 626db92..2b1eefb 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -366,6 +366,64 @@ dvvk_output_mode SdrMode(bool hlg, bool bt2020)
+ }
+ } // namespace
+ 
++namespace
++{
++// HDR10 Rendering Reference (DVVK_OUTPUT_HDR10 with DVVK_HDR10_TARGET: CroqueMr's CB1 Expert
++// recipe to a stated display), from the environment Settings > Player > Dolby Vision sets
++// (DVEngineSettings.h):
++//   DV_HDR10_TARGET        1: the HDR10 output maps to this display; else (the default) it is the
++//                          Master Reference conversion, and nothing below is read
++//   DV_HDR10_TARGET_PEAK   the display's peak, 50-10000 cd/m2 (1000)
++//   DV_HDR10_TARGET_BLACK  its black, 0-0.5 cd/m2 below the peak (0)
++//   DV_HDR10_TARGET_GAMUT  p3 (P3-D65, the default), bt2020 or bt709
++// False: not asked for, or (with a log line) values out of range or a library without it; the
++// HDR10 output is then the Master Reference conversion, an HDR10 picture all the same.
++bool Hdr10Target(dvvk_output_mode& mode, std::string& name)
++{
++  mode = {};
++  if (!EnvIs("DV_HDR10_TARGET", "1"))
++    return false;
++  const auto number = [](const char* variable, float fallback) {
++    const char* value = std::getenv(variable);
++    if (!value || !value[0])
++      return fallback;
++    char* end = nullptr;
++    const float parsed = std::strtof(value, &end);
++    return *end ? -1.0f : parsed;
++  };
++  const float peak = number("DV_HDR10_TARGET_PEAK", 1000.0f);
++  const float black = number("DV_HDR10_TARGET_BLACK", 0.0f);
++  const char* gamut = std::getenv("DV_HDR10_TARGET_GAMUT");
++  uint32_t primaries = 0; // (not a gamut: out of range)
++  if (!gamut || !gamut[0] || std::strcmp(gamut, "p3") == 0)
++    primaries = DVVK_GAMUT_P3D65;
++  else if (std::strcmp(gamut, "bt2020") == 0)
++    primaries = DVVK_GAMUT_BT2020;
++  else if (std::strcmp(gamut, "bt709") == 0)
++    primaries = DVVK_GAMUT_BT709;
++  static constexpr const char* gamuts[] = {"?", "BT.709", "P3-D65", "BT.2020"};
++  name = StringUtils::Format("{:g} nits, black {:.4f}, {}", peak, black, gamuts[primaries]);
++  const char* missing =
++      !(peak >= 50.0f && peak <= 10000.0f && black >= 0.0f && black <= 0.5f && black < peak &&
++        primaries)
++          ? "out of range"
++      : !(CDVPrivateVulkan::TargetFlags() & DVVK_HDR10_TARGET) ? "this engine library does not take it"
++                                                             : nullptr;
++  if (missing)
++  {
++    CLog::Log(LOGERROR, "Vulkan engine: no HDR10 Rendering Reference for the display {} ({}); the "
++              "HDR10 output is the Master Reference conversion", name, missing);
++    return false;
++  }
++  mode.mode = DVVK_OUTPUT_HDR10;
++  mode.flags = DVVK_HDR10_TARGET;
++  mode.peak_nits = peak;
++  mode.min_nits = black;
++  mode.reserved[DVVK_TARGET_GAMUT_WORD] = primaries;
++  return true;
++}
++} // namespace
++
+ bool CDVPrivateVulkan::SDRDisplayUsable()
+ {
+   dvvk_output_mode mode;
+@@ -494,7 +552,20 @@ void CDVPrivateVulkan::SelectOutputMode()
+               m_dmOptions ? "; Dolby Vision metadata (CM4.0, L2) is not applied to it" : "");
+     return;
+   }
+-  const int result = m_setOutputMode(m_engine, &mode);
++  // HDR10 Rendering Reference where asked for; where the engine refuses it, the Master Reference
++  // conversion (still the HDR10 output) for the rest of this engine.
++  if (want == DVVK_OUTPUT_HDR10 && m_hdr10Target)
++    mode = m_hdr10TargetMode;
++  int result = m_setOutputMode(m_engine, &mode);
++  if (result != 0 && (mode.flags & DVVK_HDR10_TARGET))
++  {
++    CLog::Log(LOGERROR, "Vulkan engine refused HDR10 Rendering Reference for the display {} ({}); "
++              "the Master Reference conversion", m_hdr10TargetName, result);
++    m_hdr10Target = false;
++    mode = {};
++    mode.mode = want;
++    result = m_setOutputMode(m_engine, &mode);
++  }
+   if (result != 0)
+   {
+     // BT.2020 only where it is taken: the window signals BT.709 for the next picture.
+@@ -512,7 +583,9 @@ void CDVPrivateVulkan::SelectOutputMode()
+   m_outputHLG = want == DVVK_OUTPUT_SDR && m_sourceHLG;
+   m_outputBT2020 = bt2020;
+   m_outputLLDV = {};
+-  CDVPlaybackInfo::SetTarget({});
++  const bool target = (mode.flags & DVVK_HDR10_TARGET) != 0;
++  CDVPlaybackInfo::SetTarget(target ? m_hdr10TargetName : std::string());
++  CDVPlaybackInfo::outputTarget.store(target ? CDVPlaybackInfo::TARGET : 0u);
+   if (want == DVVK_OUTPUT_SDR)
+     CLog::Log(LOGINFO, "Vulkan engine output: SDR{} ({}, {}, white {:.0f} cd/m2{}, {} range, {})",
+               m_outputHLG ? " of an HLG video" : "", bt2020 ? "BT.2020" : "BT.709",
+@@ -525,6 +598,9 @@ void CDVPrivateVulkan::SelectOutputMode()
+                   : "",
+               mode.flags & DVVK_SDR_LIMITED ? "limited" : "full",
+               mode.flags & DVVK_SDR_NO_DITHER ? "rounded" : "dithered");
++  else if (target)
++    CLog::Log(LOGINFO, "Vulkan engine output: HDR10, Rendering Reference (CroqueMr's CB1 Expert) "
++              "to the display {} (BT.2020 PQ, 12-bit 4:2:2 through the tunnel)", m_hdr10TargetName);
+   else
+   CLog::Log(LOGINFO, "Vulkan engine output: {}", want == DVVK_OUTPUT_HDR10PLUS
+             ? "HDR10+, the Master Reference reconstruction with per-picture HDR10+ metadata "
+@@ -831,6 +907,7 @@ bool CDVPrivateVulkan::Initialize(void* vaDisplay, int drmFd, gbm_device* device
+   m_setScaler = reinterpret_cast<decltype(m_setScaler)>(dlsym(m_library, "dvvk_set_scaler"));
+   m_setDisplayPrimaries = reinterpret_cast<decltype(m_setDisplayPrimaries)>(
+       dlsym(m_library, "dvvk_set_display_primaries"));
++  m_hdr10Target = Hdr10Target(m_hdr10TargetMode, m_hdr10TargetName);
+   m_scaler = DVVK_SCALER_BILINEAR;
+   m_scalerLarge = ScalerFromEnv("DV_UPSCALER");
+   m_scalerSmall = ScalerFromEnv("DV_UPSCALER_SD");
+@@ -1294,6 +1371,7 @@ bool CDVPrivateVulkan::Close()
+     DVBRIDGE::pictureLLDV.store(false);
+     CDVPlaybackInfo::upscaler.store(0);
+     CDVPlaybackInfo::SetTarget({});
++    CDVPlaybackInfo::outputTarget.store(0);
+     DVBRIDGE::PublishTunnelHDR10(nullptr);
+     DVBRIDGE::PublishTunnelHDR10Plus({});
+   }
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+index fb502b9..d7e9a55 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.h
+@@ -10,6 +10,7 @@
+ #include <dv-engine-vk/dv_engine_vk.h>
+ #include <cstddef>
+ #include <cstdint>
++#include <string>
+ #include <vector>
+ 
+ /* yblod's engine on Vulkan compute (DVVK_LIBRARY, yblod-engine/vk), YBLOD's
+@@ -162,6 +163,11 @@ private:
+   bool m_outputHLG{false};
+   // ... and in BT.2020 (DVBRIDGE::playbackSDRBT2020, DVVK_SDR_BT2020).
+   bool m_outputBT2020{false};
++  // HDR10 Rendering Reference (DV_HDR10_TARGET=1, read when the engine starts): the HDR10
++  // output's mode with DVVK_HDR10_TARGET and the display, while the library takes it.
++  bool m_hdr10Target{false};
++  dvvk_output_mode m_hdr10TargetMode{};
++  std::string m_hdr10TargetName;
+   // Player-led Dolby Vision: the TV's target the mode was set for (DVBRIDGE::playbackTunnelLLDV).
+   DVBRIDGE::LLDVTarget m_outputLLDV{};
+   dvvk_hdr_signal m_loggedLLDVSignal{};
+diff --git a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+index d4bd09d..7eaa4cf 100644
+--- a/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
++++ b/xbmc/dialogs/GUIDialogPlayerProcessInfo.cpp
+@@ -101,7 +101,8 @@ void CGUIDialogPlayerProcessInfo::Process(unsigned int currentTime, CDirtyRegion
+                            !DVBRIDGE::playbackHDR10PlusFallback.load();
+     SetProperty("DV.Mode", active & CDVPlaybackInfo::SDR ? "SDR conversion (Vulkan engine)" :
+         active & CDVPlaybackInfo::HDR10
+-        ? (hdr10plus ? "HDR10+ conversion (Master Reference)" : "HDR10 conversion (Master Reference)") :
++        ? (active & CDVPlaybackInfo::TARGET ? "HDR10 conversion (Rendering Reference)"
++           : hdr10plus ? "HDR10+ conversion (Master Reference)" : "HDR10 conversion (Master Reference)") :
+         active & CDVPlaybackInfo::LLDV ? "Dolby Vision (player-led)" :
+         active & CDVPlaybackInfo::HDMI ? "Dolby Vision (TV-Led)" : "Kodi default");
+     SetProperty("DV.Transport", active & CDVPlaybackInfo::HDMI ? "RGB 8-bit (DV tunnel)" :
+diff --git a/xbmc/settings/Settings.cpp b/xbmc/settings/Settings.cpp
+index 2537ec6..8cc9c87 100644
+--- a/xbmc/settings/Settings.cpp
++++ b/xbmc/settings/Settings.cpp
+@@ -385,6 +385,8 @@ void CSettings::InitializeOptionFillers()
+                                                      DVBRIDGE::OutputModeOptions);
+   GetSettingsManager()->RegisterSettingOptionsFiller("dvbridgesdrcustom",
+                                                      DVBRIDGE::SDRCustomOptions);
++  GetSettingsManager()->RegisterSettingOptionsFiller("dvbridgehdr10target",
++                                                     DVBRIDGE::HDR10TargetOptions);
+ #endif
+   GetSettingsManager()->RegisterSettingOptionsFiller("charsets", CCharsetConverter::SettingOptionsCharsetsFiller);
+   GetSettingsManager()->RegisterSettingOptionsFiller("fonts", GUIFontManager::SettingOptionsFontsFiller);
+@@ -472,6 +474,7 @@ void CSettings::UninitializeOptionFillers()
+ #ifdef HAVE_DVBRIDGE
+   GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgeoutputmodes");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgesdrcustom");
++  GetSettingsManager()->UnregisterSettingOptionsFiller("dvbridgehdr10target");
+ #endif
+   GetSettingsManager()->UnregisterSettingOptionsFiller("charsets");
+   GetSettingsManager()->UnregisterSettingOptionsFiller("fontheights");
+@@ -550,6 +553,8 @@ void CSettings::InitializeConditions()
+   GetSettingsManager()->AddDynamicCondition("dvbridgesdrbt2020", DVBRIDGE::SDRBT2020Available);
+   // Picture upscaling
+   GetSettingsManager()->AddDynamicCondition("dvbridgeupscaler", DVBRIDGE::UpscalerAvailable);
++  // HDR10 conversion (Rendering Reference)
++  GetSettingsManager()->AddDynamicCondition("dvbridgehdr10target", DVBRIDGE::HDR10TargetAvailable);
+ #endif
+ }
+ 
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 3bf7958..9a572b4 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -1418,6 +1418,34 @@ bool DVBRIDGE::SDRBT2020Available(const std::string& condition, const std::strin
+          ((CDVPrivateVulkan::SDRFlags() & DVVK_SDR_BT2020) || settings->GetBool("dvbridge.sdrbt2020"));
+ }
+ 
++bool DVBRIDGE::HDR10TargetAvailable(const std::string& /*condition*/,
++                                    const std::string& /*value*/,
++                                    const std::shared_ptr<const CSetting>& /*setting*/)
++{
++  auto* window = dynamic_cast<CWinSystemGbmGLESContext*>(CServiceBroker::GetWinSystem());
++  const auto settings = CServiceBroker::GetSettingsComponent()->GetSettings();
++  return (window && window->SupportsTunnelHDR10() &&
++          (CDVPrivateVulkan::TargetFlags() & DVVK_HDR10_TARGET)) ||
++         settings->GetInt("dvbridge.hdr10method") != 0;
++}
++
++void DVBRIDGE::HDR10TargetOptions(const std::shared_ptr<const CSetting>& setting,
++                                  IntegerSettingOptions& list,
++                                  int& /*current*/)
++{
++  // The engine's ranges for the display: peak 50 to 10000 cd/m2, black 0 to 0.5 cd/m2 (in
++  // 0.0001 cd/m2).
++  const std::string id = setting ? setting->GetId() : "";
++  if (id == "dvbridge.hdr10peak")
++    for (const int nits : {50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900,
++                           1000, 1100, 1200, 1300, 1400, 1500, 1600, 1800, 2000, 2500, 3000, 4000,
++                           5000, 10000})
++      list.emplace_back(StringUtils::Format("{} nits", nits), nits);
++  else if (id == "dvbridge.hdr10blackcustom")
++    for (const int black : {0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000})
++      list.emplace_back(StringUtils::Format("{:g}", black / 10000.0), black);
++}
++
+ void DVBRIDGE::SDRCustomOptions(const std::shared_ptr<const CSetting>& setting,
+                                 IntegerSettingOptions& list,
+                                 int& /*current*/)
