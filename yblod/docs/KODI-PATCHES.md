@@ -54,6 +54,8 @@ A new patch takes the next free number in its range.
 | `yblod-engine/patches/kodi/kodi-9964-dv-picture-upscaling.patch` | Dolby Vision: picture upscaling with FSR 1 (two tiers by source size), strings 45161 to 45166 | +193 / -1 |
 | `yblod-engine/patches/kodi/kodi-9965-dv-player-led-dolby-vision.patch` | Dolby Vision: player-led Dolby Vision (the engine's LLDV to the TV's target from its Dolby Vision VSVDB, `DVBRIDGE_TUNNEL_FORMAT` lldv), strings 45167 to 45170 | +501 / -23 |
 | `yblod-engine/patches/kodi/kodi-9966-dv-hdr10-rendering-reference.patch` | Dolby Vision: HDR10 Rendering Reference (the HDR10 output mapped to a display the user describes), strings 45171 to 45188 | +338 / -5 |
+| `yblod-engine/patches/kodi/kodi-9967-dv-output-restarts-reconfigure-the-renderer.patch` | Dolby Vision: a restart for another output (the video OSD's choice, an output refused while playing, the engine not starting or refusing the pictures) configures the renderer again, so the window begins the new output | +42 / -8 |
+| `yblod-engine/patches/kodi/kodi-9968-dv-gui-raster-share-failure-step.patch` | Dolby Vision: the GUI raster sharing warning names the step that failed and its value (logging only) | +57 / -7 |
 | `yblod/patches/kodi/kodi-9990-variable-refresh-rate.patch` | windowing: variable refresh rate (FreeSync) for refresh rate changes | +251 / -2 |
 
 The patches up to `kodi-9957` and `kodi-9990` add the 10538 lines and remove
