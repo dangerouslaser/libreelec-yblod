@@ -1,6 +1,6 @@
 # Accuracy tools
 
-Used to measure yblod's Dolby Vision output against Dolby hardware. See yblod-engine/docs/ACCURACY.md.
+Used to measure yblod's Dolby Vision output against Dolby hardware. See yblod-engine/docs/history/ACCURACY.md (measured on the OpenCL engine, removed in 0.4.0).
 
 | File | What it does |
 |---|---|
