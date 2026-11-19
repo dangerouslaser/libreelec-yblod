@@ -7,7 +7,7 @@ changes to other projects) only has to deal with a short list of glue files.
 | Folder | Contents |
 |---|---|
 | `yblod-engine/` | The Dolby Vision pipeline: the Vulkan engine (`vk/`) and the host C it compiles (`src/`, `tests/`), Kodi's runtime environment (`integration/`), its Kodi, FFmpeg and kernel patches (`patches/<package>/`), tools, docs and licences. |
-| `yblod/` | The distribution: patches that are not Dolby Vision (`patches/`), the LG edition (`editions/lg/`), build and release tools (`tools/`), release notes and validation (`docs/releases/`). |
+| `yblod/` | The distribution: patches that are not Dolby Vision (`patches/`), the LG edition (`editions/lg/`), the Estuary YBLOD skin's install helpers (`skin/`; the skin is downloaded), the iPhone remote (`iphone-remote/`), build, release and benchmark tools (`tools/`), docs and release notes ([docs/](docs/README.md)). |
 | `releases/` | Update channel files. Installed systems fetch `releases/releases.json` from `main` by URL, so this folder stays at the repository root. |
 
 ## Glue outside the two folders
@@ -16,9 +16,12 @@ LibreELEC only finds package recipes under `packages/` and only applies patches 
 package's `patches/` folder or `projects/<project>/patches/<package>/`. So:
 
 - **Package recipes** we add stay under `packages/` as thin recipes that read their files
-  from `yblod-engine/` or `yblod/` (`packages/graphics/yblod-engine-vk`, shaderc, the LG
-  edition packages; the OpenCL engine and its runtime packages were removed in 0.4.0). `PKG_NEED_UNPACK` points at the owning folder,
-  so changes there trigger a rebuild.
+  from `yblod-engine/` or `yblod/` (`packages/graphics/yblod-engine-vk` and
+  `packages/graphics/vulkan/shaderc`, `packages/network/yblod-iphone-remote`,
+  `packages/mediacenter/skin.estuary.yblod`, and the LG edition's `yblod-lg`,
+  `service.webostv` and `repository.dangerouslaser`; the OpenCL engine and its
+  runtime packages were removed in 0.4.0). `PKG_NEED_UNPACK` points at the
+  owning folder, so changes there trigger a rebuild.
 - **Patches** are stored in `yblod-engine/patches/<package>/` or `yblod/patches/<package>/`
   (the owner folders) and linked into the LibreELEC patch folder, `projects/Generic/patches/
   <package>/` (`packages/mediacenter/LibreELEC-settings/patches/` for that package), by
@@ -37,7 +40,10 @@ package's `patches/` folder or `projects/<project>/patches/<package>/`. So:
   `yblod/tools/build.sh` runs the check first and stops on a failure.
 - **Upstream files we modify** are kept to a few lines: the Kodi recipe (Kodi does not
   link libplacebo since 0.4.0, and the libplacebo recipe is stock LibreELEC again; the
-  engine vendors the part it needs), the `mediacenter` meta package (LG edition),
+  engine vendors the part it needs), the Linux recipe (the Generic kernel is
+  Linux 7.4-rc3, [docs/KERNEL-74-20261118.txt](docs/KERNEL-74-20261118.txt)),
+  Generic's kernel configuration, the OpenGLES device options (Vulkan on), the
+  `mediacenter` meta package (the skin, the iPhone remote and the LG edition),
   `README.md` and `.gitignore`.
 
 `yblod/tools/footprint.sh` lists everything outside the two folders that differs from the
@@ -61,4 +67,4 @@ OpenGLES's options: GBM, OpenGL ES and Vulkan). The Dolby Vision build of Kodi
 selected for x86_64 Generic with GBM, OpenGL ES and Vulkan; any other Generic device (the
 OpenGL, x11 and Wayland ones) or project builds the recipes as LibreELEC does.
 `yblod/tools/release.py` adds a built image to `releases/releases.json`. See
-`docs/BRANCHES.md` for branches and updates.
+[docs/BRANCHES.md](docs/BRANCHES.md) for branches and updates.
