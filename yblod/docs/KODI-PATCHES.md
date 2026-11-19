@@ -48,6 +48,8 @@ A new patch takes the next free number in its range.
 | `yblod-engine/patches/kodi/kodi-9958-dv-bridge-at-the-mode-size.patch` | Dolby Vision: the bridge (scanout, GUI raster, engine canvas) at the display mode's size | +84 / -34 |
 | `yblod-engine/patches/kodi/kodi-9959-dv-sdr-output-and-fallback.patch` | Dolby Vision: "Convert to SDR" (the engine's SDR output as an ordinary RGB picture), its settings, automatic fallback | +440 / -66 |
 | `yblod-engine/patches/kodi/kodi-9960-dv-hdr-videos-through-the-sdr-output.patch` | Dolby Vision: HDR10, HDR10+ and HLG videos through the SDR output, with the switch back to Kodi's tone mapping | +288 / -46 |
+| `yblod-engine/patches/kodi/kodi-9961-dv-refused-title-plays-as-the-base-layer.patch` | Dolby Vision: a title whose pictures the engine keeps refusing (24 in a row over 3 s) restarts where it was as plain base-layer video | +37 / -0 |
+| `yblod-engine/patches/kodi/kodi-9962-dv-output-of-the-title-in-the-video-osd.patch` | Dolby Vision: the playing title's output chosen in the video OSD (Video settings > Output mode), strings 45142 to 45145 | +379 / -13 |
 | `yblod-engine/patches/kodi/kodi-9963-dv-sdr-displays-and-bt2020.patch` | Dolby Vision: CroqueMr's CB1 SDR displays (SDR display) and BT.2020 colours, strings 45146 to 45160 | +509 / -25 |
 | `yblod-engine/patches/kodi/kodi-9964-dv-picture-upscaling.patch` | Dolby Vision: picture upscaling with FSR 1 (two tiers by source size), strings 45161 to 45166 | +193 / -1 |
 | `yblod-engine/patches/kodi/kodi-9965-dv-player-led-dolby-vision.patch` | Dolby Vision: player-led Dolby Vision (the engine's LLDV to the TV's target from its Dolby Vision VSVDB, `DVBRIDGE_TUNNEL_FORMAT` lldv), strings 45167 to 45170 | +501 / -23 |
@@ -58,15 +60,19 @@ The patches up to `kodi-9957` and `kodi-9990` add the 10538 lines and remove
 the 109 lines that separated LibreELEC's Kodi from YBLOD 0.5.0's; no line is
 added by one of them and removed by another.
 
-`kodi-9909` and `kodi-9958` to `kodi-9960` are the SDR output (after 0.5.0;
-[OUTPUT-MODES.md](../../yblod-engine/docs/intel-dv/OUTPUT-MODES.md#convert-to-sdr)).
-They are a layer on the series as it was, written without touching the
-earlier files, so the three Dolby Vision ones do change lines that 9950 to
-9957 added (132 of them); with them the whole series is +11205 / -110 against
-LibreELEC's Kodi. `kodi-9990` still applies after them with no offset: what
-they change in the files it patches is above its hunks and line for line.
-When the series is next regrouped they fold into 9953 (DRM state), 9955
-(settings and strings, 45126 to 45141), 9956 (the adapter) and 9957 (the
+The patches after those came later, each a layer on the series as it was,
+written without touching the earlier files. `kodi-9909` and `kodi-9958` to
+`kodi-9962` shipped in 0.5.1: 9909 and 9958 to 9960 are the SDR output
+([OUTPUT-MODES.md](../../yblod-engine/docs/intel-dv/OUTPUT-MODES.md#convert-to-sdr)),
+9961 and 9962 a refused title and the video OSD's output choice. `kodi-9910`
+and `kodi-9963` to `kodi-9966` came after 0.5.1.
+
+The three Dolby Vision patches of the SDR output change lines that 9950 to
+9957 added (132 of them); with them and 9909 the series was +11205 / -110
+against LibreELEC's Kodi. `kodi-9990` still applies after them with no
+offset: what they change in the files it patches is above its hunks and line
+for line. When the series is next regrouped they fold into 9953 (DRM state),
+9955 (settings and strings, 45126 to 45141), 9956 (the adapter) and 9957 (the
 window and renderer).
 
 ## Where the old patches went
