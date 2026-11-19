@@ -30,6 +30,31 @@ connector.
   mode change (or the next hotplug, for the HPD ones) and are back at their
   defaults after a reboot.
 
+## Experimental: QMS and variable refresh rate
+
+QMS (`qms`, on by default on Intel) and variable refresh rate (FreeSync:
+Kodi's Settings > System > Display > Variable refresh rate with
+`hdmi_freesync` on Intel, both off by default) are experimental. They drive
+the TV in its variable refresh rate mode. QMS has run on few TVs, variable
+refresh rate on none in YBLOD's checks, and they can cause picture faults:
+
+- a rapid flicker of the whole picture, playing and paused, in Dolby Vision
+  on an LG G5 through Intel Tiger Lake with `qms` on (2026-11-19, YBLOD
+  0.6.0). The same film was steady minutes later with `qms` written to 0 and
+  the skin changed from a third-party one to Estuary YBLOD; the two were
+  changed together, so QMS is the likely cause, not a proven one;
+- a corrupted SDR 24p picture on an Intel N150 through an AV receiver to an
+  LG TV with `qms` on (known since 0.4.1).
+
+If the picture flickers or is wrong, turn both off first: `i915.qms=0` (or
+`xe.qms=0`) and Kodi's Variable refresh rate setting off.
+
+Tests of anything else are run with both off and with the Estuary skin, so
+that a fault or a dropped frame is not theirs or a heavier skin's: `echo 0 >
+/sys/module/i915/parameters/qms` before the first film (it applies from the
+next mode change), Variable refresh rate off, and the skin noted in the
+result. QMS and variable refresh rate are tested on their own.
+
 ## Intel (`i915.` or `xe.`)
 
 | Parameter | Default | Runtime | What it does |
@@ -37,8 +62,8 @@ connector.
 | `enable_dv_lab` | on | no | The Dolby Vision tunnel: the `DVBRIDGE_DV_STANDARD_LAB` and `DVBRIDGE_TUNNEL_FORMAT` connector properties on native HDMI (display version 12 and later) and on the two converter routes below. `0` removes them; Kodi then plays Dolby Vision titles without Dolby Vision output. |
 | `dv_pcon` | -1 | no | Dolby Vision through an onboard DP-to-HDMI converter, display version 11 and later. `-1` verified boards only (INUSUAL INUC 11i5FL, board CM11EBV58W), `0` off, `1` any such converter (experimental: an untested converter may show no picture). |
 | `dv_lspcon` | -1 | no | Dolby Vision through a MegaChips MCDP2800 LSPCON switched to level-shifter mode, display version 9/10, 4K up to 30 Hz. `-1` verified boards only (Intel NUC7i7BNB), `0` off, `1` any board with that chip (the firmware version is checked in both cases). |
-| `qms` | on | yes | HDMI 2.1 Quick Media Switching: refresh rate changes at 1080p and 2160p without a blank, on TVs whose EDID has the QMS bit. Display version 12 to 29 only (Tiger Lake to Lunar Lake; it has run on Tiger Lake and Alder Lake-N); on other hardware the parameter does nothing. `0` gives ordinary mode changes. |
-| `hdmi_freesync` | 0 | yes | Not yet run on hardware, so off by default. FreeSync over HDMI on TVs with a FreeSync range that reaches 60 Hz, where QMS is possible. `0` off, `1` while the CRTC's `VRR_ENABLED` is set, `2` also without it. Modes and `vrr_capable` change at the next probe of the connector. |
+| `qms` | on | yes | Experimental (see above). HDMI 2.1 Quick Media Switching: refresh rate changes at 1080p and 2160p without a blank, on TVs whose EDID has the QMS bit. Display version 12 to 29 only (Tiger Lake to Lunar Lake; it has run on Tiger Lake and Alder Lake-N); on other hardware the parameter does nothing. `0` gives ordinary mode changes. |
+| `hdmi_freesync` | 0 | yes | Experimental (see above). Not yet run on hardware, so off by default. FreeSync over HDMI on TVs with a FreeSync range that reaches 60 Hz, where QMS is possible. `0` off, `1` while the CRTC's `VRR_ENABLED` is set, `2` also without it. Modes and `vrr_capable` change at the next probe of the connector. |
 | `spd_sdi` | 1 | yes | Source type in the SPD InfoFrame: `1` Digital STB (so TVs don't treat the input as a PC), `9` PC general (upstream's value); any CTA-861 code 0 to 13. |
 | `hdr_yuv420` | on | yes | HDR (PQ or HLG metadata, max bpc 10 or more) at 4K50/60: 10 bpc YCbCr 4:2:0 where 10 bpc RGB doesn't fit HDMI 2.0, not 8 bpc RGB. `0` is upstream's choice. Never applies to the Dolby Vision tunnel. |
 | `hpd_hold_ms` | 3000 | yes | Milliseconds an HDMI sink with an active output is still reported as connected after HPD goes low (TVs drop it briefly when they change picture mode). A real unplug is reported after that time. `0` off. Display version 11 and later. |

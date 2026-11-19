@@ -105,6 +105,13 @@ Every check also fails on an error line in Kodi's log, an engine failure, a
 failed commit or a DRM error in the kernel log. Nobody looks at the TV:
 what only eyes can confirm stays open.
 
+QMS and variable refresh rate are experimental
+([KERNEL-PARAMETERS.md](../../docs/KERNEL-PARAMETERS.md)). Neither the
+profile nor the checks turn QMS off: on a TV with QMS, write `0` to
+`/sys/module/i915/parameters/qms` before a run and say so with the result,
+unless QMS is what is being measured. The profile keeps the image's skin
+(Estuary YBLOD) and Variable refresh rate off.
+
 ## The box
 
 The owner's N150 (LG TV behind a Denon AVR) dual-boots from one eMMC:

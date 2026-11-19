@@ -35,13 +35,20 @@ channel.
 - **Conversions.** Dolby Vision can instead be converted to HDR10 or HDR10+ for HDR TVs
   without Dolby Vision, or to SDR for SDR TVs and projectors (also HDR10, HDR10+ and HLG
   videos); where the chosen output is not available, it falls back to HDR10 and then SDR.
-  HDR10+ videos can play as Dolby Vision. Newer, not yet seen on a TV: player-led Dolby
-  Vision (mapped to the TV's own Dolby Vision target) and HDR10 mapped to a display you
-  describe.
-- **QMS refresh switching** on HDMI paths that support it, for fewer blackouts when the
-  refresh rate changes. VRR support alone does not mean QMS support. Disable it with the
-  kernel option `i915.qms=0` (`xe.qms=0` on Lunar Lake and Arc B-series; see
+  HDR10+ videos can play as Dolby Vision. Newer, seen on one TV so far (an LG G5) but not
+  yet judged by eye: player-led Dolby Vision (mapped to the TV's own Dolby Vision target)
+  and HDR10 mapped to a display you describe.
+- **QMS refresh switching (experimental)** on HDMI paths that support it, for fewer
+  blackouts when the refresh rate changes. VRR support alone does not mean QMS support. It
+  is on by default on Intel graphics where the TV reports it, and it can cause picture
+  faults: a rapidly flickering picture and a corrupted SDR 24p picture have each been seen
+  on one set-up. If the picture flickers or is wrong, turn it off with the kernel option
+  `i915.qms=0` (`xe.qms=0` on Lunar Lake and Arc B-series; see
   `yblod/docs/KERNEL-PARAMETERS.md`).
+- **Variable refresh rate (experimental)**: Kodi's setting Settings > System > Display >
+  Variable refresh rate, shown only on a display that reports variable refresh rate; off by
+  default. It has not yet run in YBLOD's checks and may cause the same kind of faults;
+  leave it off unless you want to try it.
 - **Faster live TV startup**, through fewer stream opens, coordinated display changes and
   less audio buffering.
 

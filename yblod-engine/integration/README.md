@@ -93,6 +93,17 @@ have their own section below; their checks are items 14 and 15 here.
 
 ### To check on a display
 
+Run these with QMS off (`echo 0 > /sys/module/i915/parameters/qms`, or
+`i915.qms=0`), Kodi's Variable refresh rate setting off and the Estuary
+skin, and record all three with the result. QMS and variable refresh rate
+are experimental and can cause picture faults of their own
+([KERNEL-PARAMETERS.md](../../yblod/docs/KERNEL-PARAMETERS.md)), and a
+heavier skin costs GPU time that can show up as dropped frames. Item 11 is
+the exception. Such a fault can be a rapid flicker of the whole screen, and
+nothing in Kodi's or the kernel's log showed it when it happened: have
+whoever is at the TV confirm a steady picture before a long or unattended
+run.
+
 Seen on a display once: Convert to SDR on an LG TV through AMD graphics
 (Ryzen 5 3500U), 1917 at 203 cd/m2 with BT.1886, no dropped frames. The
 rest below is still to be checked. An SDR-only TV is not needed: any TV
