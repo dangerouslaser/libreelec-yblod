@@ -56,7 +56,7 @@ Also changed: yblod/tools/footprint.sh's default base, which was still
 the 0.2 resync's cd5ed44f, is 3a98afdd; KODI-PATCHES.md and the
 integration README name Kodi 22.0rc2-Piers.
 
-Source checks (on Ollie, tools/docker/noble, PROJECT=Generic ARCH=x86_64):
+Source checks (on the build host, tools/docker/noble, PROJECT=Generic ARCH=x86_64):
 - scripts/unpack fetched kodi, linux, ffmpeg, mesa and LibreELEC-settings
   against their recipe SHA256s and applied every LibreELEC and YBLOD
   patch.

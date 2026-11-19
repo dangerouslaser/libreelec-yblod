@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build a libreelec-yblod image in the LibreELEC build container.
 #
-# Sized for the build host "Ollie" (i9-14900K, 32 threads, 31 GB RAM, about 15 GB of which
+# Sized for the build host (i9-14900K, 32 threads, 31 GB RAM, about 15 GB of which
 # is used by other services). The container is capped at 12 GB with no swap: if the build runs
 # out of memory, the compiler inside the container is killed and the host keeps running
 # (an uncapped build took the whole host down on 2026-10-01). The build starts with many jobs

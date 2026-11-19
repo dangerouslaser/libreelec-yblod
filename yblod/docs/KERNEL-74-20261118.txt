@@ -196,7 +196,7 @@ series) and applied with no fuzz and no offset, in this order, and YBLOD's
 To take one: git cherry-pick -x it onto an unpacked 7.4 tree and save it
 as a patch in yblod/patches/linux, numbered to sort before linux-9900.
 
-Checks (on Ollie, image yblod-parity-build:noble, in a copy of the
+Checks (on the build host, in a noble build container, in a copy of the
 development build tree of this branch's base, 10g, no swap, 5 jobs, one
 build at a time under the build lock; PROJECT=Generic DEVICE=Generic
 ARCH=x86_64):

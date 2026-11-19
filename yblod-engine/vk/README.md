@@ -43,7 +43,7 @@ the default); scaled pictures, and Bilinear, stay yblod's own. The code forks on
   FEL takes the fused route (`fel_chroma` + the pack's luma), Annex B stays
   staged; `cb1_contract` is always Annex B. golden.sh: every Annex B hash
   unchanged, the former nearest runs now bilinear (`fel-bl*`, recorded on
-  Ollie's UHD 770; DVVK_VERIFY fused = staged).
+  the build host's UHD 770; DVVK_VERIFY fused = staged).
 - *Dolby Vision -> HDR10+.* `dvvk_set_output_mode(DVVK_OUTPUT_HDR10PLUS)`:
   the HDR10 output's reconstruction without its tone curve, the pack
   measuring the active film area before the overlay (`STATS`: 16-nit maxRGB
@@ -256,9 +256,9 @@ engine, where CB1 runs it in Kodi's GL renderer on the reshaped Y'CbCr.
   - HDR10, HDR10+ and SDR (also with SDR's layer);
   - the fused shell, the prepared overlay (`DVVK_OVERLAY_PREPARE=1`) and
     the rect damage.
-  Run it as `vk.sh run 'GOLDEN=/t/vk/tools/scaler.sha256 WORK=/o/work/scaler
-  sh /t/vk/tools/scaler-check.sh check /clips/p81-3840x1744-l5full.mkv
-  /clips/28yl-p81.mkv /clips/1917-fel.mkv /clips/gemini-mel.mkv'`.
+  Run it on a box with the GPU as `WORK=<work dir> sh tools/scaler-check.sh
+  check p81-3840x1744-l5full.mkv 28yl-p81.mkv 1917-fel.mkv gemini-mel.mkv`
+  (the reference clips; `GOLDEN` defaults to `tools/scaler.sha256`).
 - *Not used with FSR.* `DVVK_VERIFY` skips FSR frames: its reference pack
   is bilinear, and their reconstruction is staged already. `dvvk-prepare`
   leaves the FSR pipelines to first use: only a player that selects FSR

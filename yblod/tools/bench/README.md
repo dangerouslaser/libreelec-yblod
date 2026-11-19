@@ -28,13 +28,13 @@ Nothing is installed on the box; `box/` lives in `/storage/yblod-bench`.
 
 ```sh
 cd yblod/tools/bench
-BOX=root@192.168.1.179
+BOX=root@<box address>
 NAME=y050t1                      # the bench profile's name: one per image
-RESULTS=~/yblod-bench-results    # copied to Ollie afterwards
+RESULTS=~/yblod-bench-results    # copied to the build host afterwards
 
 # 1. the image's KERNEL and SYSTEM (from the build host), onto the box
-scp ollie:Projects/libreelec-yblod-vk/target/LibreELEC-Generic.x86_64-13.0-VERSION.kernel /tmp/KERNEL
-scp ollie:Projects/libreelec-yblod-vk/target/LibreELEC-Generic.x86_64-13.0-VERSION.system /tmp/SYSTEM
+scp BUILD_HOST:<build tree>/target/LibreELEC-Generic.x86_64-13.0-VERSION.kernel /tmp/KERNEL
+scp BUILD_HOST:<build tree>/target/LibreELEC-Generic.x86_64-13.0-VERSION.system /tmp/SYSTEM
 ./install-image.sh "${BOX}" "${NAME}" /tmp/KERNEL /tmp/SYSTEM
 
 # 2. the profile (also waits for yblod-dv-prepare to build the pipeline cache)
@@ -44,7 +44,7 @@ scp ollie:Projects/libreelec-yblod-vk/target/LibreELEC-Generic.x86_64-13.0-VERSI
 ./bench.py run --host "${BOX}" --image "${NAME}" --out "${RESULTS}" \
   --display-note "TV on, Dolby Vision picture mode"
 ./report.py "${RESULTS}/y041" "${RESULTS}/${NAME}" --md comparison.md --json comparison.json
-rsync -a "${RESULTS}/${NAME}" ollie:yblod-050/bench/results/
+rsync -a "${RESULTS}/${NAME}" BUILD_HOST:<results archive>/
 ```
 
 `bench.py run` continues where it stopped: a run that has its JSON is
@@ -57,7 +57,7 @@ on: stop the player and check both before the next run. `--scenarios A,B`, `--fi
 awake (`caffeinate -i` on a Mac): a repetition takes 66 minutes. Under a
 supervisor that stops a job after two hours, run one repetition per job
 (`--reps 1`, then `--reps 1 --first-rep 2`). The 0.4.1 baseline's raw
-files are on Ollie in `~/yblod-050/bench/results/y041`; its summary is in
+files are in the build host's results archive (`y041`); its summary is in
 `yblod/docs/releases/data/`.
 
 ## A variant of an image
@@ -197,10 +197,10 @@ ssh USER@AMD_BOX 'sudo bootctl set-oneshot bench-NAME.conf && sudo systemctl reb
 From LibreELEC, `reboot` (after `Player.GetActivePlayers` answered `[]`)
 lands in the other system. Boot to SSH takes about a minute.
 
-Drive long runs from Ollie, not from a laptop that sleeps: Ollie's
-passphrase-less key `~/.ssh/id_ollie_auto` goes into the profile's
-`/storage/.ssh/authorized_keys`, and `~/yblod-051/bench-amd/env.sh` there
-puts an `ssh` wrapper using it first on `PATH`, sets
+Drive long runs from the build host, not from a laptop that sleeps: a
+passphrase-less key of the build host's goes into the profile's
+`/storage/.ssh/authorized_keys`, and an environment script there puts an
+`ssh` wrapper using that key first on `PATH`, sets
 `YBLOD_BENCH_KNOWN_HOSTS=/dev/null`, `BOX` and `RESULTS`; start a run under
 `setsid nohup` and read its log.
 
