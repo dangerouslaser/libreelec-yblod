@@ -101,9 +101,13 @@ start, or it refused the title's pictures) has none.
 Switching between Convert to HDR10 and Convert to HDR10+ of a Dolby Vision
 video happens while it plays (as the HDR10+ fallback does). Any other
 change restarts the title where it is, as when the engine fails to start,
-and closes the dialog. kodi.log says `DVBridge: video OSD: this title's
+and closes the dialog. The restarted title's first picture configures the
+renderer again (kodi-9967), so the old output ends and the new one begins
+as when a title starts; the restarts for an output refused while the title
+plays, and for the engine not starting, do the same. kodi.log says `DVBridge: video OSD: this title's
 output A -> B` with how it switched, and, after a restart, `DVBridge: this
-title's output from the video OSD: B`.
+title's output from the video OSD: B`, followed by the new output's
+`DVBridge output: ...` and `Vulkan engine output: ...` lines.
 
 ## Convert to SDR
 

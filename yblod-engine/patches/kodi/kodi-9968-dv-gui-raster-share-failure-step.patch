@@ -1,0 +1,179 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 19:52:09 -0500
+Subject: [PATCH 2/2] Dolby Vision: say which step of sharing the GUI raster
+ failed
+
+The Vulkan engine reads the GUI framebuffer in place when Kodi can put
+its texture on a GBM buffer (CWinSystemGbmGLESContext::ShareGuiFbo,
+kodi-9954); otherwise it copies it each frame. On the 0.6.0 candidate
+(Intel Tiger Lake, Mesa 26.3.0, Linux 7.4) the share fails where 0.4.1
+(Mesa 26.2.5) shared the buffer, and the warning did not say which of
+the steps failed.
+
+The warning now names the step and its value: what is missing for the
+setup; for each GBM layout passed over, its plane count and modifier,
+or gbm_bo_create's errno; the dma-buf fd and errno; eglCreateImageKHR's
+EGL error with the buffer's modifier, stride and offset; the
+framebuffer status; or the GL error found pending afterwards (which an
+earlier GL call may have left). It is still logged once per Kodi run.
+
+Logging only: the same steps are tried in the same order, glGetError
+is read only where it was, and a failure is handled as before.
+---
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 61 +++++++++++++++++--
+ xbmc/windowing/gbm/WinSystemGbmGLESContext.h  |  3 +-
+ 2 files changed, 57 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index b2f7d55..efb61f1 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -40,6 +40,7 @@ extern "C"
+ #include "windowing/WindowSystemFactory.h"
+ 
+ #include <algorithm>
++#include <cerrno>
+ #include <mutex>
+ #include <cmath>
+ #include <cstdlib>
+@@ -527,36 +528,59 @@ void CWinSystemGbmGLESContext::SetScissors(const CRect& rect)
+     ScaleGuiRaster(false);
+ }
+ 
+-bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height)
++bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height, std::string& failure)
+ {
++  failure.clear();
+   auto create = reinterpret_cast<PFNEGLCREATEIMAGEKHRPROC>(eglGetProcAddress("eglCreateImageKHR"));
+   using Target = void (*)(GLenum, void*);
+   auto target = reinterpret_cast<Target>(eglGetProcAddress("glEGLImageTargetTexture2DOES"));
+   gbm_device* device = GetGBMDevice().Get();
+   if (!create || !target || !device || !m_guiFbo.IsValid())
++  {
++    failure = StringUtils::Format(
++        "setup: eglCreateImageKHR {}, glEGLImageTargetTexture2DOES {}, GBM device {}, GUI FBO {}",
++        create ? "found" : "missing", target ? "found" : "missing", device ? "open" : "none",
++        m_guiFbo.IsValid() ? "valid" : "invalid");
+     return false;
++  }
+   // The driver's layout if it names it in one plane, else linear.
+   const uint32_t layouts[] = {GBM_BO_USE_RENDERING, GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR};
+   for (const uint32_t flags : layouts)
+   {
+     m_guiBo = gbm_bo_create(device, width, height, GBM_FORMAT_ABGR8888, flags);
++    const int createErrno = errno;
+     if (m_guiBo && gbm_bo_get_plane_count(m_guiBo) == 1 &&
+         ((flags & GBM_BO_USE_LINEAR) || gbm_bo_get_modifier(m_guiBo) != DRM_FORMAT_MOD_INVALID))
+       break;
++    // Why this layout was not taken (the next one is tried, or the share fails).
++    failure += StringUtils::Format("{}GBM buffer, {} layout: ", failure.empty() ? "" : "; ",
++                                   (flags & GBM_BO_USE_LINEAR) ? "linear" : "the driver's");
++    if (m_guiBo)
++      failure += StringUtils::Format("{} planes, modifier {:#x}", gbm_bo_get_plane_count(m_guiBo),
++                                     gbm_bo_get_modifier(m_guiBo));
++    else
++      failure += StringUtils::Format("gbm_bo_create failed (errno {})", createErrno);
+     if (m_guiBo)
+       gbm_bo_destroy(m_guiBo);
+     m_guiBo = nullptr;
+   }
+   if (!m_guiBo)
+     return false;
++  // (a layout passed over above stays in the message of a later failure)
++  const std::string layoutNote = failure.empty() ? "" : failure + "; then ";
+   m_guiBoFd = gbm_bo_get_fd(m_guiBo);
++  const int fdErrno = errno;
+   m_guiBoStride = gbm_bo_get_stride(m_guiBo);
+   m_guiBoOffset = gbm_bo_get_offset(m_guiBo, 0);
+   m_guiBoModifier = gbm_bo_get_modifier(m_guiBo);
+   if (m_guiBoModifier == DRM_FORMAT_MOD_INVALID)
+     m_guiBoModifier = DRM_FORMAT_MOD_LINEAR;
+   if (m_guiBoFd < 0)
++  {
++    failure = StringUtils::Format("{}dma-buf fd: gbm_bo_get_fd {} (errno {})", layoutNote,
++                                  m_guiBoFd, fdErrno);
+     return false;
++  }
+   const EGLint attrs[] = {EGL_WIDTH, width, EGL_HEIGHT, height,
+       EGL_LINUX_DRM_FOURCC_EXT, DRM_FORMAT_ABGR8888,
+       EGL_DMA_BUF_PLANE0_FD_EXT, m_guiBoFd,
+@@ -566,7 +590,13 @@ bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height)
+       EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, static_cast<EGLint>(m_guiBoModifier >> 32), EGL_NONE};
+   m_guiImage = create(m_eglContext.GetEGLDisplay(), EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT, nullptr, attrs);
+   if (m_guiImage == EGL_NO_IMAGE_KHR)
++  {
++    failure = StringUtils::Format(
++        "{}EGL image: eglCreateImageKHR error {:#x} (modifier {:#x}, stride {}, offset {})",
++        layoutNote, static_cast<unsigned>(eglGetError()), m_guiBoModifier, m_guiBoStride,
++        m_guiBoOffset);
+     return false;
++  }
+   // The FBO's texture takes the buffer as its storage (its sampling state stays).
+   GLint texture, framebuffer;
+   glGetIntegerv(GL_TEXTURE_BINDING_2D, &texture);
+@@ -574,15 +604,32 @@ bool CWinSystemGbmGLESContext::ShareGuiFbo(int width, int height)
+   glBindTexture(GL_TEXTURE_2D, m_guiFbo.Texture());
+   target(GL_TEXTURE_2D, m_guiImage);
+   glBindTexture(GL_TEXTURE_2D, texture);
+-  bool complete = m_guiFbo.BeginRender();
++  const bool begun = m_guiFbo.BeginRender();
++  bool complete = begun;
++  GLenum status = 0;
+   if (complete)
+   {
+     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_guiFbo.Texture(), 0);
+-    complete = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
++    status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
++    complete = status == GL_FRAMEBUFFER_COMPLETE;
+   }
+   glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+-  if (!complete || glGetError() != GL_NO_ERROR)
++  if (!complete)
++  {
++    failure = begun ? StringUtils::Format("{}framebuffer: status {:#x} (modifier {:#x})",
++                                          layoutNote, status, m_guiBoModifier)
++                    : StringUtils::Format("{}framebuffer: the GUI FBO could not be bound",
++                                          layoutNote);
++    return false;
++  }
++  // (an error can also be one an earlier GL call left pending)
++  if (const GLenum error = glGetError(); error != GL_NO_ERROR)
++  {
++    failure = StringUtils::Format("{}GL error {:#x} pending (modifier {:#x})", layoutNote,
++                                  error, m_guiBoModifier);
+     return false;
++  }
++  failure.clear();
+   CLog::Log(LOGINFO, "Private native GUI raster shared with the Vulkan engine: {}x{} modifier={:#x}",
+             width, height, m_guiBoModifier);
+   return true;
+@@ -688,10 +735,12 @@ bool CWinSystemGbmGLESContext::BeginGuiComposite(bool guiWillRender)
+       return false;
+     }
+ 
+-    if (share && !ShareGuiFbo(width, height))
++    std::string failure;
++    if (share && !ShareGuiFbo(width, height, failure))
+     {
+       // The engine copies the texture instead.
+-      CLog::Log(LOGWARNING, "Private native GUI raster: no shared buffer; the Vulkan engine copies it");
++      CLog::Log(LOGWARNING, "Private native GUI raster: no shared buffer ({}); the Vulkan engine "
++                "copies it", failure);
+       m_guiShareFailed = true;
+       CleanupGuiFbo();
+       if (!m_guiFbo.Initialize() || !m_guiFbo.CreateAndBindToTexture(GL_TEXTURE_2D, width, height, GL_RGBA) ||
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+index b984f76..a579e38 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.h
+@@ -134,7 +134,8 @@ private:
+   void ScaleGuiRaster(bool viewport);
+   // The GUI framebuffer's texture on a GBM buffer, for the Vulkan engine to
+   // read in place: no per-frame copy.
+-  bool ShareGuiFbo(int width, int height);
++  // failure: the step that failed and its value, for the log (empty on success)
++  bool ShareGuiFbo(int width, int height, std::string& failure);
+   void CleanupGuiFbo();
+   struct gbm_bo* m_guiBo{nullptr};
+   EGLImageKHR m_guiImage{EGL_NO_IMAGE_KHR};

@@ -1,0 +1,193 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Bryan Hoban <bryan.hoban@gmail.com>
+Date: Wed, 18 Nov 2026 19:51:20 -0500
+Subject: [PATCH 1/2] Dolby Vision: a restart for another output configures the
+ renderer again
+
+The video OSD's Output mode (kodi-9962) restarts the title with
+TMSG_MEDIA_RESTART, and SelectOutputSettings applies the choice when
+the restarted title is prepared, but the output never changed. The
+restart reopens the title in the same VideoPlayer (PLAYER_OPENFILE):
+the renderer stays configured, and CRenderManager::Configure leaves it
+so while the pictures keep their size, colours and buffer format,
+which they do when only the output changes. The window chooses its
+output only when the renderer is configured: SetVideoOutput ends the
+output it has, CLinuxRendererGLES::Configure latches whether the
+pictures go through the bridge, BeginDVBridge begins the video's, and
+an output already begun stays what it is. So the tunnel, the engine
+and the signal kept the output the title started with.
+
+The other restarts that change the output have the same fault: an
+output refused while the title plays (ten refused HDR10 commits,
+TunnelHDR10Presented; ten refused player-led commits,
+TunnelLLDVPresented; the engine refusing player-led for the TV's
+target, LLDVRefused), which should restart the title with the
+Automatic fallback's output, and the engine not starting or refusing
+the title's pictures (StartFailed, TitleRefused), which should restart
+it as plain base-layer video. Each kept the refused output, with no
+picture drawn.
+
+All six now restart through DVBRIDGE::RestartForOutput. It marks the
+restart; SelectOutputSettings turns the mark into a one-shot request
+when the restarted title is prepared, and the render manager
+configures the renderer again for that title's first picture: the old
+output ends and the window begins the new one, as when a title starts.
+HDR10 <-> HDR10+ of a Dolby Vision video still switches while it
+plays, without a restart.
+
+Restarts for anything else (Kodi's own, for an audio passthrough
+change) are unchanged, and nothing changes when no output is refused
+and the OSD list is not used: the request is set only for a title one
+of these restarts reopened, and cleared each time a title is prepared.
+---
+ .../DVDCodecs/Video/DVOutputSettings.h        | 21 +++++++++++++++++++
+ .../VideoRenderers/DVPrivateVulkan.cpp        |  6 +++---
+ .../VideoRenderers/RenderManager.cpp          | 11 ++++++++--
+ .../windowing/gbm/WinSystemGbmGLESContext.cpp | 12 ++++++++---
+ 4 files changed, 42 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+index 3799ee7..77e87c0 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h
+@@ -166,8 +166,28 @@ inline std::string titlePath; // the title whose playback was prepared last
+ // 1 from a choice that restarts the title until the title has configured its video again (a
+ // stop in between is the restart's), 2 while it plays: the next stop forgets the choice.
+ inline std::atomic<int> titleState{0};
++// A restart for another output (RestartForOutput) is on its way until the title is prepared
++// again; then the title's first picture configures the renderer again (OutputReconfigure).
++inline std::atomic<bool> outputRestart{false};
++inline std::atomic<bool> outputReconfigure{false};
+ } // namespace detail
+ 
++// Restarts the playing title where it is for another output (TMSG_MEDIA_RESTART): the video
++// OSD's choice, an output refused while the title plays (the tunnel's HDR10 or player-led
++// commits, the engine's player-led mode), the engine not starting or refusing the title's
++// pictures. The restart reopens the title in the same player, whose renderer stays
++// configured while the pictures keep their size and colours, and the window chooses its
++// output (SetVideoOutput, BeginDVBridge) only when the renderer is configured: so the
++// restarted title's first picture configures it again, once. Restarts for anything else
++// (audio passthrough) are Kodi's own and stay as they are. (WinSystemGbmGLESContext)
++void RestartForOutput();
++
++// The render manager: the first picture of a title restarted for another output.
++inline bool OutputReconfigure()
++{
++  return detail::outputReconfigure.exchange(false);
++}
++
+ // The window: a video configured its output.
+ inline void TitleOutputConfigured()
+ {
+@@ -345,6 +365,7 @@ inline void SelectOutputSettings(const std::string& path)
+   playbackHDR10ToDV.store(false);
+   playbackPlainSDR.store(false);
+   playbackSourceHDR10Plus.store(false);
++  detail::outputReconfigure.store(detail::outputRestart.exchange(false));
+   std::lock_guard lock(detail::titleLock);
+   detail::titlePath = path;
+   if (detail::title.output == TitleOutput::None)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+index 2b1eefb..f6f74b1 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/DVPrivateVulkan.cpp
+@@ -163,7 +163,7 @@ void CDVPrivateVulkan::StartFailed()
+               "plain base-layer video, the next one tries again", failures, kStartFailureLimit);
+   titleWithout = 1;
+   // The title that tried it starts again where it was, as plain playback.
+-  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  DVBRIDGE::RestartForOutput();
+ }
+ 
+ void CDVPrivateVulkan::TitleRefused(unsigned pictures)
+@@ -173,7 +173,7 @@ void CDVPrivateVulkan::TitleRefused(unsigned pictures)
+     return;
+   CLog::Log(LOGWARNING, "Dolby Vision: the Vulkan engine does not take this video's pictures ({} in a "
+             "row); it plays as plain base-layer video from here, the next one tries again", pictures);
+-  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  DVBRIDGE::RestartForOutput();
+ }
+ 
+ void CDVPrivateVulkan::VideoConfigured()
+@@ -482,7 +482,7 @@ void LLDVRefused(const char* what, int result)
+   auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
+   CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(45010),
+                                         strings.Get(45170));
+-  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  DVBRIDGE::RestartForOutput();
+ }
+ 
+ std::string LLDVTargetName(const DVBRIDGE::LLDVTarget& target)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+index 8f61aed..18fc5e7 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
+@@ -36,6 +36,7 @@
+ #ifdef HAVE_DVBRIDGE
+ #include "guilib/GUIComponent.h"
+ #include "guilib/GUIWindowManager.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/DVOutputSettings.h"
+ #include "cores/VideoPlayer/DVDCodecs/Video/DVPlaybackPolicy.h"
+ #include "windowing/gbm/WinSystemGbmGLESContext.h"
+ #include <cstdlib>
+@@ -107,8 +108,14 @@ bool CRenderManager::Configure(const VideoPicture& picture, float fps, unsigned
+     if (!m_bRenderGUI)
+       return true;
+ 
+-    if (m_pRenderer != nullptr && m_picture.IsSameParams(picture) && m_orientation == orientation &&
+-        m_NumberBuffers == buffers && !m_pRenderer->ConfigChanged(picture))
++    bool reconfigure = false;
++#ifdef HAVE_DVBRIDGE
++    // A title restarted for another output (RestartForOutput) gets the window's new output.
++    reconfigure = DVBRIDGE::OutputReconfigure();
++#endif
++    if (!reconfigure && m_pRenderer != nullptr && m_picture.IsSameParams(picture) &&
++        m_orientation == orientation && m_NumberBuffers == buffers &&
++        !m_pRenderer->ConfigChanged(picture))
+     {
+       if (m_fps != fps)
+       {
+diff --git a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+index 9a572b4..b2f7d55 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
++++ b/xbmc/windowing/gbm/WinSystemGbmGLESContext.cpp
+@@ -1554,7 +1554,7 @@ void CWinSystemGbmGLESContext::TunnelHDR10Presented(bool presented)
+   auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
+   CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(45010),
+                                         strings.Get(45101));
+-  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  DVBRIDGE::RestartForOutput();
+ }
+ 
+ void CWinSystemGbmGLESContext::TunnelLLDVPresented(bool presented)
+@@ -1576,7 +1576,7 @@ void CWinSystemGbmGLESContext::TunnelLLDVPresented(bool presented)
+   auto& strings = CServiceBroker::GetResourcesComponent().GetLocalizeStrings();
+   CGUIDialogKaiToast::QueueNotification(CGUIDialogKaiToast::Error, strings.Get(45010),
+                                         strings.Get(45170));
+-  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  DVBRIDGE::RestartForOutput();
+ }
+ 
+ void DVBRIDGE::OutputModeOptions(const std::shared_ptr<const CSetting>& setting,
+@@ -1723,6 +1723,12 @@ TitleChoices PlayingTitleChoices()
+ }
+ } // namespace
+ 
++void DVBRIDGE::RestartForOutput()
++{
++  detail::outputRestart.store(true);
++  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++}
++
+ bool DVBRIDGE::TitleOutputOffered()
+ {
+   return PlayingTitleChoices().offered.size() >= 2;
+@@ -1814,7 +1820,7 @@ bool DVBRIDGE::SelectTitleOutput(int value)
+     playbackTunnelHDR10Plus.store(output == TitleOutput::HDR10Plus);
+     return false;
+   }
+-  CServiceBroker::GetAppMessenger()->PostMsg(TMSG_MEDIA_RESTART);
++  DVBRIDGE::RestartForOutput();
+   return true;
+ }
+ 
