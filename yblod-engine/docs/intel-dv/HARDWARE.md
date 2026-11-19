@@ -78,8 +78,9 @@ A connector with the tunnel and the `lldv` value of `DVBRIDGE_TUNNEL_FORMAT`
 amdgpu; not the converter routes), progressive 3840 × 2160, an engine with
 the player-led output, and a Dolby Vision VSVDB in the TV's EDID with the
 low-latency interface and a target the engine accepts (low-latency 4:2:2,
-valid luminance, primaries inside BT.2020). Not yet seen on a TV. The full
-list: yblod-engine/integration/README.md (Player-led Dolby Vision and HDR10
+valid luminance, primaries inside BT.2020). Seen on one TV so far (an LG G5
+through Intel Tiger Lake, which reported low-latency Dolby Vision); the
+picture has not been judged by eye. The full list: yblod-engine/integration/README.md (Player-led Dolby Vision and HDR10
 Rendering Reference).
 
 ## HDR10+ videos as Dolby Vision

@@ -4,6 +4,10 @@ An unofficial LibreELEC build for Intel and AMD PCs that plays Dolby Vision in K
 to the TV as TV-led Dolby Vision over HDMI, or converted by YBLOD's own engine for TVs and
 projectors without it.
 
+YBLOD began as a fork of CroqueMr's Intel Dolby Vision build of LibreELEC, now
+[libreelec-CB1](https://github.com/CroqueMr/libreelec-CB1), and still builds on his work;
+see [Credits and licences](#credits-and-licences).
+
 YBLOD is not affiliated with or certified by LibreELEC, Kodi, Dolby, Intel or AMD. Please
 report problems with this build here, not to those projects.
 
@@ -145,9 +149,18 @@ and the documentation indexes of [yblod/docs](yblod/docs/README.md) and
 
 ## Credits and licences
 
-YBLOD builds on LibreELEC, Kodi, FFmpeg, Intel's graphics and media stack, libplacebo, and
-CroqueMr's Intel Dolby Vision work ([libreelec-CB1](https://github.com/CroqueMr/libreelec-CB1)).
-The engine's references include ETSI GS CCM 001 and quietvoid's dovi_tool; see the
+**CroqueMr.** YBLOD started from CroqueMr's Intel Dolby Vision work
+([libreelec-CB1](https://github.com/CroqueMr/libreelec-CB1), earlier intel-dv-libreelec and
+libreelec-x86-DV), which showed how to play Dolby Vision on Intel graphics. The engine
+compiles source files of his CB1 renderer (the `cb1_*` files in `yblod-engine/src` and
+`yblod-engine/vk`, listed with their notices in the engine source notices below), and much
+of what YBLOD offers follows his design: the Master Reference conversion, the HDR10+
+conversions, the CM4.0 metadata option, the SDR display targets, player-led Dolby Vision
+(CB1's LLDV Reference) and HDR10 Rendering Reference. Thank you.
+
+YBLOD also builds on LibreELEC, Kodi, FFmpeg, Intel's graphics and media stack and
+libplacebo. The engine's references include ETSI GS CCM 001 and quietvoid's dovi_tool; see
+the
 [engine source notices](yblod-engine/SOURCES.md), [engine licence](yblod-engine/LICENSE),
 and the [integration notices](yblod-engine/docs/intel-dv) and [licences](yblod-engine/licenses).
 
