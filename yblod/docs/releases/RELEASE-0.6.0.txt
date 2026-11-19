@@ -1,0 +1,47 @@
+YBLOD 0.6.0 brings the Vulkan engine level with what CroqueMr's CB1 had added by 2026-11-18 (its commit b5149a09d7): player-led Dolby Vision, an HDR10 conversion for a display you describe, CB1's SDR display targets, and FSR 1 upscaling for Dolby Vision. It also moves to current LibreELEC (Kodi 22.0 RC2, Mesa 26.3.0) and to a Linux 7.4 release candidate kernel, and fixes the Output mode choice in the video OSD, which never took effect in 0.5.1. With every new setting left at its default, the pictures of the Dolby Vision, HDR10, HDR10+ and SDR outputs are byte-identical to 0.5.1 on the reference clips.
+
+Player-led Dolby Vision (new)
+- New Output mode Dolby Vision (player-led) (Settings > Player > Dolby Vision > Output mode, and the video OSD). YBLOD maps the Dolby Vision picture itself to the TV's own peak brightness, black level and colour primaries, read from the TV's Dolby Vision EDID block, and sends it as low-latency Dolby Vision (12-bit YCbCr 4:2:2).
+- It is offered only at 3840x2160 when the TV reports the low-latency interface and the connection supports it. It is never chosen automatically. If it is selected and cannot start, or the connection refuses it, the film plays as HDR10, then SDR, and it is not offered again until Kodi restarts.
+- This is the same recipe as CB1's LLDV Reference, checked against CB1's own code in software. On an LG G5 through Intel graphics the TV reports low-latency Dolby Vision and 24p films play without dropped frames. Nobody has judged the picture by eye yet. On one frame of 1917 the TV's own screen capture was about 15 % darker than TV-led Dolby Vision overall and about 18 % darker in the highlights (the capture's picture values, not measured light), which may be right. If it looks wrong, choose another output in the video OSD (Settings > Video settings > Output mode) and please report it with the log.
+- Use it for 24p films. It costs more GPU time than the other outputs (10 to 20 ms a picture on Intel UHD 770), and 60p films drop frames on the GPUs tested (Intel Tiger Lake, AMD Vega 8).
+
+HDR10 Rendering Reference
+- New setting HDR10 conversion: Master Reference (as before, the default) or Rendering Reference. Rendering Reference maps Dolby Vision to the display you describe: peak brightness (50 to 10000 nits), black level (OLED, LCD, projector or a custom value) and colours (P3, BT.2020 or BT.709), using the film's Dolby Vision trims.
+
+SDR display targets
+- New setting SDR display: Brightness and gamma (as before, the default), Reference (100 nits, gamma 2.4), Bright room (200 nits, gamma 2.2) or Custom (white 20 to 500 nits, gamma 1.8 to 2.8, black 0 to 5 nits). These are CB1's SDR targets.
+- New setting BT.2020 colours for the SDR output (off by default), used only when the display and connection take BT.2020; otherwise the picture stays BT.709.
+
+Upscaling
+- New settings Upscaling (1080p and above) and Upscaling (below 1080p) for Dolby Vision pictures smaller than the screen: Bilinear (as before, the default), FSR 1, or FSR 1 + sharpening.
+- FSR 1 costs GPU time. A 1080p film on a 4K screen took 12.6 ms a picture against 5.1 ms on Intel Tiger Lake and 10.4 ms against 4.3 ms on AMD Vega 8, with no dropped frames at 24p. If pictures stutter, go back to Bilinear.
+
+Fixes
+- The Output mode choice in the video OSD now works. In 0.5.1 it restarted the film but the output stayed what it was.
+- A film whose output the display or the engine refuses should now fall back as intended (fixed in the code; a refusal has not been provoked on a TV yet). In 0.5.1 the restart kept the refused output and showed no picture, although that release's notes said the film carried on as plain video.
+- Some Dolby Vision films with no letterbox information (no L5) showed lifted black bars on some TVs (an LG C1, a Hisense) with the Master Reference setting. YBLOD no longer invents that information, matching CB1.
+- Convert to HDR10+ now fills in the two luminance fields of the HDR10+ metadata, which were sent as fixed values.
+- Some Dolby Vision files lost their Dolby Vision metadata because of a padding byte FFmpeg did not accept. They now play as Dolby Vision.
+- Some HDR10 videos stuttered periodically because Kodi treated a repeated mastering value as a change.
+
+Base
+- LibreELEC master of 2026-11-14: Kodi 22.0 RC2 (itself a release candidate), Mesa 26.3.0.
+- Linux 7.4-rc3 (0.5.1: 7.3), a release candidate kernel. The AMD Dolby Vision and HDR10+ signalling was adapted to it.
+- On AMD graphics an LG B4 is now reported as capable of variable refresh rate (it was not in 0.5.1), and the kernel announces FreeSync to such a TV at the menu. Variable refresh stays off unless Kodi's Variable refresh rate setting is turned on.
+- The RTL8723BS Wi-Fi chip now uses the kernel's rtw88 driver, because Linux 7.4 removed the old one.
+
+Known issues
+- The new outputs and settings have been checked in software (every output sample against a double-precision reference) and run on two machines, an Intel Tiger Lake with an LG G5 and an AMD Ryzen 5 3500U with an LG B4. On the AMD machine the television was in standby during those runs; the HDMI output's registers showed it set to send Dolby Vision. Dolby Vision has since been reported working on that machine's TV (build and outputs not recorded). HDR10+ output on AMD has not run on this kernel at all (the test TV has no HDR10+).
+- Nobody has yet judged whether the new outputs' pictures are right. Player-led Dolby Vision was watched on an LG G5 only for flicker.
+- QMS (seamless refresh-rate changes on Intel graphics, on by default where the TV reports it) and Variable refresh rate (FreeSync, off by default) are experimental and can cause picture faults. During the checks of this release an LG G5 through Intel Tiger Lake showed a rapidly flickering picture in Dolby Vision, playing and paused, with QMS on; nothing in Kodi's or the kernel's log showed it. The same film was steady with QMS off and the skin changed to Estuary YBLOD, so QMS is the likely cause, but the two were changed together. If your picture flickers or is wrong, turn QMS off with the kernel option i915.qms=0 (xe.qms=0 on Lunar Lake and Arc B-series; see yblod/docs/KERNEL-PARAMETERS.md) and leave Variable refresh rate off.
+- The first start after the update prepares the engine's shaders for longer than before (58 s on AMD Vega 8; it may take longer on slower machines), and the first picture in a new output or with FSR 1 pauses briefly while its shaders are built.
+- Player-led Dolby Vision drops frames on 60p films (see above).
+- A Dolby Vision Profile 5 film in an MP4 file (codec tag dvhe) plays as SDR with wrong colours after a few seconds. This is not new in 0.6.0; the same profile in Matroska plays correctly.
+- Not included from CB1: HDR10 and HLG to Dolby Vision with its AI analysis, FSRCNNX and Anime4K upscaling, RGB and 4:4:4 player-led formats, software-decoded Dolby Vision (10-bit AV1), the choice of how hybrid Dolby Vision + HDR10+ files play, and Blu-ray menus.
+- All 0.5.1 known issues still apply (non-blocking presentation and FreeSync remain opt-in).
+
+Install
+Update from your edition's channel (yblod-13.0 or yblod-lg-13.0), or put the .tar of your edition in /storage/.update/; the .img.gz is for a fresh installation. Settings are kept. See the attached validation report and SHA256SUMS.
+
+All 0.2.2 notes and known limitations still apply: https://github.com/dangerouslaser/libreelec-yblod/releases/tag/yblod-0.2.2

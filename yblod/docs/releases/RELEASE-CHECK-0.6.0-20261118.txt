@@ -1,0 +1,819 @@
+YBLOD 0.6.0 validation (release images built 2026-11-18 20:17-20:20; report of 2026-11-19)
+
+Build source: main at 5f1683921f6e01b20bf76d690fc39eb8c86d445c (tree 39cff9be). Both editions were
+built from it (BUILD_ID 5f1683921f6e01b20bf76d690fc39eb8c86d445c in etc/os-release), in a clean
+checkout ("git status --short" empty; remote origin https://github.com/dangerouslaser/libreelec-yblod).
+These images are the fourth build in the same tree and the ones released: ~/yblod-0.6.0-release/
+holds them (byte-identical to tree-kernel/target/'s) with the source bundle and SHA256SUMS. In this
+report "the release images" are these; "release candidate" in the history below means the same
+build before it was chosen. Candidate 1 (d4b382e7db) was validated in full; candidates 2 and 3
+and the release images were each compared file by file with the build before, and every result
+below that the release images share with an earlier candidate rests on those comparisons
+(Candidates). The release images themselves ran on one machine (the LG G5 run of 2026-11-19).
+Changes since 0.5.1: main from b7b2b5ab2f (tree c3d2eb76; the tag yblod-0.5.1 is d26eccfc78, its
+parent; 0.5.1's images were built from f0f091fae6, tree 76de91ed, which differs from b7b2b5ab2f
+only in RELEASE-0.5.1.txt, RELEASE-CHECK-0.5.1-20261113.txt and releases/releases.json) to
+5f1683921f: five merges. #38, #39 and #40 (merge 032d611870, whose tree is d4b382e7db's, 32fdb900)
+bring in feat/croque-parity as validated, 33 commits after b7b2b5ab2f on its first-parent line:
+- LibreELEC master of 2026-11-14 (merge 24b77ef94f of 3a98afddff, 137 upstream commits; record
+  yblod/docs/RESYNC-20261118.txt): Kodi e6192109 -> 22.0rc2-Piers, Mesa 26.2.5 -> 26.3.0,
+  media-driver 26.4.2, intel-ucode 20261110, iwlwifi-firmware 70befd2, rust 1.100.0, dbus 1.16.4,
+  lz4 1.11.1, libfmt 12.2.1, exfatprogs 1.4.4, espeak-ng, ADDON_VERSION 12.80.8, Linux 7.3.4 (later
+  replaced, below). Then mesa-002 dropped (1bf0bd0c06) and two documentation commits.
+- FFmpeg: ffmpeg-9902 (0c3b106357), Dolby Vision RPUs padded after a byte-aligned payload accepted.
+- Vulkan engine (yblod-engine/vk), b1756ddc72..d60fad99dd, 17 commits: no L5 invented for an RPU
+  without one under the CB1 contract; HDR10+ application version 1 luminance fields as CB1 sends
+  them; every vendored CB1 file at b5149a09d7; CB1's SDR targets (a pure power, a true black, white
+  from 20 cd/m2, BT.2020); the FSR 1 upscaler (dvvk_set_scaler); CB1's Expert plan and its CPU map;
+  player-led Dolby Vision (DVVK_OUTPUT_LLDV); HDR10 Rendering Reference (DVVK_HDR10_TARGET); a
+  display's target from its Dolby VSVDB; documentation; target-check.sh's bounded float32 exception.
+  DVVK_ABI_VERSION 3 and the soname unchanged; five optional symbols added.
+- Kodi: kodi-9910 (mastering luminance compared by value), kodi-9963 (SDR display targets and
+  BT.2020, strings 45146-45160), kodi-9964 (upscaling, 45161-45166), kodi-9965 (player-led Dolby
+  Vision, 45167-45170), kodi-9966 (HDR10 Rendering Reference, 45171-45188). native-dv.env
+  (yblod-engine/integration/runtime.env) adds DV_UPSCALER=bilinear, DV_UPSCALER_SD=bilinear,
+  DV_SDR_TARGET=default, DV_SDR_CUSTOM_WHITE=100, DV_SDR_CUSTOM_GAMMA=2.4, DV_SDR_CUSTOM_BLACK=0,
+  DV_SDR_BT2020=0, DV_LLDV_OUTPUT=1, DV_LLDV_BITS=12, DV_HDR10_TARGET=0, DV_HDR10_TARGET_PEAK=1000,
+  DV_HDR10_TARGET_BLACK=0, DV_HDR10_TARGET_GAMUT=p3.
+- Kernel (yblod/docs/KERNEL-74-20261118.txt): Generic to Linux 7.4-rc3 (aebb727447, a GitHub
+  archive by hash), the configuration regenerated, the YBLOD series rebased (linux-9910, 9920, 9932,
+  9933 regenerated; 9920 and 9932 adapted to 7.4's amdgpu VTEM/HF-VSIF and stream-update changes),
+  CB1's FRL gate for HDR10+ (linux-9932), nvidia-9900 (nvidia-drm on 7.4), linux-9925
+  (amdgpu.freesync_hdmi_vcp, default 0).
+#41 (merge ead401147b, after the first hardware run):
+- kodi-9967 (c26055b201): a restart that changes the output configures the renderer again. Before
+  it, the video OSD's Output mode (kodi-9962, 0.5.1) restarted the title but kept its output, and so
+  did the restarts after a refused output (ten refused HDR10 or player-led commits, the engine
+  refusing the TV's player-led target) and after the engine failed to start or refused the title
+  (kodi-9961, 0.5.1): each kept the refused output, with no picture drawn. Now all six go through
+  DVBRIDGE::RestartForOutput, and the renderer is configured again for the restarted title.
+- kodi-9968 (ebe3ad703c): the warning when the GUI raster cannot be shared with the engine names
+  the step that failed and its value (logging only).
+- No string, setting or other file than Kodi's changes; KODI-PATCHES.md lists both.
+#42 (merge 5f1683921f): documentation only (finished notes moved to history folders, indexes in
+yblod/docs/README.md and yblod-engine/docs/README.md, corrections). The only change outside
+documents is a comment in yblod/tools/build.sh. It moves files inside yblod-engine/, which is in
+yblod-engine-vk's PKG_NEED_UNPACK, so that package was rebuilt (its output is byte-identical).
+
+Findings, most important first
+1. A flickering picture on the LG G5 with QMS on (the image's default), seen by the owner and not
+   by anything on the box. During the 2026-11-19 run of the release images (LG edition, Intel Core
+   i5-1135G7, LG G5), the owner, watching the TV, reported at about 06:47-06:49 that the picture
+   was flashing and asked for playback to be stopped as a seizure risk; it was stopped at 06:49:36.
+   Asked afterwards, the owner described it as a "rapid flicker on paused and playing picture"
+   (the owner's observation, not a measurement). Conditions then: QMS on
+   (/sys/module/i915/parameters/qms Y), the owner's own skin (Bald, heavier than Estuary), Kodi's
+   Variable refresh rate off; 1917 TV-led Dolby Vision, playing (06:47:07-06:47:46 and from
+   06:48:18) then paused from 06:48:38 at 40:03.979. At 07:10:12 the orchestrator wrote 0 to the
+   qms parameter and switched the skin to Estuary YBLOD; 1917 then played TV-led from 34:00
+   (07:11:12-07:11:36, 553 pictures, 0 dropped, 0 skipped in the kept kodi.log), and the owner
+   reported "there is no flicker", and again during the agent's continuation that followed (TV-led,
+   a paused frame, 2 min 50 s of player-led). QMS and the skin were changed together, and by
+   decision nobody turned QMS back on to see the flicker return. So QMS is the likely cause, not an
+   established one. Whether 0.5.1 flickers on this TV is not known.
+   What the box showed (Hardware, run 3):
+   - Kodi: no error about the picture from 06:48:18 to 06:49:37 (two "OutputPicture - timeout
+     waiting for buffer" warnings at the seek and the pause), no "failed to configure renderer", 0
+     dropped and 0 skipped. While paused under Bald, the engine redrew the same picture 24 times a
+     second for the whole pause: frame serial 480 to 1800 at the same pts (2404110000) from
+     06:48:39.2 to 06:49:34.3 (1320 pictures in 55 s), every 120-picture window "overlay prepare
+     (120 of 120 frames)", "0 of 120 pictures written in part, 100.0% of the canvas", 12.34-12.39 ms
+     GPU each; renderer closed processed=1845 held=1. Under Estuary the paused frame was held
+     (held=104, 271, 113 in three later pauses), not redrawn. Candidate 2 also redrew a paused frame
+     (run 1, the same pts on two consecutive lines at 18:41:33-18:41:38), so the redraw is not new;
+     whether the redrawn pictures are identical was not checked.
+   - Kernel: no HPD drop, modeset, underrun or link error in dmesg during the playback or the pause;
+     the held HPD drop and SCDC modeset only at the output changes (06:47:48 after the previous stop,
+     06:49:38 after the final stop). Connector sampled 100 times from 06:49:23.6 only: 45 samples
+     2160p24 Dolby Vision (TUNNEL_FORMAT 0, Broadcast RGB full, Colorspace 0, no HDR metadata) to
+     06:49:36.5, then the desktop from 06:49:36.6 (the stop); nothing changed before the stop.
+   - TV: its report at about 06:48:4x and 60 reports from 06:49:23 to 06:49:26 only: Dolby Vision,
+     frameRate 60, connected, in every one; the 06:48:4x report carries the QMS block (qmsVrrEnabled
+     true, nextTFR 1, base 60). Of four captures at 06:48:44-06:48:47 one shows the paused frame and
+     three are pure black; the capture service also returned pure black for Kodi's home screen at
+     06:36:36-06:36:52, so the black captures are not evidence of black pictures.
+   - What QMS changes in the signal (1917 TV-led, kept samples): with QMS on, the TV reports
+     frameRate 60 with the QMS block, and i915 runs the 2160p24 mode on the 60 Hz base timing with a
+     stretched vertical total (adjusted mode 594000 kHz, 4400 x 5630 totals, 23.977 Hz; port clock
+     594000); with QMS off, frameRate 24 in all 8 TV reports with no QMS block, and the CTA 2160p24
+     timing (296703 kHz, 5500 x 2250; port clock 296702). The connector's properties are the same in
+     both. HDR10 passthrough (Alien: Covenant) went out at 2160p24 without the QMS block even with
+     QMS on; every Dolby Vision tunnel output used the QMS base.
+   - Not seen in the sampled windows: any re-sync or mode change. The kernel and TV samples began at
+     06:49:23, after the report; when the flicker started is not known. The box cannot tell a
+     content flicker from a link effect the TV makes; only the owner saw it.
+   The owner's decision, 2026-11-19: QMS stays on by default in 0.6.0, and the release ships as
+   built, with the flicker documented as a known bug in the release notes and the documents
+   (QMS and Variable refresh rate described as experimental). From now on tests run with QMS off,
+   Variable refresh rate off and the Estuary skin.
+2. Three runs on two machines have played this release, one of them with the release images and a TV
+   reporting (Hardware): candidate 2's LG edition (run 1, 2026-11-18) and the release images' LG
+   edition (run 3, 2026-11-19) on an Intel Core i5-1135G7 (Tiger Lake) with an LG G5, observed
+   through the TV's own report and captures and, in run 3, the owner watching; and candidates 2 and
+   3 on an AMD Ryzen 5 3500U (Vega 8, DCN 1.0) with an LG B4, whose TV was in standby for the whole
+   run, so that every AMD result of the agents' run is from the box (logs, DRM state and the HDMI
+   encoder's packet registers). Candidate 3's KERNEL, engine, Mesa and kodi.bin are the release
+   images'. All booted 7.4-rc3 with no failed unit and no kernel error. On AMD the Dolby VSIF that
+   linux-9920 now keeps in place on a flip stayed in the encoder's vendor slot through every sample
+   during playback, OSD, seek, pause, stop and replay. The agents' run saw no AMD picture (the TV
+   was in standby). The owner states, 2026-11-19: "DV works on ryzen." Not recorded with that
+   statement: which build or boot profile it was seen on, which output modes, and when; it is the
+   owner's observation, not a signal report or a capture, and it does not replace the box-side
+   evidence. Not yet run on any machine: amdgpu's HDR10+ signalling under 7.4 (linux-9932's change:
+   the B4 has no HDR10+, so HDR10+ titles go out as HDR10), FreeSync engaging (Findings 9), suspend
+   with amd-pmc (not loaded on that AMD firmware), nvidia-9900, rtw88_8723bs.
+3. The video OSD's Output mode did not change the output: on 0.5.1 itself on the AMD machine (the
+   choice logged, no new output, the connector still dolby-vision 15 and 25 s later), and on
+   candidate 2 on the Intel machine (same, and the TV kept reporting Dolby Vision). By kodi-9967's
+   analysis neither did the restarts after a refused output or a refused title: both are 0.5.1
+   features (kodi-9962, kodi-9961) that never worked. kodi-9967 fixes the OSD choice: on candidate
+   3 (AMD, by Kodi's log, the connector and the encoder's packets) and on the release images (G5,
+   2026-11-19, with the TV's own report following every switch; under QMS on and the Bald skin):
+   Hardware, run 3. The restarts after a refused output or title were not provoked on any machine.
+4. Player-led Dolby Vision cannot hold 59.94 Hz on either machine. Gemini Man: on Vega 8 41.52
+   pictures a second, 1108 of 2501 flip intervals two refreshes long, 70 dropped and 10 skipped in
+   the run (TV-led on the same image: 59.94 a second, 0 and 0), engine 13.9 ms a frame on average
+   (p95 up to 18.1, max 21.9) against a 16.7 ms refresh; on the i5-1135G7 1 dropped and 17
+   skipped in 70 s (TV-led 0 and 1), engine 10.24 ms on average but single frames up to 45 ms. 24p
+   titles played without loss on both; on the release images (G5, QMS off, Estuary), 1917
+   player-led played 2 min 50 s with 0 dropped and 0 skipped, the TV reporting low-latency Dolby
+   Vision (Hardware, run 3). A limit of these GPUs at 60p, not fixed.
+5. A Profile 5 film in MP4 (codec tag dvhe) is decoded in software and played without the engine,
+   as SDR with Profile 5's wrong colours: on both machines, and identically on 0.5.1 on the AMD
+   machine, where it also starts in the Dolby Vision tunnel for about 8-10 s before the software
+   decoder takes over (a mode switch the viewer would see). Old, not a regression; unresolved. The
+   same profile in MKV plays as Dolby Vision.
+6. The GUI raster is shared with the engine on AMD (radeonsi, Mesa 26.3.0: "Private native GUI
+   raster shared with the Vulkan engine" at every Dolby Vision start, 72 lines in the kept logs,
+   never "no shared buffer") but not on the Tiger Lake VM (0.4.1 shared there, logging
+   "modifier=0x100000000000002"). With kodi-9968 the release images log the failing step, verbatim
+   (run 3, 06:39:15.741): "Private native GUI raster: no shared buffer (EGL image: eglCreateImageKHR
+   error 0x3009 (modifier 0x2, stride 15360, offset 0)); the Vulkan engine copies it". 0x3009 is
+   EGL_BAD_MATCH; Kodi's GUI plane is INTEL_Y_TILED and EGL lists
+   EGL_EXT_image_dma_buf_import_modifiers. The hardware agent's inference, not checked: the modifier
+   handed to EGL (0x2) lacks the Intel vendor prefix that 0.4.1's 0x100000000000002
+   (I915_FORMAT_MOD_Y_TILED) has. No effect of the copy was measured. Unresolved.
+7. Most userspace in the image was compiled before the kernel switch, against 7.3.4's headers (the
+   0.6.0-dev1 build of ba8b701d6c, 334 of the 349 stamps). This is what the stamps allow (a
+   package's stamp covers its own recipe, patches and PKG_NEED_UNPACK, not its dependencies), and no
+   package whose inputs changed came from a stamp (Images). glibc and iptables were rebuilt against
+   7.4's headers, ipset and wireguard-tools against the 7.4 kernel: every file of the four is
+   byte-identical to 0.5.1's (built against 7.3). systemd, rebuilt against 7.4's headers, shows the
+   effect where there is one: its systemd-journald knows the audit record type FSOPEN (AUDIT_FSOPEN,
+   new in 7.4's linux/audit.h); its other 87 files are byte-identical to 0.5.1's. Neither hardware
+   run found a failed unit, kernel error or call trace at boot.
+8. dvvk-prepare is slower: 124.7 and 123.6 s from cold caches on Ollie (0.5.1's own SYSTEM, run the
+   same way right after: 104.7 s), so about 19 s (18 %) more on every first boot after an update,
+   from the release (Mesa 26.3.0's compiler or the engine's shaders; not separated). On the Ryzen
+   5 3500U: 58 s, logged on both boots ("pipelines ready in 58 s"; 28 s for 0.5.0 there is reported
+   but not in the kept logs). Intel run 1 reports 223 s (not in its kept logs); on the release
+   images the same machine took 846 ms ("pipelines ready in 1 s", 695 ms CPU), reusing candidate
+   2's cache (same engine, same Mesa). Warm: 0.68 s.
+9. FreeSync on the AMD machine changed with 7.4 and linux-9925: the LG B4 now reads vrr_capable 1
+   with a 40-120 Hz range, where 0.5.1 (7.3.0) read 0 with 0-0, and at the 0.6.0 menu the encoder
+   sends an AMD FreeSync SPD (it is not sent during the Dolby Vision tunnel). This is a change on
+   that machine, not continuity. Kodi's Variable refresh rate setting (off by default) is shown
+   only on a VRR display, so B4 owners on AMD will now see it. FreeSync was not engaged (Kodi's VRR
+   setting was off), and what the TV does with the SPD was not seen. Whether 0.5.1 sent an SPD is
+   not in the logs (its registers were not read).
+
+Candidates (all in ~/yblod-parity/build/tree-kernel, with release.sh: yblod/tools/build.sh, docker
+yblod-parity-build:noble, 8g, 4 jobs; each kept in ~/yblod-parity/build/candidateN/)
+- Candidate 1, d4b382e7db, standard 17:21:11-17:32:37, LG -17:33:48 (standard .tar 0f5a1779...,
+  LG .tar b2ac00b8..., KERNEL 756f74a2...). Validated in full. Three defects, fixed for candidate 2:
+  - Nine licence files not in the commit were in usr/share/licenses/native-dv/ (intel-dv-GPL-2.0.txt,
+    intel-dv-GPL-3.0.txt, intel-dv-LGPL-2.1.txt, intel-dv-MIT-dovi-tool.txt, intel-dv-MIT-kernel.txt,
+    intel-dv-MIT-project.txt, intel-dv-PROJECT-LICENSE, intel-dv-UPSTREAM-NOTICES.txt,
+    intel-dv-canonical-checksums.json). The commit tracks them as yblod-engine/licenses/intel-dv-*
+    (lower case) beside yblod-engine/LICENSES/; the Mac's case-insensitive file system folds the
+    two directories into one. The tree's working files were a copy of
+    ~/yblod-parity/kernel-dev/checkout (made from the Mac checkout at 14:15:54; 6414 files and
+    directories carry that time), so its yblod-engine/LICENSES/ held untracked copies, which the
+    yblod-engine-vk recipe copies into the image. Each was byte-identical to the tracked file.
+    Fixed: git clean -fd yblod-engine. Not fixed, in the repository (also true of 0.5.1): the
+    case-colliding directories, and SOURCES.md pointing to LICENSES/intel-dv-GPL-2.0.txt, which a
+    clean Linux build does not install.
+  - etc/os-release had BUG_REPORT_URL="/home/bryan/yblod-parity/build/parity.bundle": scripts/image
+    takes it from the git remote origin, then the local bundle. Fixed: origin set to the GitHub URL.
+  - systemd had lost its optional libarchive and libbpf support against 0.5.1: the fresh tree
+    configured it before they were in the sysroot (its recipe does not depend on them). Fixed:
+    scripts/clean systemd; it was then configured with libbpf 1.8.0 and libarchive 3.8.11 found.
+- Candidate 2, d4b382e7db, 18:16:37-18:22:08 (standard .tar d07f92c4..., LG .tar f4ff2e69...,
+  KERNEL 9584731a...). Rebuilt: linux (the removal of the untracked
+  projects/Generic/linux/linux.x86_64.conf.old changed its stamp hash), so wireguard-tools, ipset
+  and nvidia; systemd and yblod-engine-vk (cleaned). Against candidate 1: the nine licence files
+  gone; BUG_REPORT_URL the GitHub URL; systemd's 88 files (its dlopen features 0.5.1's again:
+  archive 2, bpf 4, blkid 17, crypt 1, idn 1, kmod 4, mount 19); the shadow salt; and, standard
+  edition only, etc/passwd and etc/group with the same lines in another order. Nothing else:
+  libdv_engine_vk.so.1, dvvk-prepare, kodi.bin, every module byte-identical. KERNEL a new build of
+  the same code: the decompressed images differ in 190 bytes, all of them the build container's
+  name, the build time, the build ID and the built-in initramfs's entry times (57 entries, busybox
+  based, no systemd file). The libraries other packages link against, libsystemd.so.0.45.0 and
+  libudev.so.1.7.15, are byte-identical to candidate 1's and 0.5.1's. Installed on both hardware
+  machines (the Intel run's image; the AMD run's first install).
+- Candidate 3, ead401147b (kodi-9967, kodi-9968), standard 19:56:53-19:59:54, LG -20:01:01
+  (standard .tar 37636cf8..., LG .tar b1611d99..., KERNEL 9584731a...). Rebuilt: kodi host and
+  target only (stamps 19:57:26, 19:59:14). Against candidate 2, both editions: kodi.bin
+  (8aeab272..., 35,111,048 bytes, the same size), BUILD_ID, defs.pyc, the shadow salt, and etc/passwd
+  and etc/group back in candidate 1's and 0.5.1's order; nothing else. The AMD run's final image
+  (standard edition).
+- Release images (built as the release candidate), 5f1683921f, standard 20:17:37-20:18:51,
+  LG -20:20:01. Rebuilt: yblod-engine-vk only (stamp 20:18:09; documents moved in its source
+  folder). The LG passes of candidate 3 and of the release images built nothing.
+
+Release images against candidate 2 (and candidate 3)
+- SYSTEM, file by file, both editions (11520 files, LG 11639; links and directories unchanged):
+  kodi.bin, etc/os-release (BUILD_ID 5f1683921f..., otherwise as candidate 2: BUG_REPORT_URL the
+  GitHub URL), usr/lib/python3.14/site-packages/kodi/defs.pyc (the version stamp), usr/cache/shadow
+  (a new salt; root's hash is still the crypt of "libreelec", both editions), and in the standard
+  edition etc/passwd and etc/group (back to 0.5.1's order, identical to the LG edition's). Nothing
+  else. Against candidate 3: os-release and the shadow salt only.
+- Kodi: kodi.bin 375d82e9... -> 8aeab2726fc8ac9335eef98490c8db930977255785ab54cb975c92955a4c225d
+  (both editions and candidate 3 the same file; 31,207,928 of its bytes differ). It has
+  kodi-9968's new messages ("gbm_bo_create failed (errno", "dma-buf fd: gbm_bo_get_fd", "EGL
+  image: eglCreateImageKHR error"), which candidate 2's has not. No other file of the Kodi package
+  changed: strings.po, settings.xml, the add-on manifests and Kodi's Python modules (but the
+  defs.pyc stamp) are byte-identical, as kodi-9967 and kodi-9968 add no string or setting.
+- Byte-identical to candidate 2's, both editions: KERNEL (9584731a...) and every module,
+  libdv_engine_vk.so.1 (a6472223...; rebuilt in the release images' run, same bytes),
+  usr/lib/yblod/dvvk-prepare (264d7669...), native-dv.env, every Mesa file, every systemd file.
+- Patches: kodi was compiled in candidate 3's run (build-yblod-0.6.0.log from 19:56:53) and its
+  stamp used unchanged in the release images'. In that log: LibreELEC's 19 as before (offsets
+  in 1006, 1007, 1008 and 9902; 1007-handle-SIGTERM hunk 2 with fuzz 1), all 31 YBLOD patches
+  (kodi-9900..9910, 9950..9968, 9990) with no fuzz and no offset; 1903 build steps, the last one
+  linking kodi.bin; 33 compiler warnings, the same 21 in FileExtensionProvider.cpp and 12 in
+  libdvdcss/libdvdread/libdvdnav as before, none in a YBLOD file.
+- The update tars: the same 81 entries; README.md is now the repository's README.md at 5f1683921f
+  (8,421 bytes, rewritten in #42; candidates 1-3 had the earlier 6,497-byte one); everything else
+  as before. SYSTEM and KERNEL equal target/*.system and *.kernel and their .md5 files match; the
+  .img.gz installers carry the same SYSTEM and KERNEL (mcopy); every .sha256 in target/ is correct.
+- Not re-run on the release images, because the files they test are byte-identical to candidate
+  1's or 2's: the engine checks, dvvk-prepare, the ABI, the string ids, the kernel's configuration
+  and strings, pkgcheck and link-patches of the packages built.
+
+Images (candidate 1's history, still the base of the release images)
+How the tree came to be (reflog, file times, stamps and logs):
+- ~/yblod-parity/build/tree: a clone of parity.bundle at ba8b701d6c (14:08:58), built from scratch
+  as 0.6.0-dev1 (build-yblod-0.6.0-dev1.log: 14:09:16 at 5 jobs, 10g; llvm:host's cc1plus was
+  killed for memory at 15:04:34; the automatic retry at 3 jobs finished at 16:17:52). Its image:
+  BUILD_ID ba8b701d6c, kernel 7.3.4.
+- tree-kernel, created 16:27:29: that tree's .git and build directory (stamps keep their times),
+  with the working files of ~/yblod-parity/kernel-dev/checkout (Candidates). No stamp is dated
+  between 16:17:14 (dev1's last) and 17:06:30. 16:36:39 checkout of ba8b701d6c. Kernel work
+  (~/yblod-parity/kernel-dev/logs): kernel configuration 16:37-16:40, linux 16:40-16:58, nvidia
+  failed 16:59 and was fixed (nvidia-9900), then nvidia, wireguard-tools, ipset, and iptables and
+  glibc cleaned and rebuilt 17:05-17:09 (kpkgs2.log), linux with linux-9925 17:16-17:18
+  (linux-vrr.log). 17:20:57 checkout of d4b382e7db (from release.bundle), candidate 1 at 17:21,
+  candidate 2 at 18:16, 19:56:53 checkout of main (ead401147b), candidate 3, 20:17:37 main reset to
+  5f1683921f, the release images.
+- Stamps after the release images (349): 334 from 0.6.0-dev1 (14:09:17-16:17:14), 3 from the
+  kernel work (iptables, glibc and glibc:init), 3 from candidate 1 (repository.dangerouslaser,
+  service.webostv, yblod-lg), 6 from candidate 2 (linux host and target, systemd, wireguard-tools,
+  ipset, nvidia), 2 from candidate 3 (kodi host and target), 1 from the release images
+  (yblod-engine-vk).
+Stale packages: none found. Every package whose inputs changed since ba8b701d6c was built after its
+last change (build_mt checks each stamp against the commit; linux's covers its recipe, the
+configuration and the patch directories). Inputs a stamp does not cover: kodi reads
+yblod-engine-vk's dv_engine_vk.h (unchanged since kodi's build); yblod-engine-vk copies
+yblod-engine/SOURCES.md and LICENSES/ (rebuilt last); userspace reads the kernel's headers
+(Findings 7). The only binary add-on in the image, peripheral.joystick, was built against
+ba8b701d6c's Kodi; kodi-9910 and 9963-9968 change no add-on interface file.
+- Patches: nvidia-9900 with no fuzz and no offset (candidates 1 and 2); nvidia 580.196.07 built,
+  modules with vermagic 7.4.0-rc3 (objtool's "naked return" warnings on NVIDIA's binary objects
+  only). linux, in linux-vrr.log (17:16) and again in candidate 2's run: 17 patches on 7.4-rc3,
+  LibreELEC's 3 and YBLOD's 14, none with fuzz; offsets only in 0062 (1 hunk), linux-9900 (4), 9901
+  (6), 9913 (6), 9922 (1), 9923 (6), 9924 (1), 9930 (7) and 9931 (13), as KERNEL-74 records;
+  linux-9910, 9912, 9920, 9925, 9932 and 9933 apply exactly; 4 warnings (kconfig lexer, wireguard
+  allowedips.c), none in a patched file. ffmpeg (0.6.0-dev1 log, ba8b701d6c, which has 0c3b106357):
+  LibreELEC's postproc and libreelec patches, then ffmpeg-9900, 9901 and 9902, no fuzz, no offset.
+- Static, on a clean Linux clone of d4b382e7db (~/yblod-0.6.0-check/repo): link-patches.sh "patch
+  links OK" (29 Kodi patch links then, 31 at 5f1683921f as the build's "patch links OK" shows;
+  linux 14, nvidia 1, ffmpeg 3); tools/pkgcheck kodi, linux, nvidia, ffmpeg, yblod-engine-vk, mesa,
+  LibreELEC-settings and skin.estuary.yblod: no findings but ffmpeg's LibreELEC warning 065
+  (get_graphicdrivers), as upstream. kodi's recipe is unchanged since; its patches are links.
+- The update tars hold the same 81 entries as 0.5.1's (RELEASE, CHANGELOG, README.md, target/
+  SYSTEM, KERNEL and their .md5, 71 licence files); CHANGELOG and the licences are 0.5.1's; RELEASE
+  names "Kodi commit: 22.0rc2-Piers". The .img.gz installers: GPT, "system" 2097152 sectors from
+  8192, "storage" 65536 sectors.
+- KERNEL (since candidate 2): bzImage 7.4.0-rc3 (docker@99491267e9ef) #1 SMP PREEMPT Wed Nov 18
+  23:18:42 UTC 2026, 51,336,704 bytes. Its configuration (configs.ko) equals
+  projects/Generic/linux/linux.x86_64.conf but for LibreELEC's build-time values (DEFAULT_HOSTNAME,
+  INITRAMFS_SOURCE, EXTRA_FIRMWARE and its directory): AMD_PMC=m, RTW88_8723BS=m,
+  DRM_AMD_DC_DCE=y, CHECK_WX=y, MEDIA_CEC_SUPPORT=y, DRM_DISPLAY_DP_AUX_CEC=y. YBLOD's changes as
+  far as they show without running: modules.builtin.modinfo has amdgpu.parm freesync_hdmi_vcp
+  (bool, linux-9925, "default false"), hdmi_hpd_debounce_delay_ms, hdr_yuv420, enable_dv_lab, and
+  i915's enable_dv_lab, hpd_hold_ms, hdmi_freesync, qms, hdr_yuv420, spd_sdi; the decompressed
+  kernel has the property names DVBRIDGE_TUNNEL_FORMAT, DVBRIDGE_DV_STANDARD_LAB and
+  HDR10PLUS_METADATA, the enum value "lldv" and linux-9930's CM11EBV58W. Modules: 1033 -> 1035 .ko
+  against 0.5.1's 7.3.0: added rtw88_8723b, rtw88_8723bs, rtw88_sdio, amd-pmc; removed staging
+  r8723bs and blocklayoutdriver (PNFS_BLOCK now built in); nvidia's four modules (580.196.07) have
+  vermagic 7.4.0-rc3.
+- Candidate 1's SYSTEM against 0.6.0-dev1 (same tree, before the kernel switch): kernel modules
+  7.3.4 -> 7.4.0-rc3 and nvidia's 4 for 7.4; the nine licence files; kodi.bin, strings.po,
+  settings.xml, native-dv.env, libdv_engine_vk.so.1, SOURCES.md, perf, libm.so.6 (rebuilt glibc,
+  byte-identical to 0.5.1's), the version stamps and the shadow salt. Every other file of the
+  packages rebuilt after dev1 (iptables, ipset, wireguard-tools, the rest of glibc) was
+  byte-identical to dev1's.
+- The release images' SYSTEM compared with 0.5.1 file by file (standard 11515 -> 11520 files:
+  1056 added, 1051 removed, 1133 changed; LG 11634 -> 11639, the same; 283 module directories of
+  7.3.0 removed and 284 of 7.4.0-rc3 added; 6 links retargeted, all to the renamed Mesa, dbus,
+  libfmt and lz4 libraries; no other directory or link changed). Every difference was assigned to
+  the package that installed the file (the build's install_pkg):
+  - Kernel: 1047 module files of 7.3.0 removed, 1045 of 7.4.0-rc3 and nvidia's 4 added; perf.
+  - LibreELEC's updates: Mesa 26.3.0 (libgallium-26.2.5.so -> libgallium-26.3.0.so, libvulkan_intel,
+    libvulkan_radeon, libEGL_mesa, dri_gbm, libgbm, the two Vulkan ICD files and four drirc.d
+    files changed, 01-radv-performance.conf added), dbus 1.16.4 (libdbus-1.so.3.38.3 -> .38.5 and
+    11), lz4 1.11.1 and libfmt 12.2.1 (renamed libraries), iwlwifi-firmware (24 changed, 1 added),
+    exfatprogs (8), espeak-ng (7), media-driver (iHD_drv_video.so), libbluray, flex,
+    ADDON_VERSION 12.80.8 (repository.libreelec.tv/addon.xml, etc/profile.d/00-addons.conf, which
+    also takes version 4 add-on settings), Kodi 22.0rc2's version files (xbmc.addon, xbmc.json,
+    KodiConfig.cmake, the metainfo).
+  - FFmpeg (ffmpeg-9902 and a rebuild): libavcodec, libavfilter, libavutil (sizes) and 5 others.
+  - Kodi: kodi.bin (35,061,672 -> 35,111,048 bytes), strings.po (ids 45146-45188 added), settings.xml
+    (461 -> 473 settings: dvbridge.sdrtarget, sdrcustomwhite, sdrcustomgamma, sdrcustomblack,
+    sdrbt2020, upscalerhd, upscalersd, hdr10method, hdr10peak, hdr10black, hdr10blackcustom,
+    hdr10gamut; none removed, no duplicate id; player-led Dolby Vision is a value of
+    dvbridge.outputmode, filled in by Kodi).
+  - Engine: libdv_engine_vk.so.1 (ded12053 -> a6472223, 1,725,136 -> 2,466,512 bytes); native-dv.env
+    (above; identical to yblod-engine/integration/runtime.env in both editions); SOURCES.md;
+    licences: dv-engine-vk/MIT-AMD-FidelityFX-FSR.txt (the FSR code's). dvvk-prepare's source is
+    unchanged: it differs only in its dynamic-linking tables.
+  - Version stamps (os-release, issue, release, defs.pyc) and usr/cache/shadow (a new salt; every
+    other line is 0.5.1's).
+  - systemd: systemd-journald (Findings 7); its other 87 files are 0.5.1's.
+  - The rest is the fresh build, not a source change (0.5.1's tree was incremental since October):
+    828 .pyc files differ only in their header's source time and size words (Python3 579,
+    pycryptodome 116, Pillow 97, LibreELEC-settings 22, Kodi's Python modules 12, dbussy 2); 145
+    ELF files in 19 unchanged packages differ only in their dynamic-linking tables (the order of
+    the symbol-version entries; code and data identical); 68 files of 35 unchanged packages differ
+    in content, sampled: build dates (busybox, openssl, nspr, Python, keyutils), symbol-version
+    definition order (lirc, pulseaudio, avahi, fontconfig), code built against the libraries now
+    in the tree where 0.5.1's had been built against older ones (libcairo against libpng 1.6.59,
+    0.5.1's against 1.6.58; Pillow's WHEEL names setuptools 84.2.1, 0.5.1's 84.0.0) and
+    yblod-iphone-remote (Rust 1.100.0). Not all 68 were examined.
+  No skin file changed (Estuary YBLOD 4.1.0+yblod.22). The LG add-ons (service.webostv 0.8.11,
+  repository.dangerouslaser) and addon-manifest.xml are byte-identical to 0.5.1-lg's.
+- The editions differ exactly as in 0.5.1: the LG add-ons (118 service.webostv files, 1
+  repository.dangerouslaser) and their 17 directories, addon-manifest.xml, the version stamps and
+  the shadow salt. KERNEL, kodi.bin, the engine, dvvk-prepare and native-dv.env are identical in
+  both.
+- Kodi string ids (0.5.1's check_strings.py on candidate 1's patched Kodi tree, whose strings.po
+  and settings.xml are the installed ones in every candidate, against Kodi 22.0rc2-Piers's own
+  strings.po): 4799 unique, no duplicates, 145 ids added since 22.0rc2 (0.5.1: 102 since e6192109),
+  all in 45000-45999 but 40818 (Estuary YBLOD's), 45146-45188 present once each, no referenced id
+  missing. Unreferenced by the checker's patterns: 45136, 45137, 45142-45145 (as in 0.5.1) and
+  45168, 45169, which WinSystemGbmGLESContext.cpp uses through a conditional
+  (playerLed ? (sdr ? 45169 : 45168) : ...). kodi-9967 and 9968 add no string id.
+
+Testing
+(Run on candidate 1's files. The release images' libdv_engine_vk.so.1, dvvk-prepare and Mesa
+are byte-identical to them, so the results apply unchanged.)
+- Engine, with the release library (a6472223aad162eececd8890b52048fb91f30897c97ab264ea1ab963c9f5ac3a,
+  extracted from SYSTEM; the same file in both editions and every candidate), on Ollie's UHD 770 in
+  the harness (~/yblod-parity/harness/vk.sh, image yblod-parity-engine:1: Arch of 2026-11-13, Mesa
+  26.2.6, the driver the hash files name; glibc 2.44). The library needs at most GLIBC_2.43 and
+  libva, libgcc_s, libm, libc, so it loads there as it is. The tools are from d4b382e7db (vk.sh
+  build, NAME yblod060-rel, Arch toolchain; the engine's sources are unchanged since), and the
+  image's library replaced the harness-built one in out/yblod060-rel/bin (dvvk-bench links
+  libdv_engine_vk.so.1 through LD_LIBRARY_PATH). The image's own Mesa (26.3.0) ran only
+  dvvk-prepare (below).
+  - golden.sh check on the 1917 FEL, Gemini Man MEL and 28 Years Later P8.1 clips: identical (102
+    hashes), FLIP_Y twins identical (18). golden.sha256 is unchanged since 0.5.1.
+  - HDR10 output: the 15 dumps identical to 0.5.1's (hdr10-0.5.1.txt, the 0.5.1 check's hdr10.log).
+  - sdr-check.sh check, strict (vulkaninfo names the driver sdr.sha256 names), on the 1917 FEL,
+    Gemini Man MEL, 28 Years Later P8.1 and P5 Landscape Demo clips against the committed
+    tools/sdr.sha256: every sample within 1 code of the CPU map (92 pictures: 0.5.1's 78, whose
+    hashes are unchanged in the file, and the 14 SDR-target pictures), lowest equal share 95.7509 %
+    (hlg.11, as in 0.5.1), FLIP_Y twins identical, hashes identical (92).
+  - scaler-check.sh check (p81-3840x1744-l5full and 28 Years Later made 1080p, 1917 FEL, Gemini Man
+    MEL): 40 pictures, every luma code within one of the CPU reference; EASU 97.04-97.28 % equal and
+    the rest +1, EASU + RCAS 97.79-98.02 % equal, at most 0.532 and 0.564 code from the unrounded
+    reference; the invariants hold (bilinear = no call, FSR mid-stream = from the start, FLIP_Y
+    twin, unknown method refused); hashes identical (40).
+  - target-check.sh check (1917 FEL, Gemini Man MEL, 28 Years Later P8.1, the P5 Landscape Demo):
+    28 pictures of 14 configurations; every sample within one code of the carrier's grid of
+    dvvk-map-test's double-precision map but in the documented exception, lldv-p81-cm4-p3edid
+    (CM4.0 trims through the TV's own primaries, allowed up to 4): 2 codes at frame 0 and 4 at
+    frame 11, as in development; 65.88-99.96 % of a channel's samples equal (LLDV 78.44-99.96 %,
+    HDR10 target 65.88-98.91 %); the GUI's FLIP_Y twin identical; hashes identical (28). Exit 0.
+  - ABI: soname libdv_engine_vk.so.1; NEEDED unchanged (libva.so.2, libgcc_s.so.1, libm.so.6,
+    libc.so.6, ld-linux-x86-64.so.2); 0.5.1's 28 exported symbols all present, plus
+    dvvk_lldv_display_from_vsvdb, dvvk_sdr_flags, dvvk_set_display_primaries, dvvk_set_scaler and
+    dvvk_target_flags (33; the harness-built library exports the same 33). dv_engine_vk.h:
+    DVVK_ABI_VERSION 3u, DVVK_LIBRARY "libdv_engine_vk.so.1".
+  - dvvk-prepare from the image, run in candidate 1's standard SYSTEM imported as a container (its
+    own Mesa 26.3.0 and libraries, render node only, empty /storage, 6g, under the harness's GPU
+    lock): 112 of 112 pipelines (0.5.1: 112; the new player-led, HDR10 target and FSR pipelines are
+    left to first use by design), DVVK_PREPARE_READY, exit 0; 124.7 s and 123.6 s from cold caches
+    (0.5.1: 98 s), 0.68 s with its 20.1 MB pipeline cache (0.5.1: 0.46 s, 20.9 MB). Control: 0.5.1's
+    standard SYSTEM, the same way, right after: 112 of 112, READY, 104.7 s.
+- CPU-only, on the harness build of d4b382e7db (NAME yblod060-check, library 534fca78, which is the
+  Arch toolchain's): cargo test 50 of 50 pass (0.5.1: 39), with CB1's three HDR10+ C test lines
+  passing; vk.sh cpu: test-mel ok, 6 fixtures x HDR10/SDR, 12 SDR ramps ok, dither-table identical,
+  output identical to cpu-baseline.txt (537 lines).
+
+Hardware
+Three runs by agents. 2026-11-18: Intel (run 1, candidate 2) with a television reporting and no
+one watching; AMD (candidates 2 and 3) with its television in standby throughout. 2026-11-19:
+Intel (run 3, the release images) with a television reporting and the owner watching. Outcomes of
+the four items found, across both machines: Findings 3 to 6; the flicker: Findings 1.
+
+Intel Core i5-1135G7 and LG G5, run 1 (candidate 2)
+- Candidate 2, LG edition (.tar f4ff2e69..., checked on the box), installed as an update over
+  0.4.1-lg on an Intel Core i5-1135G7 (Tiger Lake, Iris Xe) virtual machine with the GPU passed
+  through, HDMI to an LG G5, on 2026-11-18 18:35-19:24, by an agent with no one watching the screen.
+  The release images' KERNEL, engine, Mesa and every file but kodi.bin and the stamps are this
+  image's. Channels: Kodi's log and journal (the engine's "dvvk profile: gpu" timing lines per 120
+  frames; "DVBridge playback health" every 10 s, enabled with DVBRIDGE_DIAGNOSTICS=1 for the test
+  and removed after); the connector's DRM properties (modetest), i915's display state and dmesg;
+  the TV's own report of its input over its service interface (getStatus: HDR type, pixel encoding,
+  range, colorimetry, QMS) and its 480x270 8-bit capture of the processed picture. i915 exposes no
+  InfoFrame files here, so the VSIF and AVI bytes were not read; the TV's report stands in for them.
+  Raw files: ~/yblod-0.6.0-check/hw-petunia/ (commands.log is every command sent). Checked against
+  those logs: every frame count, engine time and TV report below; exceptions are named.
+- Boot: os-release BUILD_ID d4b382e7db with the GitHub BUG_REPORT_URL; kernel 7.4.0-rc3 of
+  23:18:42 UTC (candidate 2's); no failed unit; no kernel error or call trace; one new boot line,
+  "CPA detected W^X violation ... range 0xffffffffc0200000-0xffffffffc0200fff" at 0.05 s followed
+  by "x86/mm: Checked W+X mappings: passed, no W+X pages found" (CHECK_WX=y, new in this
+  configuration). i915 parameters as set (enable_dv_lab, hpd_hold_ms 3000, qms, hdr_yuv420,
+  spd_sdi 1). Kodi 22.0rc2 migrated the Dolby Vision settings and kept the user's values; the add-ons
+  (84) all enabled. yblod-dv-prepare started at 18:36:20; the report gives 223 s to complete and a
+  20.1 MB cache, but the kept logs do not show its end (Findings 8).
+- Unchanged behaviour, with the user's settings (TV-led output), against the same titles on 0.4.1-lg
+  first (1917 0 dropped / 0 skipped, 3500 pictures; Gemini Man 0 / 3):
+  - 1917 (P7 FEL, 23.976): TV Dolby Vision, RGB, QMS; DVBRIDGE_DV_STANDARD_LAB 1, TUNNEL_FORMAT
+    dolby-vision, max bpc 8, as on 0.4.1; 0 dropped / 1 skipped (in the first 10 s) in 80 s, 1938
+    pictures processed = presented. Seek, pause and stop worked; every Dolby Vision stop held one
+    HPD drop (1004-1040 ms) and made one SCDC modeset, as on 0.4.1.
+  - Soak, 1917 from 20:00, 10 min 17 s: 14777 processed = presented, 0 / 0, TV Dolby Vision
+    throughout; engine 10.13 ms a frame on average (123 windows), worst window 12.15 ms.
+  - Gemini Man (P7 MEL, 59.94): TV Dolby Vision, QMS 59.94; 0 / 1 in 80 s. 28 Years Later (P8.1):
+    0 / 0. A Profile 5 MKV: Dolby Vision, 0 / 0. Fast X (HDR10+ as Dolby Vision): 0 / 1. Alien:
+    Covenant (HDR10): TV HDR10, 10 bpc, BT2020_RGB, the same HDR metadata as 0.4.1. Alien (HDR10+
+    not representable): played as HDR10, as designed. An HLG sample: TV HLG, YCbCr 4:2:0.
+  - Convert to HDR10 (the setting): TV HDR10 YCbCr 4:2:2, TUNNEL_FORMAT hdr10, mastering 1000 /
+    0.0000, 0 / 0, engine 12.45 ms. Convert to SDR: TV SDR RGB limited, "BT.709, BT.1886, white
+    203 cd/m2", 0 / 0.
+- New in 0.6.0:
+  - Player-led Dolby Vision: offered for the G5 from its VSVDB (version 2, low-latency 4:2:2): the
+    target 2485 / 0.0000 cd/m2 and primaries R 0.6869,0.3118 G 0.2461,0.7031 B 0.1475,0.0530, fitted
+    from the block's 2484 cd/m2 and R 0.6875,0.3125 G 0.2461,0.7031 B 0.1484,0.0508 (edid-decode).
+    With it, TUNNEL_FORMAT lldv, no HDR_OUTPUT_METADATA, and the TV reports "DolbyLL", YCbCr 4:2:2,
+    limited range, BT.2020 colorimetry, in its Dolby Vision picture mode. 1917: 0 / 1 in 2 min, 3012
+    processed = presented, engine 16.6 ms on average (worst window 21.9); 28 Years Later: 0 / 0
+    in 65 s, 11.65 ms (worst window 14.7); with DV_LLDV_BITS=10, "10 useful bits" everywhere and
+    0 / 0. Gemini Man (59.94): 1 dropped, 17 skipped in 70 s, about 53 pictures a second against
+    59 TV-led, engine 10.24 ms on average with single frames up to 45 ms (Findings 4). The TV's
+    captures show a normal picture with the OSD over it. TV-led against player-led on a paused
+    frame: the report gives player-led 13-18 % lower codes (median 22 -> 19, p95 44 -> 38, p99 60
+    -> 49) and the same saturation (82.9 / 83.4). Correction (found in run 3 and reproduced here):
+    those figures are PIL's convert('L') (BT.601 weights) on a left crop (0,40)-(297,216) of the
+    480x270 captures, about 62 % of the width with the sky cut off, of two frames 0.15 s apart
+    (40:04.099 TV-led, 40:03.948 player-led, the agent's account), under QMS on and the Bald skin;
+    convert('L') on that crop gives exactly 22/19, 44/38, 60/49. Over the whole frame (BT.709 luma)
+    the same files give median 16.6 -> 16.0, p95 97.7 -> 87.2, p99 114.3 -> 94.2. The saturation
+    figures were not reproduced by any method tried (HSV over the crop 32.5 / 32.7, over the frame
+    22.8 / 22.9). Run 3's measurement replaces these (below). Captures are the TV's processed 8-bit
+    picture, not light; no one judged the picture by eye.
+  - HDR10 Rendering Reference: 1000 cd/m2, OLED black, P3 (the defaults): metadata 1000 / 0.0000 P3,
+    TV HDR10 4:2:2, 0 / 1, engine 14.22 ms (Master Reference 12.45). 600 cd/m2, LCD 0.005, BT.2020:
+    the log's and the kernel's metadata agree (R 0.708,0.292 G 0.170,0.797 B 0.131,0.046, D65, max
+    600, min 0.0050), TV HDR10, 0 / 0. The TV does not report mastering values.
+  - SDR display targets: Reference with BT.2020 colours: Colorspace BT2020_RGB, the TV reports
+    colorimetry FUTURE / BT2020 (BT.709: NODATA), "BT.2020, gamma 2.40, white 100", 0 / 1; the
+    colourspace change cost one held HPD drop at the start. Bright room: "BT.709, gamma 2.20, white
+    200", 0 / 0. Custom not tried.
+  - Upscaling (1080p and above), Extraction 2 (P8.1 1920x1080, 24p): engine 5.14 ms bilinear,
+    12.63 ms FSR 1, 12.53 ms FSR 1 + sharpening, each 0 dropped (1 skipped at the start with FSR 1).
+    Below 1080p not tried.
+- Defects found, and what became of each:
+  - The video OSD's Output mode (1917, TV-led, to Convert to HDR10, then to SDR): the log shows the
+    choice and the restart ("this title's output from the video OSD: HDR10 (output mode 1)", a new
+    surface pool and an engine reset) but no new output line; the connector stayed
+    TUNNEL_FORMAT dolby-vision and the TV kept reporting Dolby Vision; the setting itself worked.
+    Fixed in the release images by kodi-9967 (Findings 3), which found the same flaw in the
+    restarts after a refused output: on AMD by the box's evidence, and on this TV with its own
+    report on the release images (run 3, below).
+  - Player-led at 59.94 Hz skips frames (Findings 4): a limit of this GPU, worse on Vega 8.
+  - Profile 5 in MP4 decoded in software, SDR on the TV (Findings 5): the same on 0.5.1 (AMD), so
+    old; unresolved.
+  - The GUI buffer is no longer shared with the engine (Findings 6): shared on AMD with the same
+    Mesa; the release images log the failing step (EGL_BAD_MATCH; run 3); cause unresolved.
+  - Smaller: one skipped frame in the first 10 s of most titles (0.4.1: none on 1917); one more HDMI
+    PCM device (HDMI 3); "CAEStreamInfo::GetDuration - invalid stream type" once; the webOS add-on's
+    "TV did not apply picture preset" when the output's type differs from the source's.
+- Not observed: whether any picture is right by eye (player-led brightness and colour, Rendering
+  Reference against Master Reference, the SDR targets' gamma and white, FSR's sharpness), audio and
+  video sync, Upscaling below 1080p, Custom SDR, a TV without player-led, the kernel refusing it.
+
+AMD Ryzen 5 3500U (Vega 8, DCN 1.0) and LG B4 (candidates 2 and 3)
+- THE TELEVISION WAS IN STANDBY FOR THE WHOLE RUN (its network services did not answer at any of
+  the checks between 19:28 and 20:35). Nothing below comes from the TV: no signal report, no
+  capture, no picture. Every result is from the box: Kodi's log and journal, DRM state, the kernel
+  log and the HDMI encoder's packet registers.
+- The standard edition, as a separate boot profile beside the existing 0.5.1 profile (the 0.5.1
+  profile's storage was copied for 0.6.0 after a baseline on it), on 2026-11-18 19:32-20:34.
+  Candidate 2 (.tar d07f92c4...) was installed and run first; then candidate 3 (.tar 37636cf8...,
+  BUILD_ID ead401147b..., checked on the box), whose KERNEL, engine, Mesa and kodi.bin are the
+  release images'. Everything below is candidate 3 unless it says otherwise. Default settings,
+  each changed setting restored and read back. Raw files: ~/yblod-0.6.0-check/hw-ryzen/
+  (commands.log is every command sent; raw/ one directory per run; kit/ the scripts, analyse.py
+  computing flips, intervals and GPU time from each run's files). Checked against those files:
+  every frame count, flip count, GPU and engine time and register reading below; exceptions named.
+- Channels: Kodi's log (the "DVBridge playback health" counters; the bench profile's own
+  native-dv.env enables them), Kodi's journal (the engine's "dvvk profile: gpu" lines with GPU
+  timing on); modetest's connector properties and amdgpu's debugfs (current bpc, colorspace,
+  vrr_range) at 4 s, 8 s, after each window and after each action; page flips from the
+  drm_vblank_event_delivered trace with their intervals, and per-flip gfx and decode engine time
+  from fdinfo, over 60 s (30 s for most) windows; dmesg with drm.debug 0x4 for the first 8 s of each
+  title (the kernel's own line with the VSIF it builds).
+- The encoder's packets, and what they show: amdgpu's infoframes debugfs directory is empty, so
+  DIG0's packet registers were read, read-only, through debugfs amdgpu_regs every 2 s through each
+  window and at each step (38 samples in the full 1917 run). DC writes the HDMI packets in a fixed
+  order into indexed generic slots (AVI 0, HF-VSIF 1, gamut 2, vendor 3, SPD 4, HDR 5);
+  AFMT_VBI_PACKET_CONTROL's index field names the last slot written, AFMT_GENERIC_HDR and
+  AFMT_GENERIC_0..7 hold that slot's header and bytes, and HDMI_GENERIC_PACKET_CONTROL0/1 hold
+  which slots are enabled. The readings decode as the packets expected: at the menu an AMD FreeSync
+  SPD (83 01 08 | df 1a 00 ...), for Dolby Vision the Dolby VSIF 81 01 1b | 4b 46 d0 00 02 ...,
+  byte-identical to the VSIF the kernel logged, for player-led the same with the low-latency bit
+  (4a 46 d0 00 03), for HDR10 the DRM InfoFrame 87 01 1a | ... equal to the kernel's metadata
+  (1000 / 0.0050 cd/m2), for SDR after a Dolby Vision title the ordinary HDMI VSIF. They establish:
+  - during every Dolby Vision title, the vendor slot was the last written and held the Dolby VSIF,
+    and the HF-VSIF slot was not enabled (CONTROL0 0x00020003), at every sample: in the 1917 run
+    38 of 38 identical, through the 60 s window, the OSD open, after a 30 s seek, paused, resumed,
+    and on replay after a stop (and back to the menu's set at each stop); the same in Gemini Man,
+    28 Years Later and player-led. linux-9920's 7.4 change (no HDMI VRR VTEM, no ALLM HF-VSIF
+    for a tunnel stream, so the Dolby VSIF stays in place on a flip) holds at the encoder.
+  They do not establish: what the TV received, accepted or showed (a wrong picture is not ruled
+  out); every flip (samples every 2 s and at each step: a packet changed and restored between two
+  samples would not show); the bytes of the slots that were not written last (only whether they
+  are enabled), so the AVI InfoFrame's contents were not read; the packets of 0.5.1, whose
+  registers were not read, so there is no packet-level comparison with 0.5.1.
+- Baseline on 0.5.1 (the existing profile, kernel 7.3.0), default settings: 1917 (P7 FEL) 1443
+  flips in 60.2 s, every interval one refresh, 0 dropped / 0 skipped, 14.61 ms gfx a flip;
+  Gemini Man (P7 MEL, 59.94) 3613 flips, every interval one, 0 / 0, 6.83 ms; Alien and Fast X
+  (HDR10+) and Alien: Covenant (HDR10): HDR10 static metadata, 12 bpc, BT2020_RGB; the video OSD's
+  Output mode did not change the output (Findings 3).
+- Boot: SSH 31 s after the reboot; startup finished in 1 min 25.5 s; kernel 7.4.0-rc3 of 23:18:42
+  UTC. The kernel log is 0.5.1's but for the version, network lines, an AMD-Vi line and "x86/mm:
+  Checked W+X mappings: passed" (no W^X violation here, unlike the Intel run); amdgpu shows only
+  Raven's usual "psp gfx command LOAD_TA(0x1) failed" (as on 0.5.1), and no error, ring timeout,
+  reset or call trace, at boot or after about 29 minutes of playback. No failed unit in the
+  journal. amdgpu.enable_dv_lab Y, freesync_hdmi_vcp N (the default). yblod-dv-prepare: "pipelines
+  ready in 58 s" on both boots. Kodi 22.0rc2 with radeonsi, Mesa 26.3.0; HDMI audio ELD "LG TV
+  SSCR2", TrueHD 8-channel passthrough opened on 1917 and Gemini Man, E-AC-3 on Fast X.
+- 0.5.1 against 0.6.0, default settings (TV-led):
+  - 1917: 1443 flips in 60.2 s, every interval one, 0 / 0, 14.60 ms gfx a flip (0.5.1 14.61);
+    engine 14.13 ms on average (journal, 13 windows); DVBRIDGE_DV_STANDARD_LAB 1, TUNNEL_FORMAT
+    dolby-vision, max bpc 8, the kernel's VSIF as on 0.5.1 ("tunnel stream 3840x2160@24 vic 93").
+  - Gemini Man: 3609 flips in 60.2 s (59.94 a second), every interval one, 0 / 0, 6.76 ms (0.5.1
+    6.83); engine 6.26 ms. 28 Years Later: 722 flips in 30.1 s, 0 / 0, 3.99 ms.
+  - HDR10+ titles (Alien, Fast X): HDR10 static metadata only, the same blob and packets as 0.5.1:
+    the B4 has no HDR10+ block, so HDR10PLUS_METADATA stays empty and linux-9932's amdgpu change was
+    not exercised. Alien: Covenant (HDR10): identical to 0.5.1.
+  - Convert to HDR10 (setting): TUNNEL_FORMAT hdr10 with HDR metadata, the HDR InfoFrame in the
+    encoder (1000 / 0, MaxCLL and MaxFALL 0), the vendor slot off; 722 flips in 30 s, every
+    interval one, 0 / 0, 14.76 ms. Convert to SDR: "BT.709, BT.1886, white 203 cd/m2, full range",
+    dv 0, 0 / 0, 14.89 ms. Convert to HDR10+ not offered (no HDR10+ on the TV).
+- New in 0.6.0:
+  - Player-led Dolby Vision: offered, "the TV's target 775 / 0.0000 cd/m2" from the B4's VSVDB
+    (version 2, 12 useful bits); TUNNEL_FORMAT lldv, no HDR metadata, the VSIF with the low-latency
+    bit in the encoder. 1917: 1442 flips in 60.1 s, every interval one, 0 / 0, engine 15.05 ms.
+    Gemini Man (59.94): Findings 4.
+  - HDR10 Rendering Reference (the defaults): the HDR InfoFrame byte-identical to Master
+    Reference's for 1917 (its own mastering is 1000 / 0, P3), as on Intel; 15.12 ms gfx a flip;
+    0 dropped, 1 skipped.
+  - SDR Reference with BT.2020 colours: "BT.2020, gamma 2.40, white 100", Colorspace BT2020_RGB
+    granted, 0 / 0. Bright room and Custom not tried.
+  - Upscaling (1080p and above), Extraction 2 (P8.1 1920x1080, 24p) at 3840x2160: engine 4.29 ms
+    bilinear, 10.37 ms FSR 1, 10.45 ms FSR 1 + sharpening (gfx 4.89 / 10.90 / 10.97 ms a flip),
+    every interval one and 0 / 0 in all three.
+  - The video OSD's Output mode (kodi-9967), 1917 then Alien: Covenant: Convert to HDR10, Convert
+    to SDR, Dolby Vision (player-led) and back to Dolby Vision each logged the choice, "Private
+    source renderer closed", a new "DVBridge output" line, "Vulkan engine started" with the frame
+    serial from 1, and changed DVBRIDGE_TUNNEL_FORMAT (hdr10 with metadata; 0 with dv off; lldv;
+    dolby-vision) and the encoder's packets accordingly. On Alien: Covenant, Convert to Dolby
+    Vision gave the engine's static HDR10-to-Dolby-Vision conversion and the Dolby VSIF; back to
+    "HDR10 (original)" gave HDR10 metadata and Colorspace BT2020_RGB. Its first attempt did not
+    happen (the test script looked for "HDR10", the item is "HDR10 (original)"); the second logged
+    one "OutputPicture - failed to configure renderer" between the old renderer closing and the
+    HDR10 commit; the third, with a 20 s window, none: 490 flips, every interval one. Stopping and
+    playing again gave TV-led Dolby Vision with no OSD line (the choice is per title).
+- Not possible or not tried: anything on the television; HDR10+ packets (Findings 2); FreeSync
+  engaging (Findings 9: vrr_capable 1 with 40-120 Hz now, an SPD at the menu); suspend: the
+  amd-pmc module ships but did not load (the agent found none of its ACPI ids on this firmware;
+  that listing is not in the kept files) and the machine was not suspended; 60p upscaling.
+- Smaller: every OSD restart logs "CVideoPlayerVideo::OpenStream - could not open video codec"
+  (info) before the codec opens. 1917's and Gemini Man's gfx time a flip (14.60 and 6.76 ms) is
+  within 0.1 ms of 0.5.0's committed bench on this machine (14.66 and 6.82 ms,
+  yblod/docs/releases/data/bench-0.5.0-ryzen.md); single passes, not the bench's matrix.
+- A picture on a television: the agents' run saw none (the TV was in standby). The owner states,
+  2026-11-19: "DV works on ryzen." Not recorded with it: which build or boot profile (0.5.1,
+  candidate 2, candidate 3 or the release images), which output modes (TV-led, player-led,
+  conversions), and when. It is the owner's statement, not a signal report or a capture, and it
+  does not replace the box-side evidence above. No further AMD run on a television is planned
+  before the release unless the owner says otherwise.
+
+Intel Core i5-1135G7 and LG G5, run 3 (the release images), 2026-11-19
+- The release images' LG edition (.tar d1c7125d..., the same sha256 on ollie and in
+  /storage/.update), installed as an update over candidate 2 at 06:37:33 (up after 39 s):
+  BUILD_ID 5f1683921f..., 7.4.0-rc3 of 23:18:42 UTC, /flash/KERNEL 9584731a..., /flash/SYSTEM
+  76eba245..., kodi.bin 8aeab272..., libdv_engine_vk.so.1 a6472223...: the release images'.
+  The same CPA W^X boot line as candidate 2. yblod-dv-prepare: "pipelines ready in 1 s" (695 ms
+  CPU over 846 ms), the cache of the same engine and Mesa reused. Same machine, channels and
+  diagnostics as run 1 (DVBRIDGE_DIAGNOSTICS=1 added for the run and removed at the end); in
+  addition the owner watched the TV for part of it. The guest's own
+  /storage/.config/native-dv.env, unchanged, holds DV_PRIVATE_GUI_REVISION=0 under a comment from
+  an earlier "OSD flicker A/B test": the packaged default, so no change. Raw files:
+  ~/yblod-0.6.0-check/hw-petunia-3/ (QMS on, until the stop; flash/ for the incident) and its
+  qms-off/ (the continuation). Checked against those files: every frame count, engine time,
+  kernel value and TV report below.
+- Part 1, 06:39-06:49: QMS on (the default), the owner's Bald skin, Kodi's Variable refresh rate
+  off. The video OSD's Output mode (kodi-9967) on 1917 from TV-led Dolby Vision, then on Alien:
+  Covenant (HDR10). For each step: what Kodi logged; DVBRIDGE_TUNNEL_FORMAT; the G5's report.
+  - Convert to HDR10: "Dolby Vision -> HDR10", "from the video OSD: HDR10 (output mode 1)",
+    renderer closed (processed=1468), "DVBridge output: HDR10 through the tunnel", "Vulkan engine
+    output: HDR10, the Master Reference conversion", serial=1; hdr10 (1) with HDR metadata; TV
+    HDR10, YCbCr 4:2:2.
+  - Convert to SDR: "HDR10 -> SDR", "(output mode 4)", renderer closed (853), "DVBridge output: SDR
+    (... an ordinary RGB picture, 3840x2160)", "SDR (BT.709, BT.1886, white 203 cd/m2, limited
+    range, dithered)", serial=1; 0 with Dolby Vision off, no HDR metadata, max bpc 12; TV SDR, RGB
+    limited.
+  - Dolby Vision (player-led): "SDR -> Dolby Vision (player-led)", "(output mode 5)", renderer
+    closed (839), "player-led Dolby Vision through the tunnel (... lldv, 12 useful bits)", the TV's
+    2485-nit target, serial=1; lldv (2); TV DolbyLL, YCbCr 4:2:2.
+  - Dolby Vision: "-> Dolby Vision (output mode 0)", renderer closed (784), serial=1;
+    dolby-vision (0); TV Dolby Vision, RGB full.
+  - Stop and play again: no "from the video OSD" line; dolby-vision; TV Dolby Vision.
+  - Alien: Covenant, Convert to Dolby Vision: "HDR10 -> Dolby Vision", "HDR10 to Dolby Vision
+    Profile 8.1: an HDR10 video (the engine's conversion, static): mastering 0.0050..1000 cd/m2",
+    serial=1; the Dolby Vision tunnel, no HDR metadata; the TV from HDR10 (2160p24, no QMS block)
+    to Dolby Vision.
+  - "HDR10 (original)", three times, with Convert to Dolby Vision between them (each time TV
+    Dolby Vision): "Dolby Vision -> HDR10", "from the video OSD: HDR10 (output mode 0)" (the HDR10
+    source's own index), renderer closed (1425, 630, 663); Colorspace BT2020_RGB, the film's HDR
+    metadata, max bpc 12; TV HDR10, 2160p24, RGB limited, in all three. No "failed to configure
+    renderer" and no error line in any of the three (AMD's one transient one did not occur).
+  - 1917 without the OSD, a +30 s seek, stop: one engine start, one renderer close (894), no OSD
+    line, no error; 0 dropped, 0 skipped; TV Dolby Vision.
+  So the OSD's choice changed the output, by Kodi's log, the kernel and the TV's own report, in
+  every step: kodi-9967 confirmed on a television, under QMS on and the Bald skin. The restarts
+  after a refused output or a refused title (the fallback paths kodi-9967 also changes) were not
+  provoked.
+- Then 1917 TV-led from 39:40, paused at 40:03.979: the flicker (Findings 1, with what the box
+  showed). The run stopped at 06:49:36.
+- Part 2, 07:12-07:28, the continuation: QMS off (the orchestrator wrote 0 to
+  /sys/module/i915/parameters/qms at 07:10:12; read N before every start), skin Estuary YBLOD
+  (switched by the orchestrator at 07:10), Variable refresh rate off; every start and output change
+  at least 45 s after the previous one. The owner, watching, reported "there is no flicker".
+  - Signal with QMS off (1917 TV-led, 07:13): Findings 1 (frameRate 24, no QMS block, CTA 2160p24).
+  - Player-led, 24p, undisturbed: 1917 played from the resume at 07:17:23 to 07:20:13 (2 min
+    50 s) with nothing done to the player. Kodi: 16 health lines at 240 pictures per 10 s, 0
+    dropped, 0 skipped. Engine (journal): 32 windows of 120 pictures, 17.85 ms on average, window
+    means 15.30-22.53 ms, worst p95 29.59 ms, worst single picture 39.16 ms, none over the 41.7 ms
+    picture time. TV: DolbyLL, YCbCr 4:2:2, limited, frameRate 24 at 07:16:31, 07:18:27, 07:19:12
+    and 07:19:58. The whole player-led session to its stop at 07:21:50: 7729 pictures processed =
+    presented, 0 dropped, 1 skipped (after 07:20:07, around the paused seek for the capture).
+    TV-led runs in this part: 07:13:02-07:15:11 0 / 0 (2956 pictures), 07:22:52-07:24:44 0 / 1.
+    Paused frames under Estuary were held (held=104, 271, 113), not redrawn.
+  - Brightness, player-led against TV-led, on one frame, from the TV's own capture. Method
+    (repeatable; script q5-measure.py, kept): 1917 opened at 39:15 in each mode (Output mode
+    setting 5, then 0), 45 s of playback, pause, an absolute seek to 00:40:04.000 while paused, 4 s
+    wait; Kodi held 40:04.027 in both modes, before and after the captures. Two DISPLAY captures
+    per mode, 960x540 PNG, 3-4 s apart (player-led 07:20:43-07:20:55, TV-led 07:23:39-07:23:51); the
+    TV in its Dolby Vision picture mode (dolbyHdrCinemaBright) both times. Y' = 0.2126 R' + 0.7152
+    G' + 0.0722 B' on the captured 8-bit codes, over the film area x 0-959, y 74-467 (below
+    Estuary's pause bar); percentiles nearest-rank. Recomputed here from the kept PNGs, the same as
+    q5-results.txt:
+      capture       meanY   p5    p50    p95     p99     max
+      TV-led a      36.714  7.07  29.28  110.87  116.37  121.29
+      TV-led b      36.709  7.07  29.28  111.58  116.37  121.29
+      player-led a  31.151  6.07  25.71   91.43   95.22   98.79
+      player-led b  31.145  6.07  25.71   91.43   95.22   98.79
+    Same pixels, player-led / TV-led: 0.8485 and 0.8484 over all pixels; 0.8266 (both) over the
+    pixels at or above TV-led's median; 0.8157 and 0.8170 at or above its p95; 0.8148 and 0.8155 at
+    or above its p99; mean difference -5.56 codes. Repeatability (a against b of one mode): ratios
+    0.9996-1.0017, mean absolute difference 0.270 (TV-led) and 0.221 (player-led) codes. So in the
+    TV's captured codes player-led is about 15 % lower overall and about 18 % lower in the
+    brightest 5 % of the picture. These are the TV's processed 8-bit capture values, not light: no
+    light was measured, and whether the panel's light differs the same way is not known. This
+    replaces run 1's "13-18 %" (Intel run 1, corrected above).
+  - Kernel to 07:26: only the held HPD drop and SCDC modeset at output changes, no error.
+- Final state of the guest at 07:28: the release images installed (BUILD_ID 5f1683921f...), no
+  failed unit, nothing playing, Kodi at home; Output mode setting 0 as before the run;
+  native-dv.env back to its original (sha256 5f6010e8...), Kodi restarted; the skin back to the
+  owner's Bald; QMS left off at runtime only, until the guest's next reboot, with nothing added to
+  its boot line (the owner's choice).
+- Not done in run 3: tests of what the flicker depends on (by decision); the OSD script under QMS
+  off; player-led on other films and at 60p under these conditions; anything measured as light.
+
+Source bundle: ~/yblod-0.6.0-release/yblod-0.6.0-playback-sources.tar.gz (76,067,058 bytes),
+built by the orchestrator as 0.5.1's was; checked here independently (unpacked afresh into
+~/yblod-0.6.0-check/bundle-check/, which equals the unpacked copy in ~/yblod-0.6.0-bundle/ file by
+file):
+- repository/ is git archive of 5f1683921f: its 4299 files equal, file by file, a git archive of
+  that commit made here (git ls-tree: 4299 paths), both case-colliding licence directories
+  included as the commit has them.
+- upstream/kodi-22.0rc2-Piers.tar.gz (e704ca70...), upstream/ffmpeg-9.0.2.tar.xz (8c385028...),
+  upstream/addons/skin.estuary.yblod-4.1.0+yblod.22.zip (bbf2689f...) and
+  upstream/addons/service.webostv-0.8.11.zip (97034cbe...) each match their recipe's PKG_SHA256
+  at 5f1683921f (the Kodi archive is also byte-identical to the one the build used).
+- README.txt: its statements hold (the commit, tree and BUILD_ID; the Linux 7.4-rc3 GitHub archive
+  by commit aebb727447 with SHA256 8d372e39...0a85d, as the recipe has it, not in the bundle; the
+  iPhone remote, the engine's host C and libplacebo subset, and the repository add-on at the paths
+  given; no libplacebo file in the image; YBLOD_EDITION=lg), but one: "repository/ contains ...
+  the kernel, Mesa, FFmpeg and Kodi patches" named Mesa patches, and there are none at 5f1683921f
+  (mesa-002 was dropped in the 2026-11-18 resync; packages/graphics/mesa is LibreELEC's).
+- After this check the README's line was corrected to "the kernel, FFmpeg and Kodi patches" and
+  the bundle packed again (9aaf1dfa... became e035a96b..., below). The new archive, unpacked,
+  differs from the checked one in README.txt's line 6 only (diff -r); SHA256SUMS was written
+  again and its five entries verify.
+~/yblod-0.6.0-release/SHA256SUMS lists the four images and the bundle; all five verify against the
+files, and its four image hashes are the ones below.
+
+SHA256 (release images)
+Standard update tar: 594e7fe0935cf52c6be2ae274180f703679965291f30e714c67e4b18fa0f87d4
+Standard install img.gz: bd920095484efaa6490842b1bba4f3e5e61fdbcee70cf019f990713509678dcf
+Standard SYSTEM: a31bb042af147cf2f3b36991008616e7a54933ac5703b189f0b73e0133c64157
+LG update tar: d1c7125d9801a9b62aa27cdefd1ee7c8d6ebecc4dd9f5bd889928767724c5a1c
+LG install img.gz: 318d30e893017b874b01097d8e5ba8e0e9c93f1e1634ae0afab2b7ddedbd73d5
+LG SYSTEM: 76eba24518604d5ab3efede6ae50ee779c49c8b659269eba1c7d5cab89355a71
+KERNEL (both): 9584731aecdf7ba46470eb7a08edf91b338c6235b9ebb0d14599104d4636b360
+Kodi (both): 8aeab2726fc8ac9335eef98490c8db930977255785ab54cb975c92955a4c225d
+Vulkan engine (both): a6472223aad162eececd8890b52048fb91f30897c97ab264ea1ab963c9f5ac3a
+dvvk-prepare (both): 264d7669489fbf134828def661972aacd27c1220defe9c5ba6f36329030252f0
+Standard .ova: eb6f779d787860a03fceda50e0f121cd16a290571912d1d7b35e35b0bf6ed89b
+LG .ova: 606a3aa6f612a46ade453b08daf8acd37a81ca60804184a45c8b41a098ee59eb
+Source bundle: e035a96b29240e82298afbef34202cf85ce00f8ad16138d65e6a48fb40452bf2
+Earlier candidates (superseded), update tars: 1 standard 0f5a1779888d45fb..., LG b2ac00b822ac3622...;
+2 standard d07f92c4b3995b28..., LG f4ff2e69a18e5acf...; 3 standard 37636cf8fd482d4e..., LG
+b1611d99d8f02fe3....
+
+Release notes (the draft yblod/docs/releases/RELEASE-0.6.0.txt as of 2026-11-19, uncommitted),
+against the evidence
+- Supported: the OSD fix (on 0.5.1 the output stayed; with kodi-9967 the G5 followed every
+  switch); "the pictures of the Dolby Vision, HDR10, HDR10+ and SDR outputs are byte-identical to
+  0.5.1 on the reference clips" (golden 102, HDR10 15, sdr's 78 earlier hashes); player-led offered
+  only at 3840x2160, never chosen automatically, falling back to HDR10 then SDR and withdrawn until
+  Kodi restarts (kodi-9965's code; the fallback and the withdrawal were not seen happen); the G5
+  reporting low-latency Dolby Vision and 24p playing without dropped frames; "about 15 % darker
+  overall and about 18 % darker in the highlights" in the TV's capture values (run 3); 60p dropping
+  frames on Tiger Lake and Vega 8; FSR 1's 12.6 against 5.1 ms on Tiger Lake; the HDR10+ field and
+  stutter wording; Kodi 22.0 RC2, Mesa 26.3.0, Linux 7.4-rc3; the B4 now reported VRR-capable on
+  AMD (0.5.1: not); rtw88 for the RTL8723BS; HDR10+ on AMD not run; the Profile 5 MP4 as old; the
+  QMS known issue as the owner decided it (QMS on by default, experimental, the flicker described,
+  QMS and the skin changed together, "QMS is the likely cause"; i915.qms=0 and xe.qms=0 both exist
+  in the image, default on); the settings, defaults and ranges.
+- Not supported as written:
+  - "what CroqueMr's CB1 added up to its R1.0.1 release candidate": nothing in the repository names
+    R1.0.1 (SOURCES.md pins CB1 commit b5149a09d7).
+  - "A film whose output the display or the engine refuses now falls back as intended": fixed in
+    code (kodi-9967), never provoked on hardware.
+  - "10.4 ms against 4.4 ms on AMD Vega 8": the engine's own figures over the kept windows are
+    10.37 (FSR 1) and 10.45 (FSR 1 + sharpening) against 4.29 ms (bilinear); 4.4 is not in the logs.
+  - "Dolby Vision was confirmed there by reading back what the HDMI output transmits; Dolby Vision
+    has also been reported working on that machine's TV": the register reads show what the encoder
+    is set to send (the Dolby VSIF), not that a TV received or showed Dolby Vision; the second half
+    is the owner's statement ("DV works on ryzen"), without a recorded build, output mode or time.
+  - "No picture of the new outputs has been judged by eye": the owner watched player-led for 2 min
+    50 s in run 3, but for flicker only; the sentence holds if it means judged for correctness.
+  - "about a minute on AMD Vega 8, longer on slower machines": 58 s is logged on the Vega 8; the
+    Tiger Lake's 223 s (run 1) is reported but not in the kept logs.
+- Not in the notes, and worth a line: on AMD the 0.6.0 kernel now sends a FreeSync SPD at the menu
+  (FreeSync itself was not engaged); the Variable refresh rate setting appears for such TVs.
+
+Not tested (at the time of this check)
+- The release images ran on one machine: their LG edition on the Intel Core i5-1135G7 with the LG
+  G5 (run 3), part of it with the owner watching. Candidate 2's LG edition ran there before (run
+  1); candidates 2 and 3 (standard) on the AMD Ryzen 5 3500U, whose TV was in standby. The
+  standard edition of the release images has not been installed anywhere. The images' kernel is a
+  release candidate, 7.4-rc3.
+- The flicker (Findings 1): what it depends on. QMS and the skin were changed together and QMS was
+  not turned back on, by decision; 0.5.1 on that TV, other films and outputs, and the light from
+  the panel were not tried or measured.
+- No one has judged whether a picture of the new outputs is right (player-led brightness and
+  colour, Rendering Reference against Master Reference, the SDR targets, FSR's sharpness). The
+  brightness figures are the TV's capture values, not light.
+- On AMD: the agents' run saw no picture (the TV was in standby); the owner's statement "DV works
+  on ryzen" has no recorded build, output mode or time. amdgpu's HDR10+ signalling under 7.4
+  (linux-9932's change; the B4 has no HDR10+) has not run on any machine. The Dolby VSIF on amdgpu
+  is known only as the encoder's registers show it. FreeSync engaging on amdgpu (vrr_capable 1
+  now) was not tried, and Kodi's Variable refresh rate has not run on any machine.
+- Elsewhere on hardware: the FRL gate, suspend with amd-pmc (not loaded on the AMD machine's
+  firmware), Wi-Fi (rtw88_8723bs), nvidia-drm with nvidia-9900, a fresh installation from the
+  .img.gz, an N150, a DisplayPort or LSPCON output; on any machine CEC, HDMI audio beyond
+  passthrough opening; and the restarts after a refused output or a refused title.
+- Kodi's use of the engine has no automated check here: kodi-9963 to 9968 and kodi-9910 were checked
+  through their strings, settings, symbols and, for 9963-9968, the hardware runs.
+- The engine with the image's Mesa 26.3.0 on Ollie: golden, sdr, hdr10, scaler and target ran with
+  the harness's Mesa 26.2.6 (the hashes' driver); the image's Mesa compiled dvvk-prepare's 112
+  pipelines, and ran everything on the i5-1135G7 and the Ryzen 5 3500U without byte comparison.
+- Against CB1's own code: dvvk-mr-compare (cannot run today: harness README, "Not covered") and
+  tools/dvvk-lldv-oracle.c (CB1's AVX2 LLDV pack; not built by the harness) were not run on the
+  release library; OUTPUT-MODES.md records the oracle's result from development.
+- systemd's restored libarchive and libbpf features and the rebuilt journald were checked only
+  statically (dlopen notes, byte comparison with 0.5.1).
+- Not run: the 0.5.1 check's real-source SDR tiers and the HDR10+ country-code byte check; the
+  pkgcheck of the packages LibreELEC alone changed. The .ova files were checked against their
+  .sha256 only.
+- All 0.5.1 limitations apply.
