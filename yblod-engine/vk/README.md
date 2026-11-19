@@ -376,5 +376,5 @@ included), `scaler-check.sh` with `dvvk-scaler-compare` and `scaler.sha256`,
 `dvvk-routes`, `dvvk-fence`, `vkprobe`, `dvvk-prepare`, and the
 `dvvk-interop` binary in the crate. `cargo test` covers plan.c's packets, CB1's
 order and ids, CM4, pack selection, damage and the ABI layouts (CPU only).
-The OpenCL comparison (`dvvk-compare`, `regress.sh`) went with big-fella's
-OpenCL engine; git history has it.
+The OpenCL comparison (`dvvk-compare`, `regress.sh`) was removed with the
+sync of 2026-11-01; git history has it.
